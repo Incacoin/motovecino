@@ -320,6 +320,19 @@ try {
   // la columna ya existe
 }
 
+// Corrige pasajeros que quedaron con city='tekax' por default aunque su
+// viaje más reciente fue en otro pueblo (el registro nunca pedía ubicación,
+// solo /rides la actualiza desde hace poco — ver routes/rides.js). Re-correr
+// esto en cada arranque es inofensivo: solo alinea a cada quien con su
+// viaje más reciente, y a quien nunca ha pedido viaje no lo toca.
+db.exec(`
+  UPDATE riders
+  SET city = (
+    SELECT city FROM rides WHERE rides.rider_id = riders.id ORDER BY updated_at DESC LIMIT 1
+  )
+  WHERE EXISTS (SELECT 1 FROM rides WHERE rides.rider_id = riders.id)
+`);
+
 // PIN del pasajero — igual que el del chofer, es lo que convierte "cualquiera
 // escribe cualquier teléfono" en una cuenta real: una vez que un teléfono
 // tiene PIN, hace falta para volver a usarlo. Nullable porque los riders que

@@ -50,6 +50,12 @@ router.post("/rides", (req, res) => {
   // celular) — es lo que decide a qué admin/red le toca ese viaje.
   const city = resolveCity(pickup_lat, pickup_lng)?.id || DEFAULT_CITY_ID;
 
+  // El registro de pasajero nunca pregunta ubicación, así que su `city` se
+  // queda pegado al default para siempre si no lo actualizamos aquí — esto
+  // lo mantiene sincronizado con dónde pidió viaje realmente la última vez,
+  // que es lo que filtra el admin de cada pueblo (ver routes/admin.js).
+  db.prepare("UPDATE riders SET city = ? WHERE id = ?").run(city, rider.id);
+
   const result = db
     .prepare(
       `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind)
