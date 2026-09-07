@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>MotoMaya — Quiero ser chofer</title>
+<title>MotoVecino — Quiero ser chofer</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="style.css" />
 <style>
@@ -54,7 +54,7 @@
       <line x1="92" y1="105" x2="108" y2="105" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
       <line x1="10" y1="130" x2="190" y2="130" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
     </svg>
-    <p class="brand"><span class="brand-icon">🛵</span>MotoMaya<span id="cityLabel"></span></p>
+    <p class="brand"><span class="brand-icon">🛵</span>MotoVecino<span id="cityLabel"></span></p>
     <p class="lead">Regístrate como conductor y empieza a recibir viajes en <span id="cityLabelInline">tu zona</span>. Déjanos tu nombre y teléfono — te contactamos por WhatsApp para completar tu alta y darte tu PIN.</p>
 
     <div class="field">
@@ -91,12 +91,12 @@
     <div class="field legalField">
       <label class="legalCheck">
         <input type="checkbox" id="acceptLegal" />
-        <span>He leído y acepto el <a href="aviso-legal.html" target="_blank" rel="noopener">Aviso Legal de MotoMaya</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad.</span>
+        <span>He leído y acepto el <a href="aviso-legal.html" target="_blank" rel="noopener">Aviso Legal de MotoVecino</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad.</span>
       </label>
     </div>
     <div class="field">
       <label>Firma de aceptación</label>
-      <p class="fieldHint">Firma aquí con el dedo para aceptar el <a href="contrato-prestacion-servicios.html" target="_blank" rel="noopener">Contrato de Prestación de Servicios</a> de MotoMaya.</p>
+      <p class="fieldHint">Firma aquí con el dedo para aceptar el <a href="contrato-prestacion-servicios.html" target="_blank" rel="noopener">Contrato de Prestación de Servicios</a> de MotoVecino.</p>
       <canvas id="signaturePad" width="600" height="200"></canvas>
       <div class="sigActions">
         <span id="sigStatus">Sin firmar</span>
@@ -132,7 +132,7 @@ function applyCityFromDetection(city, label) {
   resolvedCityLabel = label;
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " " + label));
   document.getElementById("cityLabelInline").textContent = label;
-  document.title = "MotoMaya " + label + " — Quiero ser chofer";
+  document.title = "MotoVecino " + label + " — Quiero ser chofer";
 }
 
 function showManualCityPicker() {

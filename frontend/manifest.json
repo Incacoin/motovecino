@@ -1,6 +1,6 @@
 {
-  "name": "MotoMaya",
-  "short_name": "MotoMaya",
+  "name": "MotoVecino",
+  "short_name": "MotoVecino",
   "description": "Pide tu mototaxi o recibe viajes, todo en una app",
   "id": "/",
   "start_url": "/pasajero.html",

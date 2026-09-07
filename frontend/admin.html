@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MotoMayaTekax Admin</title>
+<title>MotoVecinoTekax Admin</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%B5%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="manifest-admin.json" />
 <meta name="theme-color" content="#f6a623" />
@@ -102,7 +102,7 @@
 <body>
 
 <div id="login" class="screen active">
-  <div class="brand"><span class="brand-icon">🛵</span>MotoMaya Admin</div>
+  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino Admin</div>
   <input id="adminPin" inputmode="numeric" placeholder="PIN de admin" />
   <button class="btn" onclick="login()">Entrar</button>
   <div id="err"></div>
@@ -214,7 +214,7 @@
   <div class="field legalField">
     <label class="legalCheck">
       <input type="checkbox" id="driverAcceptedLegal" />
-      Le mostré y aceptó el <a href="aviso-legal.html" target="_blank" rel="noopener">Aviso Legal de MotoMaya</a>
+      Le mostré y aceptó el <a href="aviso-legal.html" target="_blank" rel="noopener">Aviso Legal de MotoVecino</a>
     </label>
   </div>
   <button class="btn" onclick="registerDriver()">Registrar chofer</button>
@@ -416,7 +416,7 @@ function waLink(phone, text) {
 
 function welcomeMessage(driver) {
   const link = `${location.origin}/chofer.html`;
-  return `¡Hola ${driver.name}! Gracias por tu confianza en MotoMaya ${adminCityLabel}.\n\nTu PIN de acceso de chofer es: ${driver.pin}\nEntra aquí para empezar a recibir viajes: ${link}`;
+  return `¡Hola ${driver.name}! Gracias por tu confianza en MotoVecino ${adminCityLabel}.\n\nTu PIN de acceso de chofer es: ${driver.pin}\nEntra aquí para empezar a recibir viajes: ${link}`;
 }
 
 function sendLastWhatsapp() {
@@ -1063,7 +1063,7 @@ function paymentReminderMessage(d) {
   const totalLine = total > 0 ? `\nTotal a pagar: $${total} MXN\n` : "";
   const leaderName = d.vouched_by || "tu líder de gremio";
 
-  return `¡Hola ${d.name}! 🛵💛 Gracias por ser parte del equipo MotoMaya ${adminCityLabel}, se nota tu esfuerzo.\n\n${lines.join("\n")}\n${rankingNote}${totalLine}\nEntrégaselo a ${leaderName} como de costumbre.\n\n¡Sigue así! 🙌`;
+  return `¡Hola ${d.name}! 🛵💛 Gracias por ser parte del equipo MotoVecino ${adminCityLabel}, se nota tu esfuerzo.\n\n${lines.join("\n")}\n${rankingNote}${totalLine}\nEntrégaselo a ${leaderName} como de costumbre.\n\n¡Sigue así! 🙌`;
 }
 
 function sendPaymentReminder(id) {

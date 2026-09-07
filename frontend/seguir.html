@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>Viaje en vivo - MotoMaya</title>
+<title>Viaje en vivo - MotoVecino</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -36,7 +36,7 @@
 <body>
 
 <div class="topbar">
-  <div class="brand"><span class="brand-icon">🛵</span>MotoMaya<span class="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span class="cityLabel"></span></div>
   <div id="riderName"></div>
   <div id="statusText">Cargando viaje...</div>
   <div id="etaText"></div>
@@ -47,7 +47,7 @@
 <div id="driverCard" class="card fade-in"></div>
 
 <div id="errorScreen">
-  <div class="brand"><span class="brand-icon">🛵</span>MotoMaya<span class="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span class="cityLabel"></span></div>
   <p id="errorText" style="color:var(--text-dim);"></p>
 </div>
 
@@ -266,7 +266,7 @@ async function init() {
 
   const cityLabel = ride.city === "ticul" ? "Ticul" : "Tekax";
   document.querySelectorAll(".cityLabel").forEach((el) => (el.textContent = " " + cityLabel));
-  document.title = "Viaje en vivo - MotoMaya " + cityLabel;
+  document.title = "Viaje en vivo - MotoVecino " + cityLabel;
 
   serviceType = ride.ride_type === "taxi" ? "taxi" : "moto";
   pickup = { lat: ride.pickup_lat, lng: ride.pickup_lng };

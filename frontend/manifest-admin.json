@@ -1,7 +1,7 @@
 {
-  "name": "MotoMaya Admin",
-  "short_name": "MotoMaya Admin",
-  "description": "Panel de administración de MotoMaya",
+  "name": "MotoVecino Admin",
+  "short_name": "MotoVecino Admin",
+  "description": "Panel de administración de MotoVecino",
   "id": "/admin.html",
   "start_url": "/admin.html",
   "scope": "/admin.html",

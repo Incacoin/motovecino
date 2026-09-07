@@ -60,5 +60,5 @@ realtime.attach(server);
 
 const PORT = process.env.PORT || 3003;
 server.listen(PORT, () => {
-  console.log(`MotoMaya backend escuchando en http://localhost:${PORT}`);
+  console.log(`MotoVecino backend escuchando en http://localhost:${PORT}`);
 });

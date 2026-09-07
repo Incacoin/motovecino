@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>MotoMaya Chofer</title>
+<title>MotoVecino Chofer</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#f6a623" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="MotoMaya Chofer" />
+<meta name="apple-mobile-web-app-title" content="MotoVecino Chofer" />
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -106,7 +106,7 @@
     <button class="btn-sm" id="installBtn" onclick="installApp()" style="display:none;">Instalar app</button>
     <button class="installClose" onclick="dismissInstallBanner()">✕</button>
   </div>
-  <div class="brand"><span class="brand-icon">🛵</span>MotoMaya<span id="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span id="cityLabel"></span></div>
   <div style="color:var(--text-dim);">Ingresa tu PIN de chofer</div>
   <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••" />
   <button class="btn" onclick="login()">Entrar</button>
@@ -282,7 +282,7 @@ function initInstallBanner() {
   const banner = document.getElementById("installBanner");
   const text = document.getElementById("installText");
   if (isIOS()) {
-    text.textContent = `📲 Instala MotoMaya ${resolvedCityLabel} Chofer: toca Compartir y luego "Agregar a pantalla de inicio".`;
+    text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel} Chofer: toca Compartir y luego "Agregar a pantalla de inicio".`;
     banner.style.display = "flex";
   } else {
     window.addEventListener("beforeinstallprompt", (e) => {
@@ -310,13 +310,13 @@ function dismissInstallBanner() {
 
 initInstallBanner();
 
-// Estado neutro por defecto ("MotoMaya Chofer" sin pueblo) hasta que el GPS
+// Estado neutro por defecto ("MotoVecino Chofer" sin pueblo) hasta que el GPS
 // resuelve la ciudad real de quien abre la app.
 function applyCityLabel(label) {
   if (!label) return;
   resolvedCityLabel = label;
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " " + label));
-  document.title = "MotoMaya " + label + " Chofer";
+  document.title = "MotoVecino " + label + " Chofer";
 }
 
 function initCityBrand(attempt) {

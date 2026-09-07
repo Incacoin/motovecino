@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>MotoMaya</title>
+<title>MotoVecino</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#f6a623" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="MotoMaya" />
+<meta name="apple-mobile-web-app-title" content="MotoVecino" />
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -123,7 +123,7 @@
     <button class="btn-sm" id="installBtn" onclick="installApp()" style="display:none;">Instalar app</button>
     <button class="installClose" onclick="dismissInstallBanner()">✕</button>
   </div>
-  <div class="brand"><span class="brand-icon">🛵</span>MotoMaya<span id="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span id="cityLabel"></span></div>
   <div style="color:var(--text-dim);">Pide tu mototaxi</div>
   <div style="color:var(--text-dim); font-size:13px; margin-top:-4px;">Pasajes, delivery y mandados</div>
   <div class="input-icon-row">
@@ -360,13 +360,13 @@ function initInstallBanner() {
   const banner = document.getElementById("installBanner");
   const text = document.getElementById("installText");
   if (isIOS()) {
-    text.textContent = `📲 Instala MotoMaya ${resolvedCityLabel}: toca Compartir y luego "Agregar a pantalla de inicio".`;
+    text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel}: toca Compartir y luego "Agregar a pantalla de inicio".`;
     banner.style.display = "flex";
   } else {
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      text.textContent = `📲 Instala MotoMaya ${resolvedCityLabel} en tu celular para pedir tu mototaxi más rápido.`;
+      text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel} en tu celular para pedir tu mototaxi más rápido.`;
       document.getElementById("installBtn").style.display = "inline-block";
       banner.style.display = "flex";
     });
@@ -388,7 +388,7 @@ function dismissInstallBanner() {
 
 initInstallBanner();
 
-// Estado neutro por defecto ("MotoMaya" sin pueblo) hasta que el GPS resuelve
+// Estado neutro por defecto ("MotoVecino" sin pueblo) hasta que el GPS resuelve
 // la ciudad real de quien abre la app — así el link/QR compartido no queda
 // atado a un pueblo fijo, y cada quien ve el suyo (Tekax o Ticul) una vez
 // que la app confirma dónde está.
@@ -396,7 +396,7 @@ function applyCityLabel(label) {
   if (!label) return;
   resolvedCityLabel = label;
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " " + label));
-  document.title = "MotoMaya " + label;
+  document.title = "MotoVecino " + label;
 }
 
 function initCityBrand(attempt) {
@@ -1133,7 +1133,7 @@ function showTripCountBadge(count) {
   const el = document.getElementById("tripCountBadge");
   if (count == null) { el.style.display = "none"; return; }
   const tier = riderTierLabel(count);
-  el.textContent = `Llevas ${count} viaje${count === 1 ? "" : "s"} con MotoMaya ${resolvedCityLabel}${tier ? " · " + tier : ""}`;
+  el.textContent = `Llevas ${count} viaje${count === 1 ? "" : "s"} con MotoVecino ${resolvedCityLabel}${tier ? " · " + tier : ""}`;
   el.style.display = "block";
 }
 
@@ -1156,12 +1156,12 @@ function badgeCardHtml(count) {
   const tier = riderTierLabel(count);
   const next = nextTierProgress(count);
   const medal = tier ? tier.split(" ")[0] : "🛵";
-  const tierName = tier ? tier.slice(tier.indexOf(" ") + 1) : `Pasajero MotoMaya ${resolvedCityLabel}`;
+  const tierName = tier ? tier.slice(tier.indexOf(" ") + 1) : `Pasajero MotoVecino ${resolvedCityLabel}`;
   return `
     <div class="card badge-card">
       <div class="medal">${medal}</div>
       <div class="tier-label">${tierName}</div>
-      <div class="trip-count">Llevas ${count} viaje${count === 1 ? "" : "s"} con MotoMaya ${resolvedCityLabel}</div>
+      <div class="trip-count">Llevas ${count} viaje${count === 1 ? "" : "s"} con MotoVecino ${resolvedCityLabel}</div>
       ${next ? `<div class="progress-note">${next.remaining} viaje${next.remaining === 1 ? "" : "s"} más para ${next.label}</div>` : ""}
     </div>`;
 }
@@ -1510,7 +1510,7 @@ function notifyEmergencyContact() {
   if (!rider || !rider.emergency_contact_phone || !ride) return;
   const link = `${location.origin}/seguir.html?id=${ride.id}`;
   const greeting = rider.emergency_contact_name ? `Hola ${rider.emergency_contact_name}` : "Hola";
-  const text = `${greeting}, voy en un viaje de MotoMaya ${resolvedCityLabel}, sígueme en vivo: ${link}`;
+  const text = `${greeting}, voy en un viaje de MotoVecino ${resolvedCityLabel}, sígueme en vivo: ${link}`;
   window.open(waLink(rider.emergency_contact_phone, text), "_blank");
 }
 
@@ -1588,7 +1588,7 @@ function onCompleted() {
   currentRideStatus = "completado";
   localStorage.removeItem("motoya_active_ride");
   if (ride) saveRideToLocalHistory(ride.id);
-  document.getElementById("statusText").textContent = `¡Buen viaje! Gracias por usar MotoMaya ${resolvedCityLabel} 🛵`;
+  document.getElementById("statusText").textContent = `¡Buen viaje! Gracias por usar MotoVecino ${resolvedCityLabel} 🛵`;
   document.getElementById("connWarning").style.display = "none";
   document.getElementById("driverCard").style.display = "none";
   hideChat();
@@ -1603,10 +1603,10 @@ function onCompleted() {
 async function shareRide() {
   if (!ride) return;
   const link = `${location.origin}/seguir.html?id=${ride.id}`;
-  const text = `Sigue mi viaje en vivo con MotoMaya ${resolvedCityLabel}: ${link}`;
+  const text = `Sigue mi viaje en vivo con MotoVecino ${resolvedCityLabel}: ${link}`;
   if (navigator.share) {
     try {
-      await navigator.share({ title: `Mi viaje en MotoMaya ${resolvedCityLabel}`, text, url: link });
+      await navigator.share({ title: `Mi viaje en MotoVecino ${resolvedCityLabel}`, text, url: link });
       return;
     } catch {
       // el usuario canceló el share sheet, cae al link de WhatsApp
@@ -1671,7 +1671,7 @@ function waLink(phone, text) {
 
 function reportViaWhatsapp() {
   const rideInfo = ride ? ` (viaje #${ride.id})` : "";
-  const text = `Hola, quiero reportar un problema con mi viaje en MotoMaya ${resolvedCityLabel}${rideInfo}: `;
+  const text = `Hola, quiero reportar un problema con mi viaje en MotoVecino ${resolvedCityLabel}${rideInfo}: `;
   window.open(waLink(QUEJAS_WHATSAPP_NUMBER, text), "_blank");
 }
 
