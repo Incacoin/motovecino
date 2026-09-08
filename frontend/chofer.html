@@ -277,10 +277,19 @@ function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
+function isInAppBrowser() {
+  return /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Messenger/i.test(navigator.userAgent);
+}
+
 function initInstallBanner() {
   if (isStandalone() || localStorage.getItem("motoya_chofer_install_dismissed")) return;
   const banner = document.getElementById("installBanner");
   const text = document.getElementById("installText");
+  if (isInAppBrowser()) {
+    text.textContent = `📲 Estás dentro del navegador de Facebook/Instagram, que no permite instalar apps. Toca ⋮ (arriba a la derecha) y elige "Abrir en Chrome" o "Abrir en el navegador" para poder instalar MotoVecino${resolvedCityLabel ? " " + resolvedCityLabel : ""} Chofer.`;
+    banner.style.display = "flex";
+    return;
+  }
   if (isIOS()) {
     text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel} Chofer: toca Compartir y luego "Agregar a pantalla de inicio".`;
     banner.style.display = "flex";
