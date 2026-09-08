@@ -27,7 +27,11 @@
   #topbar .name { font-weight: 700; }
   #toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-dim); }
   #map { flex: 1; min-height: 0; }
-  #panel { max-height: 42vh; overflow-y: auto; background: var(--bg-panel); padding: 10px; }
+  #panel {
+    max-height: 42vh; overflow-y: auto; background: var(--bg-panel); padding: 10px 10px 14px;
+    border-radius: 20px 20px 0 0; box-shadow: 0 -12px 28px -14px rgba(0, 0, 0, 0.55); position: relative; z-index: 10;
+  }
+  .sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--border); margin: 0 auto 8px; }
   .ride-card { padding: 14px; margin-bottom: 8px; border-left: 4px solid transparent; }
   .ride-card.pending { border-left-color: var(--accent); }
   .ride-card.active { border-left-color: var(--success); }
@@ -35,6 +39,9 @@
   .ride-card .meta { color: var(--text-dim); font-size: 13.5px; margin: 4px 0; }
   .ride-card .meta.fare { color: var(--accent); font-weight: 700; font-size: 14px; }
   .ride-card .btn { width: 100%; margin-top: 8px; }
+  .ride-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: var(--bg-card-hover); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px; font-weight: 600; }
+  .chip-accent { background: rgba(246, 166, 35, 0.15); border-color: rgba(246, 166, 35, 0.35); color: var(--accent); }
   .empty { text-align: center; color: var(--text-faint); padding: 26px 12px; font-size: 14px; }
   #switch { position: relative; width: 52px; height: 30px; background: #2a2e38; border-radius: 20px; cursor: pointer; transition: background 0.2s ease; }
   #switch .knob { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #cfd3db; transition: left 0.18s ease, background 0.18s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
@@ -76,14 +83,18 @@
   .prow .v.warn { color: var(--danger); }
   .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .stat { background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; }
-  .stat .n { font-weight: 800; font-size: 19px; color: var(--accent); }
+  .stat .n { font-weight: 800; font-size: 19px; color: var(--text); }
   .stat .l { font-size: 11.5px; color: var(--text-dim); margin-top: 2px; line-height: 1.25; }
   .profile-note { font-size: 12.5px; color: var(--text-faint); line-height: 1.45; }
   .pin-box { font-family: ui-monospace, monospace; font-size: 22px; letter-spacing: 5px; font-weight: 800; color: var(--accent); }
   #profileAvatarBtn, #modePasajeroBtn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: none; padding: 0; }
   #profileAvatarBtn .circle, #modePasajeroBtn .circle { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; }
   #modePasajeroBtn .circle { border: 2px solid var(--accent); background: var(--bg-card); }
-  #profileAvatarBtn .circle { background: linear-gradient(155deg, var(--accent-light), var(--accent) 60%, var(--accent-dark)); box-shadow: 0 6px 14px -4px rgba(246, 166, 35, 0.5); }
+  #profileAvatarBtn .circle {
+    background: linear-gradient(155deg, var(--accent-light), var(--accent) 60%, var(--accent-dark));
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 6px 14px -4px rgba(246, 166, 35, 0.5);
+  }
   .profile-stars-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: -6px; }
   .profile-stars-row .stars { display: flex; gap: 1px; }
   .menu-row { display: flex; align-items: center; gap: 12px; padding: 12px 4px; cursor: pointer; text-decoration: none; color: var(--text); background: none; border: none; width: 100%; text-align: left; font-size: 15px; font-weight: 600; font-family: inherit; }
@@ -120,18 +131,18 @@
   <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">🆕 Quiero ser chofer</button>
   <button class="btn-sm" onclick="location.href='index.html'" style="margin-top:4px;">🧍 Modo Pasajero</button>
   <svg class="maya-motif" width="130" height="91" viewBox="0 0 200 140" fill="none" style="flex-shrink:0;margin-top:6px;">
-    <rect x="20" y="110" width="160" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="35" y="90" width="130" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="50" y="70" width="100" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="65" y="50" width="70" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="82" y="28" width="36" height="22" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="95" y="36" width="10" height="14" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-    <line x1="92" y1="50" x2="92" y2="130" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-    <line x1="108" y1="50" x2="108" y2="130" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-    <line x1="92" y1="65" x2="108" y2="65" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-    <line x1="92" y1="85" x2="108" y2="85" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-    <line x1="92" y1="105" x2="108" y2="105" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-    <line x1="10" y1="130" x2="190" y2="130" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="20" y="110" width="160" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="35" y="90" width="130" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="50" y="70" width="100" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="65" y="50" width="70" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="82" y="28" width="36" height="22" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="95" y="36" width="10" height="14" stroke="var(--text-faint)" stroke-width="1.4" opacity="0.8"/>
+    <line x1="92" y1="50" x2="92" y2="130" stroke="var(--text-faint)" stroke-width="1.4" opacity="0.8"/>
+    <line x1="108" y1="50" x2="108" y2="130" stroke="var(--text-faint)" stroke-width="1.4" opacity="0.8"/>
+    <line x1="92" y1="65" x2="108" y2="65" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
+    <line x1="92" y1="85" x2="108" y2="85" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
+    <line x1="92" y1="105" x2="108" y2="105" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
+    <line x1="10" y1="130" x2="190" y2="130" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
   </svg>
   <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a></div>
 </div>
@@ -167,6 +178,7 @@
   </div>
   <div id="map"></div>
   <div id="panel">
+    <div class="sheet-handle"></div>
     <div id="rideList"></div>
     <div id="chatBox" class="card" style="display:none;">
       <div id="chatMessages"></div>
@@ -490,7 +502,7 @@ function estimateFare(ride) {
   const totalPeople = passengers + children;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
   if (ride.ride_type === "taxi") {
-    return `Viaje foráneo · acuerda el precio con el pasajero + $${SERVICE_FEE} de servicio · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
+    return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero + $${SERVICE_FEE} de servicio · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}` };
   }
   let pricePerPerson = FARE_NORMAL;
   let approx = true;
@@ -503,7 +515,7 @@ function estimateFare(ride) {
   const childRate = night ? CHILD_FARE_NIGHT : CHILD_FARE_DAY;
   const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE;
   const nightNote = night && children > 0 ? " · nocturna niños" : "";
-  return `$${total} MXN (incl. $${SERVICE_FEE} servicio)${nightNote} · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${approx ? " (aprox.)" : ""}`;
+  return { total, text: `$${total} MXN (incl. $${SERVICE_FEE} servicio)${nightNote} · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${approx ? " (aprox.)" : ""}` };
 }
 
 async function login() {
@@ -847,9 +859,9 @@ function renderRideList() {
     renderedShape = shape;
 
     const destLine = currentRide.dest_lat
-      ? `<div class="meta">Destino: ${currentRide.dest_label || "punto marcado en el mapa"} (${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde la recogida)</div>`
+      ? `<div class="ride-chips"><span class="chip">🏁 ${currentRide.dest_label || "punto marcado en el mapa"} · ${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde la recogida</span></div>`
       : "";
-    const fareLine = `<div class="meta fare">${estimateFare(currentRide)}</div>`;
+    const fareLine = `<div class="meta fare">${estimateFare(currentRide).text}</div>`;
 
     if (currentRide.status === "aceptado") {
       const dist = myPos ? haversine(myPos.lat, myPos.lng, currentRide.pickup_lat, currentRide.pickup_lng).toFixed(1) : "?";
@@ -857,7 +869,9 @@ function renderRideList() {
         <div class="card ride-card active fade-in">
           <div class="label">Yendo a recoger</div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${currentRide.rider_name} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
-          <div class="meta">Recogida: ${currentRide.pickup_label || "punto marcado en el mapa"} (<span id="dist-current">${dist}</span> km · <span id="eta-current"></span>)</div>
+          <div class="ride-chips">
+            <span class="chip">📍 ${currentRide.pickup_label || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>
+          </div>
           ${destLine}
           ${fareLine}
           <button class="btn" id="btnArrived" onclick="arriveAtPickup()">Ya llegué</button>
@@ -868,7 +882,7 @@ function renderRideList() {
         <div class="card ride-card active fade-in">
           <div class="label">Esperando al pasajero</div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${currentRide.rider_name} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
-          <div class="meta">Recogida: ${currentRide.pickup_label || "punto marcado en el mapa"}</div>
+          <div class="ride-chips"><span class="chip">📍 ${currentRide.pickup_label || "punto marcado en el mapa"}</span></div>
           ${destLine}
           ${fareLine}
           <button class="btn" onclick="startTrip()">Iniciar viaje</button>
@@ -880,9 +894,11 @@ function renderRideList() {
         <div class="card ride-card active fade-in">
           <div class="label">Viaje en curso</div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${currentRide.rider_name} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
-          ${currentRide.dest_lat
-            ? `<div class="meta">Destino: ${currentRide.dest_label || "punto marcado en el mapa"} (<span id="dist-current">${dist}</span> km · <span id="eta-current"></span>)</div>`
-            : `<div class="meta">Sin destino marcado</div>`}
+          <div class="ride-chips">
+            ${currentRide.dest_lat
+              ? `<span class="chip">🏁 ${currentRide.dest_label || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>`
+              : `<span class="chip">Sin destino marcado</span>`}
+          </div>
           ${fareLine}
           <button class="btn" onclick="completeRide()">Finalizar viaje</button>
         </div>`;
@@ -903,16 +919,21 @@ function renderRideList() {
   const cards = rides.map((r) => {
     const dist = myPos ? haversine(myPos.lat, myPos.lng, r.pickup_lat, r.pickup_lng).toFixed(1) : "?";
     const color = colorForPendingRide(r.id);
+    const fare = estimateFare(r);
+    const acceptLabel = fare.total != null ? `Aceptar · $${fare.total} MXN` : "Aceptar";
     return `
       <div class="card ride-card pending fade-in">
         <div class="label">${riderAvatarHtml(r.riderPhoto)}<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:7px;"></span>${serviceKindPrefix(r)}${r.rider_name}${riderTripText(r)}</div>
-        <div class="meta">Recogida a <span id="dist-${r.id}">${dist}</span> km${r.pickup_label ? " · " + r.pickup_label : ""}</div>
+        <div class="ride-chips">
+          <span class="chip">📍 <span id="dist-${r.id}">${dist}</span> km</span>
+          ${r.pickup_label ? `<span class="chip">${r.pickup_label}</span>` : ""}
+        </div>
         ${r.dest_lat ? `<div class="meta">Destino: ${r.dest_label || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde la recogida)</div>` : ""}
-        <div class="meta fare">${estimateFare(r)}</div>
+        <div class="meta fare">${fare.text}</div>
         <div style="display:flex;gap:6px;margin-bottom:6px;">
           <button class="btn-sm wa" style="flex:1;" onclick="openMessageOverlay(${r.id})">💬 Mensaje</button>
         </div>
-        <button class="btn" onclick="acceptRide(${r.id})">Aceptar</button>
+        <button class="btn" onclick="acceptRide(${r.id})">${acceptLabel}</button>
       </div>`;
   }).join("");
   const moreCount = allPending.length - rides.length;

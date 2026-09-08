@@ -40,7 +40,7 @@ body {
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--accent);
+  color: var(--text);
   margin: 0;
 }
 .brand .brand-icon {
@@ -87,13 +87,29 @@ input {
   font-size: 17px;
   padding: 13px 14px;
   border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  background: #fff;
-  color: #14161c;
-  transition: box-shadow 0.15s ease;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+input::placeholder { color: var(--text-faint); }
+select {
+  font-size: 17px;
+  padding: 13px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(246, 166, 35, 0.35);
 }
 input:focus {
   outline: none;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(246, 166, 35, 0.35);
 }
 

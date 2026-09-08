@@ -25,12 +25,12 @@
   #form input { width: 100%; }
   #formError { color: var(--danger); font-size: 14px; min-height: 18px; }
   .input-icon-row {
-    display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px;
-    padding: 0 14px; width: 260px; transition: box-shadow 0.15s ease;
+    display: flex; align-items: center; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 0 14px; width: 260px; transition: box-shadow 0.15s ease, border-color 0.15s ease;
   }
   .input-icon-row input { background: transparent; border: none; flex: 1; padding: 13px 0; box-shadow: none; width: auto; }
   .input-icon-row input:focus { box-shadow: none; }
-  .input-icon-row:focus-within { box-shadow: 0 0 0 3px rgba(246, 166, 35, 0.35); }
+  .input-icon-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(246, 166, 35, 0.35); }
   .input-icon-row svg { flex-shrink: 0; }
   .pill-row { display: flex; gap: 10px; width: 260px; margin-top: 6px; }
   .pill-row .btn-sm { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; }
@@ -41,28 +41,69 @@
   .profile-photo-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   #profilePhoto { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); background: var(--bg-card); }
   .profile-photo-fallback { width: 96px; height: 96px; border-radius: 50%; border: 3px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 38px; background: var(--bg-card); }
+  .account-header { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+  .account-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 260px; margin-top: 22px; }
+  .account-card {
+    display: flex; flex-direction: row; align-items: center; gap: 9px;
+    padding: 12px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+    color: var(--text); cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .account-card:hover { background: var(--bg-card-hover); }
+  .account-card.open { border-color: var(--accent); }
+  .account-card-icon { font-size: 17px; line-height: 1; flex-shrink: 0; }
+  .account-card-label { font-size: 12px; font-weight: 600; color: var(--text-dim); text-align: left; }
+  .account-detail {
+    display: none; flex-direction: column; gap: 8px; text-align: left; width: 260px; margin-top: 14px;
+  }
+  .account-detail-title { color: var(--text-dim); font-size: 14px; }
+  .account-footer { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
   #mapScreen { position: relative; }
   #map { flex: 1; min-height: 0; }
   #accountBtn {
-    position: absolute; top: 14px; right: 14px; z-index: 1000; width: 40px; height: 40px;
-    border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 14px; right: 14px; z-index: 1000; width: 42px; height: 42px;
+    border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center;
     background: linear-gradient(155deg, var(--accent-light), var(--accent) 60%, var(--accent-dark));
-    box-shadow: 0 6px 14px -4px rgba(246, 166, 35, 0.5);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 6px 14px -4px rgba(246, 166, 35, 0.5);
   }
-  #pickBar { padding: 12px; background: var(--bg-panel); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+  #pickBar {
+    padding: 10px 14px 16px; background: var(--bg-panel); display: flex; flex-direction: column; gap: 12px;
+    border-radius: 22px 22px 0 0; box-shadow: 0 -12px 28px -14px rgba(0, 0, 0, 0.55);
+    position: relative; z-index: 10;
+  }
+  .sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--border); margin: 0 auto 2px; }
   #pickBar .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
   #pickBar .row .btn-secondary { flex: 1; }
   #pickBar .hint { font-size: 13.5px; color: var(--text-dim); text-align: center; }
-  .service-tab { flex: 1; padding: 10px 8px; font-size: 13.5px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); color: var(--text-dim); cursor: pointer; }
-  .service-tab.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .request-block { display: flex; flex-direction: column; gap: 6px; }
+  #pickHint {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 999;
+    max-width: calc(100% - 88px); background: rgba(18, 20, 27, 0.92); color: var(--text);
+    font-size: 13px; padding: 9px 16px; border-radius: 999px; text-align: center;
+    box-shadow: var(--shadow-card); backdrop-filter: blur(4px);
+  }
+  .pax-card { display: flex; flex-direction: column; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; }
+  .pax-col { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pax-label { font-size: 13px; color: var(--text-dim); }
+  .segmented { display: flex; gap: 4px; padding: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; }
+  .service-tab { flex: 1; padding: 9px 8px; font-size: 13px; border-radius: 999px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; transition: background 0.18s ease, color 0.18s ease; }
+  .service-tab.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; box-shadow: 0 4px 10px -4px rgba(246, 166, 35, 0.5); }
   #referenceInput { width: 100%; }
   .stepper { display: flex; align-items: center; gap: 12px; }
   .stepper .btn-sm { width: 34px; height: 34px; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
   .stepper span#passengerCount { font-weight: 700; font-size: 16px; min-width: 16px; text-align: center; }
-  #fareEstimate { color: var(--accent); font-weight: 600; }
+  #fareEstimate { color: var(--text); font-weight: 700; }
   #status { align-items: center; justify-content: flex-start; gap: 16px; padding: 24px; text-align: center; }
   #status .big { font-size: 21px; font-weight: 700; }
-  .etaText { color: var(--accent); font-size: 14.5px; font-weight: 600; }
+  .etaText { color: var(--text); font-size: 14.5px; font-weight: 700; }
+  .status-header {
+    display: flex; align-items: center; gap: 12px; width: 100%; max-width: 320px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 14px 18px; text-align: left;
+  }
+  .status-icon { font-size: 26px; line-height: 1; flex-shrink: 0; }
+  .status-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .status-header-text .big { font-size: 17px; }
+  .status-header-text .etaText { font-size: 13px; color: var(--text-dim); font-weight: 600; }
   .verified-badge { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--accent); }
   .drivers-row { display: flex; align-items: center; gap: 10px; }
   .avatars { display: flex; }
@@ -89,15 +130,15 @@
   #driverCard .name { font-size: 18px; font-weight: 700; }
   #driverCard .meta { color: var(--text-dim); margin-top: 4px; font-size: 14px; }
   .driverInfo { display: flex; align-items: center; gap: 14px; }
-  .driverPhoto { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--accent); cursor: pointer; }
-  .driverPhotoFallback { display: flex; align-items: center; justify-content: center; font-size: 26px; background: var(--bg-card); }
+  .driverInfo-main { flex: 1; min-width: 0; }
+  .driverPhoto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2.5px solid var(--accent); cursor: pointer; }
+  .driverPhotoFallback { display: flex; align-items: center; justify-content: center; font-size: 30px; background: var(--bg-card); }
+  .driver-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: var(--bg-card-hover); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px; font-weight: 600; }
+  .chip-accent { background: rgba(246, 166, 35, 0.15); border-color: rgba(246, 166, 35, 0.35); color: var(--accent); }
   #photoLightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 2000; align-items: center; justify-content: center; padding: 24px; }
   #photoLightbox.show { display: flex; }
   #photoLightbox img { max-width: 90vw; max-height: 80vh; border-radius: var(--radius-lg); border: 3px solid var(--accent); }
-  #ratingBox { padding: 18px; text-align: center; }
-  .ratingQuestion { margin: 0 0 12px; font-size: 15px; }
-  .ratingButtons { display: flex; gap: 10px; justify-content: center; }
-  .ratingButtons .btn { width: auto; padding: 10px 20px; }
   #statusMap { width: 100%; height: 50vh; flex-shrink: 0; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
   #status { overflow-y: auto; }
   #connWarning { display: none; color: var(--danger); font-size: 13.5px; text-align: center; }
@@ -111,8 +152,12 @@
   .chat-row button { padding: 10px 16px; font-size: 14px; }
   .chat-toggle-btn { position: relative; width: 280px; }
   .chat-toggle-btn.has-unread::after { content: ""; position: absolute; top: 9px; right: 16px; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); }
-  .share-cancel-row { display: flex; gap: 10px; width: 280px; }
-  .share-cancel-row .btn { flex: 1; }
+  .share-cancel-row { display: flex; gap: 8px; width: 280px; }
+  .share-cancel-row .btn { flex: 1; border-radius: 999px; padding: 11px 12px; font-size: 13.5px; }
+  #ratingBox { padding: 22px 20px; text-align: center; width: 280px; }
+  .ratingQuestion { margin: 0 0 16px; font-size: 16px; font-weight: 700; }
+  .ratingButtons { display: flex; gap: 12px; justify-content: center; }
+  .ratingButtons .btn { width: auto; padding: 14px 28px; border-radius: 999px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -159,18 +204,18 @@
     </button>
   </div>
   <svg class="maya-motif" width="130" height="91" viewBox="0 0 200 140" fill="none" style="flex-shrink:0;margin-top:6px;">
-    <rect x="20" y="110" width="160" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="35" y="90" width="130" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="50" y="70" width="100" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="65" y="50" width="70" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="82" y="28" width="36" height="22" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    <rect x="95" y="36" width="10" height="14" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-    <line x1="92" y1="50" x2="92" y2="130" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-    <line x1="108" y1="50" x2="108" y2="130" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-    <line x1="92" y1="65" x2="108" y2="65" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-    <line x1="92" y1="85" x2="108" y2="85" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-    <line x1="92" y1="105" x2="108" y2="105" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-    <line x1="10" y1="130" x2="190" y2="130" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="20" y="110" width="160" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="35" y="90" width="130" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="50" y="70" width="100" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="65" y="50" width="70" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="82" y="28" width="36" height="22" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
+    <rect x="95" y="36" width="10" height="14" stroke="var(--text-faint)" stroke-width="1.4" opacity="0.8"/>
+    <line x1="92" y1="50" x2="92" y2="130" stroke="var(--text-faint)" stroke-width="1.4" opacity="0.8"/>
+    <line x1="108" y1="50" x2="108" y2="130" stroke="var(--text-faint)" stroke-width="1.4" opacity="0.8"/>
+    <line x1="92" y1="65" x2="108" y2="65" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
+    <line x1="92" y1="85" x2="108" y2="85" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
+    <line x1="92" y1="105" x2="108" y2="105" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
+    <line x1="10" y1="130" x2="190" y2="130" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
   </svg>
   <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a></div>
 </div>
@@ -195,31 +240,56 @@
   </div>
 </div>
 
-<div id="profileScreen" class="screen" style="align-items:center;gap:14px;padding:24px;text-align:center;">
-  <div class="brand" style="font-size:20px;">👤 Mi cuenta</div>
-  <div class="profile-photo-wrap">
-    <div id="profilePhotoSlot"></div>
-    <input type="file" id="profilePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleProfilePhoto(event)" />
-    <button class="btn-sm" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()">📷 Cambiar mi foto</button>
-    <div id="profilePhotoMsg" style="font-size:13px;min-height:16px;"></div>
+<div id="profileScreen" class="screen" style="align-items:center;gap:0;padding:28px 24px 40px;text-align:center;">
+  <div class="account-header">
+    <div class="profile-photo-wrap">
+      <div id="profilePhotoSlot"></div>
+      <input type="file" id="profilePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleProfilePhoto(event)" />
+      <button class="btn-sm" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()">📷 Cambiar mi foto</button>
+      <div id="profilePhotoMsg" style="font-size:13px;min-height:16px;"></div>
+    </div>
+    <div class="input-icon-row" style="width:260px;margin-top:4px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg>
+      <input id="profileNameInput" placeholder="Tu nombre" oninput="this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]/g, '')" />
+    </div>
+    <div style="width:260px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:13px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+      <span id="profilePhone"></span>
+    </div>
+    <button class="btn-sm" onclick="saveProfileName()" style="width:260px;">Guardar cambios</button>
+    <div id="profileError" style="color:var(--danger);font-size:13px;min-height:16px;"></div>
+    <div id="profileBadge" style="display:none;width:260px;"></div>
   </div>
-  <div id="profileBadge" style="display:none;width:260px;"></div>
-  <div class="input-icon-row" style="width:260px;">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg>
-    <input id="profileNameInput" placeholder="Tu nombre" oninput="this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]/g, '')" />
-  </div>
-  <div style="width:260px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:13px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
-    <span id="profilePhone"></span>
-  </div>
-  <div style="width:260px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);">
-    <span style="color:var(--text-dim);font-size:14px;">PIN: <strong id="profilePinValue" style="letter-spacing:2px;color:var(--text);">••••</strong></span>
-    <button class="btn-sm" onclick="togglePinVisibility()" style="padding:4px 10px;">Ver</button>
-  </div>
-  <button class="btn-sm" onclick="changeRiderPin()" style="width:260px;">Generar un PIN nuevo</button>
 
-  <div style="width:260px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;text-align:left;margin-top:6px;">
-    <span style="color:var(--text-dim);font-size:14px;">🏠 Mi casa</span>
+  <div class="account-grid">
+    <button class="account-card" onclick="toggleAccountSection('pin', this)">
+      <span class="account-card-icon">🔑</span>
+      <span class="account-card-label">Mi PIN</span>
+    </button>
+    <button class="account-card" onclick="toggleAccountSection('home', this)">
+      <span class="account-card-icon">🏠</span>
+      <span class="account-card-label">Mi casa</span>
+    </button>
+    <button class="account-card" onclick="toggleAccountSection('emergency', this)">
+      <span class="account-card-icon">🚨</span>
+      <span class="account-card-label">Emergencia</span>
+    </button>
+    <button class="account-card" onclick="openHistory()">
+      <span class="account-card-icon">🕓</span>
+      <span class="account-card-label">Mis viajes</span>
+    </button>
+  </div>
+
+  <div id="accountSectionPin" class="account-detail">
+    <div style="width:260px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);">
+      <span style="color:var(--text-dim);font-size:14px;">PIN: <strong id="profilePinValue" style="letter-spacing:2px;color:var(--text);">••••</strong></span>
+      <button class="btn-sm" onclick="togglePinVisibility()" style="padding:4px 10px;">Ver</button>
+    </div>
+    <button class="btn-sm" onclick="changeRiderPin()" style="width:260px;">Generar un PIN nuevo</button>
+  </div>
+
+  <div id="accountSectionHome" class="account-detail">
+    <span class="account-detail-title">Referencia de tu casa</span>
     <div id="homeSavedNote" style="display:none;font-size:13px;color:var(--text-dim);"></div>
     <input id="homeLabelInput" placeholder="Referencia (ej. casa azul, portón negro)" />
     <button class="btn-sm" onclick="saveHomeLocation()">📍 Guardar mi ubicación actual</button>
@@ -227,8 +297,8 @@
     <div id="homeMsg" style="font-size:13px;min-height:16px;"></div>
   </div>
 
-  <div style="width:260px;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;text-align:left;margin-top:6px;">
-    <span style="color:var(--text-dim);font-size:14px;">🚨 Contacto de emergencia</span>
+  <div id="accountSectionEmergency" class="account-detail">
+    <span class="account-detail-title">Contacto de emergencia</span>
     <div id="emergencyContactNote" style="display:none;font-size:13px;color:var(--text-dim);"></div>
     <input id="emergencyNameInput" placeholder="Nombre (opcional)" />
     <input id="emergencyPhoneInput" placeholder="Teléfono (10 dígitos)" inputmode="numeric" />
@@ -237,11 +307,10 @@
     <div id="emergencyMsg" style="font-size:13px;min-height:16px;"></div>
   </div>
 
-  <div id="profileError" style="color:var(--danger);font-size:13px;min-height:16px;"></div>
-  <button class="btn" onclick="saveProfileName()" style="width:260px;">Guardar cambios</button>
-  <button class="btn-sm" onclick="openHistory()" style="width:260px;">Mis viajes</button>
-  <button class="btn btn-secondary" onclick="closeProfile()" style="width:260px;">Volver al mapa</button>
-  <button class="btn-sm" onclick="logoutRider()" style="width:260px;color:var(--danger);border-color:rgba(229,72,77,0.35);">Cerrar sesión</button>
+  <div class="account-footer">
+    <button class="btn btn-secondary" onclick="closeProfile()" style="width:260px;">Volver al mapa</button>
+    <button class="btn-sm" onclick="logoutRider()" style="width:260px;color:var(--danger);border-color:rgba(229,72,77,0.35);">Cerrar sesión</button>
+  </div>
 </div>
 
 <div id="mapScreen" class="screen">
@@ -249,48 +318,58 @@
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14110a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg>
   </button>
   <div id="map"></div>
+  <div id="pickHint">Toca el mapa para marcar dónde te recogemos</div>
   <div id="pickBar">
-    <div class="row" id="serviceTypeRow" style="gap:8px;">
-      <button class="btn btn-sm service-tab active" id="tabMoto" onclick="setServiceType('moto')">🛵 Mototaxi (viajes cortos)</button>
-      <button class="btn btn-sm service-tab" id="tabTaxi" onclick="setServiceType('taxi')">🚕 Taxi (viajes largos)</button>
+    <div class="sheet-handle"></div>
+    <div class="segmented" id="serviceTypeRow">
+      <button class="service-tab active" id="tabMoto" onclick="setServiceType('moto')">🛵 Mototaxi</button>
+      <button class="service-tab" id="tabTaxi" onclick="setServiceType('taxi')">🚕 Taxi</button>
     </div>
-    <div class="row" id="serviceCategoryRow" style="gap:6px;">
-      <button class="btn btn-sm service-tab active" id="catPasaje" onclick="setServiceCategory('pasaje')">🧍 Pasaje</button>
-      <button class="btn btn-sm service-tab" id="catDomicilio" onclick="setServiceCategory('domicilio')">🍲 Domicilio</button>
-      <button class="btn btn-sm service-tab" id="catMandado" onclick="setServiceCategory('mandado')">📦 Mandado</button>
+    <div class="segmented" id="serviceCategoryRow">
+      <button class="service-tab active" id="catPasaje" onclick="setServiceCategory('pasaje')">🧍 Pasaje</button>
+      <button class="service-tab" id="catDomicilio" onclick="setServiceCategory('domicilio')">🍲 Domicilio</button>
+      <button class="service-tab" id="catMandado" onclick="setServiceCategory('mandado')">📦 Mandado</button>
     </div>
-    <div class="hint" id="pickHint">Toca el mapa para marcar dónde te recogemos</div>
     <div class="row">
       <button class="btn btn-secondary" onclick="useMyLocation()">Usar mi ubicación</button>
       <button class="btn btn-secondary" id="useHomeBtn" style="display:none;" onclick="useHomeLocation()">🏠 Mi casa</button>
       <button class="btn btn-secondary" onclick="resetPins()">Borrar pines</button>
     </div>
-    <div class="row" id="passengerRow">
-      <span style="color:var(--text-dim);font-size:14px;">Adultos</span>
-      <div class="stepper">
-        <button class="btn-sm" onclick="changePassengers(-1)">−</button>
-        <span id="passengerCount">1</span>
-        <button class="btn-sm" onclick="changePassengers(1)">+</button>
+    <div class="pax-card" id="paxCard">
+      <div class="pax-col" id="passengerRow">
+        <span class="pax-label">Adultos</span>
+        <div class="stepper">
+          <button class="btn-sm" onclick="changePassengers(-1)">−</button>
+          <span id="passengerCount">1</span>
+          <button class="btn-sm" onclick="changePassengers(1)">+</button>
+        </div>
       </div>
-    </div>
-    <div class="row" id="childrenRow">
-      <span style="color:var(--text-dim);font-size:14px;">Niños (3-9 años)</span>
-      <div class="stepper">
-        <button class="btn-sm" onclick="changeChildren(-1)">−</button>
-        <span id="childrenCount">0</span>
-        <button class="btn-sm" onclick="changeChildren(1)">+</button>
+      <div class="pax-col" id="childrenRow">
+        <span class="pax-label">Niños (3-9 años)</span>
+        <div class="stepper">
+          <button class="btn-sm" onclick="changeChildren(-1)">−</button>
+          <span id="childrenCount">0</span>
+          <button class="btn-sm" onclick="changeChildren(1)">+</button>
+        </div>
       </div>
     </div>
     <input id="referenceInput" placeholder="Referencia (ej. casa azul, portón negro)" />
-    <div id="fareEstimate" class="hint"></div>
-    <button class="btn" id="requestBtn" disabled onclick="requestRide()">Pedir mototaxi</button>
+    <div class="request-block">
+      <div id="fareEstimate" class="hint"></div>
+      <button class="btn" id="requestBtn" disabled onclick="requestRide()">Pedir mototaxi</button>
+    </div>
   </div>
 </div>
 
 <div id="status" class="screen">
-  <div class="big" id="statusText">Buscando chofer cercano...</div>
-  <div id="tripCountBadge" class="etaText" style="display:none;"></div>
-  <div id="etaText" class="etaText"></div>
+  <div class="status-header">
+    <span class="status-icon">🛵</span>
+    <div class="status-header-text">
+      <div class="big" id="statusText">Buscando chofer cercano...</div>
+      <div id="tripCountBadge" class="etaText" style="display:none;"></div>
+      <div id="etaText" class="etaText"></div>
+    </div>
+  </div>
   <div id="connWarning"></div>
   <div id="statusMap"></div>
   <div id="searchingBlock" style="display:none;">
@@ -640,22 +719,27 @@ function estimateFareTicul(night) {
 
 function updateFareEstimate() {
   const el = document.getElementById("fareEstimate");
-  if (!pickup) { el.textContent = ""; return; }
+  const btn = document.getElementById("requestBtn");
+  const baseLabel = serviceType === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
+  if (!pickup) { el.textContent = ""; btn.textContent = baseLabel; return; }
   if (serviceType === "taxi") {
     el.textContent = `Viaje foráneo: acuerda el precio directo con el chofer + $${SERVICE_FEE} de servicio de la app`;
+    btn.textContent = baseLabel;
     return;
   }
   const night = isNightFare();
   const result = resolvedCityId === "ticul" ? estimateFareTicul(night) : estimateFareTekax(night);
   if (result.longTrip) {
     el.textContent = `Viaje largo: acuerda el precio directo con el chofer + $${SERVICE_FEE} de servicio de la app`;
+    btn.textContent = baseLabel;
     return;
   }
   const { pricePerPerson, childRate, approx, nightNote } = result;
   const totalPeople = passengers + children;
   const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
-  el.textContent = `Tarifa estimada: $${total} MXN (${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}, incluye $${SERVICE_FEE} de servicio)${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
+  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}, incluye $${SERVICE_FEE} de servicio${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
+  btn.textContent = `${baseLabel} · $${total} MXN`;
 }
 
 function setServiceType(type) {
@@ -663,7 +747,6 @@ function setServiceType(type) {
   serviceType = type;
   document.getElementById("tabMoto").classList.toggle("active", type === "moto");
   document.getElementById("tabTaxi").classList.toggle("active", type === "taxi");
-  document.getElementById("requestBtn").textContent = type === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
   updateFareEstimate();
   if (map) startAvailableDriversPolling();
 }
@@ -685,6 +768,7 @@ function setServiceCategory(category) {
   // Adultos/niños no aplican si nadie se va a subir (domicilio/mandado los
   // pide un negocio o quien encarga la diligencia, no un pasajero).
   const isPassengerTrip = category === "pasaje";
+  document.getElementById("paxCard").style.display = isPassengerTrip ? "flex" : "none";
   document.getElementById("passengerRow").style.display = isPassengerTrip ? "flex" : "none";
   document.getElementById("childrenRow").style.display = isPassengerTrip ? "flex" : "none";
   if (!isPassengerTrip) {
@@ -1120,18 +1204,20 @@ async function onDriverAssigned(driver) {
     const res = await fetch(API + "/api/drivers/ranking");
     const ranking = await res.json();
     const mine = ranking.find((r) => r.id === driver.id);
-    if (mine) badgeHtml = `<div class="meta" style="color:var(--accent);font-weight:700;">${RANK_EMOJI[mine.rank]} Top chofer #${mine.rank}</div>`;
+    if (mine) badgeHtml = `<span class="chip chip-accent">${RANK_EMOJI[mine.rank]} Top #${mine.rank}</span>`;
   } catch {
     // sin insignia si falla, no bloquea el resto del flujo
   }
   card.innerHTML = `
     <div class="driverInfo">
       ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
-      <div>
+      <div class="driverInfo-main">
         <div class="name">${driver.name}</div>
-        ${badgeHtml}
+        <div class="driver-chips">
+          ${badgeHtml}
+          <span class="chip">${driver.vehicle ? driver.vehicle : (serviceType === "taxi" ? "Taxi" : "Mototaxi")}</span>
+        </div>
         ${driver.grupo ? `<div class="meta">Agrupación: ${driver.grupo}</div>` : ""}
-        <div class="meta">${driver.vehicle ? `Placa: ${driver.vehicle}` : (serviceType === "taxi" ? "Taxi" : "Mototaxi")}</div>
         <div class="meta">Tel: ${driver.phone}</div>
       </div>
     </div>`;
@@ -1326,6 +1412,28 @@ function openProfile() {
   const errEl = document.getElementById("profileError");
   errEl.textContent = "";
   errEl.style.color = "var(--danger)";
+  closeAllAccountSections();
+}
+
+const ACCOUNT_SECTIONS = { pin: "accountSectionPin", home: "accountSectionHome", emergency: "accountSectionEmergency" };
+
+function closeAllAccountSections() {
+  for (const id of Object.values(ACCOUNT_SECTIONS)) {
+    document.getElementById(id).style.display = "none";
+  }
+  document.querySelectorAll(".account-card.open").forEach((el) => el.classList.remove("open"));
+}
+
+function toggleAccountSection(name, cardEl) {
+  const targetId = ACCOUNT_SECTIONS[name];
+  const isOpen = document.getElementById(targetId).style.display === "flex";
+  closeAllAccountSections();
+  if (!isOpen) {
+    const el = document.getElementById(targetId);
+    el.style.display = "flex";
+    el.classList.add("fade-in");
+    cardEl.classList.add("open");
+  }
 }
 
 function closeProfile() {
