@@ -214,7 +214,7 @@
   <div class="field legalField">
     <label class="legalCheck">
       <input type="checkbox" id="driverAcceptedLegal" />
-      Le mostré y aceptó el <a href="aviso-legal.html" target="_blank" rel="noopener">Aviso Legal de MotoVecino</a>
+      Le mostré y aceptó el <a href="aviso-legal.html" target="_blank">Aviso Legal de MotoVecino</a>
     </label>
   </div>
   <button class="btn" onclick="registerDriver()">Registrar chofer</button>
@@ -531,7 +531,7 @@ function renderApplications(apps) {
       <div class="card app-row">
         <div class="info">
           ${a.photo ? `<img class="thumb" src="${a.photo}" onclick="viewImage('${a.photo}')" />` : ""}
-          ${a.photo_placa ? `<img class="thumb" src="${a.photo_placa}" onclick="viewImage('${a.photo_placa}')" title="Foto de placa" />` : ""}
+          ${a.photo_placa ? `<img class="thumb" src="${a.photo_placa}" onclick="viewImage('${a.photo_placa}')" title="Foto con su moto" />` : ""}
           ${a.signature ? `<img class="thumb" style="background:#fff" src="${a.signature}" onclick="viewImage('${a.signature}')" title="Firma" />` : ""}
           <div class="who">
             <span class="name">${a.name}</span>
@@ -567,7 +567,7 @@ function useApplication(id) {
 function renderPendingPhotoPreview() {
   const el = document.getElementById("pendingPhotoPreview");
   el.innerHTML = pendingDriverPhoto
-    ? `<img class="thumb" src="${pendingDriverPhoto}" /> ${pendingDriverPhotoPlaca ? `<img class="thumb" src="${pendingDriverPhotoPlaca}" title="Foto de placa" />` : ""} ${pendingDriverSignature ? `<img class="thumb" style="background:#fff" src="${pendingDriverSignature}" title="Firma" />` : ""} <span class="ago">Se guardará con este chofer</span>`
+    ? `<img class="thumb" src="${pendingDriverPhoto}" /> ${pendingDriverPhotoPlaca ? `<img class="thumb" src="${pendingDriverPhotoPlaca}" title="Foto con su moto" />` : ""} ${pendingDriverSignature ? `<img class="thumb" style="background:#fff" src="${pendingDriverSignature}" title="Firma" />` : ""} <span class="ago">Se guardará con este chofer</span>`
     : "";
 }
 
@@ -916,7 +916,7 @@ function renderDriverRows() {
       ? `<div class="avalado">avalado ${d.vouched_at ? "el " + d.vouched_at : ""}</div>`
       : `<div class="sin-aval">sin aval</div>`;
     const placaThumb = d.photo_placa
-      ? `<img class="thumb" src="${d.photo_placa}" onclick="viewImage('${d.photo_placa}')" title="Foto de placa" />`
+      ? `<img class="thumb" src="${d.photo_placa}" onclick="viewImage('${d.photo_placa}')" title="Foto con su moto" />`
       : "";
     const sigThumb = d.signature
       ? `<img class="thumb" style="background:#fff" src="${d.signature}" onclick="viewImage('${d.signature}')" title="Firma del contrato" />`

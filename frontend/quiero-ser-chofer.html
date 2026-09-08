@@ -18,7 +18,7 @@
   .phoneRow input { flex: 1; }
   .fieldHint { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; margin: 0 0 8px; }
   .fieldHint a { color: var(--accent); }
-  #photoPreview { display: none; width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-sm); margin-top: 10px; border: 1px solid var(--border); }
+  #photoPreview, #photoPlacaPreview { display: none; width: 100%; max-height: 220px; object-fit: cover; border-radius: var(--radius-sm); margin-top: 10px; border: 1px solid var(--border); }
   #err { color: var(--danger); min-height: 18px; font-size: 13.5px; margin-top: 4px; }
   .legalCheck { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; color: var(--text-dim); line-height: 1.5; cursor: pointer; }
   .legalCheck input { width: auto; margin-top: 3px; flex-shrink: 0; }
@@ -83,20 +83,26 @@
       </select>
     </div>
     <div class="field">
-      <label>Foto contigo y tu vehículo</label>
-      <p class="fieldHint">Así verificamos que eres un chofer real y evitamos perfiles falsos.</p>
-      <input type="file" id="photo" accept="image/*" capture="environment" onchange="handlePhoto(event)" />
+      <label>Foto de tu rostro</label>
+      <p class="fieldHint">Una selfie clara de tu cara. Esta es la foto que le va a aparecer al pasajero cuando le llegue su viaje, para que te reconozca.</p>
+      <input type="file" id="photo" accept="image/*" capture="user" onchange="handlePhoto(event, 'photoPreview')" />
       <img id="photoPreview" />
+    </div>
+    <div class="field">
+      <label>Foto de ti con tu moto</label>
+      <p class="fieldHint">Solo para verificación interna — el pasajero nunca ve esta foto. No hace falta que se vea la placa.</p>
+      <input type="file" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
+      <img id="photoPlacaPreview" />
     </div>
     <div class="field legalField">
       <label class="legalCheck">
         <input type="checkbox" id="acceptLegal" />
-        <span>He leído y acepto el <a href="aviso-legal.html" target="_blank" rel="noopener">Aviso Legal de MotoVecino</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad.</span>
+        <span>He leído y acepto el <a href="aviso-legal.html" target="_blank">Aviso Legal de MotoVecino</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad.</span>
       </label>
     </div>
     <div class="field">
       <label>Firma de aceptación</label>
-      <p class="fieldHint">Firma aquí con el dedo para aceptar el <a href="contrato-prestacion-servicios.html" target="_blank" rel="noopener">Contrato de Prestación de Servicios</a> de MotoVecino.</p>
+      <p class="fieldHint">Firma aquí con el dedo para aceptar el <a href="contrato-prestacion-servicios.html" target="_blank">Contrato de Prestación de Servicios</a> de MotoVecino.</p>
       <canvas id="signaturePad" width="600" height="200"></canvas>
       <div class="sigActions">
         <span id="sigStatus">Sin firmar</span>
@@ -118,6 +124,7 @@
 
 <script>
 let photoDataUrl = "";
+let photoPlacaDataUrl = "";
 
 // Ciudad detectada por GPS al momento de aplicar — así el admin ya ve de
 // entrada a qué ciudad pertenece este chofer al revisar la solicitud, en vez
@@ -188,19 +195,20 @@ function resizeToDataUrl(file, onDone, onError) {
   reader.readAsDataURL(file);
 }
 
-function handlePhoto(event) {
+function handlePhoto(event, previewId) {
   const file = event.target.files[0];
   const err = document.getElementById("err");
   err.textContent = "";
+  const setUrl = previewId === "photoPlacaPreview" ? (v) => (photoPlacaDataUrl = v) : (v) => (photoDataUrl = v);
   if (!file) {
-    photoDataUrl = "";
+    setUrl("");
     return;
   }
   resizeToDataUrl(
     file,
     (dataUrl) => {
-      photoDataUrl = dataUrl;
-      const preview = document.getElementById("photoPreview");
+      setUrl(dataUrl);
+      const preview = document.getElementById(previewId);
       preview.src = dataUrl;
       preview.style.display = "block";
     },
@@ -262,7 +270,11 @@ async function submitApplication() {
     return;
   }
   if (!photoDataUrl) {
-    err.textContent = "Tómate una foto contigo y tu moto";
+    err.textContent = "Falta la foto de tu rostro";
+    return;
+  }
+  if (!photoPlacaDataUrl) {
+    err.textContent = "Falta la foto de ti con tu moto";
     return;
   }
   if (!document.getElementById("acceptLegal").checked) {
@@ -279,7 +291,7 @@ async function submitApplication() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name, phone, photo: photoDataUrl, acceptedLegal: true,
+      name, phone, photo: photoDataUrl, photoPlaca: photoPlacaDataUrl, acceptedLegal: true,
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
     }),
   });

@@ -220,17 +220,14 @@ router.post("/chofer-solicitudes", (req, res) => {
     return res.status(400).json({ error: "Falta tu firma" });
   }
 
-  // El link de un líder (?grupo=Nombre) trae el gremio ya fijo — el chofer no
-  // lo escribe, y no requiere placa (el líder ya lo avala). El link genérico
-  // de formales (?formal=1) sí deja que el chofer escriba a qué gremio dice
-  // pertenecer, y como nadie lo avaló, ahí sí se exige la foto de placa.
-  // Los informales (sin gremio) no la requieren: muchos no tienen placa.
+  // Ya no hay gremios ni líderes que avalen a nadie — todo chofer que aplica
+  // entra por su cuenta, así que la segunda foto (chofer con su moto, para
+  // verificación interna del admin) se exige siempre, sin importar tipo.
   const grupoLimpio = typeof grupo === "string" ? grupo.trim().slice(0, 60) : "";
   const tipo = formalIntent ? "formal" : "informal";
-  const requierePlaca = formalIntent && !viaLiderLink;
 
-  if (requierePlaca && !photoPlaca) {
-    return res.status(400).json({ error: "Falta la foto de tu moto con la placa" });
+  if (!photoPlaca) {
+    return res.status(400).json({ error: "Falta la foto de ti con tu moto" });
   }
 
   db.prepare(

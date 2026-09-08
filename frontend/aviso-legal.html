@@ -75,6 +75,20 @@
     letter-spacing:0.01em;
   }
   .wordmark span{color:var(--accent);}
+  .topbar-left{display:flex; align-items:center; gap:16px;}
+  .back-link{
+    font-family:var(--font-mono);
+    font-size:0.78rem;
+    letter-spacing:0.03em;
+    color:var(--accent-ink);
+    text-decoration:none;
+    background:none;
+    border:none;
+    padding:0;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .back-link:hover, .back-link:focus-visible{color:var(--accent);}
   .doc-meta{
     font-family:var(--font-mono);
     font-size:0.72rem;
@@ -236,10 +250,26 @@
 
 <div class="topbar">
   <div class="topbar-inner">
-    <div class="wordmark">Moto<span>Vecino</span></div>
+    <div class="topbar-left">
+      <button type="button" class="back-link" onclick="volverAtras()">← Volver</button>
+      <div class="wordmark">Moto<span>Vecino</span></div>
+    </div>
     <div class="doc-meta">Vigente desde 2 sep 2026</div>
   </div>
 </div>
+<script>
+  // Este documento siempre se abre en pestaña/ventana nueva (target="_blank")
+  // desde la app — su historial empieza vacío, así que history.back() no
+  // tiene a dónde ir. Cerrar la pestaña es lo que de verdad regresa a la app
+  // tal como estaba. window.close() solo funciona si window.opener existe
+  // (por eso esos enlaces ya no llevan rel="noopener"); si el navegador lo
+  // bloquea de todos modos, history.back() es el mejor intento restante.
+  function volverAtras(){
+    if (window.opener) { window.close(); return; }
+    if (window.history.length > 1) { window.history.back(); return; }
+    window.close();
+  }
+</script>
 
 <main>
   <p class="eyebrow">Aviso legal · Términos de uso</p>
