@@ -4,8 +4,11 @@ module.exports = {
   // como "versión que aceptó" cada chofer al registrarse.
   AVISO_LEGAL_VERSION: "2026-09-02",
   LAUNCH_DATE: "2026-08-14",
-  // Cuota mensual por chofer, igual que en Ticul.
-  MONTHLY_FEE: 100,
+  // Cuota mensual descontinuada 2026-09-08: ya no se cobra, solo queda el
+  // cobro por viaje (SERVICE_FEE). En 0 para que las pantallas de chofer y
+  // admin dejen de mostrar/pedir mensualidad — mismo patrón que ya se usaba
+  // para desactivar SERVICE_FEE en un pueblo que todavía no cobra por viaje.
+  MONTHLY_FEE: 0,
   // Cuota de la app por viaje, la misma en todos los pueblos: es el cobro de
   // la plataforma, no la tarifa del gremio (esa sí cambia de pueblo a pueblo).
   SERVICE_FEE: 2,

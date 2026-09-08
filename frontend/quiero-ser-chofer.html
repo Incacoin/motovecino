@@ -34,6 +34,20 @@
   #okScreen p { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
   .credit { margin-top: 22px; }
   button.btn { width: 100%; }
+  #legalModalOverlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    z-index: 100; padding: 16px;
+  }
+  #legalModalOverlay.active { display: flex; flex-direction: column; }
+  #legalModalClose {
+    align-self: flex-end; background: var(--bg-card); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 8px 16px; font-size: 14px; cursor: pointer; margin-bottom: 8px;
+  }
+  #legalModalFrame {
+    flex: 1; width: 100%; border: none; border-radius: var(--radius-sm);
+    background: #fff;
+  }
 </style>
 </head>
 <body>
@@ -97,12 +111,12 @@
     <div class="field legalField">
       <label class="legalCheck">
         <input type="checkbox" id="acceptLegal" />
-        <span>He leído y acepto el <a href="aviso-legal.html" target="_blank">Aviso Legal de MotoVecino</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad.</span>
+        <span>He leído y acepto el <a href="aviso-legal.html" onclick="return openLegalModal(this.href)">Aviso Legal de MotoVecino</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad.</span>
       </label>
     </div>
     <div class="field">
       <label>Firma de aceptación</label>
-      <p class="fieldHint">Firma aquí con el dedo para aceptar el <a href="contrato-prestacion-servicios.html" target="_blank">Contrato de Prestación de Servicios</a> de MotoVecino.</p>
+      <p class="fieldHint">Firma aquí con el dedo para aceptar el <a href="contrato-prestacion-servicios.html" onclick="return openLegalModal(this.href)">Contrato de Prestación de Servicios</a> de MotoVecino.</p>
       <canvas id="signaturePad" width="600" height="200"></canvas>
       <div class="sigActions">
         <span id="sigStatus">Sin firmar</span>
@@ -122,7 +136,32 @@
   <p class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong></p>
 </div>
 
+<div id="legalModalOverlay">
+  <button type="button" id="legalModalClose" onclick="closeLegalModal()">✕ Cerrar</button>
+  <iframe id="legalModalFrame"></iframe>
+</div>
+
 <script>
+// El Aviso Legal y el Contrato se muestran DENTRO de esta página (iframe +
+// overlay) en vez de navegar a otra URL — así nunca se pierde lo que el
+// chofer ya llenó (nombre, fotos, firma dibujada en el canvas), que se
+// perdía si se navegaba fuera y se volvía con el botón "Volver".
+function openLegalModal(url) {
+  document.getElementById("legalModalFrame").src = url;
+  document.getElementById("legalModalOverlay").classList.add("active");
+  return false; // cancela la navegación normal del link
+}
+function closeLegalModal() {
+  document.getElementById("legalModalOverlay").classList.remove("active");
+  document.getElementById("legalModalFrame").src = "about:blank";
+}
+// El botón "Volver" del propio Aviso Legal/Contrato, cuando se cargan aquí
+// adentro, manda este mensaje en vez de navegar (ver volverAtras() en esos
+// archivos) para poder cerrar el modal desde afuera.
+window.addEventListener("message", (e) => {
+  if (e.data === "cerrar-legal-modal") closeLegalModal();
+});
+
 let photoDataUrl = "";
 let photoPlacaDataUrl = "";
 

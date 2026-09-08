@@ -258,16 +258,20 @@
   </div>
 </div>
 <script>
-  // Este documento siempre se abre en pestaña/ventana nueva (target="_blank")
-  // desde la app — su historial empieza vacío, así que history.back() no
-  // tiene a dónde ir. Cerrar la pestaña es lo que de verdad regresa a la app
-  // tal como estaba. window.close() solo funciona si window.opener existe
-  // (por eso esos enlaces ya no llevan rel="noopener"); si el navegador lo
-  // bloquea de todos modos, history.back() es el mejor intento restante.
+  // Antes este link se abría en pestaña nueva (target="_blank"), y en la PWA
+  // instalada eso a veces abre el navegador del sistema como una app aparte
+  // — ahí window.opener nunca existe (aunque se quite rel="noopener"), así
+  // que window.close() no servía para regresar. Ahora el link navega en la
+  // misma ventana, así que history.back() sí tiene un historial real al que
+  // volver. location.href es el último recurso si alguien llega aquí directo
+  // (sin historial previo, ej. un link guardado).
   function volverAtras(){
-    if (window.opener) { window.close(); return; }
+    // Cargado dentro del modal de quiero-ser-chofer.html (ver openLegalModal
+    // ahí) — avisarle al padre que lo cierre, no navegar el iframe.
+    if (window.self !== window.top) { window.parent.postMessage("cerrar-legal-modal", "*"); return; }
     if (window.history.length > 1) { window.history.back(); return; }
-    window.close();
+    if (window.opener) { window.close(); return; }
+    window.location.href = "pasajero.html";
   }
 </script>
 

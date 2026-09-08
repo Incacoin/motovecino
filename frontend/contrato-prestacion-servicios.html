@@ -258,13 +258,15 @@
   </div>
 </div>
 <script>
-  // Mismo caso que aviso-legal.html: esta página siempre se abre en pestaña
-  // nueva (target="_blank") desde quiero-ser-chofer.html, con historial vacío
-  // — cerrar la pestaña es lo que de verdad regresa a la app tal como estaba.
+  // Ver la nota en aviso-legal.html: ya no se abre en pestaña nueva, así que
+  // history.back() tiene un historial real al que volver.
   function volverAtras(){
-    if (window.opener) { window.close(); return; }
+    // Cargado dentro del modal de quiero-ser-chofer.html (ver openLegalModal
+    // ahí) — avisarle al padre que lo cierre, no navegar el iframe.
+    if (window.self !== window.top) { window.parent.postMessage("cerrar-legal-modal", "*"); return; }
     if (window.history.length > 1) { window.history.back(); return; }
-    window.close();
+    if (window.opener) { window.close(); return; }
+    window.location.href = "pasajero.html";
   }
 </script>
 

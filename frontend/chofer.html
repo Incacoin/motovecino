@@ -127,7 +127,7 @@
     <line x1="92" y1="105" x2="108" y2="105" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
     <line x1="10" y1="130" x2="190" y2="130" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
   </svg>
-  <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html" target="_blank">Aviso legal</a></div>
+  <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a></div>
 </div>
 
 <div id="app">
@@ -230,7 +230,7 @@
         <div class="profile-note">Con este PIN entras a la app. No se lo compartas a nadie: quien lo tenga puede recibir viajes a tu nombre.</div>
       </div>
 
-      <a class="menu-row" href="aviso-legal.html" target="_blank">
+      <a class="menu-row" href="aviso-legal.html">
         <span>📄</span><span class="menu-label">Aviso legal</span>
       </a>
       <button class="menu-row danger" onclick="logout()">
@@ -1285,22 +1285,10 @@ function renderProfile(p) {
       : `Basado en ${p.ratedCount} viaje${p.ratedCount === 1 ? "" : "s"} calificado${p.ratedCount === 1 ? "" : "s"}.`;
 
   // --- Mi cuenta (estado de pago) ---
+  // Ya no hay mensualidad (descontinuada 2026-09-08) — el único cobro es el
+  // de servicio por viaje, abajo.
   const rows = [];
   const notes = [];
-  const today = new Date().toISOString().slice(0, 10);
-  const inTrial = !p.paidUntil && (!p.trialEndDate || today <= p.trialEndDate);
-
-  if (inTrial) {
-    rows.push(row("Prueba gratis hasta", p.trialEndDate ? fmtDate(p.trialEndDate) : "Indefinida", "ok"));
-    notes.push(`Durante la prueba no pagas nada. Después son $${p.monthlyFee} al mes.`);
-  } else if (p.paidUntil) {
-    const alDia = today <= p.paidUntil;
-    rows.push(row("Vigente hasta", fmtDate(p.paidUntil), alDia ? "ok" : "warn"));
-    if (!alDia) notes.push("Tu mensualidad está vencida — ponte al corriente con tu líder.");
-  } else {
-    rows.push(row("Mensualidad", `$${p.monthlyFee} al mes`, "accent"));
-    notes.push("Todavía no tienes un pago registrado.");
-  }
 
   if (p.lastPayment) {
     rows.push(row("Último pago", `$${p.lastPayment.amount} · ${fmtDate(p.lastPayment.paid_at)}`));

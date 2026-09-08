@@ -157,7 +157,7 @@
   </div>
 
   <h1>🏆 Ranking de lanzamiento</h1>
-  <p class="section-hint">Desde el 14 de agosto. El Top 5 no paga su próximo mes de mensualidad; el 🥇 primer lugar además gana un bono de $500 MXN.</p>
+  <p class="section-hint">Desde el 14 de agosto. Los choferes con más viajes completados.</p>
   <div class="top-drivers" id="launchRanking" style="margin-bottom:30px;"></div>
   </div>
 
@@ -214,7 +214,7 @@
   <div class="field legalField">
     <label class="legalCheck">
       <input type="checkbox" id="driverAcceptedLegal" />
-      Le mostré y aceptó el <a href="aviso-legal.html" target="_blank">Aviso Legal de MotoVecino</a>
+      Le mostré y aceptó el <a href="aviso-legal.html">Aviso Legal de MotoVecino</a>
     </label>
   </div>
   <button class="btn" onclick="registerDriver()">Registrar chofer</button>
@@ -236,7 +236,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Nombre</th><th>PIN</th><th>Teléfono</th><th>Tipo</th><th>Servicio</th><th>Ciudad</th><th>Estado</th><th>Vehículo</th><th>Agrupación</th><th>Inscrito</th><th>Vigente hasta</th><th>Aval sindicato</th><th>Cancelaciones</th><th></th></tr>
+        <tr><th>Nombre</th><th>PIN</th><th>Teléfono</th><th>Tipo</th><th>Servicio</th><th>Ciudad</th><th>Estado</th><th>Vehículo</th><th>Agrupación</th><th>Inscrito</th><th>Cobros</th><th>Aval sindicato</th><th>Cancelaciones</th><th></th></tr>
       </thead>
       <tbody id="driverRows"></tbody>
     </table>
@@ -899,11 +899,6 @@ function renderDriverRows() {
       </tr>`;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
-    const vencido = d.paid_until && d.paid_until < today;
-    const statusLabel = d.paid_until
-      ? `<div class="${vencido ? "vencido" : "al-corriente"}">${vencido ? "vencido" : "al corriente"}</div>`
-      : "";
     const lastPaymentLabel = d.last_payment_at
       ? `<div class="lastPayment">último pago: $${d.last_payment_amount} el ${d.last_payment_at.slice(0, 10)}</div>`
       : `<div class="lastPayment">sin pagos registrados</div>`;
@@ -937,15 +932,6 @@ function renderDriverRows() {
       <td>${d.grupo || "—"}</td>
       <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
       <td>
-        <div class="paidRow">
-          <input type="date" id="paid-${d.id}" value="${d.paid_until || ""}" />
-          <button class="btn-sm" onclick="savePaidUntil(${d.id})">Guardar</button>
-        </div>
-        ${statusLabel}
-        <div class="payRow">
-          <input type="number" id="payAmount-${d.id}" value="100" min="1" />
-          <button class="btn-sm" id="payBtn-${d.id}" onclick="registerPayment(${d.id})">Registrar pago</button>
-        </div>
         ${lastPaymentLabel}
         ${pendingFeesLabel}
         ${pendingRides > 0 ? `<button class="btn-sm" id="feesBtn-${d.id}" onclick="registerTripFees(${d.id})">Cobrar viajes ($${pendingFeeAmount})</button>` : ""}
@@ -1005,65 +991,22 @@ function renderRideRows(rides) {
   }).join("") || `<tr><td colspan="7" class="ago">Sin viajes todavía.</td></tr>`;
 }
 
-async function savePaidUntil(id) {
-  const paidUntil = document.getElementById(`paid-${id}`).value;
-  await fetch(API + `/api/admin/drivers/${id}/paid-until`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin, paidUntil }),
-  });
-  loadDrivers();
-}
-
 // Meses realmente vencidos desde que se venció la cuota (o desde que acabó
 // el mes de prueba, si nunca ha pagado) — así el recordatorio no subestima
 // a un chofer que lleva 2+ meses sin pagar.
-function monthsOverdue(d, today) {
-  const base = d.paid_until || trialEndDateCache;
-  if (!base) return 1; // sin referencia previa: se cobra un solo mes
-  const diffDays = (Date.parse(today) - Date.parse(base)) / 86400000;
-  return Math.max(1, Math.ceil(diffDays / 30));
-}
-
 function paymentReminderMessage(d) {
-  const today = new Date().toISOString().slice(0, 10);
-  const inTrial = !d.paid_until && (!trialEndDateCache || today < trialEndDateCache);
   const pendingRides = d.pending_rides || 0;
   const feeAmount = pendingRides * SERVICE_FEE;
-  const monthlyVencido = !inTrial && (!d.paid_until || d.paid_until < today);
-  const owedMonths = monthlyVencido ? monthsOverdue(d, today) : 0;
-  const monthlyAmount = owedMonths * MONTHLY_FEE;
 
-  const lines = [];
-  if (inTrial && !d.paid_until) {
-    const hasta = trialEndDateCache ? `hasta el ${trialEndDateCache}` : "sin fecha límite por ahora";
-    lines.push(`🎉 Sigues en tu mes de prueba gratis (${hasta}) — todavía no debes cuota mensual.`);
-  } else {
-    lines.push(
-      monthlyVencido
-        ? `• Cuota mensual: vencida (${owedMonths} mes${owedMonths > 1 ? "es" : ""} × $${MONTHLY_FEE} = $${monthlyAmount} MXN)`
-        : `• Cuota mensual: vigente hasta ${d.paid_until}`
-    );
-  }
-  lines.push(
+  const lines = [
     pendingRides > 0
       ? `• Viajes por cobrar: ${pendingRides} × $${SERVICE_FEE} = $${feeAmount} MXN`
-      : `• Viajes: sin pendientes 👍`
-  );
+      : `• Viajes: sin pendientes 👍`,
+  ];
 
-  const rankIndex = launchRankingCache.findIndex((r) => r.id === d.id);
-  let rankingNote = "";
-  if (rankIndex === 0) {
-    rankingNote = `\n🥇 ¡Vas en primer lugar del ranking de lanzamiento! Si te mantienes ahí, tu próximo mes de mensualidad es GRATIS 🎉 y ganas un bono de $500 MXN 💰\n`;
-  } else if (rankIndex > 0 && rankIndex < 5) {
-    rankingNote = `\n🏆 ¡Vas en el Top 5 del ranking de lanzamiento! Si te mantienes ahí, tu próximo mes de mensualidad es GRATIS 🎉\n`;
-  }
+  const totalLine = feeAmount > 0 ? `\nTotal a pagar: $${feeAmount} MXN\n` : "";
 
-  const total = monthlyAmount + feeAmount;
-  const totalLine = total > 0 ? `\nTotal a pagar: $${total} MXN\n` : "";
-  const leaderName = d.vouched_by || "tu líder de gremio";
-
-  return `¡Hola ${d.name}! 🛵💛 Gracias por ser parte del equipo MotoVecino ${adminCityLabel}, se nota tu esfuerzo.\n\n${lines.join("\n")}\n${rankingNote}${totalLine}\nEntrégaselo a ${leaderName} como de costumbre.\n\n¡Sigue así! 🙌`;
+  return `¡Hola ${d.name}! 🛵💛 Gracias por ser parte del equipo MotoVecino ${adminCityLabel}, se nota tu esfuerzo.\n\n${lines.join("\n")}\n${totalLine}\nEntrégalo directamente con nosotros como de costumbre.\n\n¡Sigue así! 🙌`;
 }
 
 function sendPaymentReminder(id) {
@@ -1073,34 +1016,6 @@ function sendPaymentReminder(id) {
 }
 
 const pendingPaymentActions = new Set();
-
-async function registerPayment(id) {
-  if (pendingPaymentActions.has(`pay-${id}`)) return;
-  const amount = Number(document.getElementById(`payAmount-${id}`).value);
-  if (!amount || amount <= 0) {
-    showToast("Escribe un monto válido");
-    return;
-  }
-  pendingPaymentActions.add(`pay-${id}`);
-  const btn = document.getElementById(`payBtn-${id}`);
-  if (btn) btn.disabled = true;
-
-  const res = await fetch(API + `/api/admin/drivers/${id}/register-payment`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin, amount }),
-  });
-  pendingPaymentActions.delete(`pay-${id}`);
-  if (!res.ok) {
-    if (btn) btn.disabled = false;
-    showToast((await res.json()).error || "No se pudo registrar el pago");
-    return;
-  }
-  const { paidUntil } = await res.json();
-  showToast(`Pago registrado, vigente hasta ${paidUntil}`);
-  loadDrivers(); // el re-render deja el botón fresco y habilitado
-  loadStats();
-}
 
 async function registerTripFees(id) {
   if (pendingPaymentActions.has(`fees-${id}`)) return;
