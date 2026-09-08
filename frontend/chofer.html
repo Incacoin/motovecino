@@ -100,6 +100,12 @@
 </head>
 <body>
 
+<div id="locationBanner" class="locationBanner" onclick="retryLocation()">
+  <span>📍</span>
+  <span class="locationBanner-text">La ubicación está desactivada. Toca aquí para activarla.</span>
+  <span class="locationBanner-chevron">›</span>
+</div>
+
 <div id="login">
   <div id="installBanner" class="card installBanner" style="display:none;">
     <div id="installText"></div>
@@ -328,17 +334,33 @@ function applyCityLabel(label) {
   document.title = "MotoVecino " + label + " Chofer";
 }
 
+function showLocationBanner() {
+  document.getElementById("locationBanner").style.display = "flex";
+}
+function hideLocationBanner() {
+  document.getElementById("locationBanner").style.display = "none";
+}
+function retryLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    () => hideLocationBanner(),
+    () => showToast("Sigue sin activarse. Revisa el GPS o el permiso de ubicación de la app en los ajustes de tu teléfono."),
+    { maximumAge: 0, timeout: 5000 }
+  );
+}
+
 function initCityBrand(attempt) {
   attempt = attempt || 0;
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      hideLocationBanner();
       fetch(API + `/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
         .then((data) => applyCityLabel(data.label))
         .catch(() => {});
     },
-    () => { if (attempt < 1) initCityBrand(attempt + 1); },
+    () => { if (attempt < 1) initCityBrand(attempt + 1); else showLocationBanner(); },
     { maximumAge: 300000, timeout: 15000, enableHighAccuracy: true }
   );
 }
@@ -624,6 +646,7 @@ function watchLocation() {
   if (!navigator.geolocation) return;
   navigator.geolocation.watchPosition(
     (pos) => {
+      hideLocationBanner();
       myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       if (!myMarker) {
         myMarker = L.marker([myPos.lat, myPos.lng], { title: "Tú", icon: vehicleIcon(driver.vehicle_type) }).addTo(map);
@@ -643,7 +666,10 @@ function watchLocation() {
       syncPendingMarkers();
       renderRideList();
     },
-    (err) => console.warn("geo error", err),
+    (err) => {
+      console.warn("geo error", err);
+      showLocationBanner();
+    },
     { enableHighAccuracy: true, maximumAge: 3000 }
   );
 }

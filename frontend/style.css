@@ -125,6 +125,27 @@ input:focus {
 .credit strong { color: var(--accent); font-weight: 700; }
 .credit a { color: var(--text-faint); text-decoration: underline; }
 
+.locationBanner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  background: linear-gradient(180deg, var(--accent-light), var(--accent));
+  color: var(--accent-ink);
+  font-size: 13.5px;
+  line-height: 1.4;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+.locationBanner-text { flex: 1; }
+.locationBanner-chevron { font-size: 18px; flex-shrink: 0; opacity: 0.7; }
+
 .toast {
   position: fixed;
   left: 50%;

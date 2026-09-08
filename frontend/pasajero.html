@@ -117,6 +117,13 @@
 </head>
 <body>
 
+<div id="locationBanner" class="locationBanner" onclick="retryLocation()">
+  <span>📍</span>
+  <span class="locationBanner-text">La ubicación está desactivada. Toca aquí para activarla.</span>
+  <span class="locationBanner-chevron">›</span>
+</div>
+<div id="toast" class="toast"></div>
+
 <div id="form" class="screen active">
   <div id="installBanner" class="card installBanner" style="display:none;">
     <div id="installText"></div>
@@ -408,11 +415,35 @@ function applyCityLabel(label) {
   document.title = "MotoVecino " + label;
 }
 
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => el.classList.remove("show"), 3200);
+}
+
+function showLocationBanner() {
+  document.getElementById("locationBanner").style.display = "flex";
+}
+function hideLocationBanner() {
+  document.getElementById("locationBanner").style.display = "none";
+}
+function retryLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    () => hideLocationBanner(),
+    () => showToast("Sigue sin activarse. Revisa el GPS o el permiso de ubicación de la app en los ajustes de tu teléfono."),
+    { maximumAge: 0, timeout: 5000 }
+  );
+}
+
 function initCityBrand(attempt) {
   attempt = attempt || 0;
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      hideLocationBanner();
       fetch(API + `/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
         .then((data) => {
@@ -421,7 +452,7 @@ function initCityBrand(attempt) {
         })
         .catch(() => {});
     },
-    () => { if (attempt < 1) initCityBrand(attempt + 1); },
+    () => { if (attempt < 1) initCityBrand(attempt + 1); else showLocationBanner(); },
     { maximumAge: 300000, timeout: 15000, enableHighAccuracy: true }
   );
 }
@@ -920,6 +951,7 @@ function enterMap() {
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition((pos) => {
+      hideLocationBanner();
       const me = L.latLng(pos.coords.latitude, pos.coords.longitude);
       geoPos = me;
       loadAvailableDrivers(); // ya sabemos dónde estás, refresca con el radio correcto
@@ -930,7 +962,7 @@ function enterMap() {
       } else {
         map.setView(me, 15);
       }
-    }, () => {});
+    }, () => showLocationBanner());
   }
 
   startAvailableDriversPolling();
@@ -953,6 +985,7 @@ function placePoint(latlng) {
 function useMyLocation() {
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition((pos) => {
+    hideLocationBanner();
     pickup = L.latLng(pos.coords.latitude, pos.coords.longitude);
     if (pickupMarker) map.removeLayer(pickupMarker);
     pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup("Recogida (tu ubicación)").openPopup();
@@ -960,7 +993,7 @@ function useMyLocation() {
     document.getElementById("pickHint").textContent = "Ahora toca el mapa para marcar tu destino (opcional)";
     document.getElementById("requestBtn").disabled = false;
     updateFareEstimate();
-  });
+  }, () => showLocationBanner());
 }
 
 function resetPins() {
