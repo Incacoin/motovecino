@@ -429,6 +429,10 @@ function closePhotoLightbox() {
 }
 
 const API = "";
+// Dominios viejos (motoyaapp.com, motomayaapp.com) siguen apuntando al mismo
+// servicio — fijamos el dominio actual para que los links compartidos
+// siempre salgan con la marca correcta, sin importar desde cuál entró quien comparte.
+const PUBLIC_ORIGIN = "https://motovecinoapp.com";
 let deferredInstallPrompt = null;
 let resolvedCityLabel = "";
 fetch(API + "/api/config").then((r) => r.json()).then((cfg) => { SERVICE_FEE = cfg.serviceFee; }).catch(() => {});
@@ -1706,7 +1710,7 @@ async function clearEmergencyContact() {
 function notifyEmergencyContact() {
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   if (!rider || !rider.emergency_contact_phone || !ride) return;
-  const link = `${location.origin}/seguir.html?id=${ride.id}`;
+  const link = `${PUBLIC_ORIGIN}/seguir.html?id=${ride.id}`;
   const greeting = rider.emergency_contact_name ? `Hola ${rider.emergency_contact_name}` : "Hola";
   const text = `${greeting}, voy en un viaje de MotoVecino ${resolvedCityLabel}, sígueme en vivo: ${link}`;
   window.open(waLink(rider.emergency_contact_phone, text), "_blank");
@@ -1800,7 +1804,7 @@ function onCompleted() {
 
 async function shareRide() {
   if (!ride) return;
-  const link = `${location.origin}/seguir.html?id=${ride.id}`;
+  const link = `${PUBLIC_ORIGIN}/seguir.html?id=${ride.id}`;
   const text = `Sigue mi viaje en vivo con MotoVecino ${resolvedCityLabel}: ${link}`;
   if (navigator.share) {
     try {

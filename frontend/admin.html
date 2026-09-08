@@ -330,6 +330,10 @@
 
 <script>
 const API = "";
+// Dominios viejos (motoyaapp.com, motomayaapp.com) siguen apuntando al mismo
+// servicio — fijamos el dominio actual para que los links de reclutamiento
+// (QR, WhatsApp) siempre salgan con la marca correcta.
+const PUBLIC_ORIGIN = "https://motovecinoapp.com";
 let SERVICE_FEE = 2; // valores de respaldo hasta que cargue /api/config
 let MONTHLY_FEE = 100;
 fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
@@ -399,7 +403,7 @@ function viewImage(dataUrl) {
 
 
 function updateQrLink() {
-  const link = `${location.origin}/quiero-ser-chofer.html`;
+  const link = `${PUBLIC_ORIGIN}/quiero-ser-chofer.html`;
   document.getElementById("qrLinkText").textContent = link;
   document.getElementById("qrImg").src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(link)}`;
 }
@@ -415,7 +419,7 @@ function waLink(phone, text) {
 }
 
 function welcomeMessage(driver) {
-  const link = `${location.origin}/chofer.html`;
+  const link = `${PUBLIC_ORIGIN}/chofer.html`;
   return `¡Hola ${driver.name}! Gracias por tu confianza en MotoVecino ${adminCityLabel}.\n\nTu PIN de acceso de chofer es: ${driver.pin}\nEntra aquí para empezar a recibir viajes: ${link}`;
 }
 
