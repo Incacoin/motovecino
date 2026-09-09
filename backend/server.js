@@ -41,7 +41,15 @@ app.get("/api/backup-health", (req, res) => {
   }
   const STALE_MS = 13 * 60 * 60 * 1000; // respaldo corre cada 6h; 13h da margen a un ciclo perdido
   const isStale = !status.lastSuccessAt || Date.now() - new Date(status.lastSuccessAt).getTime() > STALE_MS;
-  res.status(isStale ? 500 : 200).json({ status: isStale ? "stale" : "ok", ...status });
+  // lastError trae rutas de archivo internas y respuestas crudas de la API de
+  // GitHub — no exponerlo público (este endpoint no tiene auth, lo pega
+  // UptimeRobot). El detalle completo ya queda en los logs del servidor.
+  res.status(isStale ? 500 : 200).json({
+    status: isStale ? "stale" : "ok",
+    configured: status.configured,
+    lastSuccessAt: status.lastSuccessAt,
+    lastAttemptAt: status.lastAttemptAt,
+  });
 });
 
 app.get("/api/cities", (req, res) => {
