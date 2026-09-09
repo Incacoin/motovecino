@@ -13,7 +13,7 @@ const riderRoutes = require("./routes/riders");
 const rideRoutes = require("./routes/rides");
 const adminRoutes = require("./routes/admin");
 const realtime = require("./realtime");
-const { startBackupSchedule } = require("./backup");
+const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { CITIES, resolveCity } = require("./cities");
 
 const app = express();
@@ -32,6 +32,16 @@ app.get("/api/health", (req, res) => {
   } catch (err) {
     res.status(500).json({ status: "error" });
   }
+});
+
+app.get("/api/backup-health", (req, res) => {
+  const status = getBackupStatus();
+  if (!status.configured) {
+    return res.json({ status: "disabled" });
+  }
+  const STALE_MS = 13 * 60 * 60 * 1000; // respaldo corre cada 6h; 13h da margen a un ciclo perdido
+  const isStale = !status.lastSuccessAt || Date.now() - new Date(status.lastSuccessAt).getTime() > STALE_MS;
+  res.status(isStale ? 500 : 200).json({ status: isStale ? "stale" : "ok", ...status });
 });
 
 app.get("/api/cities", (req, res) => {

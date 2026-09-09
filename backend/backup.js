@@ -8,6 +8,10 @@ const APP_NAME = process.env.BACKUP_APP_NAME || "motoyatekax";
 
 const SKIP_SUFFIXES = [".db-journal", ".db-wal", ".db-shm"];
 
+let lastSuccessAt = null;
+let lastAttemptAt = null;
+let lastError = null;
+
 function listFilesRecursive(dir, base = dir) {
   let out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -57,22 +61,33 @@ async function backupOnce() {
   }
   if (!fs.existsSync(DATA_DIR)) return;
 
+  lastAttemptAt = new Date().toISOString();
+
   const weekday = new Date()
     .toLocaleDateString("en-US", { weekday: "short", timeZone: "America/Merida" })
     .toLowerCase();
   const files = listFilesRecursive(DATA_DIR);
 
   let ok = 0;
+  let firstError = null;
   for (const relPath of files) {
     try {
       const content = fs.readFileSync(path.join(DATA_DIR, relPath)).toString("base64");
       await putFile(relPath, content, weekday);
       ok++;
     } catch (err) {
+      firstError = err.message;
       console.error(`[backup] fallo en ${relPath}:`, err.message);
     }
   }
   console.log(`[backup] respaldo "${weekday}" completado (${ok}/${files.length} archivo(s))`);
+
+  if (files.length > 0 && ok === files.length) {
+    lastSuccessAt = new Date().toISOString();
+    lastError = null;
+  } else {
+    lastError = firstError || "sin archivos que respaldar";
+  }
 }
 
 function startBackupSchedule(intervalHours = 6) {
@@ -80,4 +95,13 @@ function startBackupSchedule(intervalHours = 6) {
   setInterval(backupOnce, intervalHours * 60 * 60 * 1000);
 }
 
-module.exports = { startBackupSchedule, backupOnce };
+function getBackupStatus() {
+  return {
+    configured: Boolean(BACKUP_REPO && BACKUP_TOKEN),
+    lastSuccessAt,
+    lastAttemptAt,
+    lastError,
+  };
+}
+
+module.exports = { startBackupSchedule, backupOnce, getBackupStatus };
