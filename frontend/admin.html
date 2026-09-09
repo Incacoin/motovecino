@@ -30,10 +30,7 @@
   .paidRow input[type="date"] { padding: 7px 8px; font-size: 13px; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); }
   .vencido { color: var(--danger); font-size: 12px; margin-top: 3px; }
   .al-corriente { color: var(--success); font-size: 12px; margin-top: 3px; }
-  .vouchRow { display: flex; gap: 6px; align-items: center; }
-  .vouchRow input[type="text"] { width: 110px; padding: 7px 8px; font-size: 13px; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); }
   .sin-aval { color: var(--danger); font-size: 12px; margin-top: 3px; }
-  .avalado { color: var(--success); font-size: 12px; margin-top: 3px; }
   .badge-tipo { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
   .badge-tipo.formal { background: rgba(46, 204, 113, 0.15); color: var(--success); }
   .badge-tipo.informal { background: rgba(246, 166, 35, 0.15); color: var(--accent); }
@@ -192,10 +189,6 @@
     <input id="driverVehicle" placeholder="Ej. Mototaxi rojo, placa ABC123" />
   </div>
   <div class="field">
-    <label>Agrupación (opcional)</label>
-    <input id="driverGrupo" placeholder="Nombre del gremio" />
-  </div>
-  <div class="field">
     <label>Servicio</label>
     <select id="driverVehicleType" class="tipo-select">
       <option value="moto">🛵 Moto (viajes cortos)</option>
@@ -205,10 +198,6 @@
   <div class="field">
     <label>Ciudad</label>
     <div id="driverCityDisplay" style="padding:10px 0;color:var(--accent);font-weight:700;">Tekax</div>
-  </div>
-  <div class="field">
-    <label>Foto (opcional)</label>
-    <input type="file" id="driverPhotoInput" accept="image/*" onchange="handleDriverPhoto(event)" />
   </div>
   <div id="pendingPhotoPreview" class="pendingPhotoPreview"></div>
   <div class="field legalField">
@@ -236,7 +225,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Nombre</th><th>PIN</th><th>Teléfono</th><th>Tipo</th><th>Servicio</th><th>Ciudad</th><th>Estado</th><th>Vehículo</th><th>Agrupación</th><th>Inscrito</th><th>Cobros</th><th>Aval sindicato</th><th>Cancelaciones</th><th></th></tr>
+        <tr><th>Nombre</th><th>PIN</th><th>Teléfono</th><th>Tipo</th><th>Servicio</th><th>Ciudad</th><th>Estado</th><th>Vehículo</th><th>Inscrito</th><th>Cobros</th><th>Cancelaciones</th><th></th></tr>
       </thead>
       <tbody id="driverRows"></tbody>
     </table>
@@ -275,7 +264,7 @@
     Cuando un chofer acepta un viaje y luego el pasajero lo cancela en la app, no pasa nada —
     excepto que el viaje nunca cobra la cuota de $2. Esto no prueba nada por sí solo (una
     cancelación real se ve igual), pero si se repite mucho con el mismo chofer o con el mismo
-    pasajero, vale la pena preguntarle al líder del gremio.
+    pasajero, vale la pena contactarlo directamente.
   </p>
   <button class="btn-sm" onclick="loadAlertas()">🔄 Actualizar</button>
 
@@ -284,7 +273,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Chofer</th><th>Agrupación</th><th>Asignados</th><th>Cancelados por pasajero</th><th>%</th></tr>
+        <tr><th>Chofer</th><th>Asignados</th><th>Cancelados por pasajero</th><th>%</th></tr>
       </thead>
       <tbody id="alertaChoferRows"></tbody>
     </table>
@@ -489,12 +478,11 @@ async function loadAlertas() {
     ? porChofer.map((d) => `
       <tr>
         <td>${d.name}</td>
-        <td>${d.grupo || "—"}</td>
         <td>${d.total_asignados}</td>
         <td>${d.cancelados_pasajero}</td>
         <td><span class="pct-badge ${pctBadgeClass(d.pct)}">${d.pct}%</span></td>
       </tr>`).join("")
-    : `<tr><td colspan="5" class="ago">Nada que revisar por ahora.</td></tr>`;
+    : `<tr><td colspan="4" class="ago">Nada que revisar por ahora.</td></tr>`;
 
   document.getElementById("alertaParRows").innerHTML = paresRepetidos.length
     ? paresRepetidos.map((p) => `
@@ -541,7 +529,6 @@ function renderApplications(apps) {
             <span class="name">${a.name}</span>
             <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)} ${tipoBadge(a.tipo)}</span>
             <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}</span>
-            ${a.grupo ? `<span class="meta">🤝 ${a.grupo}</span>` : ""}
           </div>
         </div>
         <div class="row-actions">
@@ -557,7 +544,6 @@ function useApplication(id) {
   if (!app) return;
   document.getElementById("driverName").value = app.name;
   document.getElementById("driverPhone").value = app.phone;
-  document.getElementById("driverGrupo").value = app.grupo || "";
   document.getElementById("driverVehicleType").value = app.vehicle_type === "taxi" ? "taxi" : "moto";
   pendingDriverTipo = app.tipo === "formal" ? "formal" : "informal";
   pendingDriverPhoto = app.photo || null;
@@ -573,32 +559,6 @@ function renderPendingPhotoPreview() {
   el.innerHTML = pendingDriverPhoto
     ? `<img class="thumb" src="${pendingDriverPhoto}" /> ${pendingDriverPhotoPlaca ? `<img class="thumb" src="${pendingDriverPhotoPlaca}" title="Foto con su moto" />` : ""} ${pendingDriverSignature ? `<img class="thumb" style="background:#fff" src="${pendingDriverSignature}" title="Firma" />` : ""} <span class="ago">Se guardará con este chofer</span>`
     : "";
-}
-
-function handleDriverPhoto(event) {
-  const file = event.target.files[0];
-  const err = document.getElementById("err2");
-  err.textContent = "";
-  if (!file) return;
-
-  const img = new Image();
-  const reader = new FileReader();
-  reader.onload = (e) => { img.src = e.target.result; };
-  reader.onerror = () => { err.textContent = "No se pudo leer la foto, intenta de nuevo"; };
-  img.onload = () => {
-    let { width, height } = img;
-    const maxDim = 900;
-    if (width > height && width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
-    else if (height > maxDim) { width = Math.round(width * (maxDim / height)); height = maxDim; }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-    pendingDriverPhoto = canvas.toDataURL("image/jpeg", 0.72);
-    renderPendingPhotoPreview();
-  };
-  reader.readAsDataURL(file);
 }
 
 async function dismissApplication(id, silent) {
@@ -655,7 +615,6 @@ async function registerDriver() {
   const name = document.getElementById("driverName").value.trim();
   const phone = document.getElementById("driverPhone").value.trim();
   const vehicle = document.getElementById("driverVehicle").value.trim();
-  const grupo = document.getElementById("driverGrupo").value.trim();
   const tipo = pendingDriverTipo;
   const vehicleType = document.getElementById("driverVehicleType").value;
   document.getElementById("err2").textContent = "";
@@ -672,7 +631,7 @@ async function registerDriver() {
   const res = await fetch(API + "/api/admin/drivers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin, name, phone, vehicle, grupo, tipo, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature }),
+    body: JSON.stringify({ adminPin, name, phone, vehicle, tipo, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature }),
   });
   if (!res.ok) {
     document.getElementById("err2").textContent = (await res.json()).error;
@@ -688,10 +647,8 @@ async function registerDriver() {
   document.getElementById("driverName").value = "";
   document.getElementById("driverPhone").value = "";
   document.getElementById("driverVehicle").value = "";
-  document.getElementById("driverGrupo").value = "";
   document.getElementById("driverVehicleType").value = "moto";
   document.getElementById("driverAcceptedLegal").checked = false;
-  document.getElementById("driverPhotoInput").value = "";
   pendingDriverPhoto = null;
   pendingDriverPhotoPlaca = null;
   pendingDriverSignature = null;
@@ -768,7 +725,6 @@ async function saveEdit(id) {
   const name = document.getElementById(`edit-name-${id}`).value.trim();
   const phone = document.getElementById(`edit-phone-${id}`).value.trim();
   const vehicle = document.getElementById(`edit-vehicle-${id}`).value.trim();
-  const grupo = document.getElementById(`edit-grupo-${id}`).value.trim();
   const tipo = document.getElementById(`edit-tipo-${id}`).value;
   const vehicleType = document.getElementById(`edit-vehicletype-${id}`).value;
   if (!name || !phone) {
@@ -778,7 +734,7 @@ async function saveEdit(id) {
   const res = await fetch(API + `/api/admin/drivers/${id}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin, name, phone, vehicle, grupo, tipo, vehicleType }),
+    body: JSON.stringify({ adminPin, name, phone, vehicle, tipo, vehicleType }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo guardar");
@@ -892,9 +848,7 @@ function renderDriverRows() {
         <td>${cityLabel(d.city)}</td>
         <td><span class="dot ${d.status}"></span>${d.status}</td>
         <td><input id="edit-vehicle-${d.id}" value="${d.vehicle || ""}" placeholder="Vehículo" /></td>
-        <td><input id="edit-grupo-${d.id}" value="${d.grupo || ""}" placeholder="Agrupación" /></td>
         <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
-        <td>${d.vouched_by ? `<div class="avalado">${d.vouched_by}</div>` : `<div class="sin-aval">sin aval</div>`}</td>
         <td>${cancelCountCell(d)}</td>
         <td class="row-actions">
           <button class="btn-sm" onclick="saveEdit(${d.id})">Guardar</button>
@@ -911,9 +865,6 @@ function renderDriverRows() {
     const pendingFeesLabel = pendingRides > 0
       ? `<div class="lastPayment">viajes sin cobrar: ${pendingRides} × $${SERVICE_FEE} = <strong>$${pendingFeeAmount}</strong></div>`
       : `<div class="lastPayment">sin viajes pendientes de cobrar</div>`;
-    const vouchLabel = d.vouched_by
-      ? `<div class="avalado">avalado ${d.vouched_at ? "el " + d.vouched_at : ""}</div>`
-      : `<div class="sin-aval">sin aval</div>`;
     const placaThumb = d.photo_placa
       ? `<img class="thumb" src="${d.photo_placa}" onclick="viewImage('${d.photo_placa}')" title="Foto con su moto" />`
       : "";
@@ -933,7 +884,6 @@ function renderDriverRows() {
       <td>${cityLabel(d.city)}</td>
       <td><span class="dot ${d.status}"></span>${d.status}</td>
       <td>${d.vehicle || "—"}</td>
-      <td>${d.grupo || "—"}</td>
       <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
       <td>
         ${lastPaymentLabel}
@@ -943,13 +893,6 @@ function renderDriverRows() {
         <div class="payRow">
           <button class="btn-sm wa" onclick="sendPaymentReminder(${d.id})">📱 Recordatorio pago</button>
         </div>
-      </td>
-      <td>
-        <div class="vouchRow">
-          <input type="text" id="vouch-${d.id}" value="${d.vouched_by || ""}" placeholder="Nombre del líder" />
-          <button class="btn-sm" onclick="saveVouch(${d.id})">Guardar</button>
-        </div>
-        ${vouchLabel}
       </td>
       <td>${cancelCountCell(d)}</td>
       <td class="row-actions">
@@ -1068,17 +1011,6 @@ async function showPaymentsModal(id, name) {
 
 function closePaymentsModal() {
   document.getElementById("paymentsModal").classList.remove("active");
-}
-
-async function saveVouch(id) {
-  const vouchedBy = document.getElementById(`vouch-${id}`).value.trim();
-  await fetch(API + `/api/admin/drivers/${id}/vouch`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin, vouchedBy }),
-  });
-  showToast(vouchedBy ? "Aval guardado" : "Aval quitado");
-  loadDrivers();
 }
 </script>
 </body>
