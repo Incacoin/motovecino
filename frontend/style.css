@@ -112,6 +112,19 @@ input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(246, 166, 35, 0.35);
 }
+/* El autocompletado de Chrome/Android pinta el fondo del input de blanco
+   por encima de cualquier CSS normal — este truco (box-shadow inset gigante)
+   es la única forma confiable de forzarlo a respetar el tema oscuro. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-card) inset;
+  box-shadow: 0 0 0 1000px var(--bg-card) inset;
+  caret-color: var(--text);
+  transition: background-color 5000s ease-in-out 0s;
+}
 
 .card {
   background: var(--bg-card);
