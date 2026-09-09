@@ -95,12 +95,16 @@ function startBackupSchedule(intervalHours = 6) {
   setInterval(backupOnce, intervalHours * 60 * 60 * 1000);
 }
 
+// No incluye lastError a propósito: trae rutas de archivo internas y
+// respuestas crudas de la API de GitHub, y el único consumidor es el
+// endpoint público /api/backup-health (sin auth, lo pega UptimeRobot).
+// El detalle completo del error ya queda en los logs del servidor
+// (console.error arriba, en backupOnce).
 function getBackupStatus() {
   return {
     configured: Boolean(BACKUP_REPO && BACKUP_TOKEN),
     lastSuccessAt,
     lastAttemptAt,
-    lastError,
   };
 }
 
