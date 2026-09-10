@@ -16,7 +16,10 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  #login { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow-y: auto; gap: 16px; padding: 24px 24px 90px; text-align: center; }
+  #login {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow-y: auto; gap: 16px; padding: 24px 24px 90px; text-align: center;
+    background: radial-gradient(ellipse 340px 220px at 50% 150px, rgba(246, 166, 35, 0.14), transparent 70%);
+  }
   #login input { font-size: 26px; padding: 14px; text-align: center; letter-spacing: 6px; width: 200px; }
   #login #phoneLoginInput { font-size: 19px; letter-spacing: 0.5px; }
   #loginError { color: var(--danger); min-height: 18px; font-size: 14px; }
