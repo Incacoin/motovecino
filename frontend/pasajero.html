@@ -75,10 +75,30 @@
   #pickBar .row .btn-secondary { flex: 1; }
   #pickBar .hint { font-size: 13.5px; color: var(--text-dim); text-align: center; }
   .request-block { display: flex; flex-direction: column; gap: 6px; }
+  .pin-remove-link { margin-left: 8px; color: #c0392b; font-size: 12px; text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; font-family: inherit; }
+  .drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55); z-index: 2100; }
+  .drawer-overlay.open { display: block; }
+  .app-drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 272px; max-width: 82vw; box-sizing: border-box;
+    background: var(--bg-panel); border-right: 1px solid var(--border); box-shadow: var(--shadow-card);
+    transform: translateX(-100%); transition: transform 0.22s ease; z-index: 2101; display: flex; flex-direction: column; overflow-y: auto;
+  }
+  .app-drawer.open { transform: translateX(0); }
+  .drawer-header { padding: 26px 20px 18px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .drawer-city { color: var(--accent); font-weight: 700; font-size: 13px; }
+  .drawer-nav { display: flex; flex-direction: column; padding: 10px 0; }
+  .drawer-row {
+    display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box;
+    padding: 15px 20px; border: none; border-left: 3px solid transparent; background: none;
+    color: var(--text-dim); font-size: 15px; font-weight: 700; text-align: left; cursor: pointer;
+  }
+  .drawer-row:hover { background: var(--bg-card-hover); }
+  .drawer-row.danger { color: var(--danger); }
+  .drawer-row .row-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
   #pickHint {
-    position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 999;
-    max-width: calc(100% - 88px); background: rgba(18, 20, 27, 0.92); color: var(--text);
-    font-size: 13px; padding: 9px 16px; border-radius: 999px; text-align: center;
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 999;
+    max-width: calc(100% - 44px); background: rgba(18, 20, 27, 0.92); color: var(--text);
+    font-size: 12px; line-height: 1.35; padding: 7px 14px; border-radius: 12px; text-align: center;
     box-shadow: var(--shadow-card); backdrop-filter: blur(4px);
   }
   .pax-card { display: flex; flex-direction: column; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; }
@@ -313,8 +333,22 @@
   </div>
 </div>
 
+<div id="drawerOverlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+<div id="appDrawer" class="app-drawer">
+  <div class="drawer-header">
+    <div class="brand brand-sm"><span class="brand-icon">🛵</span>MotoVecino</div>
+    <div class="drawer-city" id="drawerCityLabel">📍 <span></span></div>
+  </div>
+  <div class="drawer-nav">
+    <button class="drawer-row" onclick="openProfile()"><span class="row-icon">🧍</span>Mi cuenta</button>
+    <button class="drawer-row" onclick="openHistory()"><span class="row-icon">🕓</span>Mis viajes</button>
+    <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon">🔁</span>Modo chofer</button>
+    <button class="drawer-row danger" onclick="logoutRider()"><span class="row-icon">🚪</span>Cerrar sesión</button>
+  </div>
+</div>
+
 <div id="mapScreen" class="screen">
-  <button id="accountBtn" onclick="openProfile()" title="Mi cuenta">
+  <button id="accountBtn" onclick="openDrawer()" title="Menú">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14110a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg>
   </button>
   <div id="map"></div>
@@ -496,6 +530,8 @@ function applyCityLabel(label) {
   resolvedCityLabel = label;
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " " + label));
   document.title = "MotoVecino " + label;
+  const drawerCity = document.querySelector("#drawerCityLabel span");
+  if (drawerCity) drawerCity.textContent = label;
 }
 
 function showToast(msg) {
@@ -1056,14 +1092,39 @@ function enterMap() {
   startAvailableDriversPolling();
 }
 
+function pickupPopupHtml(label) {
+  return `${label} <button class="pin-remove-link" onclick="removePickup()">Quitar</button>`;
+}
+
+function destPopupHtml() {
+  return `Destino <button class="pin-remove-link" onclick="removeDest()">Quitar</button>`;
+}
+
+function removePickup() {
+  if (pickupMarker) map.removeLayer(pickupMarker);
+  pickup = null;
+  pickupMarker = null;
+  document.getElementById("pickHint").textContent = "Toca el mapa para marcar dónde te recogemos";
+  document.getElementById("requestBtn").disabled = true;
+  updateFareEstimate();
+}
+
+function removeDest() {
+  if (destMarker) map.removeLayer(destMarker);
+  dest = null;
+  destMarker = null;
+  document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
+  updateFareEstimate();
+}
+
 function placePoint(latlng) {
   if (!pickup) {
     pickup = latlng;
-    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup("Recogida").openPopup();
-    document.getElementById("pickHint").textContent = "Ahora toca el mapa para marcar tu destino (opcional)";
+    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida")).openPopup();
+    document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
   } else if (!dest) {
     dest = latlng;
-    destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map).bindPopup("Destino").openPopup();
+    destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map).bindPopup(destPopupHtml()).openPopup();
     document.getElementById("pickHint").textContent = "Listo. Puedes pedir tu mototaxi";
   }
   document.getElementById("requestBtn").disabled = !pickup;
@@ -1076,9 +1137,9 @@ function useMyLocation() {
     hideLocationBanner();
     pickup = L.latLng(pos.coords.latitude, pos.coords.longitude);
     if (pickupMarker) map.removeLayer(pickupMarker);
-    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup("Recogida (tu ubicación)").openPopup();
+    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (tu ubicación)")).openPopup();
     map.setView(pickup, 16);
-    document.getElementById("pickHint").textContent = "Ahora toca el mapa para marcar tu destino (opcional)";
+    document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
     document.getElementById("requestBtn").disabled = false;
     updateFareEstimate();
   }, () => showLocationBanner());
@@ -1398,7 +1459,18 @@ function expandHistory() {
 
 let historyReturnScreen = "form";
 
+function openDrawer() {
+  document.getElementById("appDrawer").classList.add("open");
+  document.getElementById("drawerOverlay").classList.add("open");
+}
+
+function closeDrawer() {
+  document.getElementById("appDrawer").classList.remove("open");
+  document.getElementById("drawerOverlay").classList.remove("open");
+}
+
 function openProfile() {
+  closeDrawer();
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   if (!rider) return;
   document.getElementById("mapScreen").classList.remove("active");
@@ -1592,10 +1664,10 @@ function useHomeLocation() {
   if (!rider || rider.home_lat == null) return;
   pickup = L.latLng(rider.home_lat, rider.home_lng);
   if (pickupMarker) map.removeLayer(pickupMarker);
-  pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup("Recogida (mi casa)").openPopup();
+  pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (mi casa)")).openPopup();
   map.setView(pickup, 16);
   if (rider.home_label) document.getElementById("referenceInput").value = rider.home_label;
-  document.getElementById("pickHint").textContent = "Ahora toca el mapa para marcar tu destino (opcional)";
+  document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
   document.getElementById("requestBtn").disabled = false;
   updateFareEstimate();
 }
@@ -1747,6 +1819,7 @@ async function changeRiderPin() {
 }
 
 async function openHistory() {
+  closeDrawer();
   historyReturnScreen = ["mapScreen", "profileScreen"].find(
     (id) => document.getElementById(id).classList.contains("active")
   ) || "form";
