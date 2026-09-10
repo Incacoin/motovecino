@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, SERVICE_FEE, LAUNCH_DATE, TRIAL_END_DATE } = require("../constants");
+const { AVISO_LEGAL_VERSION, SERVICE_FEE, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS } = require("../constants");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById } = require("../cities");
 const { generateRiderPin } = require("./riders");
@@ -354,7 +354,11 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
     .prepare("SELECT COUNT(*) AS n FROM rides WHERE status = 'cancelado' AND date(updated_at) = date('now') AND city = ?")
     .get(city).n;
   const driversOnline = db
-    .prepare("SELECT COUNT(*) AS n FROM drivers WHERE status IN ('disponible', 'en_viaje') AND deleted_at IS NULL AND city = ?")
+    .prepare(
+      `SELECT COUNT(*) AS n FROM drivers
+       WHERE deleted_at IS NULL AND city = ?
+         AND (status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))`
+    )
     .get(city).n;
   const topDrivers = db
     .prepare(
