@@ -563,7 +563,7 @@ function startApp() {
   document.getElementById("login").style.display = "none";
   document.getElementById("app").style.display = "flex";
   document.getElementById("driverName").textContent = driver.name;
-  document.getElementById("driverName").textContent += driver.vehicle_type === "taxi" ? " · 🚕 Taxi" : " · 🛵 Moto";
+  document.getElementById("driverName").textContent += driver.vehicle_type === "taxi" ? " · 🚕 Taxi" : " · 🛵 Mototaxi";
   document.getElementById("todayCountText").textContent = `Viajes hoy: ${todayCount}`;
   if (driver.cooldown_until) applyCooldown(driver.cooldown_until);
   refreshRankBadge();
@@ -1312,7 +1312,7 @@ function renderProfile(p) {
 
   document.getElementById("profileName").textContent = p.name;
   document.getElementById("profileSub").textContent =
-    (p.vehicleType === "taxi" ? "🚕 Taxi" : "🛵 Moto") +
+    (p.vehicleType === "taxi" ? "🚕 Taxi" : "🛵 Mototaxi") +
     (p.grupo ? ` · ${p.grupo}` : "") +
     (p.createdAt ? ` · Desde ${fmtDate(p.createdAt)}` : "");
 
@@ -1370,7 +1370,7 @@ function renderProfile(p) {
     row("Teléfono", p.phone),
     row("Unidad", p.vehicle || "—"),
     row("Agrupación", p.grupo || "—"),
-    row("Tipo", p.vehicleType === "taxi" ? "Taxi" : "Moto"),
+    row("Tipo", p.vehicleType === "taxi" ? "Taxi" : "Mototaxi"),
     p.cancelCount ? row("Viajes cancelados por ti", p.cancelCount, p.cancelCount >= 3 ? "warn" : "") : "",
   ].join("");
 
