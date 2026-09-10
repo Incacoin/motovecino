@@ -34,4 +34,37 @@ function clearAttempts(ip) {
 
 const RATE_LIMIT_MESSAGE = "Demasiados intentos. Espera unos minutos e intenta de nuevo.";
 
-module.exports = { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE };
+// Límite aparte (no comparte contador con lo de arriba) para formularios
+// públicos sin PIN, como /chofer-solicitudes: ahí no hay "intento fallido"
+// que contar, pero sin ningún tope alguien podría mandar cientos de
+// solicitudes con fotos pesadas y llenar el disco del servidor. Mezclarlo
+// con el limitador de PIN bloquearía de paso el login real de choferes o
+// admin desde esa misma IP.
+// Generoso a propósito: los celulares en México suelen compartir IP pública
+// por el NAT de su operador, así que varias personas reales registrándose
+// el mismo día (ej. una tanda de reclutamiento) pueden verse como "la misma
+// IP" — esto solo busca frenar un script, no gente real coincidiendo.
+const SUBMISSION_WINDOW_MS = 60 * 60 * 1000; // 1 hora
+const MAX_SUBMISSIONS = 20;
+const submissions = new Map(); // ip -> { count, resetAt }
+
+function isSubmissionRateLimited(ip) {
+  const entry = submissions.get(ip);
+  if (!entry || Date.now() > entry.resetAt) return false;
+  return entry.count >= MAX_SUBMISSIONS;
+}
+
+function recordSubmission(ip) {
+  const now = Date.now();
+  let entry = submissions.get(ip);
+  if (!entry || now > entry.resetAt) {
+    entry = { count: 0, resetAt: now + SUBMISSION_WINDOW_MS };
+    submissions.set(ip, entry);
+  }
+  entry.count++;
+}
+
+module.exports = {
+  isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE,
+  isSubmissionRateLimited, recordSubmission,
+};

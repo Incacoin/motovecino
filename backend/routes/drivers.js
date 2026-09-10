@@ -2,7 +2,8 @@ const express = require("express");
 const db = require("../db");
 const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, SERVICE_CENTER, DRIVER_STALE_SECONDS, SERVICE_FEE, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
 const { haversineKm } = require("../geo");
-const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
+const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
+const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { DEFAULT_CITY_ID, getCityById } = require("../cities");
 
 const router = express.Router();
@@ -205,10 +206,18 @@ router.post("/drivers/photo", (req, res) => {
 });
 
 router.post("/chofer-solicitudes", (req, res) => {
+  if (isSubmissionRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
   const {
     name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, grupo, viaLiderLink, formalIntent, city,
     emergencyContactName, emergencyContactPhone, referredBy,
   } = req.body;
+  for (const img of [photo, photoPlaca, signature]) {
+    if (typeof img === "string" && img.length > MAX_APPLICATION_IMAGE_LENGTH) {
+      return res.status(413).json({ error: "Una de las fotos pesa demasiado, intenta con otra" });
+    }
+  }
   const cityId = getCityById(city) ? city : DEFAULT_CITY_ID;
   // Ticul aun corre en su propio servidor aparte de este backend unificado;
   // una solicitud etiquetada "ticul" aqui no le llegaria a ningun admin.
@@ -248,6 +257,7 @@ router.post("/chofer-solicitudes", (req, res) => {
     emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null
   );
+  recordSubmission(req.ip);
   res.status(201).json({ ok: true });
 });
 
