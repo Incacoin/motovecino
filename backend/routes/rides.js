@@ -6,6 +6,16 @@ const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } 
 
 const router = express.Router();
 
+// Verifica que el PIN de verdad sea de ese chofer antes de dejarlo tocar un
+// viaje — antes estas acciones solo pedían driverId (un entero consecutivo
+// fácil de adivinar) y cualquiera podía aceptar/completar/cancelar el viaje
+// de otro chofer sin saber su PIN.
+function driverPinValid(driverId, pin) {
+  return !!db
+    .prepare("SELECT id FROM drivers WHERE id = ? AND pin = ? AND deleted_at IS NULL")
+    .get(driverId, pin);
+}
+
 router.post("/rides", (req, res) => {
   const {
     rider_phone,
@@ -152,8 +162,16 @@ function riderInfoFor(phone) {
 
 router.post("/rides/:id/accept", (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId } = req.body;
-  if (!driverId) return res.status(400).json({ error: "Falta driverId" });
+  const { driverId, pin } = req.body;
+  if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "PIN incorrecto" });
+  }
+  clearAttempts(req.ip);
 
   // Sin esto, un doble tap en "aceptar" sobre dos solicitudes distintas (muy
   // fácil con señal lenta) dejaba al chofer "asignado" a dos viajes a la
@@ -199,7 +217,16 @@ router.post("/rides/:id/accept", (req, res) => {
 
 router.post("/rides/:id/arrived", (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId } = req.body;
+  const { driverId, pin } = req.body;
+  if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "PIN incorrecto" });
+  }
+  clearAttempts(req.ip);
 
   const result = db
     .prepare(
@@ -217,7 +244,16 @@ router.post("/rides/:id/arrived", (req, res) => {
 
 router.post("/rides/:id/start", (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId } = req.body;
+  const { driverId, pin } = req.body;
+  if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "PIN incorrecto" });
+  }
+  clearAttempts(req.ip);
 
   const result = db
     .prepare(
@@ -235,7 +271,16 @@ router.post("/rides/:id/start", (req, res) => {
 
 router.post("/rides/:id/complete", (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId } = req.body;
+  const { driverId, pin } = req.body;
+  if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "PIN incorrecto" });
+  }
+  clearAttempts(req.ip);
 
   const result = db
     .prepare(
@@ -275,9 +320,37 @@ const DRIVER_CANCEL_COOLDOWN_MIN = 5;
 
 router.post("/rides/:id/cancel", (req, res) => {
   const rideId = Number(req.params.id);
-  const { cancelledBy, reason } = req.body || {};
+  const { driverId, pin, riderPhone, riderPin, reason } = req.body || {};
   const ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
   if (!ride) return res.status(404).json({ error: "Viaje no encontrado" });
+
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+
+  // Quién cancela lo decide el servidor verificando la credencial que mandó
+  // (PIN de chofer o PIN de pasajero) — antes se confiaba en el campo
+  // "cancelledBy" que mandaba el propio navegador, así que cualquiera podía
+  // hacerse pasar por el chofer de un viaje ajeno nada más mandando
+  // cancelledBy: "driver" y el rideId.
+  let cancelledBy;
+  if (driverId) {
+    if (!driverPinValid(driverId, pin) || ride.driver_id !== Number(driverId)) {
+      recordFailedAttempt(req.ip);
+      return res.status(401).json({ error: "PIN incorrecto" });
+    }
+    cancelledBy = "driver";
+  } else if (riderPhone) {
+    const riderMatch = db.prepare("SELECT id FROM riders WHERE phone = ? AND pin = ?").get(riderPhone, riderPin);
+    if (!riderMatch || ride.rider_phone !== riderPhone) {
+      recordFailedAttempt(req.ip);
+      return res.status(401).json({ error: "Teléfono o PIN incorrectos" });
+    }
+    cancelledBy = "rider";
+  } else {
+    return res.status(400).json({ error: "Faltan credenciales" });
+  }
+  clearAttempts(req.ip);
 
   // Sin el filtro de status aquí, un cancel que llega tarde (el pasajero le
   // da "cancelar" justo cuando el chofer ya le dio "completar") volteaba un
@@ -328,10 +401,25 @@ router.post("/rides/:id/cancel", (req, res) => {
 
 router.post("/rides/:id/rate", (req, res) => {
   const rideId = Number(req.params.id);
-  const { rating } = req.body;
+  const { rating, riderPhone, riderPin } = req.body;
   if (rating !== 0 && rating !== 1) {
     return res.status(400).json({ error: "Calificación inválida" });
   }
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+
+  // Solo el pasajero de ESE viaje puede calificarlo — antes bastaba con
+  // adivinar el rideId para poder calificar (o mal-calificar) el viaje de
+  // cualquier otro chofer.
+  const ride = db.prepare("SELECT rider_phone FROM rides WHERE id = ?").get(rideId);
+  if (!ride) return res.status(404).json({ error: "Viaje no encontrado" });
+  const riderMatch = db.prepare("SELECT id FROM riders WHERE phone = ? AND pin = ?").get(riderPhone, riderPin);
+  if (!riderMatch || ride.rider_phone !== riderPhone) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "Teléfono o PIN incorrectos" });
+  }
+  clearAttempts(req.ip);
 
   const result = db
     .prepare(

@@ -1900,10 +1900,15 @@ async function shareRide() {
 
 async function rateRide(rating) {
   if (!ride) return;
+  const savedRider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   const res = await fetch(API + `/api/rides/${ride.id}/rate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rating }),
+    body: JSON.stringify({
+      rating,
+      riderPhone: savedRider ? savedRider.phone : null,
+      riderPin: savedRider ? savedRider.pin : null,
+    }),
   });
   const box = document.getElementById("ratingBox");
   if (!res.ok) {
@@ -1966,11 +1971,13 @@ async function cancelRide() {
   localStorage.removeItem("motoya_active_ride");
   stopRouteTracking();
   releaseWakeLock();
+  const savedRider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   const res = await fetch(API + `/api/rides/${ride.id}/cancel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      cancelledBy: "rider",
+      riderPhone: savedRider ? savedRider.phone : null,
+      riderPin: savedRider ? savedRider.pin : null,
       reason: wasActive ? "Pasajero salió del viaje ya en curso" : null,
     }),
   });

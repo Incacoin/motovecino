@@ -1037,7 +1037,7 @@ async function acceptRide(id) {
   const res = await fetch(API + `/api/rides/${id}/accept`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
   });
   if (!res.ok) {
     removePendingRide(id);
@@ -1070,7 +1070,7 @@ async function arriveAtPickup() {
   const res = await fetch(API + `/api/rides/${currentRide.id}/arrived`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo actualizar");
@@ -1086,7 +1086,7 @@ async function startTrip() {
   const res = await fetch(API + `/api/rides/${currentRide.id}/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo actualizar");
@@ -1101,7 +1101,7 @@ async function completeRide() {
   const res = await fetch(API + `/api/rides/${currentRide.id}/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo finalizar");
@@ -1201,7 +1201,7 @@ async function confirmCancel(reason) {
   const res = await fetch(API + `/api/rides/${rideId}/cancel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cancelledBy: "driver", reason }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, reason }),
   });
   const data = await res.json().catch(() => ({}));
   currentRide = null;
