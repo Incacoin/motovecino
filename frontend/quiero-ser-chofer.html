@@ -28,10 +28,10 @@
   .sigActions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
   .sigActions span { font-size: 12px; color: var(--text-dim); }
   .btn-clear-sign { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
-  #okScreen { display: none; padding: 26px 20px; text-align: center; }
-  #okScreen .big { font-size: 38px; }
-  #okScreen h2 { color: var(--accent); font-size: 19px; margin: 10px 0 6px; }
-  #okScreen p { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
+  #okScreen, #ticulSoonScreen { display: none; padding: 26px 20px; text-align: center; }
+  #okScreen .big, #ticulSoonScreen .big { font-size: 38px; }
+  #okScreen h2, #ticulSoonScreen h2 { color: var(--accent); font-size: 19px; margin: 10px 0 6px; }
+  #okScreen p, #ticulSoonScreen p { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
   .credit { margin-top: 22px; }
   button.btn { width: 100%; }
   #legalModalOverlay {
@@ -86,7 +86,6 @@
       <label>¿En qué ciudad vas a trabajar?</label>
       <select id="manualCitySelect" onchange="applyManualCity()">
         <option value="tekax">Tekax</option>
-        <option value="ticul">Ticul</option>
       </select>
     </div>
     <div class="field">
@@ -149,6 +148,12 @@
     <p>Te vamos a escribir por WhatsApp al número que dejaste para completar tu registro y darte tu PIN de acceso.</p>
   </div>
 
+  <div id="ticulSoonScreen" class="card">
+    <div class="big">🛵</div>
+    <h2>¡Ya casi llegamos a Ticul!</h2>
+    <p>Todavía estamos afinando los últimos detalles para abrir en Ticul. En cuanto esté listo, te avisamos — síguenos en Facebook para enterarte primero.</p>
+  </div>
+
   <p class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong></p>
 </div>
 
@@ -195,6 +200,15 @@ function applyCityFromDetection(city, label) {
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " " + label));
   document.getElementById("cityLabelInline").textContent = label;
   document.title = "MotoVecino " + label + " — Quiero ser chofer";
+
+  // Ticul todavía no está listo para recibir choferes desde este formulario
+  // (su base de datos vive en otro servidor aparte — una solicitud
+  // etiquetada "ticul" aquí no le llegaría a nadie). Mientras tanto, se
+  // muestra un aviso en vez de dejar que alguien llene todo para nada.
+  if (city === "ticul") {
+    document.getElementById("formScreen").style.display = "none";
+    document.getElementById("ticulSoonScreen").style.display = "block";
+  }
 }
 
 function showManualCityPicker() {

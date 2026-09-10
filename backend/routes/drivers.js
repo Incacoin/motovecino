@@ -210,6 +210,11 @@ router.post("/chofer-solicitudes", (req, res) => {
     emergencyContactName, emergencyContactPhone, referredBy,
   } = req.body;
   const cityId = getCityById(city) ? city : DEFAULT_CITY_ID;
+  // Ticul aun corre en su propio servidor aparte de este backend unificado;
+  // una solicitud etiquetada "ticul" aqui no le llegaria a ningun admin.
+  if (cityId === "ticul") {
+    return res.status(400).json({ error: "Ticul todavía no está disponible en este formulario" });
+  }
   if (!name || !phone || !photo) {
     return res.status(400).json({ error: "Falta nombre, teléfono o foto" });
   }
