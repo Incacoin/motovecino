@@ -182,15 +182,21 @@ router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, (req, res) =
     return res.status(400).json({ error: "No hay viajes pendientes de cobrar" });
   }
 
-  const amount = pendingRides.length * SERVICE_FEE;
+  // Liquida exactamente los viajes que se contaron arriba (por id), no lo
+  // que la misma condición devuelva en este instante: si un chofer entrega
+  // otro viaje justo entre el SELECT y el UPDATE, ese viaje nuevo no debe
+  // colarse como "ya cobrado" sin haberse sumado al monto ni al pago.
+  const ids = pendingRides.map((r) => r.id);
+  const placeholders = ids.map(() => "?").join(",");
+  const amount = ids.length * SERVICE_FEE;
   db.prepare(
-    "UPDATE rides SET fee_settled_at = datetime('now') WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
-  ).run(req.params.id);
+    `UPDATE rides SET fee_settled_at = datetime('now') WHERE id IN (${placeholders})`
+  ).run(...ids);
   db.prepare(
     "INSERT INTO driver_payments (driver_id, amount, concept, ride_count) VALUES (?, ?, 'viajes', ?)"
-  ).run(req.params.id, amount, pendingRides.length);
+  ).run(req.params.id, amount, ids.length);
 
-  res.json({ ok: true, count: pendingRides.length, amount });
+  res.json({ ok: true, count: ids.length, amount });
 });
 
 router.post("/admin/drivers/:id/payments", checkAdminPin, (req, res) => {
