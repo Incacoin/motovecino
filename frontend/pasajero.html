@@ -1123,11 +1123,11 @@ function removeDest() {
 function placePoint(latlng) {
   if (!pickup) {
     pickup = latlng;
-    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida")).openPopup();
+    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida"), { closeButton: false }).openPopup();
     document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
   } else if (!dest) {
     dest = latlng;
-    destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map).bindPopup(destPopupHtml()).openPopup();
+    destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map).bindPopup(destPopupHtml(), { closeButton: false }).openPopup();
     document.getElementById("pickHint").textContent = "Listo. Puedes pedir tu mototaxi";
   }
   document.getElementById("requestBtn").disabled = !pickup;
@@ -1140,7 +1140,7 @@ function useMyLocation() {
     hideLocationBanner();
     pickup = L.latLng(pos.coords.latitude, pos.coords.longitude);
     if (pickupMarker) map.removeLayer(pickupMarker);
-    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (tu ubicación)")).openPopup();
+    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (tu ubicación)"), { closeButton: false }).openPopup();
     map.setView(pickup, 16);
     document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
     document.getElementById("requestBtn").disabled = false;
@@ -1672,7 +1672,7 @@ function useHomeLocation() {
   if (!rider || rider.home_lat == null) return;
   pickup = L.latLng(rider.home_lat, rider.home_lng);
   if (pickupMarker) map.removeLayer(pickupMarker);
-  pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (mi casa)")).openPopup();
+  pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (mi casa)"), { closeButton: false }).openPopup();
   map.setView(pickup, 16);
   if (rider.home_label) document.getElementById("referenceInput").value = rider.home_label;
   document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
