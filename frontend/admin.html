@@ -430,6 +430,7 @@ const DRIVER_STALE_SECONDS = 90;
 let pendingDriverPhoto = null;
 let pendingDriverPhotoPlaca = null;
 let pendingDriverSignature = null;
+let pendingApplicationId = null;
 let lastRegistered = null;
 let editingId = null;
 let ridesPollTimer = null;
@@ -656,9 +657,13 @@ function useApplication(id) {
   pendingDriverPhoto = app.photo || null;
   pendingDriverPhotoPlaca = app.photo_placa || null;
   pendingDriverSignature = app.signature || null;
+  // La solicitud NO se descarta hasta que el chofer se cree de verdad (ver
+  // registerDriver) — descartarla aquí perdía la solicitud completa (fotos,
+  // firma, todo) si el alta fallaba después (ej. nombre duplicado) o el
+  // admin nunca llegaba a terminarla.
+  pendingApplicationId = id;
   renderPendingPhotoPreview();
   document.getElementById("driverName").scrollIntoView({ behavior: "smooth", block: "center" });
-  dismissApplication(id, true);
 }
 
 function renderPendingPhotoPreview() {
@@ -768,6 +773,13 @@ async function registerDriver() {
   pendingDriverPhotoPlaca = null;
   pendingDriverSignature = null;
   renderPendingPhotoPreview();
+
+  // Recién aquí, con el chofer ya creado de verdad, se descarta la
+  // solicitud de la que salieron estos datos (si vino de una).
+  if (pendingApplicationId !== null) {
+    dismissApplication(pendingApplicationId, true);
+    pendingApplicationId = null;
+  }
 
   loadDrivers();
 }
