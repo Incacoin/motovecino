@@ -1174,6 +1174,11 @@ async function requestRide() {
       service_kind: serviceCategory,
     }),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    showToast(err.error || "No se pudo pedir el viaje, intenta de nuevo");
+    return;
+  }
   ride = await res.json();
   localStorage.setItem("motoya_active_ride", String(ride.id));
   showTripCountBadge(ride.riderTripCount);
@@ -1958,7 +1963,7 @@ async function cancelRide() {
   localStorage.removeItem("motoya_active_ride");
   stopRouteTracking();
   releaseWakeLock();
-  await fetch(API + `/api/rides/${ride.id}/cancel`, {
+  const res = await fetch(API + `/api/rides/${ride.id}/cancel`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1966,6 +1971,7 @@ async function cancelRide() {
       reason: wasActive ? "Pasajero salió del viaje ya en curso" : null,
     }),
   });
+  if (!res.ok) showToast("No se pudo avisar la cancelación al servidor — si el chofer sigue en camino, contáctalo directo");
   document.getElementById("statusText").textContent = "Viaje cancelado.";
   document.getElementById("connWarning").style.display = "none";
   hideChat();

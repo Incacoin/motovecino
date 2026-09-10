@@ -142,6 +142,7 @@ function attach(httpServer) {
             msg.status,
             driverId
           );
+          if (msg.status === "disponible") notifyPendingRides(driverId);
         } else if (msg.type === "chat" && typeof msg.text === "string" && msg.text.trim()) {
           const text = msg.text.trim().slice(0, 300);
           if (msg.rideId) {
@@ -258,6 +259,34 @@ function broadcastNewRide(ride) {
     if (distanceKm > MAX_MATCH_DISTANCE_KM) continue;
     const ws = driverSockets.get(driver.id);
     if (ws) send(ws, "new_ride", ride);
+  }
+}
+
+// Un chofer que se marca disponible (o reconecta) DESPUÉS de que ya se creó
+// un viaje nunca se enteraba de él — broadcastNewRide solo avisa una vez, al
+// momento de crear el viaje. Esto lo pone al día con lo que ya está
+// esperando chofer y sigue dentro de su alcance real.
+function notifyPendingRides(driverId) {
+  const driver = db
+    .prepare(
+      "SELECT id, lat, lng, vehicle_type FROM drivers WHERE id = ? AND status = 'disponible' AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
+    )
+    .get(driverId);
+  if (!driver || driver.lat == null || driver.lng == null) return;
+  const ws = driverSockets.get(driverId);
+  if (!ws) return;
+
+  const pending = db
+    .prepare("SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ?")
+    .all(driver.vehicle_type);
+  for (const ride of pending) {
+    const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
+    if (distanceKm > MAX_MATCH_DISTANCE_KM) continue;
+    const riderRow = db.prepare("SELECT photo FROM riders WHERE phone = ?").get(ride.rider_phone);
+    const { trips } = db
+      .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_phone = ? AND status = 'completado'")
+      .get(ride.rider_phone);
+    send(ws, "new_ride", { ...ride, riderTripCount: trips, riderPhoto: riderRow ? riderRow.photo : null });
   }
 }
 
