@@ -24,6 +24,14 @@ const DISCONNECT_GRACE_MS = 20000;
 // nadie lo acepte, probablemente no hay oferta suficiente en ese momento.
 const NO_DRIVER_GRACE_MS = 60000;
 
+// Si un pasajero o chofer se quedó a medias (app cerrada, celular apagado,
+// etc.) con un viaje ya asignado, se da por abandonado tras esto — mismo
+// límite que usaba antes la limpieza perezosa de GET /rides/:id.
+const ABANDONED_AFTER_MIN = 60;
+
+// Cada cuánto revisa el barrido de viajes vencidos (ver sweepStaleRides).
+const SWEEP_INTERVAL_MS = 30000;
+
 // Un chofer normalmente solo tiene un viaje activo a la vez, pero si su app se
 // recargó a medio viaje (pantalla apagada, refresh) el viaje viejo se queda
 // "aceptado" en la base aunque el chofer ya siga con otro. ORDER BY id DESC
@@ -79,7 +87,7 @@ function startNoDriverTimer(rideId) {
     if (!ride || ride.status !== "buscando") return;
 
     db.prepare(
-      "UPDATE rides SET status = 'cancelado', updated_at = datetime('now') WHERE id = ?"
+      "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = 'system', cancel_reason = 'Nadie lo tomó a tiempo' WHERE id = ?"
     ).run(rideId);
     notifyRide(rideId, "no_drivers_available", {});
     broadcastRideRemoved(rideId);
@@ -95,8 +103,69 @@ function clearNoDriverTimer(rideId) {
   }
 }
 
+// Cierra solo, sin que nadie tenga que pedirlo, cualquier viaje que ya se
+// pasó de su tiempo — antes esto dependía de que alguien siguiera
+// consultando ese viaje específico (GET /rides/:id) o de un setTimeout en
+// memoria que se borra cada vez que el servidor reinicia (cada deploy).
+// Un pasajero que pide un viaje y cierra la app sin cancelar dejaba el
+// viaje "buscando" para siempre — y con notifyPendingRides ahora activo,
+// ese viaje fantasma se le podía ofrecer a cualquier chofer que se
+// conectara días después. Este barrido corre solo mientras el proceso esté
+// vivo, sin depender de que nadie lo dispare.
+function sweepStaleRides() {
+  try {
+    const stuckSearching = db
+      .prepare(
+        "SELECT id FROM rides WHERE status = 'buscando' AND (julianday('now') - julianday(created_at)) * 86400000 > ?"
+      )
+      .all(NO_DRIVER_GRACE_MS);
+    for (const ride of stuckSearching) {
+      db.prepare(
+        "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = 'system', cancel_reason = 'Nadie lo tomó a tiempo' WHERE id = ? AND status = 'buscando'"
+      ).run(ride.id);
+      clearNoDriverTimer(ride.id);
+      notifyRide(ride.id, "no_drivers_available", {});
+      broadcastRideRemoved(ride.id);
+    }
+
+    // Se mide desde updated_at (el último cambio de estado real), no desde
+    // created_at — un viaje largo que sigue avanzando de verdad (aceptado ->
+    // llegue -> en_curso, cada paso resetea updated_at) nunca debe cancelarse
+    // solo por llevar mucho tiempo pedido; lo que importa es que lleve mucho
+    // tiempo SIN AVANZAR.
+    const stuckActive = db
+      .prepare(
+        "SELECT id, driver_id FROM rides WHERE status IN ('aceptado', 'llegue', 'en_curso') AND (julianday('now') - julianday(updated_at)) * 24 * 60 > ?"
+      )
+      .all(ABANDONED_AFTER_MIN);
+    for (const ride of stuckActive) {
+      db.prepare(
+        "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = 'system', cancel_reason = ? WHERE id = ?"
+      ).run(`Abandonado automáticamente tras ${ABANDONED_AFTER_MIN} min sin avanzar`, ride.id);
+      if (ride.driver_id) {
+        db.prepare("UPDATE drivers SET status = 'disponible' WHERE id = ?").run(ride.driver_id);
+        notifyDriver(ride.driver_id, "ride_cancelled", { rideId: ride.id });
+      }
+      clearDisconnectTimer(ride.id);
+      clearNoDriverTimer(ride.id);
+      clearPreAcceptContact(ride.id);
+      // El pasajero escucha "status_change" (igual que /cancel y el resto
+      // del ciclo de vida del viaje), no "ride_cancelled" — ese tipo es solo
+      // para el canal del chofer. Mandar el equivocado aquí dejaba al
+      // pasajero pegado en la pantalla de viaje activo para siempre.
+      notifyRide(ride.id, "status_change", { status: "cancelado" });
+    }
+  } catch (err) {
+    // Un error aquí (ej. la base ocupada un instante) no debe tumbar todo el
+    // servidor — este intervalo corre para siempre en segundo plano, sin la
+    // red de seguridad que Express ya le da a las rutas normales.
+    console.error("[sweepStaleRides] error:", err);
+  }
+}
+
 function attach(httpServer) {
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
+  setInterval(sweepStaleRides, SWEEP_INTERVAL_MS);
 
   wss.on("connection", (ws, req) => {
     const { query } = url.parse(req.url, true);
@@ -277,8 +346,10 @@ function notifyPendingRides(driverId) {
   if (!ws) return;
 
   const pending = db
-    .prepare("SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ?")
-    .all(driver.vehicle_type);
+    .prepare(
+      "SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ? AND (julianday('now') - julianday(created_at)) * 86400000 <= ?"
+    )
+    .all(driver.vehicle_type, NO_DRIVER_GRACE_MS);
   for (const ride of pending) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > MAX_MATCH_DISTANCE_KM) continue;
@@ -319,6 +390,7 @@ function clearPreAcceptContact(rideId) {
 
 module.exports = {
   attach,
+  ABANDONED_AFTER_MIN,
   notifyRide,
   broadcastNewRide,
   clearPreAcceptContact,

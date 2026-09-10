@@ -95,11 +95,11 @@ router.post("/rides", (req, res) => {
 });
 
 // Si un pasajero o chofer se quedó a medias (app cerrada, celular apagado,
-// etc.) el viaje se queda "vivo" para siempre y nadie puede pedir uno nuevo
-// ni el chofer vuelve a estar disponible. Cada vez que alguien consulta un
-// viaje que ya lleva demasiado tiempo sin terminar, se da por abandonado
-// aquí mismo — no hace falta un proceso aparte corriendo en segundo plano.
-const ABANDONED_AFTER_MIN = 60;
+// etc.) el viaje se queda "vivo" — esta revisión perezosa lo cierra en
+// cuanto alguien consulta ese viaje específico, como respaldo rápido del
+// barrido real que corre solo cada 30s en realtime.js (sweepStaleRides),
+// que es el que de verdad garantiza que se cierre aunque nadie lo consulte.
+const { ABANDONED_AFTER_MIN } = realtime;
 
 router.get("/rides/:id", (req, res) => {
   let ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(req.params.id);

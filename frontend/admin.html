@@ -995,8 +995,9 @@ function renderRideRows(rides) {
       ? `<br><span class="ago" style="color:var(--danger);">⚠ desconectado ${timeAgo(r.driver_disconnected_at)}</span>`
       : "";
     const rating = r.rating === 1 ? " 👍" : r.rating === 0 ? " 👎" : "";
+    const cancelledByLabel = r.cancelled_by === "driver" ? "canceló el chofer" : r.cancelled_by === "system" ? "cancelado automático" : "canceló el pasajero";
     const cancelNote = r.status === "cancelado" && r.cancelled_by
-      ? `<br><span class="ago">${r.cancelled_by === "driver" ? "canceló el chofer" : "canceló el pasajero"}${r.cancel_reason ? " · " + r.cancel_reason : ""}</span>`
+      ? `<br><span class="ago">${cancelledByLabel}${r.cancel_reason ? " · " + r.cancel_reason : ""}</span>`
       : "";
     return `
     <tr>
