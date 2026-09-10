@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, SERVICE_CENTER, DRIVER_STALE_SECONDS, SERVICE_FEE, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
+const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, DRIVER_STALE_SECONDS, SERVICE_FEE, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
@@ -21,7 +21,11 @@ router.get("/drivers/available", (req, res) => {
   const refLat = Number(req.query.lat);
   const refLng = Number(req.query.lng);
   const hasRef = Number.isFinite(refLat) && Number.isFinite(refLng);
-  const ref = hasRef ? { lat: refLat, lng: refLng } : SERVICE_CENTER;
+  // El centro de Tekax vive en un solo lugar (cities.js) — antes había un
+  // segundo "centro" hardcodeado aquí (SERVICE_CENTER) que quedó mal
+  // cargado (~19 km de distancia del real) y nadie lo notó porque solo
+  // se usaba en los primeros segundos, antes de que el GPS resolviera.
+  const ref = hasRef ? { lat: refLat, lng: refLng } : getCityById(DEFAULT_CITY_ID);
 
   const drivers = db
     .prepare(
