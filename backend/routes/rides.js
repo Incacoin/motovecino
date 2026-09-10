@@ -155,6 +155,19 @@ router.post("/rides/:id/accept", (req, res) => {
   const { driverId } = req.body;
   if (!driverId) return res.status(400).json({ error: "Falta driverId" });
 
+  // Sin esto, un doble tap en "aceptar" sobre dos solicitudes distintas (muy
+  // fácil con señal lenta) dejaba al chofer "asignado" a dos viajes a la
+  // vez: su pantalla solo puede mostrar uno, así que el otro pasajero se
+  // quedaba esperando a un chofer que nunca se iba a enterar.
+  const alreadyActive = db
+    .prepare(
+      "SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')"
+    )
+    .get(driverId);
+  if (alreadyActive) {
+    return res.status(409).json({ error: "Ya tienes otro viaje activo" });
+  }
+
   const result = db
     .prepare(
       "UPDATE rides SET driver_id = ?, status = 'aceptado', updated_at = datetime('now') WHERE id = ? AND status = 'buscando'"
@@ -266,9 +279,18 @@ router.post("/rides/:id/cancel", (req, res) => {
   const ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
   if (!ride) return res.status(404).json({ error: "Viaje no encontrado" });
 
-  db.prepare(
-    "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), driver_disconnected_at = NULL, cancelled_by = ?, cancel_reason = ? WHERE id = ?"
-  ).run(cancelledBy || null, reason || null, rideId);
+  // Sin el filtro de status aquí, un cancel que llega tarde (el pasajero le
+  // da "cancelar" justo cuando el chofer ya le dio "completar") volteaba un
+  // viaje ya terminado — con cobro y calificación ya hechos — de vuelta a
+  // "cancelado", dejando esos datos de dinero inconsistentes.
+  const result = db
+    .prepare(
+      "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), driver_disconnected_at = NULL, cancelled_by = ?, cancel_reason = ? WHERE id = ? AND status NOT IN ('completado', 'cancelado')"
+    )
+    .run(cancelledBy || null, reason || null, rideId);
+  if (result.changes === 0) {
+    return res.status(409).json({ error: "Este viaje ya terminó y no se puede cancelar" });
+  }
   realtime.clearDisconnectTimer(rideId);
   realtime.clearNoDriverTimer(rideId);
   realtime.clearPreAcceptContact(rideId);
