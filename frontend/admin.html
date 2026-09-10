@@ -253,6 +253,21 @@
     <input id="driverVehicle" placeholder="Ej. Mototaxi rojo, placa ABC123" />
   </div>
   <div class="field">
+    <label>Contacto de emergencia — nombre (opcional)</label>
+    <input id="driverEmergencyName" placeholder="Nombre de su contacto" />
+  </div>
+  <div class="field">
+    <label>Contacto de emergencia — teléfono (opcional)</label>
+    <div class="phoneRow">
+      <span class="prefix">+52</span>
+      <input id="driverEmergencyPhone" placeholder="10 dígitos" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '')" />
+    </div>
+  </div>
+  <div class="field">
+    <label>¿Quién lo invitó? (opcional)</label>
+    <input id="driverReferredBy" placeholder="Ej. Sergio" />
+  </div>
+  <div class="field">
     <label>Servicio</label>
     <select id="driverVehicleType" class="tipo-select">
       <option value="moto">🛵 Moto (viajes cortos)</option>
@@ -616,6 +631,8 @@ function renderApplications(apps) {
             <span class="name">${a.name}</span>
             <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
             <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}</span>
+            ${a.referred_by ? `<span class="meta">🤝 Invitado por ${a.referred_by}</span>` : ""}
+            ${a.emergency_contact_name ? `<span class="meta">🚨 Emergencia: ${a.emergency_contact_name} · ${a.emergency_contact_phone}</span>` : ""}
           </div>
         </div>
         <div class="row-actions">
@@ -632,6 +649,9 @@ function useApplication(id) {
   document.getElementById("driverName").value = app.name;
   document.getElementById("driverPhone").value = app.phone;
   document.getElementById("driverVehicleType").value = app.vehicle_type === "taxi" ? "taxi" : "moto";
+  document.getElementById("driverEmergencyName").value = app.emergency_contact_name || "";
+  document.getElementById("driverEmergencyPhone").value = app.emergency_contact_phone || "";
+  document.getElementById("driverReferredBy").value = app.referred_by || "";
   pendingDriverPhoto = app.photo || null;
   pendingDriverPhotoPlaca = app.photo_placa || null;
   pendingDriverSignature = app.signature || null;
@@ -702,6 +722,9 @@ async function registerDriver() {
   const phone = document.getElementById("driverPhone").value.trim();
   const vehicle = document.getElementById("driverVehicle").value.trim();
   const vehicleType = document.getElementById("driverVehicleType").value;
+  const emergencyContactName = document.getElementById("driverEmergencyName").value.trim();
+  const emergencyContactPhone = document.getElementById("driverEmergencyPhone").value.trim();
+  const referredBy = document.getElementById("driverReferredBy").value.trim();
   document.getElementById("err2").textContent = "";
 
   if (!name || !phone) {
@@ -716,7 +739,10 @@ async function registerDriver() {
   const res = await fetch(API + "/api/admin/drivers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature }),
+    body: JSON.stringify({
+      adminPin, name, phone, vehicle, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature,
+      emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
+    }),
   });
   if (!res.ok) {
     document.getElementById("err2").textContent = (await res.json()).error;
@@ -732,6 +758,9 @@ async function registerDriver() {
   document.getElementById("driverName").value = "";
   document.getElementById("driverPhone").value = "";
   document.getElementById("driverVehicle").value = "";
+  document.getElementById("driverEmergencyName").value = "";
+  document.getElementById("driverEmergencyPhone").value = "";
+  document.getElementById("driverReferredBy").value = "";
   document.getElementById("driverVehicleType").value = "moto";
   document.getElementById("driverAcceptedLegal").checked = false;
   pendingDriverPhoto = null;
@@ -946,9 +975,12 @@ function renderDriverRows() {
     const sigThumb = d.signature
       ? `<img class="thumb" style="background:#fff" src="${d.signature}" onclick="viewImage('${d.signature}')" title="Firma del contrato" />`
       : "";
+    const nameWithReferral = d.referred_by
+      ? `<span>${d.name}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${d.referred_by}</div>`
+      : `<span>${d.name}</span>`;
     const nameCell = d.photo
-      ? `<div class="info"><img class="thumb" src="${d.photo}" onclick="viewImage('${d.photo}')" />${placaThumb}${sigThumb}<span>${d.name}</span></div>`
-      : d.name;
+      ? `<div class="info"><img class="thumb" src="${d.photo}" onclick="viewImage('${d.photo}')" />${placaThumb}${sigThumb}<div>${nameWithReferral}</div></div>`
+      : nameWithReferral;
     return `
     <tr>
       <td>${nameCell}</td>

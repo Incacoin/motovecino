@@ -406,4 +406,43 @@ try {
   // la columna ya existe
 }
 
+// Contacto de emergencia del propio chofer — mismo campo que ya existe para
+// riders, pero para el chofer no había ninguno: si tiene un accidente en la
+// calle, hoy no hay a quién avisar desde la app.
+try {
+  db.exec("ALTER TABLE drivers ADD COLUMN emergency_contact_name TEXT");
+} catch {
+  // la columna ya existe
+}
+try {
+  db.exec("ALTER TABLE drivers ADD COLUMN emergency_contact_phone TEXT");
+} catch {
+  // la columna ya existe
+}
+try {
+  db.exec("ALTER TABLE driver_applications ADD COLUMN emergency_contact_name TEXT");
+} catch {
+  // la columna ya existe
+}
+try {
+  db.exec("ALTER TABLE driver_applications ADD COLUMN emergency_contact_phone TEXT");
+} catch {
+  // la columna ya existe
+}
+
+// Quién invitó a este chofer — ya no hay gremios ni líder que avale a nadie,
+// así que este campo (opcional, texto libre) es el único rastro informal de
+// confianza que queda cuando alguien trae a su gente (ver conversación sobre
+// Sergio y la ola de choferes de Tekax).
+try {
+  db.exec("ALTER TABLE drivers ADD COLUMN referred_by TEXT");
+} catch {
+  // la columna ya existe
+}
+try {
+  db.exec("ALTER TABLE driver_applications ADD COLUMN referred_by TEXT");
+} catch {
+  // la columna ya existe
+}
+
 module.exports = db;

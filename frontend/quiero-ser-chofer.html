@@ -108,10 +108,26 @@
       <input type="file" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
       <img id="photoPlacaPreview" />
     </div>
+    <div class="field">
+      <label>Contacto de emergencia — nombre</label>
+      <p class="fieldHint">A quién avisar si te pasa algo en la calle.</p>
+      <input id="emergencyName" placeholder="Nombre de tu contacto" />
+    </div>
+    <div class="field">
+      <label>Contacto de emergencia — teléfono</label>
+      <div class="phoneRow">
+        <span class="prefix">+52</span>
+        <input id="emergencyPhone" placeholder="10 dígitos" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '')" />
+      </div>
+    </div>
+    <div class="field">
+      <label>¿Quién te invitó a MotoVecino? (opcional)</label>
+      <input id="referredBy" placeholder="Ej. Sergio, o 'Facebook' si viste el anuncio" />
+    </div>
     <div class="field legalField">
       <label class="legalCheck">
         <input type="checkbox" id="acceptLegal" />
-        <span>He leído y acepto el <a href="aviso-legal.html" onclick="return openLegalModal(this.href)">Aviso Legal de MotoVecino</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad.</span>
+        <span>He leído y acepto el <a href="aviso-legal.html" onclick="return openLegalModal(this.href)">Aviso Legal de MotoVecino</a>. Entiendo que opero como conductor independiente, bajo mi propia responsabilidad, y confirmo que soy mayor de edad.</span>
       </label>
     </div>
     <div class="field">
@@ -316,6 +332,16 @@ async function submitApplication() {
     err.textContent = "Falta la foto de ti con tu moto";
     return;
   }
+  const emergencyName = document.getElementById("emergencyName").value.trim();
+  const emergencyPhone = document.getElementById("emergencyPhone").value.trim();
+  if (!emergencyName || !emergencyPhone) {
+    err.textContent = "Falta el nombre o teléfono de tu contacto de emergencia";
+    return;
+  }
+  if (emergencyPhone.length !== 10) {
+    err.textContent = "El teléfono del contacto de emergencia debe tener 10 dígitos";
+    return;
+  }
   if (!document.getElementById("acceptLegal").checked) {
     err.textContent = "Debes aceptar el aviso legal para continuar";
     return;
@@ -332,6 +358,8 @@ async function submitApplication() {
     body: JSON.stringify({
       name, phone, photo: photoDataUrl, photoPlaca: photoPlacaDataUrl, acceptedLegal: true,
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
+      emergencyContactName: emergencyName, emergencyContactPhone: emergencyPhone,
+      referredBy: document.getElementById("referredBy").value.trim() || null,
     }),
   });
   if (!res.ok) {

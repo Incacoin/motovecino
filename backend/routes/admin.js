@@ -58,7 +58,10 @@ router.post("/admin/login", checkAdminPin, (req, res) => {
 });
 
 router.post("/admin/drivers", checkAdminPin, (req, res) => {
-  const { name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, grupo } = req.body;
+  const {
+    name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, grupo,
+    emergencyContactName, emergencyContactPhone, referredBy,
+  } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
   }
@@ -90,12 +93,15 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
   const pin = generateDriverPin();
   const result = db
     .prepare(
-      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
-    .run(name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, photo || null, photoPlaca || null, signature || null, vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId);
+    .run(
+      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, photo || null, photoPlaca || null, signature || null, vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId,
+      emergencyContactName || null, emergencyContactPhone || null, referredBy || null
+    );
 
   const driver = db
-    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city FROM drivers WHERE id = ?")
+    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
 
   res.status(201).json(driver);
@@ -106,6 +112,7 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
               d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.created_at,
+              d.emergency_contact_name, d.emergency_contact_phone, d.referred_by,
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
               (SELECT paid_at FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_at,
               (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides
@@ -276,7 +283,7 @@ router.post("/admin/drivers/:id/delete", checkAdminPin, (req, res) => {
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, (req, res) => {
   const apps = db
     .prepare(
-      "SELECT id, name, phone, photo, photo_placa, signature, status, created_at, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, city FROM driver_applications WHERE status = 'pendiente' AND city = ? ORDER BY created_at DESC"
+      "SELECT id, name, phone, photo, photo_placa, signature, status, created_at, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, city, emergency_contact_name, emergency_contact_phone, referred_by FROM driver_applications WHERE status = 'pendiente' AND city = ? ORDER BY created_at DESC"
     )
     .all(req.adminCity);
   res.json(apps);

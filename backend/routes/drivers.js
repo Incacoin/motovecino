@@ -205,10 +205,16 @@ router.post("/drivers/photo", (req, res) => {
 });
 
 router.post("/chofer-solicitudes", (req, res) => {
-  const { name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, grupo, viaLiderLink, formalIntent, city } = req.body;
+  const {
+    name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, grupo, viaLiderLink, formalIntent, city,
+    emergencyContactName, emergencyContactPhone, referredBy,
+  } = req.body;
   const cityId = getCityById(city) ? city : DEFAULT_CITY_ID;
   if (!name || !phone || !photo) {
     return res.status(400).json({ error: "Falta nombre, teléfono o foto" });
+  }
+  if (!emergencyContactName || !emergencyContactPhone) {
+    return res.status(400).json({ error: "Falta el contacto de emergencia" });
   }
   if (!acceptedLegal) {
     return res.status(400).json({ error: "Debes aceptar el aviso legal para continuar" });
@@ -231,8 +237,12 @@ router.post("/chofer-solicitudes", (req, res) => {
   }
 
   db.prepare(
-    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)"
-  ).run(name, phone, photo, photoPlaca || null, AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, signature, cityId);
+    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(
+    name, phone, photo, photoPlaca || null, AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, signature, cityId,
+    emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
+    typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null
+  );
   res.status(201).json({ ok: true });
 });
 
