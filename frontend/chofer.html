@@ -569,7 +569,7 @@ function startApp() {
   refreshRankBadge();
   showDriverTierBadge(driver.lifetimeTrips);
 
-  map = L.map("map").setView([20.2098, -89.4620], 14); // Tekax aprox
+  map = L.map("map").setView([20.2071, -89.2809], 14); // Tekax aprox, antes de que resuelva el GPS
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);

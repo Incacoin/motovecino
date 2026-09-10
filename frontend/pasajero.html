@@ -72,7 +72,7 @@
   }
   .sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--border); margin: 0 auto 2px; }
   #pickBar .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-  #pickBar .row .btn-secondary { flex: 1; }
+  #pickBar .row .btn-secondary { flex: 1; font-size: 12.5px; padding: 9px 6px; white-space: nowrap; }
   #pickBar .hint { font-size: 13.5px; color: var(--text-dim); text-align: center; }
   .request-block { display: flex; flex-direction: column; gap: 6px; }
   .pin-remove-link { margin-left: 8px; color: #c0392b; font-size: 12px; text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; font-family: inherit; }
@@ -368,7 +368,7 @@
       <button class="service-tab" id="catMandado" onclick="setServiceCategory('mandado')">📦 Mandado</button>
     </div>
     <div class="row">
-      <button class="btn btn-secondary" onclick="useMyLocation()">Usar mi ubicación</button>
+      <button class="btn btn-secondary" onclick="useMyLocation()">📍 Mi ubicación</button>
       <button class="btn btn-secondary" id="useHomeBtn" style="display:none;" onclick="useHomeLocation()">🏠 Mi casa</button>
       <button class="btn btn-secondary" onclick="resetPins()">Borrar pines</button>
     </div>
@@ -1069,7 +1069,7 @@ function enterMap() {
   document.getElementById("mapScreen").classList.add("active");
   updateUseHomeBtn();
 
-  map = L.map("map").setView([20.2098, -89.4620], 14); // Ticul aprox
+  map = L.map("map").setView([20.2071, -89.2809], 14); // Tekax aprox, antes de que resuelva el GPS
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
