@@ -2,7 +2,7 @@ module.exports = {
   // Sube esta fecha cada vez que cambie el TEXTO del aviso legal o el
   // contrato (no por cambios de marca/cosméticos) — es lo que queda grabado
   // como "versión que aceptó" cada chofer al registrarse.
-  AVISO_LEGAL_VERSION: "2026-09-02",
+  AVISO_LEGAL_VERSION: "2026-09-10",
   LAUNCH_DATE: "2026-08-14",
   // Cuota mensual descontinuada 2026-09-08: ya no se cobra, solo queda el
   // cobro por viaje (SERVICE_FEE). En 0 para que las pantallas de chofer y
