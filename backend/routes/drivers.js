@@ -79,16 +79,24 @@ router.post("/drivers/login", (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const { pin } = req.body;
+  // Antes se entraba solo con el PIN (4 dígitos, 10,000 combinaciones) sin
+  // decir de quién es — a quien adivinara CUALQUIER PIN válido le servía,
+  // no hacía falta apuntarle a un chofer en particular. Pedir también el
+  // teléfono (igual que ya hace el login de pasajero) obliga a saber a
+  // quién se le apunta, no solo un número de 4 dígitos cualquiera.
+  const { phone, pin } = req.body;
+  if (!phone || !pin) {
+    return res.status(400).json({ error: "Falta teléfono o PIN" });
+  }
   const driver = db
     .prepare(
-      "SELECT id, name, phone, vehicle, vehicle_type, status, cooldown_until FROM drivers WHERE pin = ? AND deleted_at IS NULL"
+      "SELECT id, name, phone, vehicle, vehicle_type, status, cooldown_until FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL"
     )
-    .get(pin);
+    .get(phone, pin);
 
   if (!driver) {
     recordFailedAttempt(req.ip);
-    return res.status(404).json({ error: "PIN no encontrado" });
+    return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
 
@@ -108,24 +116,27 @@ router.post("/drivers/login", (req, res) => {
 });
 
 // Pantalla "Mi perfil" del chofer. Se autentica igual que el login: con su
-// propio PIN — nunca con un id que mande el cliente, para que nadie pueda
-// pedir el perfil (ni el estado de cuenta) de otro chofer.
+// propio teléfono + PIN — nunca con un id que mande el cliente, para que
+// nadie pueda pedir el perfil (ni el estado de cuenta) de otro chofer.
 router.post("/drivers/profile", (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const { pin } = req.body;
+  const { phone, pin } = req.body;
+  if (!phone || !pin) {
+    return res.status(400).json({ error: "Falta teléfono o PIN" });
+  }
   const driver = db
     .prepare(
       `SELECT id, name, phone, vehicle, vehicle_type, grupo, photo, tipo, pin, created_at,
               paid_until, cancel_count
-       FROM drivers WHERE pin = ? AND deleted_at IS NULL`
+       FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
-    .get(pin);
+    .get(phone, pin);
 
   if (!driver) {
     recordFailedAttempt(req.ip);
-    return res.status(404).json({ error: "PIN no encontrado" });
+    return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
 
@@ -188,14 +199,17 @@ router.post("/drivers/photo", (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const { pin, photo } = req.body;
+  const { phone, pin, photo } = req.body;
+  if (!phone || !pin) {
+    return res.status(400).json({ error: "Falta teléfono o PIN" });
+  }
   const driver = db
-    .prepare("SELECT id FROM drivers WHERE pin = ? AND deleted_at IS NULL")
-    .get(pin);
+    .prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
+    .get(phone, pin);
 
   if (!driver) {
     recordFailedAttempt(req.ip);
-    return res.status(404).json({ error: "PIN no encontrado" });
+    return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
   if (typeof photo !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(photo)) {
