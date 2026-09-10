@@ -426,6 +426,7 @@ let adminCityLabel = "Tekax";
 let launchRankingCache = [];
 let driversCache = [];
 let applicationsCache = [];
+const DRIVER_STALE_SECONDS = 90;
 let pendingDriverPhoto = null;
 let pendingDriverPhotoPlaca = null;
 let pendingDriverSignature = null;
@@ -787,7 +788,13 @@ async function loadDrivers() {
 function renderOnlineDrivers() {
   const el = document.getElementById("onlineDriversList");
   if (!el) return;
-  const online = driversCache.filter((d) => d.status === "disponible" || d.status === "en_viaje");
+  const online = driversCache.filter((d) => {
+    if (d.status === "en_viaje") return true;
+    if (d.status !== "disponible") return false;
+    if (!d.last_seen) return false;
+    const secondsSinceSeen = (Date.now() - Date.parse(d.last_seen.replace(" ", "T") + "Z")) / 1000;
+    return secondsSinceSeen <= DRIVER_STALE_SECONDS;
+  });
   el.innerHTML = online.length
     ? online.map((d) => `
       <div class="card app-row">
