@@ -4,7 +4,7 @@ const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, DRIVER_STALE_SECONDS, SERVIC
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
-const { DEFAULT_CITY_ID, getCityById } = require("../cities");
+const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius } = require("../cities");
 
 const router = express.Router();
 
@@ -229,7 +229,7 @@ router.post("/chofer-solicitudes", (req, res) => {
   }
   const {
     name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, grupo, viaLiderLink, formalIntent, city,
-    emergencyContactName, emergencyContactPhone, referredBy,
+    emergencyContactName, emergencyContactPhone, referredBy, lat, lng,
   } = req.body;
   for (const img of [photo, photoPlaca, signature]) {
     if (typeof img === "string" && img.length > MAX_APPLICATION_IMAGE_LENGTH) {
@@ -241,6 +241,14 @@ router.post("/chofer-solicitudes", (req, res) => {
   // una solicitud etiquetada "ticul" aqui no le llegaria a ningun admin.
   if (cityId === "ticul") {
     return res.status(400).json({ error: "Ticul todavía no está disponible en este formulario" });
+  }
+  // Si el navegador sí entregó GPS (aunque haya caído en el selector manual
+  // de ciudad, ej. porque el GPS no resolvió a ninguna ciudad conocida), lo
+  // validamos contra el radio real — evita altas "de Tekax" desde fuera de
+  // Tekax. Sin GPS (permiso negado) no bloqueamos: no queremos perder un
+  // chofer real solo porque no dio permiso de ubicación.
+  if (!isWithinServiceRadius(cityId, lat, lng)) {
+    return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
   if (!name || !phone || !photo) {
     return res.status(400).json({ error: "Falta nombre, teléfono o foto" });

@@ -14,7 +14,7 @@ const rideRoutes = require("./routes/rides");
 const adminRoutes = require("./routes/admin");
 const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
-const { CITIES, resolveCity } = require("./cities");
+const { CITIES, resolveCity, isWithinServiceRadius } = require("./cities");
 
 const app = express();
 // Render (y cualquier proxy delante del server) reenvía la IP real del
@@ -55,7 +55,12 @@ app.get("/api/cities/resolve", (req, res) => {
   const lat = parseFloat(req.query.lat);
   const lng = parseFloat(req.query.lng);
   const city = resolveCity(lat, lng);
-  res.json(city ? { city: city.id, label: city.label } : { city: null, label: null });
+  // inService distingue "está cerca de este pueblo para la etiqueta" de "está
+  // dentro del radio real donde sí dejamos pedir/registrarse" — el frontend
+  // lo usa para no anunciar una ciudad a la que luego el backend le va a
+  // negar el registro o el viaje.
+  const inService = city ? isWithinServiceRadius(city.id, lat, lng) : false;
+  res.json(city ? { city: city.id, label: city.label, inService } : { city: null, label: null, inService: false });
 });
 
 app.use("/api", driverRoutes);

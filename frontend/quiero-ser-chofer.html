@@ -28,10 +28,10 @@
   .sigActions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
   .sigActions span { font-size: 12px; color: var(--text-dim); }
   .btn-clear-sign { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
-  #okScreen, #ticulSoonScreen { display: none; padding: 26px 20px; text-align: center; }
-  #okScreen .big, #ticulSoonScreen .big { font-size: 38px; }
-  #okScreen h2, #ticulSoonScreen h2 { color: var(--accent); font-size: 19px; margin: 10px 0 6px; }
-  #okScreen p, #ticulSoonScreen p { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
+  #okScreen, #ticulSoonScreen, #comingSoonScreen { display: none; padding: 26px 20px; text-align: center; }
+  #okScreen .big, #ticulSoonScreen .big, #comingSoonScreen .big { font-size: 38px; }
+  #okScreen h2, #ticulSoonScreen h2, #comingSoonScreen h2 { color: var(--accent); font-size: 19px; margin: 10px 0 6px; }
+  #okScreen p, #ticulSoonScreen p, #comingSoonScreen p { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
   .credit { margin-top: 22px; }
   button.btn { width: 100%; }
   #legalModalOverlay {
@@ -154,6 +154,12 @@
     <p>Todavía estamos afinando los últimos detalles para abrir en Ticul. En cuanto esté listo, te avisamos — síguenos en Facebook para enterarte primero.</p>
   </div>
 
+  <div id="comingSoonScreen" class="card">
+    <div class="big">🗺️</div>
+    <h2>¡Pronto en más municipios de Yucatán!</h2>
+    <p>Todavía no llegamos a tu zona, pero MotoVecino sigue creciendo por el estado. Síguenos en redes para enterarte en cuanto abramos cerca de ti.</p>
+  </div>
+
   <p class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong></p>
 </div>
 
@@ -188,11 +194,15 @@ let photoPlacaDataUrl = "";
 
 // Ciudad detectada por GPS al momento de aplicar — así el admin ya ve de
 // entrada a qué ciudad pertenece este chofer al revisar la solicitud, en vez
-// de tener que preguntarle. Si no hay GPS, lo niega, o cae fuera de la red,
-// le mostramos un selector para que la elija él mismo — así nunca cae por
-// default en la cola de la ciudad equivocada.
+// de tener que preguntarle. Si no hay GPS o lo niega, le mostramos un
+// selector para que la elija él mismo (confiamos en su palabra). Si el GPS
+// sí respondió pero cae fuera del radio real de servicio, en vez del
+// selector mostramos "Pronto en más municipios" — dejar elegir ahí solo
+// invitaba a que alguien de fuera "eligiera" Tekax sin estar cerca.
 let detectedCity = "";
 let resolvedCityLabel = "";
+let detectedLat = null;
+let detectedLng = null;
 
 function applyCityFromDetection(city, label) {
   detectedCity = city;
@@ -211,6 +221,19 @@ function applyCityFromDetection(city, label) {
   }
 }
 
+// GPS sí resolvió una ubicación real, pero fuera del radio de servicio de
+// cualquier ciudad de la red — a diferencia de cuando no hay GPS (ahí sí
+// confiamos en el selector manual), aquí sabemos con certeza que no está
+// cerca, así que no le ofrecemos "elegir" Tekax: mejor un mensaje honesto de
+// "aún no" con marca Yucatán, en vez de uno de Tekax que el backend igual
+// va a rechazar al enviar el formulario.
+function showComingSoon() {
+  document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));
+  document.title = "MotoVecino Yucatán — Quiero ser chofer";
+  document.getElementById("formScreen").style.display = "none";
+  document.getElementById("comingSoonScreen").style.display = "block";
+}
+
 function showManualCityPicker() {
   document.getElementById("manualCityField").style.display = "flex";
   applyManualCity(); // sincroniza con lo que ya se ve seleccionado por default
@@ -226,10 +249,13 @@ function tryLocateCity(attempt) {
   attempt = attempt || 0;
   navigator.geolocation.getCurrentPosition(
     (pos) => {
+      detectedLat = pos.coords.latitude;
+      detectedLng = pos.coords.longitude;
       fetch(`/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
         .then((data) => {
-          if (!data.city) { showManualCityPicker(); return; }
+          if (!data.city) { showComingSoon(); return; }
+          if (!data.inService) { showComingSoon(); return; }
           applyCityFromDetection(data.city, data.label);
         })
         .catch(() => showManualCityPicker());
@@ -374,10 +400,12 @@ async function submitApplication() {
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
       emergencyContactName: emergencyName, emergencyContactPhone: emergencyPhone,
       referredBy: document.getElementById("referredBy").value.trim() || null,
+      lat: detectedLat, lng: detectedLng,
     }),
   });
   if (!res.ok) {
-    err.textContent = "No se pudo enviar, intenta de nuevo";
+    const data = await res.json().catch(() => ({}));
+    err.textContent = data.error || "No se pudo enviar, intenta de nuevo";
     return;
   }
 

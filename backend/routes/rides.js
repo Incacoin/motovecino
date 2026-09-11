@@ -1,7 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
-const { resolveCity, DEFAULT_CITY_ID } = require("../cities");
+const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 
 const router = express.Router();
@@ -59,6 +59,13 @@ router.post("/rides", (req, res) => {
   // La ciudad del viaje es la de la recogida (no la de quien lo pide desde su
   // celular) — es lo que decide a qué admin/red le toca ese viaje.
   const city = resolveCity(pickup_lat, pickup_lng)?.id || DEFAULT_CITY_ID;
+
+  // Fuera del radio real de servicio de esa ciudad (ej. alguien pidiendo
+  // desde otro país) — antes esto caía en DEFAULT_CITY_ID sin más, dejando
+  // pedir un viaje que ningún chofer real podría atender.
+  if (!isWithinServiceRadius(city, pickup_lat, pickup_lng)) {
+    return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
+  }
 
   // El registro de pasajero nunca pregunta ubicación, así que su `city` se
   // queda pegado al default para siempre si no lo actualizamos aquí — esto
