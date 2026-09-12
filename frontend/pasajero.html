@@ -948,8 +948,11 @@ async function loadStatusAvailableDrivers() {
         ? `<div class="avatar"><img src="${d.photo}" /></div>`
         : `<div class="avatar">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`))
       .join("");
+    // Tope visual en 8+ para que el número no se sienta abrumador cuando
+    // haya mucha flota activa en una zona chica (ver conversación 2026-09-11).
+    const displayCount = count > 8 ? "8+" : String(count);
     document.getElementById("nearbyDriversText").innerHTML =
-      `<strong>${count} chofer${count === 1 ? "" : "es"}</strong> cerca de ti vio${count === 1 ? "" : "n"} tu solicitud`;
+      `<strong>${displayCount} chofer${count === 1 ? "" : "es"}</strong> cerca de ti vio${count === 1 ? "" : "n"} tu solicitud`;
   }
 }
 
