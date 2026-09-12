@@ -115,7 +115,8 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by,
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
               (SELECT paid_at FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_at,
-              (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides
+              (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides,
+              (SELECT MAX(connected_at) FROM driver_activity_log WHERE driver_id = d.id) AS last_connected_at
        FROM drivers d
        WHERE d.deleted_at IS NULL AND d.city = ?
        ORDER BY d.created_at DESC`
@@ -207,6 +208,43 @@ router.post("/admin/drivers/:id/payments", checkAdminPin, (req, res) => {
     )
     .all(req.params.id);
   res.json(payments);
+});
+
+// Minutos conectado hoy y en cuántos días distintos se conectó en la última
+// semana — se calcula en JS a partir de las sesiones crudas en vez de una
+// consulta SQL gigante, porque a esta escala (pocos choferes) es más simple
+// y menos propenso a errores que hacerlo todo en SQLite.
+router.post("/admin/drivers/:id/activity", checkAdminPin, (req, res) => {
+  if (!assertOwnCity("drivers", req, res)) return;
+  const sessions = db
+    .prepare(
+      `SELECT connected_at, disconnected_at FROM driver_activity_log
+       WHERE driver_id = ? AND connected_at >= datetime('now', '-7 days')
+       ORDER BY connected_at ASC`
+    )
+    .all(req.params.id);
+
+  const now = Date.now();
+  const todayStart = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`).getTime();
+  const todayEnd = todayStart + 24 * 60 * 60 * 1000;
+  const daysConnected = new Set();
+  let connectedTodayMs = 0;
+
+  for (const s of sessions) {
+    const start = new Date(`${s.connected_at.replace(" ", "T")}Z`).getTime();
+    const end = s.disconnected_at ? new Date(`${s.disconnected_at.replace(" ", "T")}Z`).getTime() : now;
+    daysConnected.add(s.connected_at.slice(0, 10));
+    if (s.disconnected_at) daysConnected.add(s.disconnected_at.slice(0, 10));
+
+    const overlapStart = Math.max(start, todayStart);
+    const overlapEnd = Math.min(end, todayEnd);
+    if (overlapEnd > overlapStart) connectedTodayMs += overlapEnd - overlapStart;
+  }
+
+  res.json({
+    connectedTodayMinutes: Math.round(connectedTodayMs / 60000),
+    daysConnected7d: daysConnected.size,
+  });
 });
 
 // Igual que el de pasajero: si un chofer pierde su PIN, esto le da uno nuevo

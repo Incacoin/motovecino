@@ -188,6 +188,16 @@ function attach(httpServer) {
       driverSockets.set(driverId, ws);
       handleDriverReconnected(driverId);
 
+      // Cierra cualquier sesión que se haya quedado abierta (el socket
+      // viejo de "logged in elsewhere" todavía no dispara su 'close', o el
+      // servidor se reinició con el chofer conectado) antes de abrir una
+      // nueva, para que nunca queden dos sesiones abiertas a la vez ni una
+      // colgada para siempre.
+      db.prepare(
+        "UPDATE driver_activity_log SET disconnected_at = datetime('now') WHERE driver_id = ? AND disconnected_at IS NULL"
+      ).run(driverId);
+      db.prepare("INSERT INTO driver_activity_log (driver_id) VALUES (?)").run(driverId);
+
       ws.on("message", (raw) => {
         let msg;
         try {
@@ -240,6 +250,9 @@ function attach(httpServer) {
           driverSockets.delete(driverId);
           db.prepare(
             "UPDATE drivers SET status = 'offline' WHERE id = ?"
+          ).run(driverId);
+          db.prepare(
+            "UPDATE driver_activity_log SET disconnected_at = datetime('now') WHERE driver_id = ? AND disconnected_at IS NULL"
           ).run(driverId);
           handleDriverDisconnected(driverId);
         }

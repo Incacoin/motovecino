@@ -301,7 +301,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Nombre</th><th>PIN</th><th>Teléfono</th><th>Servicio</th><th>Ciudad</th><th>Estado</th><th>Vehículo</th><th>Inscrito</th><th>Cobros</th><th>Cancelaciones</th><th></th></tr>
+        <tr><th>Nombre</th><th>PIN</th><th>Teléfono</th><th>Servicio</th><th>Ciudad</th><th>Estado</th><th>Actividad</th><th>Vehículo</th><th>Inscrito</th><th>Cobros</th><th>Cancelaciones</th><th></th></tr>
       </thead>
       <tbody id="driverRows"></tbody>
     </table>
@@ -401,6 +401,14 @@
     <h2 id="paymentsModalTitle">Historial de pagos</h2>
     <div id="paymentsModalBody"></div>
     <button class="btn modal-close" onclick="closePaymentsModal()">Cerrar</button>
+  </div>
+</div>
+
+<div id="activityModal" class="modal-overlay">
+  <div class="modal-card">
+    <h2 id="activityModalTitle">Actividad</h2>
+    <div id="activityModalBody"></div>
+    <button class="btn modal-close" onclick="closeActivityModal()">Cerrar</button>
   </div>
 </div>
 
@@ -954,6 +962,19 @@ function cityLabel(city) {
 }
 
 
+// Umbral acordado con el usuario: una semana completa sin conectarse ya es
+// señal real de que dejó de usar la app (no solo tuvo un día flojo), en un
+// negocio donde se paga por viaje y no hay mensualidad que lo obligue a abrir
+// la app seguido.
+const INACTIVE_AFTER_DAYS = 7;
+
+function activityBadge(lastConnectedAt) {
+  if (!lastConnectedAt) return `<span class="ago">nunca conectado</span>`;
+  const days = Math.floor((Date.now() - new Date(`${lastConnectedAt.replace(" ", "T")}Z`).getTime()) / 86400000);
+  if (days < INACTIVE_AFTER_DAYS) return `<span style="color:var(--success);font-weight:600;">🟢 Activo</span>`;
+  return `<span style="color:var(--danger);font-weight:600;">🔴 Inactivo (${days}d)</span>`;
+}
+
 function renderDriverRows() {
   document.getElementById("driverRows").innerHTML = driversCache.map((d) => {
     if (editingId === d.id) {
@@ -970,6 +991,7 @@ function renderDriverRows() {
         <td>${vehicleTypeSelect(d.id, d.vehicle_type)}</td>
         <td>${cityLabel(d.city)}</td>
         <td><span class="dot ${d.status}"></span>${d.status}</td>
+        <td>${activityBadge(d.last_connected_at)}</td>
         <td><input id="edit-vehicle-${d.id}" value="${d.vehicle || ""}" placeholder="Vehículo" /></td>
         <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
         <td>${cancelCountCell(d)}</td>
@@ -1008,6 +1030,10 @@ function renderDriverRows() {
       <td>${vehicleTypeBadge(d.vehicle_type)}</td>
       <td>${cityLabel(d.city)}</td>
       <td><span class="dot ${d.status}"></span>${d.status}</td>
+      <td>
+        ${activityBadge(d.last_connected_at)}
+        <button class="histLink" onclick="showActivityModal(${d.id}, '${d.name.replace(/'/g, "\\'")}')">Ver actividad</button>
+      </td>
       <td>${d.vehicle || "—"}</td>
       <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
       <td>
@@ -1137,6 +1163,35 @@ async function showPaymentsModal(id, name) {
 
 function closePaymentsModal() {
   document.getElementById("paymentsModal").classList.remove("active");
+}
+
+async function showActivityModal(id, name) {
+  document.getElementById("activityModalTitle").textContent = `Actividad de ${name}`;
+  const body = document.getElementById("activityModalBody");
+  body.innerHTML = `<div class="ago">Cargando...</div>`;
+  document.getElementById("activityModal").classList.add("active");
+
+  const res = await fetch(API + `/api/admin/drivers/${id}/activity`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin }),
+  });
+  if (!res.ok) {
+    body.innerHTML = `<div class="ago">No se pudo cargar.</div>`;
+    return;
+  }
+  const { connectedTodayMinutes, daysConnected7d } = await res.json();
+  const hours = Math.floor(connectedTodayMinutes / 60);
+  const mins = connectedTodayMinutes % 60;
+  const todayLabel = connectedTodayMinutes > 0 ? `${hours > 0 ? `${hours}h ` : ""}${mins}min` : "0min";
+  body.innerHTML = `
+    <div class="payHistRow"><span>Conectado hoy</span><span>${todayLabel}</span></div>
+    <div class="payHistRow"><span>Días conectado (últimos 7)</span><span>${daysConnected7d} de 7</span></div>
+  `;
+}
+
+function closeActivityModal() {
+  document.getElementById("activityModal").classList.remove("active");
 }
 </script>
 </body>

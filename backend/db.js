@@ -445,4 +445,18 @@ try {
   // la columna ya existe
 }
 
+// Historial real de conexión/desconexión de cada chofer — a diferencia de
+// drivers.status (un solo estado actual, se sobrescribe) esto permite saber
+// cuánto tiempo estuvo conectado en un día dado y en cuántos días distintos
+// se conectó, no solo "cuándo fue la última vez que se le vio".
+db.exec(`
+  CREATE TABLE IF NOT EXISTS driver_activity_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    driver_id INTEGER NOT NULL REFERENCES drivers(id),
+    connected_at TEXT NOT NULL DEFAULT (datetime('now')),
+    disconnected_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_driver_activity_log_driver_id ON driver_activity_log(driver_id);
+`);
+
 module.exports = db;
