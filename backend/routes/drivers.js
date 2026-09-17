@@ -1,17 +1,18 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, DRIVER_STALE_SECONDS, SERVICE_FEE, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
+const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius } = require("../cities");
+const { rideFee } = require("../fees");
 
 const router = express.Router();
 
 // Fuente única de las cuotas para los 3 frontends (pasajero, chofer, admin)
 // — evita que se desincronicen del valor real que se cobra.
 router.get("/config", (req, res) => {
-  res.json({ serviceFee: SERVICE_FEE, monthlyFee: MONTHLY_FEE });
+  res.json({ serviceFee: SERVICE_FEE, monthlyFee: MONTHLY_FEE, taxiCommissionRate: TAXI_COMMISSION_RATE, taxiCommissionCap: TAXI_COMMISSION_CAP });
 });
 
 // Choferes "disponibles" de verdad: con GPS reciente (no fantasmas de una
@@ -156,16 +157,19 @@ router.post("/drivers/profile", (req, res) => {
     )
     .get(driver.id);
 
-  // Viajes completados que todavía no se le han cobrado los $2 de servicio.
-  // En un pueblo sin cuota por viaje (SERVICE_FEE = 0) esta sección ni existe,
-  // y su tabla `rides` puede no tener la columna `fee_settled_at`.
-  const pendingRides = SERVICE_FEE
+  // Viajes completados que todavía no se le han cobrado la cuota de
+  // servicio (fija en moto, comisión % con tope en taxi). En un pueblo sin
+  // cuota por viaje (SERVICE_FEE = 0) esta sección ni existe, y su tabla
+  // `rides` puede no tener la columna `fee_settled_at`.
+  const pendingFeeRows = SERVICE_FEE
     ? db
         .prepare(
-          "SELECT COUNT(*) AS count FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
+          "SELECT ride_type, agreed_price FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
         )
-        .get(driver.id).count
-    : 0;
+        .all(driver.id)
+    : [];
+  const pendingRides = pendingFeeRows.length;
+  const pendingRidesAmount = pendingFeeRows.reduce((sum, r) => sum + rideFee(r), 0);
 
   res.json({
     id: driver.id,
@@ -187,7 +191,7 @@ router.post("/drivers/profile", (req, res) => {
     monthlyFee: MONTHLY_FEE,
     trialEndDate: TRIAL_END_DATE,
     pendingRides,
-    pendingRidesAmount: pendingRides * SERVICE_FEE,
+    pendingRidesAmount,
     serviceFee: SERVICE_FEE,
   });
 });

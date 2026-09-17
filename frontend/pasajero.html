@@ -767,7 +767,7 @@ function updateFareEstimate() {
   const baseLabel = serviceType === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
   if (!pickup) { el.textContent = ""; btn.textContent = baseLabel; return; }
   if (serviceType === "taxi") {
-    el.textContent = `Viaje foráneo: acuerda el precio directo con el chofer + $${SERVICE_FEE} de servicio de la app`;
+    el.textContent = `Viaje foráneo: acuerda el precio directo con el chofer`;
     btn.textContent = baseLabel;
     return;
   }

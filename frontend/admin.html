@@ -422,9 +422,13 @@ const API = "";
 const PUBLIC_ORIGIN = "https://motovecinoapp.com";
 let SERVICE_FEE = 2; // valores de respaldo hasta que cargue /api/config
 let MONTHLY_FEE = 100;
+let TAXI_COMMISSION_RATE = 0.06;
+let TAXI_COMMISSION_CAP = 100;
 fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
   SERVICE_FEE = cfg.serviceFee;
   MONTHLY_FEE = cfg.monthlyFee;
+  TAXI_COMMISSION_RATE = cfg.taxiCommissionRate;
+  TAXI_COMMISSION_CAP = cfg.taxiCommissionCap;
 }).catch(() => {});
 // null = prueba gratis indefinida, sin fecha de corte automática.
 let trialEndDateCache = null;
@@ -1006,9 +1010,12 @@ function renderDriverRows() {
       ? `<div class="lastPayment">último pago: $${d.last_payment_amount} el ${d.last_payment_at.slice(0, 10)}</div>`
       : `<div class="lastPayment">sin pagos registrados</div>`;
     const pendingRides = d.pending_rides || 0;
-    const pendingFeeAmount = pendingRides * SERVICE_FEE;
+    const pendingFeeAmount = Math.round(d.pending_fee_amount || 0);
+    const pendingFeeRate = d.vehicle_type === "taxi"
+      ? `comisión ${Math.round(TAXI_COMMISSION_RATE * 100)}% (tope $${TAXI_COMMISSION_CAP})`
+      : `$${SERVICE_FEE}/viaje`;
     const pendingFeesLabel = pendingRides > 0
-      ? `<div class="lastPayment">viajes sin cobrar: ${pendingRides} × $${SERVICE_FEE} = <strong>$${pendingFeeAmount}</strong></div>`
+      ? `<div class="lastPayment">viajes sin cobrar: ${pendingRides} · ${pendingFeeRate} = <strong>$${pendingFeeAmount}</strong></div>`
       : `<div class="lastPayment">sin viajes pendientes de cobrar</div>`;
     const placaThumb = d.photo_placa
       ? `<img class="thumb" src="${d.photo_placa}" onclick="viewImage('${d.photo_placa}')" title="Foto con su moto" />`
@@ -1095,11 +1102,14 @@ function renderRideRows(rides) {
 // a un chofer que lleva 2+ meses sin pagar.
 function paymentReminderMessage(d) {
   const pendingRides = d.pending_rides || 0;
-  const feeAmount = pendingRides * SERVICE_FEE;
+  const feeAmount = Math.round(d.pending_fee_amount || 0);
+  const feeRate = d.vehicle_type === "taxi"
+    ? `comisión ${Math.round(TAXI_COMMISSION_RATE * 100)}%`
+    : `$${SERVICE_FEE}`;
 
   const lines = [
     pendingRides > 0
-      ? `• Viajes por cobrar: ${pendingRides} × $${SERVICE_FEE} = $${feeAmount} MXN`
+      ? `• Viajes por cobrar: ${pendingRides} × ${feeRate} = $${feeAmount} MXN`
       : `• Viajes: sin pendientes 👍`,
   ];
 
@@ -1134,7 +1144,7 @@ async function registerTripFees(id) {
     return;
   }
   const { count, amount } = await res.json();
-  showToast(`Cobrado: ${count} viajes × $${SERVICE_FEE} = $${amount}`);
+  showToast(`Cobrado: ${count} viajes = $${Math.round(amount)}`);
   loadDrivers(); // el re-render deja el botón fresco y habilitado
   loadStats();
 }

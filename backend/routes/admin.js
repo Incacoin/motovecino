@@ -1,8 +1,9 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, SERVICE_FEE, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS } = require("../constants");
+const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS } = require("../constants");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById } = require("../cities");
+const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
 
 const router = express.Router();
@@ -116,12 +117,15 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
               (SELECT paid_at FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_at,
               (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides,
+              (SELECT COALESCE(SUM(
+                 CASE WHEN ride_type = 'taxi' THEN MIN(COALESCE(agreed_price, 0) * ?, ?) ELSE ? END
+               ), 0) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_fee_amount,
               (SELECT MAX(connected_at) FROM driver_activity_log WHERE driver_id = d.id) AS last_connected_at
        FROM drivers d
        WHERE d.deleted_at IS NULL AND d.city = ?
        ORDER BY d.created_at DESC`
     )
-    .all(req.adminCity);
+    .all(TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, SERVICE_FEE, req.adminCity);
   res.json(drivers);
 });
 
@@ -163,19 +167,20 @@ router.post("/admin/drivers/:id/register-payment", checkAdminPin, (req, res) => 
 
 router.post("/admin/drivers/:id/pending-fees", checkAdminPin, (req, res) => {
   if (!assertOwnCity("drivers", req, res)) return;
-  const { count } = db
+  const rides = db
     .prepare(
-      "SELECT COUNT(*) AS count FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
+      "SELECT ride_type, agreed_price FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
     )
-    .get(req.params.id);
-  res.json({ count, amount: count * SERVICE_FEE, feePerRide: SERVICE_FEE });
+    .all(req.params.id);
+  const amount = rides.reduce((sum, r) => sum + rideFee(r), 0);
+  res.json({ count: rides.length, amount, feePerRide: SERVICE_FEE });
 });
 
 router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, (req, res) => {
   if (!assertOwnCity("drivers", req, res)) return;
   const pendingRides = db
     .prepare(
-      "SELECT id FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
+      "SELECT id, ride_type, agreed_price FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
     )
     .all(req.params.id);
 
@@ -189,7 +194,7 @@ router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, (req, res) =
   // colarse como "ya cobrado" sin haberse sumado al monto ni al pago.
   const ids = pendingRides.map((r) => r.id);
   const placeholders = ids.map(() => "?").join(",");
-  const amount = ids.length * SERVICE_FEE;
+  const amount = pendingRides.reduce((sum, r) => sum + rideFee(r), 0);
   db.prepare(
     `UPDATE rides SET fee_settled_at = datetime('now') WHERE id IN (${placeholders})`
   ).run(...ids);

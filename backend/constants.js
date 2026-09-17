@@ -16,6 +16,12 @@ module.exports = {
   // fecha se marcan como ya liquidados: no se le puede cobrar a un chofer
   // por viajes que hizo cuando la cuota todavía no existía aquí.
   SERVICE_FEE_START_DATE: "2026-08-27",
+  // Los viajes de taxi no tienen tarifa fija (se negocian directo con el
+  // pasajero), así que en vez de SERVICE_FEE fijo se cobra un % de lo que
+  // el chofer reporta al completar el viaje, con tope para que un viaje muy
+  // caro no pague una cuota desproporcionada.
+  TAXI_COMMISSION_RATE: 0.06,
+  TAXI_COMMISSION_CAP: 100,
   // null = prueba gratis indefinida, sin fecha de corte automática.
   TRIAL_END_DATE: null,
   // Un chofer "disponible" a más de esto de quien está mirando el mapa no es

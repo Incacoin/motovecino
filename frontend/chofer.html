@@ -527,7 +527,7 @@ function estimateFare(ride) {
   const totalPeople = passengers + children;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
   if (ride.ride_type === "taxi") {
-    return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero + $${SERVICE_FEE} de servicio · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}` };
+    return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}` };
   }
   const night = isNightFare();
   const isTicul = resolvedCityId === "ticul";
@@ -938,6 +938,12 @@ function renderRideList() {
               : `<span class="chip">Sin destino marcado</span>`}
           </div>
           ${fareLine}
+          ${currentRide.ride_type === "taxi"
+            ? `<div style="margin:8px 0;">
+                 <label style="display:block;font-size:13px;color:var(--text-dim);margin-bottom:4px;">¿Cuánto cobraste? (precio acordado con el pasajero)</label>
+                 <input type="number" id="agreedPriceInput" inputmode="decimal" min="1" placeholder="Ej. 350" style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;">
+               </div>`
+            : ""}
           <button class="btn" onclick="completeRide()">Finalizar viaje</button>
         </div>`;
     }
@@ -1009,7 +1015,9 @@ function updateDistances() {
       const dist = haversine(myPos.lat, myPos.lng, currentRide.dest_lat, currentRide.dest_lng);
       const el = document.getElementById("dist-current");
       if (el) el.textContent = dist.toFixed(1);
-      if (dist <= AUTO_ARRIVAL_KM && !autoCompleting) {
+      // El taxi no se auto-completa: hace falta que el chofer capture el
+      // precio acordado a mano antes de cerrar el viaje.
+      if (dist <= AUTO_ARRIVAL_KM && !autoCompleting && currentRide.ride_type !== "taxi") {
         autoCompleting = true;
         completeRide().finally(() => { autoCompleting = false; });
       }
@@ -1135,10 +1143,19 @@ async function startTrip() {
 }
 
 async function completeRide() {
+  let agreedPrice;
+  if (currentRide.ride_type === "taxi") {
+    const input = document.getElementById("agreedPriceInput");
+    agreedPrice = Number(input && input.value);
+    if (!(agreedPrice > 0)) {
+      showToast("Captura cuánto cobraste antes de finalizar");
+      return false;
+    }
+  }
   const res = await fetch(API + `/api/rides/${currentRide.id}/complete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, agreedPrice }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo finalizar");

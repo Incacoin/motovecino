@@ -159,6 +159,15 @@ try {
   // la columna ya existe
 }
 
+// Precio que el chofer reporta al completar un viaje de taxi (se negocia
+// directo con el pasajero, no tiene fórmula fija) — de ahí sale la comisión
+// variable, a diferencia de moto que paga SERVICE_FEE fijo por viaje.
+try {
+  db.exec("ALTER TABLE rides ADD COLUMN agreed_price REAL");
+} catch {
+  // la columna ya existe
+}
+
 try {
   db.exec("ALTER TABLE driver_applications ADD COLUMN vehicle_type TEXT NOT NULL DEFAULT 'moto'");
 } catch {
