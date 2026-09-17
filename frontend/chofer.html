@@ -375,7 +375,10 @@ function initCityBrand(attempt) {
       hideLocationBanner();
       fetch(API + `/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
-        .then((data) => applyCityLabel(data.label))
+        .then((data) => {
+          applyCityLabel(data.label);
+          if (data.city) resolvedCityId = data.city;
+        })
         .catch(() => {});
     },
     () => { if (attempt < 1) initCityBrand(attempt + 1); else showLocationBanner(); },
@@ -487,15 +490,31 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// Tarifas del gremio de Tekax (distintas a las de Ticul, negociadas aparte).
-const FARE_THRESHOLD_KM = 3;
-const FARE_NORMAL = 15;
-const FARE_FAR = 20;
+// Tarifas del gremio de Tekax (negociadas aparte, sin cambios).
+const TEKAX_FARE_THRESHOLD_KM = 3;
+const TEKAX_FARE_NORMAL = 15;
+const TEKAX_FARE_FAR = 20;
+const TEKAX_NIGHT_FARE = 20;
+const TEKAX_CHILD_FARE_DAY = 5;
+const TEKAX_CHILD_FARE_NIGHT = 10;
+
+// Tarifas de Ticul (distintas: viaje corto con precio fijo, pasado 1.5km se
+// negocia directo con el pasajero, tarifa nocturna fija para adultos).
+const TICUL_FARE_SHORT_KM = 0.5;
+const TICUL_FARE_SHORT = 10;
+const TICUL_FARE_THRESHOLD_KM = 1.5;
+const TICUL_FARE_NORMAL = 15;
+const TICUL_NIGHT_FARE = 20;
+const TICUL_CHILD_FARE_DAY = 5;
+const TICUL_CHILD_FARE_NIGHT = 10;
+
 // Cuota de la app, igual en todos los pueblos. La paga el pasajero, no sale
 // de lo que gana el chofer.
 let SERVICE_FEE = 2; // valor de respaldo hasta que cargue /api/config
-const CHILD_FARE_DAY = 5;
-const CHILD_FARE_NIGHT = 10;
+
+// Ciudad resuelta por GPS (ver initCityBrand) — "tekax" hasta que se
+// confirme otra cosa, igual que en pasajero.html.
+let resolvedCityId = "tekax";
 
 function isNightFare() {
   const h = new Date().getHours();
@@ -510,17 +529,25 @@ function estimateFare(ride) {
   if (ride.ride_type === "taxi") {
     return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero + $${SERVICE_FEE} de servicio · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}` };
   }
-  let pricePerPerson = FARE_NORMAL;
+  const night = isNightFare();
+  const isTicul = resolvedCityId === "ticul";
+  let pricePerPerson = night ? (isTicul ? TICUL_NIGHT_FARE : TEKAX_NIGHT_FARE) : (isTicul ? TICUL_FARE_NORMAL : TEKAX_FARE_NORMAL);
   let approx = true;
   if (ride.dest_lat) {
     const tripKm = haversine(ride.pickup_lat, ride.pickup_lng, ride.dest_lat, ride.dest_lng);
-    pricePerPerson = tripKm > FARE_THRESHOLD_KM ? FARE_FAR : FARE_NORMAL;
     approx = false;
+    if (isTicul) {
+      if (tripKm > TICUL_FARE_THRESHOLD_KM) {
+        return { total: null, text: `Viaje largo · acuerda el precio con el pasajero + $${SERVICE_FEE} de servicio · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}` };
+      }
+      pricePerPerson = night ? TICUL_NIGHT_FARE : (tripKm > TICUL_FARE_SHORT_KM ? TICUL_FARE_NORMAL : TICUL_FARE_SHORT);
+    } else {
+      pricePerPerson = night ? TEKAX_NIGHT_FARE : (tripKm > TEKAX_FARE_THRESHOLD_KM ? TEKAX_FARE_FAR : TEKAX_FARE_NORMAL);
+    }
   }
-  const night = isNightFare();
-  const childRate = night ? CHILD_FARE_NIGHT : CHILD_FARE_DAY;
+  const childRate = night ? (isTicul ? TICUL_CHILD_FARE_NIGHT : TEKAX_CHILD_FARE_NIGHT) : (isTicul ? TICUL_CHILD_FARE_DAY : TEKAX_CHILD_FARE_DAY);
   const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE;
-  const nightNote = night && children > 0 ? " · nocturna niños" : "";
+  const nightNote = night ? " · tarifa nocturna" : "";
   return { total, text: `$${total} MXN (incl. $${SERVICE_FEE} servicio)${nightNote} · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${approx ? " (aprox.)" : ""}` };
 }
 

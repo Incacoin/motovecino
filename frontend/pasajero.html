@@ -681,6 +681,7 @@ function stopRouteTracking() {
 const TEKAX_FARE_THRESHOLD_KM = 3;
 const TEKAX_FARE_NORMAL = 15;
 const TEKAX_FARE_FAR = 20;
+const TEKAX_NIGHT_FARE = 20;
 const TEKAX_CHILD_FARE_DAY = 5;
 const TEKAX_CHILD_FARE_NIGHT = 10;
 
@@ -727,19 +728,19 @@ function changeChildren(delta) {
   updateFareEstimate();
 }
 
-// Tarifa de Tekax: 2 franjas de distancia, precio fijo en ambas, tarifa
-// nocturna solo aplica a niños. Sin cambios respecto a como funcionaba antes
-// de que existiera tarifa por ciudad.
+// Tarifa de Tekax: 2 franjas de distancia, precio fijo en ambas; de noche
+// los adultos también pagan tarifa fija ($20) sin importar la franja,
+// igual que en Ticul.
 function estimateFareTekax(night) {
-  let pricePerPerson = TEKAX_FARE_NORMAL;
+  let pricePerPerson = night ? TEKAX_NIGHT_FARE : TEKAX_FARE_NORMAL;
   let approx = true;
   if (dest) {
     const tripKm = haversine(pickup.lat, pickup.lng, dest.lat, dest.lng);
-    pricePerPerson = tripKm > TEKAX_FARE_THRESHOLD_KM ? TEKAX_FARE_FAR : TEKAX_FARE_NORMAL;
     approx = false;
+    pricePerPerson = night ? TEKAX_NIGHT_FARE : (tripKm > TEKAX_FARE_THRESHOLD_KM ? TEKAX_FARE_FAR : TEKAX_FARE_NORMAL);
   }
   const childRate = night ? TEKAX_CHILD_FARE_NIGHT : TEKAX_CHILD_FARE_DAY;
-  const nightNote = night && children > 0 ? " · tarifa nocturna de niños" : "";
+  const nightNote = night ? " · tarifa nocturna" : "";
   return { pricePerPerson, childRate, approx, nightNote };
 }
 
