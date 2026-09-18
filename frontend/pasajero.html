@@ -872,7 +872,7 @@ async function loadAvailableDrivers() {
     if (availableDriverMarkers.has(d.id)) {
       availableDriverMarkers.get(d.id).setLatLng(pos);
     } else {
-      availableDriverMarkers.set(d.id, L.marker(pos, { icon }).addTo(map).bindPopup(d.name));
+      availableDriverMarkers.set(d.id, L.marker(pos, { icon }).addTo(map));
     }
   }
   for (const [id, marker] of availableDriverMarkers) {

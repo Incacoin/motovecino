@@ -628,7 +628,7 @@ async function loadOtherDrivers() {
     if (otherDriverMarkers.has(d.id)) {
       otherDriverMarkers.get(d.id).setLatLng(pos);
     } else {
-      otherDriverMarkers.set(d.id, L.marker(pos, { icon: vehicleIcon(driver.vehicle_type) }).addTo(map).bindPopup(d.name));
+      otherDriverMarkers.set(d.id, L.marker(pos, { icon: vehicleIcon(driver.vehicle_type) }).addTo(map));
     }
   }
   for (const [id, marker] of otherDriverMarkers) {

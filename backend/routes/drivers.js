@@ -30,7 +30,7 @@ router.get("/drivers/available", (req, res) => {
 
   const drivers = db
     .prepare(
-      `SELECT id, name, lat, lng, vehicle_type, photo FROM drivers
+      `SELECT id, lat, lng, vehicle_type FROM drivers
        WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL
          AND vehicle_type = ?
          AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))
