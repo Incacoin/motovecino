@@ -134,6 +134,7 @@
   <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••" />
   <button class="btn" onclick="login()">Entrar</button>
   <div id="loginError"></div>
+  <button class="btn-sm" id="forgotPinBtn" style="display:none;margin-top:4px;" onclick="forgotPin()">¿Olvidaste tu PIN?</button>
   <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">🆕 Quiero ser chofer</button>
   <button class="btn-sm" onclick="location.href='index.html'" style="margin-top:4px;">🧍 Modo Pasajero</button>
   <svg class="maya-motif" width="130" height="91" viewBox="0 0 200 140" fill="none" style="flex-shrink:0;margin-top:6px;">
@@ -549,6 +550,18 @@ function estimateFare(ride) {
   const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE;
   const nightNote = night ? " · tarifa nocturna" : "";
   return { total, text: `$${total} MXN (incl. $${SERVICE_FEE} servicio)${nightNote} · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${approx ? " (aprox.)" : ""}` };
+}
+
+// Número de soporte para "¿Olvidaste tu PIN?". Vacío = el botón no aparece.
+// Cuando llegue la WhatsApp API, cambiar solo esta línea (y la de pasajero.html).
+const SOPORTE_WHATSAPP_NUMBER = "9979739422";
+if (SOPORTE_WHATSAPP_NUMBER) document.getElementById("forgotPinBtn").style.display = "inline-block";
+
+function forgotPin() {
+  const phone = document.getElementById("phoneLoginInput").value.trim();
+  const digits = SOPORTE_WHATSAPP_NUMBER.replace(/\D/g, "");
+  const text = `Hola, olvidé mi PIN de chofer en MotoVecino. Mi teléfono registrado es ${phone}.`;
+  window.open(`https://api.whatsapp.com/send?phone=52${digits}&text=${encodeURIComponent(text)}`, "_blank");
 }
 
 async function login() {

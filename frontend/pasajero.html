@@ -216,6 +216,7 @@
   <div id="riderPinHint" style="display:none;color:var(--text-dim);font-size:13px;">Ese teléfono ya tiene cuenta — escribe tu PIN y toca Continuar de nuevo.</div>
   <button class="btn" onclick="goToMap()" style="width:260px;">Continuar</button>
   <div id="formError"></div>
+  <button class="btn-sm" id="forgotPinBtn" style="display:none;" onclick="forgotPin()">¿Olvidaste tu PIN?</button>
   <div class="pill-row">
     <button class="btn-sm" onclick="openHistory()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 3"></path></svg>
@@ -1034,6 +1035,7 @@ async function goToMap() {
       pendingLoginPhone = phone;
       document.getElementById("riderPinRow").style.display = "flex";
       document.getElementById("riderPinHint").style.display = "block";
+      if (SOPORTE_WHATSAPP_NUMBER) document.getElementById("forgotPinBtn").style.display = "inline-block";
       err.textContent = "Ese teléfono ya tiene cuenta.";
       return;
     }
@@ -1956,9 +1958,19 @@ function onCancelledByDriver() {
 // país, igual que en admin.html).
 const QUEJAS_WHATSAPP_NUMBER = "";
 
+// Número de soporte para "¿Olvidaste tu PIN?". Vacío = el botón no aparece.
+// Cuando llegue la WhatsApp API, cambiar solo esta línea (y la de chofer.html).
+const SOPORTE_WHATSAPP_NUMBER = "9979739422";
+
 function waLink(phone, text) {
   const digits = phone.replace(/\D/g, "");
   return `https://api.whatsapp.com/send?phone=52${digits}&text=${encodeURIComponent(text)}`;
+}
+
+function forgotPin() {
+  const phone = document.getElementById("phoneInput").value.trim();
+  const text = `Hola, olvidé mi PIN de pasajero en MotoVecino ${resolvedCityLabel}. Mi teléfono registrado es ${phone}.`;
+  window.open(waLink(SOPORTE_WHATSAPP_NUMBER, text), "_blank");
 }
 
 function reportViaWhatsapp() {

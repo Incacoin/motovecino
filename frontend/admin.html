@@ -523,6 +523,16 @@ function waLink(phone, text) {
   return `https://api.whatsapp.com/send?phone=52${digits}&text=${encodeURIComponent(text)}`;
 }
 
+// Muestra el PIN restablecido, lo copia al portapapeles y ofrece mandarlo por
+// WhatsApp al teléfono de la persona (no se vuelve a mostrar después).
+function showResetPin(label, phone, pin) {
+  navigator.clipboard.writeText(pin).catch(() => {});
+  const sendWa = confirm(`Nuevo PIN de ${label}: ${pin}\n\n(Ya se copió al portapapeles; no se vuelve a mostrar.)\n\n¿Abrir WhatsApp para enviárselo?`);
+  if (sendWa && phone) {
+    window.open(waLink(phone, `Hola, este es tu nuevo PIN de MotoVecino: ${pin}`), "_blank");
+  }
+}
+
 function welcomeMessage(driver) {
   const link = `${PUBLIC_ORIGIN}/chofer.html`;
   return `¡Hola ${driver.name}! Gracias por tu confianza en MotoVecino ${adminCityLabel}.\n\nTu PIN de acceso de chofer es: ${driver.pin}\nEntra aquí para empezar a recibir viajes: ${link}`;
@@ -873,7 +883,7 @@ async function resetRiderPin(id) {
     return;
   }
   const { pin } = await res.json();
-  alert(`Nuevo PIN de ${rider.name || rider.phone}: ${pin}\n\nApúntalo antes de cerrar esto — no se vuelve a mostrar.`);
+  showResetPin(rider.name || rider.phone, rider.phone, pin);
   loadRiders();
 }
 
@@ -936,7 +946,7 @@ async function resetDriverPin(id) {
     return;
   }
   const { pin } = await res.json();
-  alert(`Nuevo PIN de ${driver.name}: ${pin}\n\nApúntalo antes de cerrar esto — no se vuelve a mostrar.`);
+  showResetPin(driver.name, driver.phone, pin);
   loadDrivers();
 }
 
