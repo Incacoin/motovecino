@@ -1,6 +1,7 @@
 const { WebSocketServer } = require("ws");
 const url = require("node:url");
 const db = require("./db");
+const { photoUrls } = require("./photos");
 
 // driverId -> WebSocket
 const driverSockets = new Map();
@@ -366,11 +367,11 @@ function notifyPendingRides(driverId) {
   for (const ride of pending) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > MAX_MATCH_DISTANCE_KM) continue;
-    const riderRow = db.prepare("SELECT photo FROM riders WHERE phone = ?").get(ride.rider_phone);
+    const riderRow = db.prepare("SELECT id, photo FROM riders WHERE phone = ?").get(ride.rider_phone);
     const { trips } = db
       .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_phone = ? AND status = 'completado'")
       .get(ride.rider_phone);
-    send(ws, "new_ride", { ...ride, riderTripCount: trips, riderPhoto: riderRow ? riderRow.photo : null });
+    send(ws, "new_ride", { ...ride, riderTripCount: trips, riderPhoto: riderRow ? photoUrls("r", riderRow.id, riderRow.photo).photo : null });
   }
 }
 

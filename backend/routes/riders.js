@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
+const { photoUrls, cleanThumb } = require("../photos");
 
 const router = express.Router();
 
@@ -99,7 +100,7 @@ router.post("/riders/login", (req, res) => {
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
-  res.json(rider);
+  res.json({ ...rider, ...photoUrls("r", rider.id, rider.photo) });
 });
 
 // La foto es lo único que el pasajero puede cambiar de su propio perfil, igual
@@ -109,7 +110,7 @@ router.post("/riders/:id/photo", (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const { phone, pin, photo } = req.body;
+  const { phone, pin, photo, thumb } = req.body;
   const rider = db
     .prepare("SELECT id FROM riders WHERE id = ? AND phone = ? AND pin = ?")
     .get(req.params.id, phone, pin);
@@ -125,7 +126,7 @@ router.post("/riders/:id/photo", (req, res) => {
     return res.status(413).json({ error: "La foto pesa demasiado, intenta con otra" });
   }
 
-  db.prepare("UPDATE riders SET photo = ? WHERE id = ?").run(photo, rider.id);
+  db.prepare("UPDATE riders SET photo = ?, photo_thumb = ? WHERE id = ?").run(photo, cleanThumb(thumb), rider.id);
   res.json({ ok: true });
 });
 

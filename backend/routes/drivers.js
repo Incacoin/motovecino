@@ -6,6 +6,7 @@ const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, i
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius } = require("../cities");
 const { rideFee } = require("../fees");
+const { photoUrls, cleanThumb } = require("../photos");
 
 const router = express.Router();
 
@@ -178,7 +179,7 @@ router.post("/drivers/profile", (req, res) => {
     vehicle: driver.vehicle,
     vehicleType: driver.vehicle_type,
     grupo: driver.grupo,
-    photo: driver.photo,
+    ...photoUrls("d", driver.id, driver.photo),
     pin: driver.pin,
     createdAt: driver.created_at,
     cancelCount: driver.cancel_count,
@@ -203,7 +204,7 @@ router.post("/drivers/photo", (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const { phone, pin, photo } = req.body;
+  const { phone, pin, photo, thumb } = req.body;
   if (!phone || !pin) {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
@@ -223,7 +224,9 @@ router.post("/drivers/photo", (req, res) => {
     return res.status(413).json({ error: "La foto pesa demasiado, intenta con otra" });
   }
 
-  db.prepare("UPDATE drivers SET photo = ? WHERE id = ?").run(photo, driver.id);
+  // Si el cliente (una versión vieja en caché) no manda miniatura, se limpia la
+  // anterior: si no, quedaría la miniatura de la foto vieja junto a la nueva.
+  db.prepare("UPDATE drivers SET photo = ?, photo_thumb = ? WHERE id = ?").run(photo, cleanThumb(thumb), driver.id);
   res.json({ ok: true });
 });
 

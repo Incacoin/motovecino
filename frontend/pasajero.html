@@ -1289,7 +1289,7 @@ async function onDriverAssigned(driver) {
   }
   card.innerHTML = `
     <div class="driverInfo">
-      ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
+      ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
       <div class="driverInfo-main">
         <div class="name">${driver.name}</div>
         <div class="driver-chips">
@@ -1560,13 +1560,21 @@ function handleProfilePhoto(event) {
     canvas.width = width;
     canvas.height = height;
     canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-    uploadProfilePhoto(canvas.toDataURL("image/jpeg", 0.72));
+
+    // Miniatura (~240px) para avatares y tarjetas: pesa ~10 KB en vez de ~100 KB.
+    const thumbScale = Math.min(1, 240 / Math.max(width, height));
+    const thumbCanvas = document.createElement("canvas");
+    thumbCanvas.width = Math.max(1, Math.round(width * thumbScale));
+    thumbCanvas.height = Math.max(1, Math.round(height * thumbScale));
+    thumbCanvas.getContext("2d").drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
+
+    uploadProfilePhoto(canvas.toDataURL("image/jpeg", 0.72), thumbCanvas.toDataURL("image/jpeg", 0.7));
   };
   reader.readAsDataURL(file);
   event.target.value = ""; // permite volver a elegir la misma foto si algo falla
 }
 
-async function uploadProfilePhoto(dataUrl) {
+async function uploadProfilePhoto(dataUrl, thumbUrl) {
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   if (!rider) return;
   const msg = document.getElementById("profilePhotoMsg");
@@ -1578,12 +1586,12 @@ async function uploadProfilePhoto(dataUrl) {
     const res = await fetch(API + `/api/riders/${rider.id}/photo`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: rider.phone, pin: rider.pin, photo: dataUrl }),
+      body: JSON.stringify({ phone: rider.phone, pin: rider.pin, photo: dataUrl, thumb: thumbUrl }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "No se pudo guardar");
-    localStorage.setItem("motoya_rider", JSON.stringify({ ...rider, photo: dataUrl }));
-    renderProfilePhoto(dataUrl);
+    localStorage.setItem("motoya_rider", JSON.stringify({ ...rider, photo: thumbUrl }));
+    renderProfilePhoto(thumbUrl);
     msg.style.color = "var(--success)";
     msg.textContent = "✅ Foto actualizada";
   } catch (e) {

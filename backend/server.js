@@ -12,6 +12,7 @@ const driverRoutes = require("./routes/drivers");
 const riderRoutes = require("./routes/riders");
 const rideRoutes = require("./routes/rides");
 const adminRoutes = require("./routes/admin");
+const { router: photoRoutes } = require("./photos");
 const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { CITIES, resolveCity, isWithinServiceRadius } = require("./cities");
@@ -67,6 +68,7 @@ app.use("/api", driverRoutes);
 app.use("/api", riderRoutes);
 app.use("/api", rideRoutes);
 app.use("/api", adminRoutes);
+app.use("/api", photoRoutes);
 
 startBackupSchedule(6);
 

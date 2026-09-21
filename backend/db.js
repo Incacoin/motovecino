@@ -370,6 +370,20 @@ try {
   // la columna ya existe
 }
 
+// Miniatura (~240px) de la foto de perfil. Los avatares y tarjetas usan esta
+// versión chica; la foto grande solo se baja si alguien la abre. Si está en
+// NULL (fotos anteriores a este cambio) se sirve la foto grande como respaldo.
+try {
+  db.exec("ALTER TABLE riders ADD COLUMN photo_thumb TEXT");
+} catch {
+  // la columna ya existe
+}
+try {
+  db.exec("ALTER TABLE drivers ADD COLUMN photo_thumb TEXT");
+} catch {
+  // la columna ya existe
+}
+
 // Un solo lugar guardado ("Casa") para no escribir la dirección de cero cada
 // vez que se pide un mandado o viaje repetido — no es una libreta de varios
 // lugares, solo el caso de uso más frecuente (ver conversación con el

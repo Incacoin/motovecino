@@ -3,6 +3,7 @@ const db = require("../db");
 const realtime = require("../realtime");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
+const { photoUrls } = require("../photos");
 
 const router = express.Router();
 
@@ -144,11 +145,7 @@ router.get("/rides/:id", (req, res) => {
   }
 
   if (ride.driver_id) {
-    ride.driver = db
-      .prepare(
-        "SELECT id, name, phone, vehicle, grupo, lat, lng, photo FROM drivers WHERE id = ?"
-      )
-      .get(ride.driver_id);
+    ride.driver = driverForRide(ride.driver_id);
   }
   Object.assign(ride, riderInfoFor(ride.rider_phone));
   res.json(ride);
@@ -163,8 +160,19 @@ function riderInfoFor(phone) {
   const { trips } = db
     .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_phone = ? AND status = 'completado'")
     .get(phone);
-  const riderRow = db.prepare("SELECT photo FROM riders WHERE phone = ?").get(phone);
-  return { riderTripCount: trips, riderPhoto: riderRow ? riderRow.photo : null };
+  const riderRow = db.prepare("SELECT id, photo FROM riders WHERE phone = ?").get(phone);
+  // Solo la miniatura: el chofer la ve como avatar chico junto al nombre.
+  return { riderTripCount: trips, riderPhoto: riderRow ? photoUrls("r", riderRow.id, riderRow.photo).photo : null };
+}
+
+// Datos del chofer que ve el pasajero. La foto va como URLs (miniatura +
+// grande para el visor) en vez de base64 pegado en cada mensaje.
+function driverForRide(driverId) {
+  const driver = db
+    .prepare("SELECT id, name, phone, vehicle, grupo, lat, lng, photo FROM drivers WHERE id = ?")
+    .get(driverId);
+  if (!driver) return driver;
+  return { ...driver, ...photoUrls("d", driver.id, driver.photo) };
 }
 
 router.post("/rides/:id/accept", (req, res) => {
@@ -211,11 +219,7 @@ router.post("/rides/:id/accept", (req, res) => {
 
   const ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
   Object.assign(ride, riderInfoFor(ride.rider_phone));
-  const driver = db
-    .prepare(
-      "SELECT id, name, phone, vehicle, grupo, lat, lng, photo FROM drivers WHERE id = ?"
-    )
-    .get(driverId);
+  const driver = driverForRide(driverId);
 
   realtime.notifyRide(rideId, "ride_accepted", driver);
   realtime.broadcastRideTaken(rideId, driverId);

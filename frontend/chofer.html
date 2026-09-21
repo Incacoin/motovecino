@@ -1466,13 +1466,21 @@ function handleProfilePhoto(event) {
     canvas.width = width;
     canvas.height = height;
     canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-    uploadProfilePhoto(canvas.toDataURL("image/jpeg", 0.72));
+
+    // Miniatura (~240px) para avatares y tarjetas: pesa ~10 KB en vez de ~100 KB.
+    const thumbScale = Math.min(1, 240 / Math.max(width, height));
+    const thumbCanvas = document.createElement("canvas");
+    thumbCanvas.width = Math.max(1, Math.round(width * thumbScale));
+    thumbCanvas.height = Math.max(1, Math.round(height * thumbScale));
+    thumbCanvas.getContext("2d").drawImage(img, 0, 0, thumbCanvas.width, thumbCanvas.height);
+
+    uploadProfilePhoto(canvas.toDataURL("image/jpeg", 0.72), thumbCanvas.toDataURL("image/jpeg", 0.7));
   };
   reader.readAsDataURL(file);
   event.target.value = ""; // permite volver a elegir la misma foto si algo falla
 }
 
-async function uploadProfilePhoto(dataUrl) {
+async function uploadProfilePhoto(dataUrl, thumbUrl) {
   const msg = document.getElementById("profilePhotoMsg");
   const btn = document.getElementById("profilePhotoBtn");
   btn.disabled = true;
@@ -1482,10 +1490,10 @@ async function uploadProfilePhoto(dataUrl) {
     const res = await fetch(API + "/api/drivers/photo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: driver.phone, pin: driver.pin, photo: dataUrl }),
+      body: JSON.stringify({ phone: driver.phone, pin: driver.pin, photo: dataUrl, thumb: thumbUrl }),
     });
     if (!res.ok) throw new Error((await res.json()).error || "No se pudo guardar");
-    document.getElementById("profilePhotoSlot").innerHTML = `<img id="profilePhoto" src="${dataUrl}" alt="Mi foto" />`;
+    document.getElementById("profilePhotoSlot").innerHTML = `<img id="profilePhoto" src="${thumbUrl}" alt="Mi foto" />`;
     msg.style.color = "var(--success)";
     msg.textContent = "✅ Foto actualizada";
   } catch (e) {
