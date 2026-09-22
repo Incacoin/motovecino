@@ -31,6 +31,8 @@
   #newPinCard .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 14px; }
   .table-wrap { overflow-x: auto; border-radius: var(--radius-md); }
   .admin-search { width: 100%; box-sizing: border-box; margin-bottom: 14px; }
+  .show-more { text-align: center; margin-top: 12px; }
+  .show-more:empty { display: none; }
   .paidRow { display: flex; gap: 6px; align-items: center; }
   .paidRow input[type="date"] { padding: 7px 8px; font-size: 13px; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); }
   .vencido { color: var(--danger); font-size: 12px; margin-top: 3px; }
@@ -308,6 +310,7 @@
       <tbody id="driverRows"></tbody>
     </table>
   </div>
+  <div id="driverShowMore" class="show-more"></div>
   </div>
   </div>
 
@@ -324,6 +327,7 @@
       <tbody id="riderRows"></tbody>
     </table>
   </div>
+  <div id="riderShowMore" class="show-more"></div>
   </div>
   </div>
 
@@ -440,6 +444,26 @@ let adminCity = "tekax";
 let adminCityLabel = "Tekax";
 let launchRankingCache = [];
 let driversCache = [];
+let showAllDrivers = false;
+let showAllRiders = false;
+const LIST_PREVIEW_COUNT = 15;
+
+function toggleShowAllDrivers() { showAllDrivers = true; renderDriverRows(); }
+function toggleShowAllRiders() { showAllRiders = true; renderRiderRows(); }
+
+// Con la lista completa la pantalla se hacía interminable. Recorta a los
+// LIST_PREVIEW_COUNT más recientes (ya vienen ordenados así del servidor) y
+// deja un botón "Ver todos" — salvo que el admin ya lo haya tocado, o esté
+// buscando algo (ahí no tiene sentido esconder resultados que sí coinciden).
+function applyPreviewCap(filtered, query, showAll, containerId, toggleFnName) {
+  const el = document.getElementById(containerId);
+  if (query || showAll || filtered.length <= LIST_PREVIEW_COUNT) {
+    if (el) el.innerHTML = "";
+    return filtered;
+  }
+  if (el) el.innerHTML = `<button class="btn-sm" onclick="${toggleFnName}()">Ver todos (${filtered.length})</button>`;
+  return filtered.slice(0, LIST_PREVIEW_COUNT);
+}
 let applicationsCache = [];
 const DRIVER_STALE_SECONDS = 90;
 let pendingDriverPhoto = null;
@@ -862,7 +886,8 @@ async function loadRiders() {
 function renderRiderRows() {
   const query = (document.getElementById("riderSearch") || {}).value || "";
   const filtered = ridersCache.filter((r) => matchesSearch(r.name, r.phone, query));
-  document.getElementById("riderRows").innerHTML = filtered.map((r) => `
+  const visible = applyPreviewCap(filtered, query, showAllRiders, "riderShowMore", "toggleShowAllRiders");
+  document.getElementById("riderRows").innerHTML = visible.map((r) => `
     <tr>
       <td>${r.name || "—"}</td>
       <td>${r.phone}</td>
@@ -1011,10 +1036,12 @@ function renderDriverRows() {
   const query = (document.getElementById("driverSearch") || {}).value || "";
   const filtered = driversCache.filter((d) => matchesSearch(d.name, d.phone, query));
   if (query && filtered.length === 0) {
+    document.getElementById("driverShowMore").innerHTML = "";
     document.getElementById("driverRows").innerHTML = `<tr><td colspan="12" class="ago">Sin resultados para "${query}".</td></tr>`;
     return;
   }
-  document.getElementById("driverRows").innerHTML = filtered.map((d) => {
+  const visible = applyPreviewCap(filtered, query, showAllDrivers, "driverShowMore", "toggleShowAllDrivers");
+  document.getElementById("driverRows").innerHTML = visible.map((d) => {
     if (editingId === d.id) {
       return `
       <tr>
