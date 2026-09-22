@@ -30,6 +30,7 @@
   #newPinCard .pin { font-size: 42px; font-weight: 800; color: var(--accent); letter-spacing: 6px; margin: 10px 0; }
   #newPinCard .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 14px; }
   .table-wrap { overflow-x: auto; border-radius: var(--radius-md); }
+  .admin-search { width: 100%; box-sizing: border-box; margin-bottom: 14px; }
   .paidRow { display: flex; gap: 6px; align-items: center; }
   .paidRow input[type="date"] { padding: 7px 8px; font-size: 13px; background: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); }
   .vencido { color: var(--danger); font-size: 12px; margin-top: 3px; }
@@ -298,6 +299,7 @@
 
   <div class="section-card">
   <h1>👥 Choferes registrados</h1>
+  <input type="text" id="driverSearch" class="admin-search" placeholder="🔎 Buscar por nombre o teléfono..." oninput="renderDriverRows()" />
   <div class="table-wrap">
     <table>
       <thead>
@@ -313,6 +315,7 @@
   <div class="section-card">
   <h1>🧍 Pasajeros registrados</h1>
   <p class="section-hint">Cuentas reales con PIN — si alguien pierde acceso (cambió de celular, olvidó su PIN), restablécelo aquí y pásaselo por su cuenta.</p>
+  <input type="text" id="riderSearch" class="admin-search" placeholder="🔎 Buscar por nombre o teléfono..." oninput="renderRiderRows()" />
   <div class="table-wrap">
     <table>
       <thead>
@@ -857,7 +860,9 @@ async function loadRiders() {
 }
 
 function renderRiderRows() {
-  document.getElementById("riderRows").innerHTML = ridersCache.map((r) => `
+  const query = (document.getElementById("riderSearch") || {}).value || "";
+  const filtered = ridersCache.filter((r) => matchesSearch(r.name, r.phone, query));
+  document.getElementById("riderRows").innerHTML = filtered.map((r) => `
     <tr>
       <td>${r.name || "—"}</td>
       <td>${r.phone}</td>
@@ -867,7 +872,9 @@ function renderRiderRows() {
       <td>${r.created_at ? r.created_at.slice(0, 10) : ""}</td>
       <td>${r.last_ride_at ? r.last_ride_at.slice(0, 10) : "—"}</td>
       <td><button class="btn-sm" onclick="resetRiderPin(${r.id})">Restablecer PIN</button></td>
-    </tr>`).join("") || `<tr><td colspan="8" class="ago">Todavía no hay pasajeros registrados.</td></tr>`;
+    </tr>`).join("") || (query
+    ? `<tr><td colspan="8" class="ago">Sin resultados para "${query}".</td></tr>`
+    : `<tr><td colspan="8" class="ago">Todavía no hay pasajeros registrados.</td></tr>`);
 }
 
 async function resetRiderPin(id) {
@@ -989,8 +996,25 @@ function activityBadge(lastConnectedAt) {
   return `<span style="color:var(--danger);font-weight:600;">🔴 Inactivo (${days}d)</span>`;
 }
 
+// Filtra por nombre o teléfono, ignorando mayúsculas y espacios en el número
+// (para poder pegar "999 123 4567" tal cual llega por WhatsApp).
+function matchesSearch(nameOrPhoneA, nameOrPhoneB, query) {
+  if (!query) return true;
+  const q = query.trim().toLowerCase();
+  return (
+    (nameOrPhoneA || "").toLowerCase().includes(q) ||
+    (nameOrPhoneB || "").replace(/\s+/g, "").includes(q.replace(/\s+/g, ""))
+  );
+}
+
 function renderDriverRows() {
-  document.getElementById("driverRows").innerHTML = driversCache.map((d) => {
+  const query = (document.getElementById("driverSearch") || {}).value || "";
+  const filtered = driversCache.filter((d) => matchesSearch(d.name, d.phone, query));
+  if (query && filtered.length === 0) {
+    document.getElementById("driverRows").innerHTML = `<tr><td colspan="12" class="ago">Sin resultados para "${query}".</td></tr>`;
+    return;
+  }
+  document.getElementById("driverRows").innerHTML = filtered.map((d) => {
     if (editingId === d.id) {
       return `
       <tr>
