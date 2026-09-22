@@ -369,6 +369,25 @@ router.post("/admin/riders/:id/reset-pin", checkAdminPin, (req, res) => {
   res.json({ ok: true, pin });
 });
 
+// A diferencia de los choferes (que se "esconden" con deleted_at porque su
+// nombre debe seguir viéndose en el historial de viajes ya cobrado), un
+// pasajero sin viajes completados no deja ningún historial que proteger —
+// se borra la fila de verdad, para limpiar cuentas de prueba/basura.
+// Con viajes completados, no se deja borrar aquí (evita perder ese
+// historial sin querer); si de verdad hay que quitarlo, es un caso especial
+// que se atiende aparte, no desde este botón.
+router.post("/admin/riders/:id/delete", checkAdminPin, (req, res) => {
+  if (!assertOwnCity("riders", req, res)) return;
+  const { trips } = db
+    .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_id = ? AND status = 'completado'")
+    .get(req.params.id);
+  if (trips > 0) {
+    return res.status(409).json({ error: `Tiene ${trips} viaje(s) completado(s) — no se puede eliminar` });
+  }
+  db.prepare("DELETE FROM riders WHERE id = ?").run(req.params.id);
+  res.json({ ok: true });
+});
+
 router.post("/admin/rides/list", checkAdminPin, (req, res) => {
   const rides = db
     .prepare(

@@ -896,7 +896,10 @@ function renderRiderRows() {
       <td>${r.no_show_count >= 2 ? `<span style="color:#e05d5d;font-weight:600;">${r.no_show_count} ⚠️</span>` : (r.no_show_count || 0)}</td>
       <td>${r.created_at ? r.created_at.slice(0, 10) : ""}</td>
       <td>${r.last_ride_at ? r.last_ride_at.slice(0, 10) : "—"}</td>
-      <td><button class="btn-sm" onclick="resetRiderPin(${r.id})">Restablecer PIN</button></td>
+      <td class="row-actions">
+        <button class="btn-sm" onclick="resetRiderPin(${r.id})">Restablecer PIN</button>
+        <button class="btn-sm danger" onclick="deleteRider(${r.id}, '${(r.name || r.phone).replace(/'/g, "\\'")}')">Eliminar</button>
+      </td>
     </tr>`).join("") || (query
     ? `<tr><td colspan="8" class="ago">Sin resultados para "${query}".</td></tr>`
     : `<tr><td colspan="8" class="ago">Todavía no hay pasajeros registrados.</td></tr>`);
@@ -916,6 +919,24 @@ async function resetRiderPin(id) {
   }
   const { pin } = await res.json();
   showResetPin(rider.name || rider.phone, rider.phone, pin);
+  loadRiders();
+}
+
+// A diferencia de "Eliminar" en choferes (que solo lo esconde y conserva su
+// nombre en el historial), un pasajero sin viajes completados se borra de
+// verdad — es una cuenta de prueba o basura, no hay historial que proteger.
+// El servidor rechaza el borrado si sí tiene viajes completados.
+async function deleteRider(id, nameOrPhone) {
+  if (!confirm(`¿Eliminar a ${nameOrPhone}? Esto no se puede deshacer.`)) return;
+  const res = await fetch(API + `/api/admin/riders/${id}/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin }),
+  });
+  if (!res.ok) {
+    showToast((await res.json()).error || "No se pudo eliminar");
+    return;
+  }
   loadRiders();
 }
 
