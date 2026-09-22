@@ -1061,6 +1061,22 @@ function matchesSearch(nameOrPhoneA, nameOrPhoneB, query) {
   );
 }
 
+// El PIN de cada chofer se queda oculto por defecto en la tabla (para que no
+// se vaya de pilón si alguien ve tu pantalla o compartes una videollamada) —
+// un clic lo revela, otro lo vuelve a ocultar. El botón de WhatsApp que le
+// reenvía su PIN al chofer no depende de esto, sigue leyendo driversCache.
+const revealedPins = new Set();
+function pinCell(id, pin) {
+  const revealed = revealedPins.has(id);
+  const text = revealed ? escapeHtml(pin) : "••••";
+  return `<span class="pin-toggle" style="cursor:pointer;letter-spacing:1px;" onclick="togglePinVisible(${id})" title="${revealed ? "Ocultar" : "Ver"} PIN">${text}</span>`;
+}
+function togglePinVisible(id) {
+  if (revealedPins.has(id)) revealedPins.delete(id);
+  else revealedPins.add(id);
+  renderDriverRows();
+}
+
 function renderDriverRows() {
   const query = (document.getElementById("driverSearch") || {}).value || "";
   const filtered = driversCache.filter((d) => matchesSearch(d.name, d.phone, query));
@@ -1075,7 +1091,7 @@ function renderDriverRows() {
       return `
       <tr>
         <td><input id="edit-name-${d.id}" value="${escapeHtml(d.name)}" /></td>
-        <td>${d.pin}</td>
+        <td>${pinCell(d.id, d.pin)}</td>
         <td>
           <div class="phoneRow">
             <span class="prefix">+52</span>
@@ -1125,7 +1141,7 @@ function renderDriverRows() {
     return `
     <tr>
       <td>${nameCell}</td>
-      <td>${d.pin}</td>
+      <td>${pinCell(d.id, d.pin)}</td>
       <td>${d.phone}</td>
       <td>${vehicleTypeBadge(d.vehicle_type)}</td>
       <td>${cityLabel(d.city)}</td>

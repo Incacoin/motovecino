@@ -342,6 +342,16 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// El chofer que de verdad toma el viaje recibe el teléfono completo del
+// pasajero en la respuesta de /accept — este aviso es solo para que decida
+// si le conviene aceptar, no hace falta el teléfono todavía, y mandárselo a
+// varios choferes cercanos que ni siquiera van a tomar ese viaje era exponer
+// el número de alguien a desconocidos de más.
+function omitRiderPhone(ride) {
+  const { rider_phone, ...rest } = ride;
+  return rest;
+}
+
 function broadcastNewRide(ride) {
   const rideType = ride.ride_type === "taxi" ? "taxi" : "moto";
   const available = db
@@ -349,12 +359,13 @@ function broadcastNewRide(ride) {
       "SELECT id, lat, lng FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .all(rideType);
+  const payload = omitRiderPhone(ride);
   for (const driver of available) {
     if (driver.lat == null || driver.lng == null) continue;
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > MAX_MATCH_DISTANCE_KM) continue;
     const ws = driverSockets.get(driver.id);
-    if (ws) send(ws, "new_ride", ride);
+    if (ws) send(ws, "new_ride", payload);
   }
 }
 
@@ -384,7 +395,7 @@ function notifyPendingRides(driverId) {
     const { trips } = db
       .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_phone = ? AND status = 'completado'")
       .get(ride.rider_phone);
-    send(ws, "new_ride", { ...ride, riderTripCount: trips, riderPhoto: riderRow ? photoUrls("r", riderRow.id, riderRow.photo).photo : null });
+    send(ws, "new_ride", { ...omitRiderPhone(ride), riderTripCount: trips, riderPhoto: riderRow ? photoUrls("r", riderRow.id, riderRow.photo).photo : null });
   }
 }
 
