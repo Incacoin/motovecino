@@ -31,4 +31,7 @@ module.exports = {
   // Si un chofer no manda su ubicación en este tiempo probablemente cerró la
   // app o se quedó sin señal — no debería seguir apareciendo como disponible.
   DRIVER_STALE_SECONDS: 90,
+  // Cuántos choferes por ciudad reciben la insignia de "fundador" (los
+  // primeros en darse de alta, automático, sin depender de viajes).
+  FOUNDER_SLOTS: 10,
 };

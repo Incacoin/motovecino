@@ -169,7 +169,7 @@ function riderInfoFor(phone) {
 // grande para el visor) en vez de base64 pegado en cada mensaje.
 function driverForRide(driverId) {
   const driver = db
-    .prepare("SELECT id, name, phone, vehicle, grupo, lat, lng, photo FROM drivers WHERE id = ?")
+    .prepare("SELECT id, name, phone, vehicle, grupo, lat, lng, photo, es_fundador FROM drivers WHERE id = ?")
     .get(driverId);
   if (!driver) return driver;
   return { ...driver, ...photoUrls("d", driver.id, driver.photo) };

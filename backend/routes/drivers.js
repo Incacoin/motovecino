@@ -131,7 +131,7 @@ router.post("/drivers/profile", (req, res) => {
   const driver = db
     .prepare(
       `SELECT id, name, phone, vehicle, vehicle_type, grupo, photo, tipo, pin, created_at,
-              paid_until, cancel_count
+              paid_until, cancel_count, es_fundador
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
     .get(phone, pin);
@@ -183,6 +183,7 @@ router.post("/drivers/profile", (req, res) => {
     pin: driver.pin,
     createdAt: driver.created_at,
     cancelCount: driver.cancel_count,
+    esFundador: !!driver.es_fundador,
     lifetimeTrips: stats.lifetimeTrips || 0,
     tripsMonth: stats.tripsMonth || 0,
     ratedCount: stats.ratedCount || 0,

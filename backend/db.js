@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { DatabaseSync } = require("node:sqlite");
-const { SERVICE_FEE_START_DATE } = require("./constants");
+const { SERVICE_FEE_START_DATE, FOUNDER_SLOTS } = require("./constants");
 
 // En un clon nuevo (o un deploy limpio) esta carpeta no existe todavía —
 // sin esto, SQLite no puede crear el archivo y truena con "unable to open
@@ -462,6 +462,29 @@ try {
 } catch {
   // la columna ya existe
 }
+
+// Insignia simbólica para los primeros choferes de cada ciudad — no depende
+// de viajes ni de ninguna meta, solo de haberse dado de alta a tiempo (ver
+// routes/admin.js, se marca al momento de crear el chofer).
+try {
+  db.exec("ALTER TABLE drivers ADD COLUMN es_fundador INTEGER NOT NULL DEFAULT 0");
+} catch {
+  // la columna ya existe
+}
+
+// Backfill: marca como fundadores a los primeros FOUNDER_SLOTS choferes YA
+// dados de alta en cada ciudad (por fecha de registro), no solo a los que se
+// registren de ahora en adelante — si no, los primeros de verdad se quedan
+// sin la insignia que les toca. Idempotente y seguro de re-correr en cada
+// arranque: siempre recalcula el mismo top N por ciudad.
+db.prepare(
+  `UPDATE drivers SET es_fundador = 1 WHERE id IN (
+     SELECT id FROM (
+       SELECT id, ROW_NUMBER() OVER (PARTITION BY city ORDER BY created_at ASC, id ASC) AS rn
+       FROM drivers WHERE deleted_at IS NULL
+     ) WHERE rn <= ?
+   )`
+).run(FOUNDER_SLOTS);
 try {
   db.exec("ALTER TABLE driver_applications ADD COLUMN referred_by TEXT");
 } catch {

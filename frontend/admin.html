@@ -1105,9 +1105,12 @@ function renderDriverRows() {
     const sigThumb = d.signature
       ? `<img class="thumb" style="background:#fff" src="${d.signature}" onclick="viewImage('${d.signature}')" title="Firma del contrato" />`
       : "";
+    const founderTag = d.es_fundador
+      ? ` <span title="Chofer fundador" style="font-size:11px;">🏅</span>`
+      : "";
     const nameWithReferral = d.referred_by
-      ? `<span>${d.name}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${d.referred_by}</div>`
-      : `<span>${d.name}</span>`;
+      ? `<span>${d.name}${founderTag}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${d.referred_by}</div>`
+      : `<span>${d.name}${founderTag}</span>`;
     const nameCell = d.photo
       ? `<div class="info"><img class="thumb" src="${d.photo}" onclick="viewImage('${d.photo}')" />${placaThumb}${sigThumb}<div>${nameWithReferral}</div></div>`
       : nameWithReferral;

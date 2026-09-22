@@ -76,6 +76,11 @@
   #profilePhoto { width: 108px; height: 108px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); background: var(--bg-card); }
   .profile-photo-fallback { width: 108px; height: 108px; border-radius: 50%; border: 3px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 42px; background: var(--bg-card); }
   .profile-name { font-weight: 700; font-size: 17px; text-align: center; }
+  .founder-badge {
+    text-align: center; font-size: 12.5px; font-weight: 600; color: #7a5b00;
+    background: #fff3cd; border: 1px solid #f6d989; border-radius: 999px;
+    padding: 3px 10px; margin: 4px auto 0; width: fit-content;
+  }
   .profile-sub { color: var(--text-dim); font-size: 13.5px; text-align: center; }
   .profile-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .profile-card .card-title { font-weight: 700; font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
@@ -214,6 +219,7 @@
     </div>
 
     <div class="profile-name" id="profileName"></div>
+    <div class="founder-badge" id="founderBadge" style="display:none;">🏅 Chofer fundador</div>
     <div class="profile-stars-row" id="profileStarsRow" style="display:none;">
       <span class="stars" id="profileStars"></span>
       <span class="profile-sub" id="profileStarsNote"></span>
@@ -1422,6 +1428,7 @@ function renderProfile(p) {
     : `<div class="profile-photo-fallback"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#9aa1b0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg></div>`;
 
   document.getElementById("profileName").textContent = p.name;
+  document.getElementById("founderBadge").style.display = p.esFundador ? "block" : "none";
   document.getElementById("profileSub").textContent =
     (p.vehicleType === "taxi" ? "🚕 Taxi" : "🛵 Mototaxi") +
     (p.grupo ? ` · ${p.grupo}` : "") +

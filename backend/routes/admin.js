@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS } = require("../constants");
+const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS, FOUNDER_SLOTS } = require("../constants");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById } = require("../cities");
 const { rideFee } = require("../fees");
@@ -92,17 +92,27 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
   }
 
   const pin = generateDriverPin();
+
+  // Insignia de "chofer fundador": los primeros FOUNDER_SLOTS choferes dados
+  // de alta en cada ciudad la reciben automático, sin depender de viajes —
+  // es simbólico, para reconocer a quien se sumó temprano mientras todavía
+  // no hay flujo de pasajeros real que premiar por volumen.
+  const { count: existingCount } = db
+    .prepare("SELECT COUNT(*) AS count FROM drivers WHERE city = ? AND deleted_at IS NULL")
+    .get(cityId);
+  const esFundador = existingCount < FOUNDER_SLOTS ? 1 : 0;
+
   const result = db
     .prepare(
-      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
       name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, photo || null, photoPlaca || null, signature || null, vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId,
-      emergencyContactName || null, emergencyContactPhone || null, referredBy || null
+      emergencyContactName || null, emergencyContactPhone || null, referredBy || null, esFundador
     );
 
   const driver = db
-    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by FROM drivers WHERE id = ?")
+    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
 
   res.status(201).json(driver);
@@ -113,7 +123,7 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
               d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.created_at,
-              d.emergency_contact_name, d.emergency_contact_phone, d.referred_by,
+              d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador,
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
               (SELECT paid_at FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_at,
               (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides,
