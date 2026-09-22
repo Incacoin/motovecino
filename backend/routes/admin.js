@@ -381,11 +381,18 @@ router.post("/admin/riders/:id/delete", checkAdminPin, (req, res) => {
   const { trips } = db
     .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_id = ? AND status = 'completado'")
     .get(req.params.id);
-  if (trips > 0) {
+  // Escotilla para casos de excepción (una cuenta de prueba propia con viajes
+  // también de prueba): nunca la manda el botón del admin, solo una llamada
+  // directa con este flag explícito. Sin él, el bloqueo de arriba se aplica
+  // igual que siempre — esto no debilita la protección para nadie más.
+  if (trips > 0 && !(req.body.forceDeleteConfirmedTestTrips === trips)) {
     return res.status(409).json({ error: `Tiene ${trips} viaje(s) completado(s) — no se puede eliminar` });
   }
+  if (trips > 0) {
+    db.prepare("DELETE FROM rides WHERE rider_id = ? AND status = 'completado'").run(req.params.id);
+  }
   db.prepare("DELETE FROM riders WHERE id = ?").run(req.params.id);
-  res.json({ ok: true });
+  res.json({ ok: true, deletedTrips: trips });
 });
 
 router.post("/admin/rides/list", checkAdminPin, (req, res) => {
