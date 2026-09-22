@@ -388,6 +388,11 @@ router.post("/admin/riders/:id/delete", checkAdminPin, (req, res) => {
   if (trips > 0 && !(req.body.forceDeleteConfirmedTestTrips === trips)) {
     return res.status(409).json({ error: `Tiene ${trips} viaje(s) completado(s) — no se puede eliminar` });
   }
+  // rides.rider_id tiene una llave foránea hacia riders(id) — el motor de
+  // SQLite que usa este proyecto la exige por defecto. Un viaje cancelado o
+  // abandonado (no es historial real, no lo protege el conteo de arriba)
+  // igual apunta al pasajero y bloquea el DELETE si no se limpia primero.
+  db.prepare("DELETE FROM rides WHERE rider_id = ? AND status != 'completado'").run(req.params.id);
   if (trips > 0) {
     db.prepare("DELETE FROM rides WHERE rider_id = ? AND status = 'completado'").run(req.params.id);
   }
