@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aviso de Privacidad — MotoVecino</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%B5%3C/text%3E%3C/svg%3E" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --ink:#1b2430;
+    --ink-soft:#535d6c;
+    --ink-faint:#8791a0;
+    --paper:#f7f6f2;
+    --surface:#ffffff;
+    --line:rgba(27,36,48,0.13);
+    --accent:#b5691a;
+    --accent-soft:#f1e2ce;
+    --accent-ink:#7a4610;
+    --danger:#9c3b2e;
+    --danger-soft:#f5e3df;
+    --font-display:'Newsreader', Georgia, 'Times New Roman', serif;
+    --font-body:'Public Sans', -apple-system, Segoe UI, sans-serif;
+    --font-mono:'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ink:#e9e6de;
+      --ink-soft:#b3aea1;
+      --ink-faint:#7d7a70;
+      --paper:#15181c;
+      --surface:#1c2025;
+      --line:rgba(233,230,222,0.13);
+      --accent:#e0a751;
+      --accent-soft:#332a1c;
+      --accent-ink:#f0c383;
+      --danger:#d98a7a;
+      --danger-soft:#332420;
+    }
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .topbar{
+    border-bottom:1px solid var(--line);
+    background:var(--paper);
+    position:sticky;
+    top:0;
+    z-index:10;
+    backdrop-filter:blur(6px);
+  }
+  .topbar-inner{
+    max-width:760px;
+    margin:0 auto;
+    padding:14px 24px;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+  }
+  .wordmark{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:1.05rem;
+    letter-spacing:0.01em;
+  }
+  .wordmark span{color:var(--accent);}
+  .topbar-left{display:flex; align-items:center; gap:16px;}
+  .back-link{
+    font-family:var(--font-mono);
+    font-size:0.78rem;
+    letter-spacing:0.03em;
+    color:var(--accent-ink);
+    text-decoration:none;
+    background:none;
+    border:none;
+    padding:0;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .back-link:hover, .back-link:focus-visible{color:var(--accent);}
+  .doc-meta{
+    font-family:var(--font-mono);
+    font-size:0.72rem;
+    color:var(--ink-faint);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+
+  main{
+    max-width:760px;
+    margin:0 auto;
+    padding:56px 24px 96px;
+  }
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:0.72rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    margin:0 0 14px;
+  }
+  h1{
+    font-family:var(--font-display);
+    font-size:2.35rem;
+    font-weight:600;
+    line-height:1.15;
+    margin:0 0 10px;
+    text-wrap:balance;
+  }
+  .subtitle{
+    color:var(--ink-soft);
+    font-size:1.02rem;
+    max-width:56ch;
+    margin:0 0 40px;
+  }
+
+  .summary-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-left:3px solid var(--accent);
+    border-radius:6px;
+    padding:24px 26px;
+    margin:0 0 48px;
+  }
+  .summary-card h2{
+    font-family:var(--font-mono);
+    font-size:0.72rem;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--accent-ink);
+    margin:0 0 14px;
+    font-weight:500;
+  }
+  .summary-card ul{
+    margin:0;
+    padding:0 0 0 1.1em;
+  }
+  .summary-card li{
+    margin:0 0 10px;
+    color:var(--ink);
+  }
+  .summary-card li:last-child{margin-bottom:0;}
+  .summary-card strong{font-weight:600;}
+
+  nav.toc{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px 0;
+    margin:0 0 52px;
+    padding:18px 0;
+    border-top:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  nav.toc a{
+    font-family:var(--font-mono);
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    text-decoration:none;
+    padding:4px 14px 4px 0;
+    border-right:1px solid var(--line);
+  }
+  nav.toc a:last-child{border-right:none;}
+  nav.toc a:hover, nav.toc a:focus-visible{color:var(--accent-ink);}
+
+  section.clause{
+    display:grid;
+    grid-template-columns:56px 1fr;
+    gap:0 20px;
+    padding:34px 0;
+    border-top:1px solid var(--line);
+    scroll-margin-top:80px;
+  }
+  section.clause:first-of-type{border-top:none;}
+  .clause-num{
+    font-family:var(--font-mono);
+    font-size:1.5rem;
+    color:var(--ink-faint);
+    line-height:1.2;
+    padding-top:2px;
+  }
+  .clause h3{
+    font-family:var(--font-display);
+    font-size:1.28rem;
+    font-weight:600;
+    margin:0 0 12px;
+    line-height:1.3;
+  }
+  .clause p{
+    margin:0 0 14px;
+    color:var(--ink);
+    max-width:64ch;
+  }
+  .clause p:last-child{margin-bottom:0;}
+  .clause ul{
+    margin:0 0 14px;
+    padding-left:1.2em;
+    max-width:62ch;
+  }
+  .clause li{margin-bottom:8px;}
+  .clause li:last-child{margin-bottom:0;}
+
+  .callout-danger{
+    background:var(--danger-soft);
+    border:1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+    border-radius:6px;
+    padding:16px 18px;
+    margin-top:16px;
+    font-size:0.95rem;
+    color:var(--ink);
+  }
+  .callout-danger strong{color:var(--danger);}
+
+  footer{
+    max-width:760px;
+    margin:0 auto;
+    padding:0 24px 64px;
+    color:var(--ink-faint);
+    font-size:0.82rem;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  footer a{color:var(--ink-faint);}
+
+  @media (max-width:560px){
+    section.clause{grid-template-columns:34px 1fr; gap:0 14px;}
+    .clause-num{font-size:1.1rem;}
+    h1{font-size:1.85rem;}
+  }
+
+  @media print{
+    .topbar, nav.toc{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <button type="button" class="back-link" onclick="volverAtras()">← Volver</button>
+      <div class="wordmark">Moto<span>Vecino</span></div>
+    </div>
+    <div class="doc-meta">Vigente desde [PENDIENTE]</div>
+  </div>
+</div>
+<script>
+  // Antes este link se abría en pestaña nueva (target="_blank"), y en la PWA
+  // instalada eso a veces abre el navegador del sistema como una app aparte
+  // — ahí window.opener nunca existe (aunque se quite rel="noopener"), así
+  // que window.close() no servía para regresar. Ahora el link navega en la
+  // misma ventana, así que history.back() sí tiene un historial real al que
+  // volver. location.href es el último recurso si alguien llega aquí directo
+  // (sin historial previo, ej. un link guardado).
+  function volverAtras(){
+    // Cargado dentro del modal de quiero-ser-chofer.html (ver openLegalModal
+    // ahí) — avisarle al padre que lo cierre, no navegar el iframe.
+    if (window.self !== window.top) { window.parent.postMessage("cerrar-legal-modal", "*"); return; }
+    if (window.history.length > 1) { window.history.back(); return; }
+    if (window.opener) { window.close(); return; }
+    window.location.href = "pasajero.html";
+  }
+</script>
+
+<main>
+  <p class="eyebrow">Aviso de privacidad · Datos personales</p>
+  <h1>Aviso de Privacidad</h1>
+  <p class="subtitle">Este aviso explica qué datos personales guarda MotoVecino, para qué los usa, quién puede verlos y cómo puedes pedir que se corrijan o se borren. Aplica a pasajeros y choferes.</p>
+
+  <div class="summary-card">
+    <h2>Resumen en lenguaje simple</h2>
+    <ul>
+      <li><strong>Solo guardamos lo necesario</strong> para que el servicio funcione: conectar pasajeros con choferes cercanos.</li>
+      <li><strong>No vendemos tus datos</strong> ni los usamos para publicidad de otras empresas.</li>
+      <li><strong>Tu casa y tu contacto de emergencia solo los ves tú.</strong> El chofer nunca los ve.</li>
+      <li><strong>Puedes pedir que borremos tus datos</strong> escribiendo al WhatsApp de soporte 997 973 9422.</li>
+    </ul>
+  </div>
+
+  <nav class="toc">
+    <a href="#responsable">1. Responsable</a>
+    <a href="#datos">2. Datos</a>
+    <a href="#finalidades">3. Para qué</a>
+    <a href="#quien-ve">4. Quién ve qué</a>
+    <a href="#almacenamiento">5. Dónde se guardan</a>
+    <a href="#conservacion">6. Cuánto tiempo</a>
+    <a href="#derechos">7. Tus derechos</a>
+    <a href="#cambios">8. Cambios</a>
+  </nav>
+
+  <section class="clause" id="responsable">
+    <div class="clause-num">01</div>
+    <div>
+      <h3>¿Quién es responsable de tus datos?</h3>
+      <p><strong>Enzo Sánchez Carrillo</strong> es el responsable del tratamiento de tus datos personales en MotoVecino. El domicilio para recibir notificaciones se proporciona a solicitud, escribiendo al WhatsApp de soporte <strong>997 973 9422</strong>.</p>
+      <p>Para cualquier asunto relacionado con tus datos, escríbenos al WhatsApp de soporte <strong>997 973 9422</strong>.</p>
+    </div>
+  </section>
+
+  <section class="clause" id="datos">
+    <div class="clause-num">02</div>
+    <div>
+      <h3>¿Qué datos guardamos?</h3>
+      <p><strong>Si eres pasajero:</strong></p>
+      <ul>
+        <li>Nombre, teléfono y tu PIN de acceso.</li>
+        <li>Foto de perfil (opcional).</li>
+        <li>Los viajes que pides: punto de recogida, destino, referencias, fecha, número de personas y tipo de servicio.</li>
+        <li><strong>Mi casa</strong> (opcional): la ubicación y referencia que tú guardes.</li>
+        <li><strong>Contacto de emergencia</strong> (opcional): nombre y teléfono de una persona de tu confianza.</li>
+        <li>Cancelaciones y veces que no llegaste al punto de recogida.</li>
+      </ul>
+      <p><strong>Si eres chofer:</strong></p>
+      <ul>
+        <li>Nombre, teléfono y PIN de acceso.</li>
+        <li>Foto de tu rostro y foto de tu unidad.</li>
+        <li>Tu firma digital del contrato y tipo de vehículo.</li>
+        <li>Tu ubicación, <strong>solo mientras estás "Disponible" o en un viaje</strong>, y tus horarios de conexión.</li>
+        <li>Viajes, calificaciones, cancelaciones y pagos.</li>
+        <li>Contacto de emergencia y, si aplica, quién te recomendó.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="clause" id="finalidades">
+    <div class="clause-num">03</div>
+    <div>
+      <h3>¿Para qué los usamos?</h3>
+      <p>Únicamente para que el servicio funcione: conectar pasajeros con choferes cercanos, mostrar el viaje en el mapa, calcular la tarifa, llevar el registro de viajes y pagos, dar soporte y cuidar la seguridad de todos (detectar abusos, cancelaciones repetidas o cuentas falsas).</p>
+      <p><strong>No vendemos tus datos ni los usamos para publicidad de otras empresas.</strong></p>
+    </div>
+  </section>
+
+  <section class="clause" id="quien-ve">
+    <div class="clause-num">04</div>
+    <div>
+      <h3>¿Quién ve qué?</h3>
+      <ul>
+        <li><strong>Durante un viaje</strong>, el chofer ve tu nombre, foto, teléfono, cuántos viajes llevas y los puntos del viaje. Tú ves el nombre, foto, teléfono y ubicación del chofer.</li>
+        <li><strong>Tu casa y tu contacto de emergencia solo los ves tú.</strong> El chofer nunca los ve.</li>
+        <li><strong>Botones "Avisar" y "Compartir":</strong> el mensaje sale desde tu propio WhatsApp hacia la persona que tú elijas. Esa persona podrá seguir el viaje en el mapa y ver los datos del chofer.</li>
+        <li><strong>La administración de MotoVecino</strong> tiene acceso a la información para operar el servicio, dar soporte y atender problemas de seguridad. No ve tu PIN.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="clause" id="almacenamiento">
+    <div class="clause-num">05</div>
+    <div>
+      <h3>¿Dónde se guardan?</h3>
+      <p>En los servidores de un proveedor de alojamiento en la nube, que solo guarda la información por cuenta de MotoVecino y no puede usarla para otros fines.</p>
+      <p>Solo compartiremos tus datos con autoridades cuando la ley nos obligue, por ejemplo ante una orden judicial.</p>
+    </div>
+  </section>
+
+  <section class="clause" id="conservacion">
+    <div class="clause-num">06</div>
+    <div>
+      <h3>¿Cuánto tiempo los guardamos?</h3>
+      <p><strong>Tu perfil</strong> (nombre, teléfono, foto, Mi casa y contacto de emergencia) se guarda mientras tengas tu cuenta. Si pides que la borremos, lo eliminamos.</p>
+      <p><strong>De tus viajes</strong>, los lugares exactos y las referencias se borran automáticamente al cumplir <strong>1 año</strong>. Después de eso solo conservamos la fecha, la tarifa, quién lo pidió y la zona aproximada, para cobros y contabilidad.</p>
+    </div>
+  </section>
+
+  <section class="clause" id="derechos">
+    <div class="clause-num">07</div>
+    <div>
+      <h3>Tus derechos</h3>
+      <p>En cualquier momento puedes pedir <strong>ver</strong> qué datos tenemos de ti, <strong>corregirlos</strong>, <strong>borrarlos</strong> u <strong>oponerte</strong> a algún uso.</p>
+      <p>Mándanos un WhatsApp al <strong>997 973 9422</strong> con tu nombre y el teléfono de tu cuenta. Te responderemos en un máximo de 20 días hábiles.</p>
+      <p>Además, tu foto, Mi casa y tu contacto de emergencia los puedes cambiar o borrar tú mismo desde "Mi cuenta".</p>
+    </div>
+  </section>
+
+  <section class="clause" id="cambios">
+    <div class="clause-num">08</div>
+    <div>
+      <h3>Cambios a este aviso</h3>
+      <p>Si este aviso cambia en algo importante, lo avisaremos dentro de la app.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>MotoVecino — Yucatán, México</span>
+  <span>Tecnología Lealtad Digital</span>
+</footer>
+
+</body>
+</html>

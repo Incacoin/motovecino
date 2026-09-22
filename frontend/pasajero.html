@@ -215,6 +215,7 @@
   </div>
   <div id="riderPinHint" style="display:none;color:var(--text-dim);font-size:13px;">Ese teléfono ya tiene cuenta — escribe tu PIN y toca Continuar de nuevo.</div>
   <button class="btn" onclick="goToMap()" style="width:260px;">Continuar</button>
+  <div style="color:var(--text-dim);font-size:12px;max-width:260px;text-align:center;">Al continuar aceptas nuestro <a href="aviso-privacidad.html" style="color:var(--accent);">Aviso de privacidad</a>.</div>
   <div id="formError"></div>
   <button class="btn-sm" id="forgotPinBtn" style="display:none;" onclick="forgotPin()">¿Olvidaste tu PIN?</button>
   <div class="pill-row">
@@ -241,7 +242,7 @@
     <line x1="92" y1="105" x2="108" y2="105" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
     <line x1="10" y1="130" x2="190" y2="130" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
   </svg>
-  <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a></div>
+  <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
 </div>
 
 <div id="pinScreen" class="screen" style="align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;">
@@ -314,6 +315,7 @@
 
   <div id="accountSectionHome" class="account-detail">
     <span class="account-detail-title">Referencia de tu casa</span>
+    <div style="font-size:12px;color:var(--text-dim);">🔒 Solo tú ves esto. El chofer no.</div>
     <div id="homeSavedNote" style="display:none;font-size:13px;color:var(--text-dim);"></div>
     <input id="homeLabelInput" placeholder="Referencia (ej. casa azul, portón negro)" />
     <button class="btn-sm" onclick="saveHomeLocation()">📍 Guardar mi ubicación actual</button>
@@ -323,6 +325,7 @@
 
   <div id="accountSectionEmergency" class="account-detail">
     <span class="account-detail-title">Contacto de emergencia</span>
+    <div style="font-size:12px;color:var(--text-dim);">🔒 Solo tú ves esto. El chofer no.</div>
     <div id="emergencyContactNote" style="display:none;font-size:13px;color:var(--text-dim);"></div>
     <input id="emergencyNameInput" placeholder="Nombre (opcional)" />
     <input id="emergencyPhoneInput" placeholder="Teléfono (10 dígitos)" inputmode="numeric" />
@@ -450,7 +453,7 @@
   </div>
   <button class="btn" id="newRideBtn" style="display:none;" onclick="location.reload()">Pedir otro viaje</button>
   <button class="btn btn-secondary" id="reportBtn" style="display:none;" onclick="reportViaWhatsapp()">Quejas y sugerencias</button>
-  <div class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a></div>
+  <div class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
 </div>
 
 <div id="photoLightbox" onclick="closePhotoLightbox()">

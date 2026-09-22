@@ -15,6 +15,7 @@ const adminRoutes = require("./routes/admin");
 const { router: photoRoutes } = require("./photos");
 const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
+const { startRetentionSchedule } = require("./retention");
 const { CITIES, resolveCity, isWithinServiceRadius } = require("./cities");
 
 const app = express();
@@ -102,6 +103,7 @@ app.use("/api", adminRoutes);
 app.use("/api", photoRoutes);
 
 startBackupSchedule(6);
+startRetentionSchedule();
 
 const server = http.createServer(app);
 realtime.attach(server);
