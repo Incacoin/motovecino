@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 const { SERVICE_FEE_START_DATE, FOUNDER_SLOTS } = require("./constants");
 
@@ -504,5 +505,26 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_driver_activity_log_driver_id ON driver_activity_log(driver_id);
 `);
+
+// Token opaco por viaje: lo que de verdad protege el seguimiento en vivo
+// (WebSocket + enlace "Compartir") en vez del id numérico consecutivo, que
+// cualquiera puede adivinar/barrer del 1 en adelante. El id sigue siendo la
+// llave primaria de siempre; este token es solo la credencial para verlo.
+try {
+  db.exec("ALTER TABLE rides ADD COLUMN share_token TEXT");
+} catch {
+  // la columna ya existe
+}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_rides_share_token ON rides(share_token) WHERE share_token IS NOT NULL");
+
+// Backfill: los viajes que ya existían (de antes de este campo) se quedarían
+// sin token para siempre si no se los generamos aquí una vez.
+const ridesWithoutToken = db.prepare("SELECT id FROM rides WHERE share_token IS NULL").all();
+if (ridesWithoutToken.length) {
+  const assignToken = db.prepare("UPDATE rides SET share_token = ? WHERE id = ?");
+  for (const { id } of ridesWithoutToken) {
+    assignToken.run(crypto.randomBytes(16).toString("base64url"), id);
+  }
+}
 
 module.exports = db;

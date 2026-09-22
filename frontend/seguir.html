@@ -67,6 +67,7 @@ function closePhotoLightbox() {
 }
 
 const rideId = new URLSearchParams(location.search).get("id");
+const shareToken = new URLSearchParams(location.search).get("t");
 let map, driverMarker, driverPos = null;
 let routeLine = null, routeRefreshInterval = null;
 let pickup = null, dest = null, serviceType = "moto", currentStatus = null;
@@ -228,7 +229,7 @@ function onDriverLost() {
 
 function connectWs() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws?role=rider&rideId=${rideId}`);
+  ws = new WebSocket(`${proto}://${location.host}/ws?role=rider&rideId=${rideId}&t=${shareToken}`);
   let pingInterval;
   ws.onopen = () => {
     pingInterval = setInterval(() => {
@@ -253,11 +254,11 @@ function connectWs() {
 }
 
 async function init() {
-  if (!rideId) { showError("Este enlace no tiene un viaje válido."); return; }
+  if (!rideId || !shareToken) { showError("Este enlace ya no es válido. Pide que te compartan uno nuevo."); return; }
 
   let ride;
   try {
-    const res = await fetch(`/api/rides/${rideId}`);
+    const res = await fetch(`/api/rides/${rideId}?t=${shareToken}`);
     if (!res.ok) { showError("No se encontró este viaje."); return; }
     ride = await res.json();
   } catch {

@@ -296,6 +296,12 @@
 
 <script>
 const API = "";
+// Nombres, direcciones escritas y otros textos libres vienen de cualquiera
+// que use la app (o registre una cuenta) — sin esto, alguien podría meter
+// HTML/JavaScript en su nombre y que se ejecute en la pantalla de otro chofer.
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 let deferredInstallPrompt = null;
 let resolvedCityLabel = "";
 fetch(API + "/api/config").then((r) => r.json()).then((cfg) => { SERVICE_FEE = cfg.serviceFee; }).catch(() => {});
@@ -674,7 +680,7 @@ function startOtherDriversPolling() {
 
 function connectWs() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws?role=driver&driverId=${driver.id}`);
+  ws = new WebSocket(`${proto}://${location.host}/ws?role=driver&driverId=${driver.id}&pin=${driver.pin}`);
   let pingInterval;
   ws.onopen = () => {
     if (available) ws.send(JSON.stringify({ type: "status", status: "disponible" }));
@@ -854,9 +860,9 @@ function syncPendingMarkers() {
     if (pendingMarkers[id]) continue;
     const ride = pendingRides[id];
     const color = colorForPendingRide(ride.id);
-    const markers = [L.marker([ride.pickup_lat, ride.pickup_lng], { icon: numberedIcon(1, color) }).addTo(map).bindPopup(ride.rider_name)];
+    const markers = [L.marker([ride.pickup_lat, ride.pickup_lng], { icon: numberedIcon(1, color) }).addTo(map).bindPopup(escapeHtml(ride.rider_name))];
     if (ride.dest_lat) {
-      markers.push(L.marker([ride.dest_lat, ride.dest_lng], { icon: numberedIcon(2, color) }).addTo(map).bindPopup(ride.rider_name));
+      markers.push(L.marker([ride.dest_lat, ride.dest_lng], { icon: numberedIcon(2, color) }).addTo(map).bindPopup(escapeHtml(ride.rider_name)));
     }
     pendingMarkers[ride.id] = markers;
   }
@@ -917,7 +923,7 @@ function renderRideList() {
     renderedShape = shape;
 
     const destLine = currentRide.dest_lat
-      ? `<div class="ride-chips"><span class="chip">🏁 ${currentRide.dest_label || "punto marcado en el mapa"} · ${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde la recogida</span></div>`
+      ? `<div class="ride-chips"><span class="chip">🏁 ${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · ${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde la recogida</span></div>`
       : "";
     const fareLine = `<div class="meta fare">${estimateFare(currentRide).text}</div>`;
 
@@ -926,9 +932,9 @@ function renderRideList() {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
           <div class="label">Yendo a recoger</div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${currentRide.rider_name} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           <div class="ride-chips">
-            <span class="chip">📍 ${currentRide.pickup_label || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>
+            <span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>
           </div>
           ${destLine}
           ${fareLine}
@@ -939,8 +945,8 @@ function renderRideList() {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
           <div class="label">Esperando al pasajero</div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${currentRide.rider_name} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
-          <div class="ride-chips"><span class="chip">📍 ${currentRide.pickup_label || "punto marcado en el mapa"}</span></div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="ride-chips"><span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"}</span></div>
           ${destLine}
           ${fareLine}
           <button class="btn" onclick="startTrip()">Iniciar viaje</button>
@@ -951,10 +957,10 @@ function renderRideList() {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
           <div class="label">Viaje en curso</div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${currentRide.rider_name} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           <div class="ride-chips">
             ${currentRide.dest_lat
-              ? `<span class="chip">🏁 ${currentRide.dest_label || "punto marcado en el mapa"} · <span id="dist-current">${dist ?? "?"}</span> km · <span id="eta-current"></span></span>`
+              ? `<span class="chip">🏁 ${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist ?? "?"}</span> km · <span id="eta-current"></span></span>`
               : `<span class="chip">Sin destino marcado</span>`}
           </div>
           ${fareLine}
@@ -987,12 +993,12 @@ function renderRideList() {
     const acceptLabel = fare.total != null ? `Aceptar · $${fare.total} MXN` : "Aceptar";
     return `
       <div class="card ride-card pending fade-in">
-        <div class="label">${riderAvatarHtml(r.riderPhoto)}<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:7px;"></span>${serviceKindPrefix(r)}${r.rider_name}${riderTripText(r)}</div>
+        <div class="label">${riderAvatarHtml(r.riderPhoto)}<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:7px;"></span>${serviceKindPrefix(r)}${escapeHtml(r.rider_name)}${riderTripText(r)}</div>
         <div class="ride-chips">
           <span class="chip">📍 <span id="dist-${r.id}">${dist}</span> km</span>
-          ${r.pickup_label ? `<span class="chip">${r.pickup_label}</span>` : ""}
+          ${r.pickup_label ? `<span class="chip">${escapeHtml(r.pickup_label)}</span>` : ""}
         </div>
-        ${r.dest_lat ? `<div class="meta">Destino: ${r.dest_label || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde la recogida)</div>` : ""}
+        ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde la recogida)</div>` : ""}
         <div class="meta fare">${fare.text}</div>
         <div style="display:flex;gap:6px;margin-bottom:6px;">
           <button class="btn-sm wa" style="flex:1;" onclick="openMessageOverlay(${r.id})">💬 Mensaje</button>

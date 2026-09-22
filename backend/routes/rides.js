@@ -1,9 +1,14 @@
+const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { photoUrls } = require("../photos");
+
+function generateShareToken() {
+  return crypto.randomBytes(16).toString("base64url");
+}
 
 const router = express.Router();
 
@@ -76,8 +81,8 @@ router.post("/rides", (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       rider_name,
@@ -93,7 +98,8 @@ router.post("/rides", (req, res) => {
       children || 0,
       ride_type === "taxi" ? "taxi" : "moto",
       city,
-      cleanServiceKind
+      cleanServiceKind,
+      generateShareToken()
     );
 
   const ride = db
@@ -119,9 +125,15 @@ router.post("/rides", (req, res) => {
 // que es el que de verdad garantiza que se cierre aunque nadie lo consulte.
 const { ABANDONED_AFTER_MIN } = realtime;
 
+// El id es consecutivo (1, 2, 3...) y fácil de barrer — sin el token nadie
+// puede leer, ni siquiera de rebote, la ubicación/teléfono/chat de un viaje
+// ajeno. Se responde 404 igual que "no existe" (nunca "token incorrecto")
+// para no darle a quien está probando una pista de que el id sí es válido.
 router.get("/rides/:id", (req, res) => {
   let ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(req.params.id);
-  if (!ride) return res.status(404).json({ error: "Viaje no encontrado" });
+  if (!ride || !req.query.t || ride.share_token !== req.query.t) {
+    return res.status(404).json({ error: "Viaje no encontrado" });
+  }
 
   if (!["completado", "cancelado"].includes(ride.status)) {
     const { mins } = db

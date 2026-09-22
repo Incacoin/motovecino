@@ -423,6 +423,13 @@
 
 <script>
 const API = "";
+// Nombre/referido/contacto de emergencia son texto libre que cualquiera
+// escribe en el formulario público de solicitud — sin esto, alguien podría
+// meter HTML/JavaScript ahí y que se ejecute en la pantalla del admin, con
+// el PIN de admin ya cargado en esta misma página (ver adminPin abajo).
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 // Dominios viejos (motoyaapp.com, motomayaapp.com) siguen apuntando al mismo
 // servicio — fijamos el dominio actual para que los links de reclutamiento
 // (QR, WhatsApp) siempre salgan con la marca correcta.
@@ -630,7 +637,7 @@ async function loadAlertas() {
   document.getElementById("alertaChoferRows").innerHTML = porChofer.length
     ? porChofer.map((d) => `
       <tr>
-        <td>${d.name}</td>
+        <td>${escapeHtml(d.name)}</td>
         <td>${d.total_asignados}</td>
         <td>${d.cancelados_pasajero}</td>
         <td><span class="pct-badge ${pctBadgeClass(d.pct)}">${d.pct}%</span></td>
@@ -640,8 +647,8 @@ async function loadAlertas() {
   document.getElementById("alertaParRows").innerHTML = paresRepetidos.length
     ? paresRepetidos.map((p) => `
       <tr>
-        <td>${p.driver_name}</td>
-        <td>${p.rider_name || "—"}</td>
+        <td>${escapeHtml(p.driver_name)}</td>
+        <td>${escapeHtml(p.rider_name) || "—"}</td>
         <td>${p.rider_phone}</td>
         <td>${p.veces}</td>
         <td>${timeAgo(p.ultima_vez)}</td>
@@ -651,7 +658,7 @@ async function loadAlertas() {
   document.getElementById("alertaNoShowRows").innerHTML = inasistencias.length
     ? inasistencias.map((r) => `
       <tr>
-        <td>${r.name || "—"}</td>
+        <td>${escapeHtml(r.name) || "—"}</td>
         <td>${r.phone}</td>
         <td><span class="pct-badge alto">${r.no_show_count}</span></td>
       </tr>`).join("")
@@ -679,11 +686,11 @@ function renderApplications(apps) {
           ${a.photo_placa ? `<img class="thumb" src="${a.photo_placa}" onclick="viewImage('${a.photo_placa}')" title="Foto con su moto" />` : ""}
           ${a.signature ? `<img class="thumb" style="background:#fff" src="${a.signature}" onclick="viewImage('${a.signature}')" title="Firma" />` : ""}
           <div class="who">
-            <span class="name">${a.name}</span>
+            <span class="name">${escapeHtml(a.name)}</span>
             <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
             <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}</span>
-            ${a.referred_by ? `<span class="meta">🤝 Invitado por ${a.referred_by}</span>` : ""}
-            ${a.emergency_contact_name ? `<span class="meta">🚨 Emergencia: ${a.emergency_contact_name} · ${a.emergency_contact_phone}</span>` : ""}
+            ${a.referred_by ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
+            ${a.emergency_contact_name ? `<span class="meta">🚨 Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
           </div>
         </div>
         <div class="row-actions">
@@ -755,7 +762,7 @@ async function loadStats() {
   document.getElementById("launchRanking").innerHTML = launchRankingCache.length
     ? launchRankingCache.map((d, i) => `
       <div class="top-driver-row">
-        <span class="name">${medals[i]} ${d.name}</span>
+        <span class="name">${medals[i]} ${escapeHtml(d.name)}</span>
         <div class="top-driver-bar-wrap"><div class="top-driver-bar" style="width:${(d.rides / rankMax) * 100}%"></div></div>
         <span class="count">${d.rides}</span>
       </div>`).join("")
@@ -765,7 +772,7 @@ async function loadStats() {
   document.getElementById("topDrivers").innerHTML = s.topDrivers.length
     ? s.topDrivers.map((d) => `
       <div class="top-driver-row">
-        <span class="name">${d.name}</span>
+        <span class="name">${escapeHtml(d.name)}</span>
         <div class="top-driver-bar-wrap"><div class="top-driver-bar" style="width:${(d.rides / max) * 100}%"></div></div>
         <span class="count">${d.rides}</span>
       </div>`).join("")
@@ -862,7 +869,7 @@ function renderOnlineDrivers() {
         <div class="info">
           <span class="dot ${d.status}"></span>
           <div class="who">
-            <span class="name">${d.name}</span>
+            <span class="name">${escapeHtml(d.name)}</span>
             <span class="meta">${vehicleTypeBadge(d.vehicle_type)} · ${d.status === "en_viaje" ? "En viaje" : "Disponible"}</span>
           </div>
         </div>
@@ -889,7 +896,7 @@ function renderRiderRows() {
   const visible = applyPreviewCap(filtered, query, showAllRiders, "riderShowMore", "toggleShowAllRiders");
   document.getElementById("riderRows").innerHTML = visible.map((r) => `
     <tr>
-      <td>${r.name || "—"}</td>
+      <td>${escapeHtml(r.name) || "—"}</td>
       <td>${r.phone}</td>
       <td>${r.pin || "—"}</td>
       <td>${r.trips}</td>
@@ -898,7 +905,7 @@ function renderRiderRows() {
       <td>${r.last_ride_at ? r.last_ride_at.slice(0, 10) : "—"}</td>
       <td class="row-actions">
         <button class="btn-sm" onclick="resetRiderPin(${r.id})">Restablecer PIN</button>
-        <button class="btn-sm danger" onclick="deleteRider(${r.id}, '${(r.name || r.phone).replace(/'/g, "\\'")}')">Eliminar</button>
+        <button class="btn-sm danger" onclick="deleteRider(${r.id})">Eliminar</button>
       </td>
     </tr>`).join("") || (query
     ? `<tr><td colspan="8" class="ago">Sin resultados para "${query}".</td></tr>`
@@ -926,8 +933,9 @@ async function resetRiderPin(id) {
 // nombre en el historial), un pasajero sin viajes completados se borra de
 // verdad — es una cuenta de prueba o basura, no hay historial que proteger.
 // El servidor rechaza el borrado si sí tiene viajes completados.
-async function deleteRider(id, nameOrPhone) {
-  if (!confirm(`¿Eliminar a ${nameOrPhone}? Esto no se puede deshacer.`)) return;
+async function deleteRider(id) {
+  const rider = ridersCache.find((r) => r.id === id);
+  if (!confirm(`¿Eliminar a ${rider ? (rider.name || rider.phone) : "este pasajero"}? Esto no se puede deshacer.`)) return;
   const res = await fetch(API + `/api/admin/riders/${id}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -972,8 +980,9 @@ async function saveEdit(id) {
   loadDrivers();
 }
 
-async function deleteDriver(id, name) {
-  if (!confirm(`¿Eliminar a ${name}? Su historial de viajes se conserva, pero esto no se puede deshacer.`)) return;
+async function deleteDriver(id) {
+  const driver = driversCache.find((d) => d.id === id);
+  if (!confirm(`¿Eliminar a ${driver ? driver.name : "este chofer"}? Su historial de viajes se conserva, pero esto no se puede deshacer.`)) return;
   const res = await fetch(API + `/api/admin/drivers/${id}/delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1066,19 +1075,19 @@ function renderDriverRows() {
     if (editingId === d.id) {
       return `
       <tr>
-        <td><input id="edit-name-${d.id}" value="${d.name}" /></td>
+        <td><input id="edit-name-${d.id}" value="${escapeHtml(d.name)}" /></td>
         <td>${d.pin}</td>
         <td>
           <div class="phoneRow">
             <span class="prefix">+52</span>
-            <input id="edit-phone-${d.id}" value="${d.phone}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" />
+            <input id="edit-phone-${d.id}" value="${escapeHtml(d.phone)}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" />
           </div>
         </td>
         <td>${vehicleTypeSelect(d.id, d.vehicle_type)}</td>
         <td>${cityLabel(d.city)}</td>
         <td><span class="dot ${d.status}"></span>${d.status}</td>
         <td>${activityBadge(d.last_connected_at)}</td>
-        <td><input id="edit-vehicle-${d.id}" value="${d.vehicle || ""}" placeholder="Vehículo" /></td>
+        <td><input id="edit-vehicle-${d.id}" value="${escapeHtml(d.vehicle) || ""}" placeholder="Vehículo" /></td>
         <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
         <td>${cancelCountCell(d)}</td>
         <td class="row-actions">
@@ -1109,8 +1118,8 @@ function renderDriverRows() {
       ? ` <span title="Chofer fundador" style="font-size:11px;">🏅</span>`
       : "";
     const nameWithReferral = d.referred_by
-      ? `<span>${d.name}${founderTag}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${d.referred_by}</div>`
-      : `<span>${d.name}${founderTag}</span>`;
+      ? `<span>${escapeHtml(d.name)}${founderTag}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${escapeHtml(d.referred_by)}</div>`
+      : `<span>${escapeHtml(d.name)}${founderTag}</span>`;
     const nameCell = d.photo
       ? `<div class="info"><img class="thumb" src="${d.photo}" onclick="viewImage('${d.photo}')" />${placaThumb}${sigThumb}<div>${nameWithReferral}</div></div>`
       : nameWithReferral;
@@ -1124,15 +1133,15 @@ function renderDriverRows() {
       <td><span class="dot ${d.status}"></span>${d.status}</td>
       <td>
         ${activityBadge(d.last_connected_at)}
-        <button class="histLink" onclick="showActivityModal(${d.id}, '${d.name.replace(/'/g, "\\'")}')">Ver actividad</button>
+        <button class="histLink" onclick="showActivityModal(${d.id})">Ver actividad</button>
       </td>
-      <td>${d.vehicle || "—"}</td>
+      <td>${escapeHtml(d.vehicle) || "—"}</td>
       <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
       <td>
         ${lastPaymentLabel}
         ${pendingFeesLabel}
         ${pendingRides > 0 ? `<button class="btn-sm" id="feesBtn-${d.id}" onclick="registerTripFees(${d.id})">Cobrar viajes ($${pendingFeeAmount})</button>` : ""}
-        <button class="histLink" onclick="showPaymentsModal(${d.id}, '${d.name.replace(/'/g, "\\'")}')">Ver historial</button>
+        <button class="histLink" onclick="showPaymentsModal(${d.id})">Ver historial</button>
         <div class="payRow">
           <button class="btn-sm wa" onclick="sendPaymentReminder(${d.id})">📱 Recordatorio pago</button>
         </div>
@@ -1142,7 +1151,7 @@ function renderDriverRows() {
         <button class="btn-sm wa" onclick="sendWhatsappFor(${d.id})">WhatsApp</button>
         <button class="btn-sm" onclick="startEdit(${d.id})">Editar</button>
         <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
-        <button class="btn-sm danger" onclick="deleteDriver(${d.id}, '${d.name.replace(/'/g, "\\'")}')">Eliminar</button>
+        <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
       </td>
     </tr>`;
   }).join("");
@@ -1170,11 +1179,11 @@ function renderRideRows(rides) {
       : "";
     return `
     <tr>
-      <td>${r.rider_name}<br><span class="ago">${r.rider_phone}</span></td>
+      <td>${escapeHtml(r.rider_name)}<br><span class="ago">${r.rider_phone}</span></td>
       <td>${vehicleTypeBadge(r.ride_type)}</td>
-      <td>${r.driver_name || "—"}${disconnected}</td>
-      <td>${r.pickup_label || "—"}</td>
-      <td>${r.dest_label || "—"}</td>
+      <td>${escapeHtml(r.driver_name) || "—"}${disconnected}</td>
+      <td>${escapeHtml(r.pickup_label) || "—"}</td>
+      <td>${escapeHtml(r.dest_label) || "—"}</td>
       <td>${r.passengers + (r.children || 0)}${r.children ? ` (${r.passengers} adultos + ${r.children} niños)` : ""}</td>
       <td><span class="dot ${r.status}"></span>${RIDE_STATUS_LABEL[r.status] || r.status}${rating}${cancelNote}</td>
       <td class="ago">${timeAgo(r.updated_at)}</td>
@@ -1234,8 +1243,9 @@ async function registerTripFees(id) {
   loadStats();
 }
 
-async function showPaymentsModal(id, name) {
-  document.getElementById("paymentsModalTitle").textContent = `Pagos de ${name}`;
+async function showPaymentsModal(id) {
+  const driver = driversCache.find((d) => d.id === id);
+  document.getElementById("paymentsModalTitle").textContent = `Pagos de ${driver ? driver.name : ""}`;
   const body = document.getElementById("paymentsModalBody");
   body.innerHTML = `<div class="ago">Cargando...</div>`;
   document.getElementById("paymentsModal").classList.add("active");
@@ -1260,8 +1270,9 @@ function closePaymentsModal() {
   document.getElementById("paymentsModal").classList.remove("active");
 }
 
-async function showActivityModal(id, name) {
-  document.getElementById("activityModalTitle").textContent = `Actividad de ${name}`;
+async function showActivityModal(id) {
+  const driver = driversCache.find((d) => d.id === id);
+  document.getElementById("activityModalTitle").textContent = `Actividad de ${driver ? driver.name : ""}`;
   const body = document.getElementById("activityModalBody");
   body.innerHTML = `<div class="ago">Cargando...</div>`;
   document.getElementById("activityModal").classList.add("active");

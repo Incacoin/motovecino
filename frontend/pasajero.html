@@ -467,6 +467,12 @@ function closePhotoLightbox() {
 }
 
 const API = "";
+// Nombres/direcciones son texto libre que cualquiera puede registrar — sin
+// esto, un chofer o dirección con HTML/JavaScript en el nombre se ejecutaría
+// en la pantalla del pasajero.
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 // Dominios viejos (motoyaapp.com, motomayaapp.com) siguen apuntando al mismo
 // servicio — fijamos el dominio actual para que los links compartidos
 // siempre salgan con la marca correcta, sin importar desde cuál entró quien comparte.
@@ -1189,7 +1195,7 @@ async function requestRide() {
     return;
   }
   ride = await res.json();
-  localStorage.setItem("motoya_active_ride", String(ride.id));
+  localStorage.setItem("motoya_active_ride", JSON.stringify({ id: ride.id, token: ride.share_token }));
   showTripCountBadge(ride.riderTripCount);
   if (ride.riderTripCount != null) {
     localStorage.setItem("motoya_last_trip_count", String(ride.riderTripCount));
@@ -1234,7 +1240,7 @@ document.addEventListener("visibilitychange", () => {
 
 function connectWs() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/ws?role=rider&rideId=${ride.id}`);
+  ws = new WebSocket(`${proto}://${location.host}/ws?role=rider&rideId=${ride.id}&t=${ride.share_token}`);
   let pingInterval;
   ws.onopen = () => {
     pingInterval = setInterval(() => {
@@ -1291,13 +1297,13 @@ async function onDriverAssigned(driver) {
     <div class="driverInfo">
       ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
       <div class="driverInfo-main">
-        <div class="name">${driver.name}</div>
+        <div class="name">${escapeHtml(driver.name)}</div>
         <div class="driver-chips">
           ${badgeHtml}
           ${driver.es_fundador ? `<span class="chip chip-accent">🏅 Fundador</span>` : ""}
-          <span class="chip">${driver.vehicle ? driver.vehicle : (serviceType === "taxi" ? "Taxi" : "Mototaxi")}</span>
+          <span class="chip">${driver.vehicle ? escapeHtml(driver.vehicle) : (serviceType === "taxi" ? "Taxi" : "Mototaxi")}</span>
         </div>
-        ${driver.grupo ? `<div class="meta">Agrupación: ${driver.grupo}</div>` : ""}
+        ${driver.grupo ? `<div class="meta">Agrupación: ${escapeHtml(driver.grupo)}</div>` : ""}
         <div class="meta">Tel: ${driver.phone}</div>
       </div>
     </div>`;
@@ -1395,15 +1401,15 @@ function showTripCountBadge(count) {
 
 // Historial guardado en este celular (no en una cuenta) — cada quien solo ve
 // el suyo, sin pedir registro ni exponer el historial de nadie más.
-function saveRideToLocalHistory(rideId) {
+function saveRideToLocalHistory(rideId, token) {
   let history = [];
   try {
     history = JSON.parse(localStorage.getItem("motoya_ride_history") || "[]");
   } catch {
     history = [];
   }
-  history = history.filter((id) => id !== rideId);
-  history.unshift(rideId);
+  history = history.filter((h) => h && typeof h === "object" && h.id !== rideId);
+  history.unshift({ id: rideId, token });
   history = history.slice(0, 20);
   localStorage.setItem("motoya_ride_history", JSON.stringify(history));
 }
@@ -1447,8 +1453,8 @@ function historyCardHtml(r) {
       <div class="card" style="margin-bottom:10px;padding:14px;">
         <div style="font-weight:700;">${estadoLabel}</div>
         <div class="meta" style="color:var(--text-dim);font-size:13.5px;">${fecha}</div>
-        ${r.pickup_label ? `<div class="meta" style="color:var(--text-dim);font-size:13.5px;">Desde: ${r.pickup_label}</div>` : ""}
-        ${r.dest_label ? `<div class="meta" style="color:var(--text-dim);font-size:13.5px;">Hasta: ${r.dest_label}</div>` : ""}
+        ${r.pickup_label ? `<div class="meta" style="color:var(--text-dim);font-size:13.5px;">Desde: ${escapeHtml(r.pickup_label)}</div>` : ""}
+        ${r.dest_label ? `<div class="meta" style="color:var(--text-dim);font-size:13.5px;">Hasta: ${escapeHtml(r.dest_label)}</div>` : ""}
       </div>`;
 }
 
@@ -1805,7 +1811,7 @@ async function clearEmergencyContact() {
 function notifyEmergencyContact() {
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   if (!rider || !rider.emergency_contact_phone || !ride) return;
-  const link = `${PUBLIC_ORIGIN}/seguir.html?id=${ride.id}`;
+  const link = `${PUBLIC_ORIGIN}/seguir.html?id=${ride.id}&t=${ride.share_token}`;
   const greeting = rider.emergency_contact_name ? `Hola ${rider.emergency_contact_name}` : "Hola";
   const text = `${greeting}, voy en un viaje de MotoVecino ${resolvedCityLabel}, sígueme en vivo: ${link}`;
   window.open(waLink(rider.emergency_contact_phone, text), "_blank");
@@ -1859,13 +1865,16 @@ async function openHistory() {
   } catch {
     history = [];
   }
+  // Entradas de antes del token de seguimiento (solo el id, sin token) ya no
+  // se pueden recuperar — se descartan calladas en vez de tronar.
+  history = history.filter((h) => h && typeof h === "object" && h.token);
   if (history.length === 0) {
     listEl.innerHTML = `<div style="color:var(--text-dim);text-align:center;padding:24px 0;">Todavía no tienes viajes completados en este celular.</div>`;
     return;
   }
   listEl.innerHTML = `<div style="color:var(--text-dim);text-align:center;padding:24px 0;">Cargando...</div>`;
   historyRidesCache = (await Promise.all(
-    history.map((id) => fetch(API + `/api/rides/${id}`).then((r) => (r.ok ? r.json() : null)).catch(() => null))
+    history.map((h) => fetch(API + `/api/rides/${h.id}?t=${h.token}`).then((r) => (r.ok ? r.json() : null)).catch(() => null))
   )).filter(Boolean);
   renderHistoryList();
 }
@@ -1885,7 +1894,7 @@ function onCompleted() {
   stopStatusAvailableDriversPolling();
   currentRideStatus = "completado";
   localStorage.removeItem("motoya_active_ride");
-  if (ride) saveRideToLocalHistory(ride.id);
+  if (ride) saveRideToLocalHistory(ride.id, ride.share_token);
   document.getElementById("statusText").textContent = `¡Buen viaje! Gracias por usar MotoVecino ${resolvedCityLabel} 🛵`;
   document.getElementById("connWarning").style.display = "none";
   document.getElementById("driverCard").style.display = "none";
@@ -1900,7 +1909,7 @@ function onCompleted() {
 
 async function shareRide() {
   if (!ride) return;
-  const link = `${PUBLIC_ORIGIN}/seguir.html?id=${ride.id}`;
+  const link = `${PUBLIC_ORIGIN}/seguir.html?id=${ride.id}&t=${ride.share_token}`;
   const text = `Sigue mi viaje en vivo con MotoVecino ${resolvedCityLabel}: ${link}`;
   if (navigator.share) {
     try {
@@ -2016,12 +2025,26 @@ async function cancelRide() {
 }
 
 async function restoreActiveRide() {
-  const savedId = localStorage.getItem("motoya_active_ride");
-  if (!savedId) return;
+  const saved = localStorage.getItem("motoya_active_ride");
+  if (!saved) return;
+
+  // Formato viejo (antes del token de seguimiento) era solo el id como texto
+  // — sin token no hay forma de recuperarlo ahora, se descarta sin más.
+  let savedRide;
+  try {
+    savedRide = JSON.parse(saved);
+  } catch {
+    localStorage.removeItem("motoya_active_ride");
+    return;
+  }
+  if (!savedRide || typeof savedRide !== "object" || !savedRide.token) {
+    localStorage.removeItem("motoya_active_ride");
+    return;
+  }
 
   let fetched;
   try {
-    const res = await fetch(API + `/api/rides/${savedId}`);
+    const res = await fetch(API + `/api/rides/${savedRide.id}?t=${savedRide.token}`);
     if (!res.ok) { localStorage.removeItem("motoya_active_ride"); return; }
     fetched = await res.json();
   } catch {
