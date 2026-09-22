@@ -322,7 +322,7 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Nombre</th><th>Teléfono</th><th>PIN</th><th>Viajes completados</th><th>No llegó</th><th>Registrado</th><th>Último viaje</th><th></th></tr>
+        <tr><th>Nombre</th><th>Teléfono</th><th>Viajes completados</th><th>No llegó</th><th>Registrado</th><th>Último viaje</th><th></th></tr>
       </thead>
       <tbody id="riderRows"></tbody>
     </table>
@@ -898,7 +898,6 @@ function renderRiderRows() {
     <tr>
       <td>${escapeHtml(r.name) || "—"}</td>
       <td>${r.phone}</td>
-      <td>${r.pin || "—"}</td>
       <td>${r.trips}</td>
       <td>${r.no_show_count >= 2 ? `<span style="color:#e05d5d;font-weight:600;">${r.no_show_count} ⚠️</span>` : (r.no_show_count || 0)}</td>
       <td>${r.created_at ? r.created_at.slice(0, 10) : ""}</td>
@@ -908,8 +907,8 @@ function renderRiderRows() {
         <button class="btn-sm danger" onclick="deleteRider(${r.id})">Eliminar</button>
       </td>
     </tr>`).join("") || (query
-    ? `<tr><td colspan="8" class="ago">Sin resultados para "${query}".</td></tr>`
-    : `<tr><td colspan="8" class="ago">Todavía no hay pasajeros registrados.</td></tr>`);
+    ? `<tr><td colspan="7" class="ago">Sin resultados para "${query}".</td></tr>`
+    : `<tr><td colspan="7" class="ago">Todavía no hay pasajeros registrados.</td></tr>`);
 }
 
 async function resetRiderPin(id) {

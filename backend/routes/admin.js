@@ -364,7 +364,7 @@ router.post("/admin/chofer-solicitudes/:id/dismiss", checkAdminPin, (req, res) =
 router.post("/admin/riders/list", checkAdminPin, (req, res) => {
   const riders = db
     .prepare(
-      `SELECT r.id, r.name, r.phone, r.pin, r.created_at, r.last_ride_at, r.no_show_count,
+      `SELECT r.id, r.name, r.phone, r.created_at, r.last_ride_at, r.no_show_count,
               (SELECT COUNT(*) FROM rides WHERE rider_id = r.id AND status = 'completado') AS trips
        FROM riders r
        WHERE r.city = ?
