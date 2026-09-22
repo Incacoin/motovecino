@@ -218,11 +218,16 @@ function attach(httpServer) {
             notifyRide(activeRide.id, "driver_location", { lat, lng });
           }
         } else if (msg.type === "status") {
+          // Con un viaje en curso el chofer sigue "en_viaje" aunque su app mande
+          // "disponible" (se reconectó, o la reabrió): si no, aparecía libre en
+          // el mapa y le llegaban solicitudes de otros pasajeros a media carrera.
+          const status =
+            msg.status === "disponible" && activeRideForDriver(driverId) ? "en_viaje" : msg.status;
           db.prepare("UPDATE drivers SET status = ? WHERE id = ?").run(
-            msg.status,
+            status,
             driverId
           );
-          if (msg.status === "disponible") notifyPendingRides(driverId);
+          if (status === "disponible") notifyPendingRides(driverId);
         } else if (msg.type === "chat" && typeof msg.text === "string" && msg.text.trim()) {
           const text = msg.text.trim().slice(0, 300);
           if (msg.rideId) {

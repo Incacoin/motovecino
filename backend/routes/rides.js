@@ -175,6 +175,34 @@ function driverForRide(driverId) {
   return { ...driver, ...photoUrls("d", driver.id, driver.photo) };
 }
 
+// El viaje que el chofer ya tiene en curso (aceptado / llegué / en curso). La
+// app del chofer arranca siempre en blanco: si se cierra (a mano, o porque
+// Android la mata por falta de memoria) y se vuelve a abrir, sin esto el viaje
+// seguía vivo en el servidor y para el pasajero, pero el chofer ya no lo veía
+// ni podía terminarlo. Devuelve el mismo objeto que /accept, o null.
+router.post("/rides/active", (req, res) => {
+  const { driverId, pin } = req.body;
+  if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "PIN incorrecto" });
+  }
+  clearAttempts(req.ip);
+
+  const ride = db
+    .prepare(
+      "SELECT * FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso') ORDER BY id DESC LIMIT 1"
+    )
+    .get(driverId);
+  if (!ride) return res.json(null);
+
+  Object.assign(ride, riderInfoFor(ride.rider_phone));
+  res.json(ride);
+});
+
 router.post("/rides/:id/accept", (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin } = req.body;

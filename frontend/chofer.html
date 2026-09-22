@@ -627,6 +627,7 @@ function startApp() {
   connectWs();
   watchLocation();
   startOtherDriversPolling();
+  restoreActiveRide();
 }
 
 async function loadOtherDrivers() {
@@ -947,7 +948,7 @@ function renderRideList() {
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${currentRide.rider_name} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           <div class="ride-chips">
             ${currentRide.dest_lat
-              ? `<span class="chip">🏁 ${currentRide.dest_label || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>`
+              ? `<span class="chip">🏁 ${currentRide.dest_label || "punto marcado en el mapa"} · <span id="dist-current">${dist ?? "?"}</span> km · <span id="eta-current"></span></span>`
               : `<span class="chip">Sin destino marcado</span>`}
           </div>
           ${fareLine}
@@ -1102,7 +1103,14 @@ async function acceptRide(id) {
     showToast((await res.json()).error || "Ya no disponible");
     return;
   }
-  currentRide = await res.json();
+  beginRide(await res.json());
+}
+
+// Deja la pantalla en "viaje activo": marcadores, ruta, chat y tarjeta del
+// viaje. Lo usa tanto aceptar un viaje nuevo como recuperar el que ya tenía
+// el chofer al reabrir la app (ver restoreActiveRide).
+function beginRide(ride) {
+  currentRide = ride;
   pendingRides = {};
   for (const markers of Object.values(pendingMarkers)) markers.forEach((m) => map.removeLayer(m));
   Object.keys(pendingMarkers).forEach((k) => delete pendingMarkers[k]);
@@ -1115,6 +1123,42 @@ async function acceptRide(id) {
   routeRefreshInterval = setInterval(updateRouteLine, 15000);
   showChat();
   renderRideList();
+}
+
+// Al abrir la app el chofer arranca en blanco. Si tenía un viaje en curso
+// (cerró la app a mano o Android la mató por falta de memoria), el servidor
+// lo sigue teniendo y el pasajero lo sigue viendo: se lo pedimos y lo
+// mostramos como si nunca se hubiera cerrado.
+async function restoreActiveRide(attempt = 0) {
+  try {
+    const res = await fetch(API + "/api/rides/active", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+    });
+    if (res.status >= 500) throw new Error("server");
+    if (!res.ok) return; // PIN viejo/límite de intentos: no reintentar, solo sumaría intentos fallidos
+    const ride = await res.json();
+    if (!ride || currentRide) return; // sin viaje, o ya aceptó uno mientras tanto
+
+    // Igual que quedaba la pantalla al aceptar: interruptor en "Disponible"
+    // (bloqueado mientras haya viaje, ver toggleAvailable).
+    available = true;
+    document.getElementById("switch").classList.add("on");
+    document.getElementById("statusText").textContent = "Disponible";
+    requestWakeLock();
+    beginRide(ride);
+
+    // El GPS tarda unos segundos en dar la primera posición y sin ella no se
+    // dibuja la ruta; esperar a que llegue en vez de esperar al refresco de 15 s.
+    if (!myPos) {
+      const wait = setInterval(() => { if (myPos) { clearInterval(wait); updateRouteLine(); } }, 500);
+      setTimeout(() => clearInterval(wait), 20000);
+    }
+    showToast("Recuperamos tu viaje en curso");
+  } catch {
+    if (attempt < 3) setTimeout(() => restoreActiveRide(attempt + 1), 3000); // sin señal un momento
+  }
 }
 
 function stopRouteTracking() {
