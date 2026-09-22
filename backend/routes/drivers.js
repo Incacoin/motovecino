@@ -244,6 +244,14 @@ router.post("/chofer-solicitudes", (req, res) => {
       return res.status(413).json({ error: "Una de las fotos pesa demasiado, intenta con otra" });
     }
   }
+  // Este formulario es público (sin PIN) — sin este chequeo, cualquiera
+  // podía mandar cualquier texto en `photo`/`photoPlaca` (no solo una
+  // imagen) y quedaba guardado tal cual en driver_applications.
+  for (const img of [photo, photoPlaca]) {
+    if (img && (typeof img !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(img))) {
+      return res.status(400).json({ error: "Una de las fotos no es válida, intenta con otra" });
+    }
+  }
   const cityId = getCityById(city) ? city : DEFAULT_CITY_ID;
   // Ticul aun corre en su propio servidor aparte de este backend unificado;
   // una solicitud etiquetada "ticul" aqui no le llegaria a ningun admin.

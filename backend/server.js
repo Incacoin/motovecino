@@ -18,10 +18,41 @@ const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { CITIES, resolveCity, isWithinServiceRadius } = require("./cities");
 
 const app = express();
+app.disable("x-powered-by");
 // Render (y cualquier proxy delante del server) reenvía la IP real del
 // cliente en X-Forwarded-For — sin esto, req.ip siempre sería la IP interna
 // del proxy y el límite de intentos de PIN no distinguiría a nadie.
 app.set("trust proxy", true);
+
+// Cabeceras de seguridad del lado del navegador. El CSP no puede ir más
+// estricto que 'unsafe-inline' en script/style porque toda la app (admin,
+// chofer, pasajero) es HTML con <script> y style="" inline, sin build step —
+// aun así bloquea cosas como <base> hijacking, <object>/<embed>, cargar un
+// script de un dominio ajeno, y que cualquier página se abra dentro de un
+// iframe de otro sitio (clickjacking).
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' https://unpkg.com",
+  "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https://*.tile.openstreetmap.org https://api.qrserver.com",
+  "connect-src 'self' ws: wss:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+app.use((req, res, next) => {
+  res.set({
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Strict-Transport-Security": "max-age=15552000; includeSubDomains",
+    "Content-Security-Policy": CSP,
+  });
+  next();
+});
+
 app.use(express.json({ limit: "5mb" }));
 
 app.use(express.static(path.join(__dirname, "..", "frontend")));

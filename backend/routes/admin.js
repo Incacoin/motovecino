@@ -66,6 +66,11 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
   }
+  for (const img of [photo, photoPlaca, signature]) {
+    if (img && (typeof img !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(img))) {
+      return res.status(400).json({ error: "Una de las fotos no es válida" });
+    }
+  }
   // La ciudad la decide el PIN con el que entró el admin, no un campo que
   // mande el navegador — así nadie puede darse de alta "en otra ciudad".
   const cityId = req.adminCity;
