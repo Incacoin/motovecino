@@ -4,6 +4,9 @@ const db = require("./db");
 // que el detalle de los viajes no se guarda más de 1 año. Este barrido es lo
 // que cumple esa promesa: si se cambia el plazo aquí, hay que cambiarlo allá.
 const RETENTION_DAYS = 365;
+// Fotos de comprobantes de anticipo (misma promesa, sección del Aviso sobre
+// anticipos) — si se cambia aquí, cambiarlo allá.
+const RECEIPT_RETENTION_DAYS = 90;
 
 // Una vez al día basta — el plazo se mide en días, no en minutos.
 const PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -39,10 +42,20 @@ function purgeOldPersonalData() {
       .prepare("DELETE FROM driver_activity_log WHERE julianday('now') - julianday(connected_at) > ?")
       .run(RETENTION_DAYS);
 
-    if (rides.changes || activity.changes) {
-      console.log(`[retention] ${rides.changes} viajes anonimizados, ${activity.changes} registros de conexión borrados`);
+    // La foto del comprobante del anticipo trae datos bancarios del pasajero
+    // y solo sirve para aclarar un problema recién pasado — se borra mucho
+    // antes que el resto. El monto y la fecha de confirmación se quedan
+    // (son el registro de lo que recibió el chofer).
+    const receipts = db
+      .prepare(
+        "UPDATE rides SET deposit_receipt = NULL WHERE deposit_receipt IS NOT NULL AND julianday('now') - julianday(created_at) > ?"
+      )
+      .run(RECEIPT_RETENTION_DAYS);
+
+    if (rides.changes || activity.changes || receipts.changes) {
+      console.log(`[retention] ${rides.changes} viajes anonimizados, ${activity.changes} registros de conexión borrados, ${receipts.changes} comprobantes borrados`);
     }
-    return { rides: rides.changes, activity: activity.changes };
+    return { rides: rides.changes, activity: activity.changes, receipts: receipts.changes };
   } catch (err) {
     // Igual que sweepStaleRides: un error aquí no debe tumbar el servidor.
     console.error("[retention] error:", err);

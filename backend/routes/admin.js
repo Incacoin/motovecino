@@ -420,7 +420,7 @@ router.post("/admin/rides/list", checkAdminPin, (req, res) => {
     .prepare(
       `SELECT r.id, r.rider_name, r.rider_phone, r.pickup_label, r.dest_label,
               r.passengers, r.children, r.status, r.created_at, r.updated_at, r.driver_disconnected_at, r.rating, r.ride_type,
-              r.cancelled_by, r.cancel_reason,
+              r.cancelled_by, r.cancel_reason, r.agreed_price, r.deposit_amount, r.deposit_status,
               d.name AS driver_name
        FROM rides r
        LEFT JOIN drivers d ON d.id = r.driver_id

@@ -506,6 +506,41 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_driver_activity_log_driver_id ON driver_activity_log(driver_id);
 `);
 
+// Cuenta del chofer para recibir anticipos de viajes foráneos de taxi (ver
+// routes/rides.js, /deposit/*). El dinero va DIRECTO del pasajero a esta
+// cuenta — MotoVecino nunca lo toca, solo muestra a dónde depositar y lleva
+// el registro. deposit_account es CLABE (18 dígitos) o tarjeta (16).
+for (const col of ["deposit_bank", "deposit_account", "deposit_holder"]) {
+  try {
+    db.exec(`ALTER TABLE drivers ADD COLUMN ${col} TEXT`);
+  } catch {
+    // la columna ya existe
+  }
+}
+
+// Anticipo de un viaje de taxi. Los datos de la cuenta se copian al viaje al
+// aceptar (no se leen del chofer cada vez) para que el registro diga a qué
+// cuenta se depositó aunque el chofer la cambie después.
+// deposit_status: NULL (sin anticipo) | 'pendiente' (esperando depósito) |
+// 'enviado' (el pasajero subió comprobante) | 'confirmado' (el chofer lo vio
+// en su banco) | 'rechazado' (no le llegó; el pasajero puede volver a subir).
+for (const [col, type] of [
+  ["deposit_amount", "REAL"],
+  ["deposit_status", "TEXT"],
+  ["deposit_bank", "TEXT"],
+  ["deposit_account", "TEXT"],
+  ["deposit_holder", "TEXT"],
+  ["deposit_receipt", "TEXT"],
+  ["deposit_receipt_at", "TEXT"],
+  ["deposit_confirmed_at", "TEXT"],
+]) {
+  try {
+    db.exec(`ALTER TABLE rides ADD COLUMN ${col} ${type}`);
+  } catch {
+    // la columna ya existe
+  }
+}
+
 // Token opaco por viaje: lo que de verdad protege el seguimiento en vivo
 // (WebSocket + enlace "Compartir") en vez del id numérico consecutivo, que
 // cualquiera puede adivinar/barrer del 1 en adelante. El id sigue siendo la

@@ -2,7 +2,7 @@ const { WebSocketServer } = require("ws");
 const url = require("node:url");
 const db = require("./db");
 const { photoUrls } = require("./photos");
-const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI } = require("./constants");
+const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI } = require("./constants");
 
 // driverId -> WebSocket
 const driverSockets = new Map();
@@ -135,15 +135,20 @@ function sweepStaleRides() {
     // llegue -> en_curso, cada paso resetea updated_at) nunca debe cancelarse
     // solo por llevar mucho tiempo pedido; lo que importa es que lleve mucho
     // tiempo SIN AVANZAR.
+    // El taxi foráneo tiene más margen (ver ABANDONED_AFTER_MIN_TAXI): solo
+    // llegar a una comisaría a ~50 km, esperando antes el anticipo, puede
+    // pasar de una hora sin que el viaje cambie de estado.
     const stuckActive = db
       .prepare(
-        "SELECT id, driver_id FROM rides WHERE status IN ('aceptado', 'llegue', 'en_curso') AND (julianday('now') - julianday(updated_at)) * 24 * 60 > ?"
+        `SELECT id, driver_id, ride_type FROM rides WHERE status IN ('aceptado', 'llegue', 'en_curso')
+           AND (julianday('now') - julianday(updated_at)) * 24 * 60 > CASE WHEN ride_type = 'taxi' THEN ? ELSE ? END`
       )
-      .all(ABANDONED_AFTER_MIN);
+      .all(ABANDONED_AFTER_MIN_TAXI, ABANDONED_AFTER_MIN);
     for (const ride of stuckActive) {
+      const limitMin = ride.ride_type === "taxi" ? ABANDONED_AFTER_MIN_TAXI : ABANDONED_AFTER_MIN;
       db.prepare(
         "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = 'system', cancel_reason = ? WHERE id = ?"
-      ).run(`Abandonado automáticamente tras ${ABANDONED_AFTER_MIN} min sin avanzar`, ride.id);
+      ).run(`Abandonado automáticamente tras ${limitMin} min sin avanzar`, ride.id);
       if (ride.driver_id) {
         db.prepare("UPDATE drivers SET status = 'disponible' WHERE id = ?").run(ride.driver_id);
         notifyDriver(ride.driver_id, "ride_cancelled", { rideId: ride.id });

@@ -181,6 +181,24 @@
   .ratingQuestion { margin: 0 0 16px; font-size: 16px; font-weight: 700; }
   .ratingButtons { display: flex; gap: 12px; justify-content: center; }
   .ratingButtons .btn { width: auto; padding: 14px 28px; border-radius: 999px; font-size: 16px; }
+  /* Anticipo del taxi foráneo */
+  .dep-box { margin-top: 10px; padding: 12px; border-radius: 12px; background: rgba(246,166,35,0.08); border: 1px solid rgba(246,166,35,0.35); display: flex; flex-direction: column; gap: 8px; }
+  .dep-box.ok { background: rgba(46,204,113,0.08); border-color: rgba(46,204,113,0.4); }
+  .dep-title { font-weight: 800; font-size: 14.5px; line-height: 1.35; }
+  .dep-note { font-size: 12.5px; color: var(--text-dim); line-height: 1.4; }
+  .dep-warn { font-size: 12.5px; color: var(--danger); line-height: 1.4; font-weight: 600; }
+  .dep-account { background: rgba(0,0,0,0.18); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .dep-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+  .dep-row span { color: var(--text-dim); flex-shrink: 0; }
+  .dep-row strong { text-align: right; overflow-wrap: anywhere; }
+  .dep-row.stack { flex-direction: column; gap: 2px; }
+  .dep-row.stack strong { text-align: left; }
+  .dep-account { text-align: left; }
+  .dep-num { font-variant-numeric: tabular-nums; letter-spacing: .01em; font-size: 15px; white-space: nowrap; }
+  .dep-copy { padding: 8px; font-size: 13px; }
+  .dep-rules { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; display: flex; flex-direction: column; gap: 3px; text-align: left; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; }
+  .dep-rules strong { color: var(--text); }
+  .dep-rules a { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -1252,7 +1270,8 @@ function connectWs() {
   };
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
-    if (type === "ride_accepted") onDriverAssigned(payload, payload.agreedPrice);
+    if (type === "ride_accepted") onDriverAssigned(payload, payload.agreedPrice, payload.deposit);
+    if (type === "deposit_update") onDepositUpdate(payload.deposit);
     if (type === "driver_location") onDriverLocation(payload);
     if (type === "status_change" && payload.status === "llegue") onDriverArrived();
     if (type === "status_change" && payload.status === "en_curso") onTripStarted();
@@ -1278,7 +1297,7 @@ function connectWs() {
 
 const RANK_EMOJI = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
-async function onDriverAssigned(driver, agreedPrice) {
+async function onDriverAssigned(driver, agreedPrice, deposit) {
   stopStatusAvailableDriversPolling();
   currentRideStatus = "aceptado";
   document.getElementById("statusText").textContent = "¡Chofer en camino!";
@@ -1310,8 +1329,12 @@ async function onDriverAssigned(driver, agreedPrice) {
         <div class="meta">Tel: ${driver.phone}</div>
       </div>
     </div>
-    <div id="agreedPriceBox"></div>`;
+    <div id="agreedPriceBox"></div>
+    <div id="depositBox"></div>`;
   renderAgreedPrice(agreedPrice);
+  currentAgreedPrice = agreedPrice;
+  currentDeposit = deposit || null;
+  renderDepositBox();
   if (driver.lat) {
     driverPos = { lat: driver.lat, lng: driver.lng };
     driverMarker = L.marker([driver.lat, driver.lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
@@ -1344,6 +1367,168 @@ function renderAgreedPrice(agreedPrice) {
         <div style="font-size:12px;font-weight:700;color:var(--accent);">Precio acordado</div>
         <div style="font-size:22px;font-weight:800;">$${agreedPrice} <span style="font-size:12px;font-weight:500;color:var(--text-dim);">MXN</span></div>
       </div>`;
+  }
+}
+
+// --- Anticipo del taxi foráneo ---
+// El chofer puede pedir que le depositen una parte antes de salir (viajes a
+// comisarías, ~50 km). El dinero va directo a la cuenta del chofer: aquí
+// solo se enseña a dónde depositar y se sube la foto del comprobante.
+let currentDeposit = null;
+let currentAgreedPrice = null;
+let uploadingReceipt = false;
+
+// La regla se enseña ANTES de depositar, para que nadie se sienta engañado
+// (misma regla que la sección "Anticipos" del Aviso Legal).
+const depositRuleHtml = `
+  <div class="dep-rules">
+    <div><strong>Antes de depositar, ten en cuenta:</strong></div>
+    <div>• Si cancelas <em>después</em> de que tu chofer confirme el anticipo, él se lo queda (ya salió por ti).</div>
+    <div>• Si tu chofer cancela, te devuelve el anticipo completo.</div>
+    <div>• El dinero va directo a la cuenta del chofer, no a MotoVecino. <a href="aviso-legal.html#conducta" target="_blank" rel="noopener">Ver reglas</a></div>
+  </div>`;
+
+function formatAccount(acc) {
+  return String(acc || "").replace(/(\d{4})(?=\d)/g, "$1 ");
+}
+
+function renderDepositBox() {
+  const box = document.getElementById("depositBox");
+  if (!box) return;
+  const d = currentDeposit;
+  if (!d) { box.innerHTML = ""; return; }
+  const rest = currentAgreedPrice > 0 ? Math.max(0, currentAgreedPrice - d.amount) : null;
+  const restLine = rest != null ? `<div class="dep-note">El resto (<strong>$${rest}</strong>) se lo pagas al chofer al llegar.</div>` : "";
+
+  if (d.status === "confirmado") {
+    box.innerHTML = `
+      <div class="dep-box ok">
+        <div class="dep-title">✅ Tu chofer confirmó tu anticipo de $${d.amount}</div>
+        ${restLine}
+        <div class="dep-note">Tu chofer ya va por ti: si cancelas ahora, él se queda con el anticipo.</div>
+      </div>`;
+    return;
+  }
+
+  const account = `
+    <div class="dep-account">
+      <div class="dep-row"><span>Banco</span><strong>${escapeHtml(d.bank)}</strong></div>
+      <div class="dep-row stack"><span>${String(d.account).length === 18 ? "CLABE" : "Tarjeta"}</span><strong class="dep-num">${formatAccount(d.account)}</strong></div>
+      <div class="dep-row"><span>Titular</span><strong>${escapeHtml(d.holder)}</strong></div>
+      <button class="btn btn-secondary dep-copy" onclick="copyDepositAccount()">📋 Copiar número</button>
+    </div>`;
+  const uploadBtn = (label, secondary) => `
+    <input type="file" id="receiptInput" accept="image/*" style="display:none;" onchange="handleReceiptFile(event)" />
+    <button class="btn${secondary ? " btn-secondary" : ""}" id="receiptBtn" onclick="document.getElementById('receiptInput').click()">${label}</button>`;
+
+  if (d.status === "enviado") {
+    box.innerHTML = `
+      <div class="dep-box">
+        <div class="dep-title">📄 Comprobante enviado</div>
+        <div class="dep-note">Tu chofer lo está revisando en su banco. Cuando lo confirme sale por ti.</div>
+        ${uploadBtn("Cambiar foto del comprobante", true)}
+      </div>`;
+    return;
+  }
+
+  const rejected = d.status === "rechazado"
+    ? `<div class="dep-warn">Tu chofer dice que todavía no le llega el depósito. Revisa que se haya hecho bien o sube otro comprobante. Si tienes dudas, escríbele por el chat.</div>`
+    : "";
+  box.innerHTML = `
+    <div class="dep-box">
+      <div class="dep-title">💵 Tu chofer pide un anticipo de $${d.amount} antes de salir</div>
+      <div class="dep-note">Como viene de lejos, deposita el anticipo directo a su cuenta (transferencia o en OXXO) y sube la foto del comprobante.</div>
+      ${rejected}
+      ${account}
+      ${restLine}
+      ${depositRuleHtml}
+      ${uploadBtn("📷 Subir comprobante")}
+    </div>`;
+}
+
+function onDepositUpdate(deposit) {
+  const hadDeposit = !!currentDeposit;
+  currentDeposit = deposit || null;
+  renderDepositBox();
+  if (!deposit && hadDeposit) showToast("Tu chofer quitó el anticipo · pagas todo al llegar");
+  else if (deposit && deposit.status === "confirmado") showToast("✅ Tu chofer confirmó tu anticipo y va en camino");
+  else if (deposit && deposit.status === "rechazado") showToast("Tu chofer dice que todavía no le llega el depósito");
+}
+
+function copyDepositAccount() {
+  if (!currentDeposit) return;
+  const text = String(currentDeposit.account);
+  const done = () => showToast("Número copiado");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+
+function fallbackCopy(text, done) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); done(); } catch { showToast(text); }
+  ta.remove();
+}
+
+// Se reduce la foto antes de subirla (una foto de celular pesa varios MB),
+// pero no tanto: el chofer tiene que poder leer montos y referencias.
+function handleReceiptFile(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file || uploadingReceipt) return;
+  const reader = new FileReader();
+  const img = new Image();
+  reader.onload = (e) => { img.src = e.target.result; };
+  reader.onerror = () => showToast("No se pudo leer la foto, intenta de nuevo");
+  img.onerror = () => showToast("Ese archivo no es una imagen válida");
+  img.onload = () => {
+    let { width, height } = img;
+    const maxDim = 1400;
+    if (Math.max(width, height) > maxDim) {
+      const scale = maxDim / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+    let dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+    if (dataUrl.length > 850000) dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+    uploadReceipt(dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadReceipt(dataUrl) {
+  const savedRider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
+  const btn = document.getElementById("receiptBtn");
+  uploadingReceipt = true;
+  if (btn) { btn.disabled = true; btn.textContent = "Enviando..."; }
+  try {
+    const res = await fetch(API + `/api/rides/${ride.id}/deposit/receipt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        riderPhone: savedRider ? savedRider.phone : null,
+        riderPin: savedRider ? savedRider.pin : null,
+        image: dataUrl,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "No se pudo enviar");
+    currentDeposit.status = "enviado";
+    showToast("📄 Comprobante enviado a tu chofer");
+  } catch (e) {
+    showToast(e.message);
+  } finally {
+    uploadingReceipt = false;
+    renderDepositBox();
   }
 }
 
@@ -2019,6 +2204,13 @@ function reportViaWhatsapp() {
 
 async function cancelRide() {
   if (!ride) return;
+  // Si ya hay dinero de por medio, que no se salga sin darse cuenta.
+  if (currentDeposit && ["enviado", "confirmado"].includes(currentDeposit.status) && !["completado", "cancelado"].includes(currentRideStatus)) {
+    const msg = currentDeposit.status === "confirmado"
+      ? `Tu chofer ya confirmó tu anticipo de $${currentDeposit.amount} y va por ti. Si sales ahora, el chofer se queda con el anticipo. ¿Salir del viaje?`
+      : `Ya enviaste el comprobante de tu anticipo de $${currentDeposit.amount}. Como tu chofer todavía no lo confirma, si sales él debe devolvértelo. Mejor escríbele por el chat antes de salir. ¿Salir del viaje?`;
+    if (!confirm(msg)) return;
+  }
   stopStatusAvailableDriversPolling();
   const wasActive = ["aceptado", "llegue", "en_curso"].includes(currentRideStatus);
   currentRideStatus = "cancelado";
@@ -2095,7 +2287,13 @@ async function restoreActiveRide() {
   updateEmergencyBtn();
 
   if (fetched.driver) {
-    await onDriverAssigned(fetched.driver, fetched.agreed_price);
+    await onDriverAssigned(fetched.driver, fetched.agreed_price, fetched.deposit_status ? {
+      amount: fetched.deposit_amount,
+      status: fetched.deposit_status,
+      bank: fetched.deposit_bank,
+      account: fetched.deposit_account,
+      holder: fetched.deposit_holder,
+    } : null);
     if (fetched.status === "llegue") onDriverArrived();
     if (fetched.status === "en_curso") onTripStarted();
   }

@@ -1182,6 +1182,13 @@ async function loadRides() {
   renderRideRows(await res.json());
 }
 
+const DEPOSIT_STATUS_LABEL = {
+  pendiente: "esperando depósito",
+  enviado: "comprobante enviado",
+  confirmado: "recibido ✅",
+  rechazado: "no le llegó al chofer",
+};
+
 function renderRideRows(rides) {
   document.getElementById("rideRows").innerHTML = rides.map((r) => {
     const disconnected = r.driver_disconnected_at
@@ -1192,6 +1199,11 @@ function renderRideRows(rides) {
     const cancelNote = r.status === "cancelado" && r.cancelled_by
       ? `<br><span class="ago">${cancelledByLabel}${r.cancel_reason ? " · " + r.cancel_reason : ""}</span>`
       : "";
+    // Anticipo del taxi foráneo: el dinero va directo al chofer, esto es
+    // solo para que el admin vea si hubo anticipo y en qué quedó.
+    const depositNote = r.deposit_status
+      ? `<br><span class="ago">💵 Anticipo $${r.deposit_amount}${r.agreed_price ? ` de $${r.agreed_price}` : ""} · ${DEPOSIT_STATUS_LABEL[r.deposit_status] || r.deposit_status}</span>`
+      : "";
     return `
     <tr>
       <td>${escapeHtml(r.rider_name)}<br><span class="ago">${r.rider_phone}</span></td>
@@ -1200,7 +1212,7 @@ function renderRideRows(rides) {
       <td>${escapeHtml(r.pickup_label) || "—"}</td>
       <td>${escapeHtml(r.dest_label) || "—"}</td>
       <td>${r.passengers + (r.children || 0)}${r.children ? ` (${r.passengers} adultos + ${r.children} niños)` : ""}</td>
-      <td><span class="dot ${r.status}"></span>${RIDE_STATUS_LABEL[r.status] || r.status}${rating}${cancelNote}</td>
+      <td><span class="dot ${r.status}"></span>${RIDE_STATUS_LABEL[r.status] || r.status}${rating}${cancelNote}${depositNote}</td>
       <td class="ago">${timeAgo(r.updated_at)}</td>
     </tr>`;
   }).join("") || `<tr><td colspan="7" class="ago">Sin viajes todavía.</td></tr>`;

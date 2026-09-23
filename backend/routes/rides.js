@@ -5,10 +5,35 @@ const realtime = require("../realtime");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { photoUrls } = require("../photos");
+const { ABANDONED_AFTER_MIN_TAXI } = require("../constants");
 
 function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
 }
+
+// El comprobante del anticipo es una foto (~100-300 KB) con datos bancarios
+// del pasajero: nunca viaja pegado al viaje (lo ven el enlace "Compartir" y
+// el contacto de emergencia) — solo el chofer de ese viaje lo pide aparte,
+// con su PIN (ver /deposit/receipt/view).
+function publicRide(ride) {
+  if (!ride) return ride;
+  const { deposit_receipt, ...rest } = ride;
+  return { ...rest, deposit_has_receipt: !!deposit_receipt };
+}
+
+// Lo que ve el pasajero del anticipo (y el chofer, para pintar su tarjeta).
+function depositInfo(ride) {
+  if (!ride || !ride.deposit_status) return null;
+  return {
+    amount: ride.deposit_amount,
+    status: ride.deposit_status,
+    bank: ride.deposit_bank,
+    account: ride.deposit_account,
+    holder: ride.deposit_holder,
+  };
+}
+
+const MAX_RECEIPT_LENGTH = 900000;
 
 const router = express.Router();
 
@@ -136,15 +161,19 @@ router.get("/rides/:id", (req, res) => {
   }
 
   if (!["completado", "cancelado"].includes(ride.status)) {
+    // Se mide desde el último avance real (updated_at), igual que el barrido
+    // de realtime.js — medirlo desde created_at cancelaba un taxi foráneo
+    // que seguía avanzando bien, nada más porque se pidió hace más de 1 hora.
+    const limitMin = ride.ride_type === "taxi" ? ABANDONED_AFTER_MIN_TAXI : ABANDONED_AFTER_MIN;
     const { mins } = db
       .prepare(
-        "SELECT (julianday('now') - julianday(created_at)) * 24 * 60 AS mins FROM rides WHERE id = ?"
+        "SELECT (julianday('now') - julianday(updated_at)) * 24 * 60 AS mins FROM rides WHERE id = ?"
       )
       .get(ride.id);
-    if (mins > ABANDONED_AFTER_MIN) {
+    if (mins > limitMin) {
       db.prepare(
         "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = ?, cancel_reason = ? WHERE id = ?"
-      ).run("system", `Abandonado automáticamente tras ${ABANDONED_AFTER_MIN} min sin completarse`, ride.id);
+      ).run("system", `Abandonado automáticamente tras ${limitMin} min sin avanzar`, ride.id);
       if (ride.driver_id) {
         db.prepare("UPDATE drivers SET status = 'disponible' WHERE id = ?").run(ride.driver_id);
         realtime.notifyDriver(ride.driver_id, "ride_cancelled", { rideId: ride.id });
@@ -160,7 +189,7 @@ router.get("/rides/:id", (req, res) => {
     ride.driver = driverForRide(ride.driver_id);
   }
   Object.assign(ride, riderInfoFor(ride.rider_phone));
-  res.json(ride);
+  res.json(publicRide(ride));
 });
 
 // Cuántos viajes completados lleva este teléfono y su foto de perfil — antes
@@ -212,12 +241,12 @@ router.post("/rides/active", (req, res) => {
   if (!ride) return res.json(null);
 
   Object.assign(ride, riderInfoFor(ride.rider_phone));
-  res.json(ride);
+  res.json(publicRide(ride));
 });
 
 router.post("/rides/:id/accept", (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId, pin, agreedPrice } = req.body;
+  const { driverId, pin, agreedPrice, depositAmount } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
@@ -247,15 +276,47 @@ router.post("/rides/:id/accept", (req, res) => {
   // saber si el precio le va a convenir. El chofer debe negociarlo por el
   // chat (botón "Mensaje" en la solicitud) ANTES de aceptar.
   const pendingRide = db.prepare("SELECT ride_type FROM rides WHERE id = ?").get(rideId);
-  if (pendingRide?.ride_type === "taxi" && !(Number(agreedPrice) > 0)) {
+  const isTaxi = pendingRide?.ride_type === "taxi";
+  if (isTaxi && !(Number(agreedPrice) > 0)) {
     return res.status(400).json({ error: "Captura el precio que acordaste con el pasajero" });
+  }
+
+  // Anticipo (solo taxi): el chofer pide que le depositen una parte ANTES de
+  // salir — pensado para viajes foráneos (comisarías a ~50 km), donde ir en
+  // vacío y que el pasajero no aparezca le cuesta la gasolina de ida y
+  // vuelta. El dinero va directo a la cuenta del chofer, la app solo le
+  // enseña al pasajero a dónde depositar y le deja subir el comprobante.
+  const deposit = isTaxi ? Math.round(Number(depositAmount) || 0) : 0;
+  let bank = null;
+  if (deposit > 0) {
+    if (deposit > Number(agreedPrice)) {
+      return res.status(400).json({ error: "El anticipo no puede ser mayor que el precio acordado" });
+    }
+    bank = db
+      .prepare("SELECT deposit_bank, deposit_account, deposit_holder FROM drivers WHERE id = ?")
+      .get(driverId);
+    if (!bank?.deposit_account) {
+      return res.status(400).json({ error: "Primero registra tu cuenta en Mi perfil → Cuenta para anticipos" });
+    }
   }
 
   const result = db
     .prepare(
-      "UPDATE rides SET driver_id = ?, status = 'aceptado', agreed_price = ?, updated_at = datetime('now') WHERE id = ? AND status = 'buscando'"
+      `UPDATE rides SET driver_id = ?, status = 'aceptado', agreed_price = ?,
+              deposit_amount = ?, deposit_status = ?, deposit_bank = ?, deposit_account = ?, deposit_holder = ?,
+              updated_at = datetime('now')
+       WHERE id = ? AND status = 'buscando'`
     )
-    .run(driverId, pendingRide?.ride_type === "taxi" ? Number(agreedPrice) : null, rideId);
+    .run(
+      driverId,
+      isTaxi ? Number(agreedPrice) : null,
+      deposit > 0 ? deposit : null,
+      deposit > 0 ? "pendiente" : null,
+      bank?.deposit_bank ?? null,
+      bank?.deposit_account ?? null,
+      bank?.deposit_holder ?? null,
+      rideId
+    );
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "El viaje ya fue tomado" });
@@ -271,9 +332,133 @@ router.post("/rides/:id/accept", (req, res) => {
   Object.assign(ride, riderInfoFor(ride.rider_phone));
   const driver = driverForRide(driverId);
 
-  realtime.notifyRide(rideId, "ride_accepted", { ...driver, agreedPrice: ride.agreed_price });
+  realtime.notifyRide(rideId, "ride_accepted", { ...driver, agreedPrice: ride.agreed_price, deposit: depositInfo(ride) });
   realtime.broadcastRideTaken(rideId, driverId);
-  res.json(ride);
+  res.json(publicRide(ride));
+});
+
+// --- Anticipo del taxi foráneo ---
+
+// Carga el viaje y confirma que quien llama es el pasajero de ESE viaje.
+function riderOwnsRide(req, res, rideId) {
+  const { riderPhone, riderPin } = req.body || {};
+  if (isRateLimited(req.ip)) {
+    res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+    return null;
+  }
+  const ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
+  if (!ride) {
+    res.status(404).json({ error: "Viaje no encontrado" });
+    return null;
+  }
+  const riderMatch = riderPhone && riderPin
+    ? db.prepare("SELECT id FROM riders WHERE phone = ? AND pin = ?").get(riderPhone, riderPin)
+    : null;
+  if (!riderMatch || ride.rider_phone !== riderPhone) {
+    recordFailedAttempt(req.ip);
+    res.status(401).json({ error: "Teléfono o PIN incorrectos" });
+    return null;
+  }
+  clearAttempts(req.ip);
+  return ride;
+}
+
+// Igual, pero para el chofer asignado a ese viaje.
+function driverOwnsRide(req, res, rideId) {
+  const { driverId, pin } = req.body || {};
+  if (isRateLimited(req.ip)) {
+    res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+    return null;
+  }
+  if (!driverId || !pin || !driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    res.status(401).json({ error: "PIN incorrecto" });
+    return null;
+  }
+  clearAttempts(req.ip);
+  const ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
+  if (!ride || ride.driver_id !== Number(driverId)) {
+    res.status(404).json({ error: "Viaje no encontrado" });
+    return null;
+  }
+  return ride;
+}
+
+const ACTIVE_STATUSES = ["aceptado", "llegue", "en_curso"];
+
+// El pasajero sube la foto del comprobante. Se puede volver a subir si el
+// chofer dijo que no le llegó ('rechazado') o si se equivocó de foto antes
+// de que el chofer lo revise ('enviado').
+router.post("/rides/:id/deposit/receipt", (req, res) => {
+  const rideId = Number(req.params.id);
+  const ride = riderOwnsRide(req, res, rideId);
+  if (!ride) return;
+  if (!ACTIVE_STATUSES.includes(ride.status) || !["pendiente", "enviado", "rechazado"].includes(ride.deposit_status)) {
+    return res.status(409).json({ error: "Este viaje ya no está esperando anticipo" });
+  }
+  const { image } = req.body;
+  if (typeof image !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(image)) {
+    return res.status(400).json({ error: "Sube una foto del comprobante" });
+  }
+  if (image.length > MAX_RECEIPT_LENGTH) {
+    return res.status(413).json({ error: "La foto pesa demasiado, intenta con otra" });
+  }
+
+  db.prepare(
+    "UPDATE rides SET deposit_receipt = ?, deposit_receipt_at = datetime('now'), deposit_status = 'enviado', updated_at = datetime('now') WHERE id = ?"
+  ).run(image, rideId);
+  realtime.notifyDriver(ride.driver_id, "deposit_receipt", { rideId });
+  res.json({ ok: true, status: "enviado" });
+});
+
+// El chofer ve el comprobante (solo él, con su PIN).
+router.post("/rides/:id/deposit/receipt/view", (req, res) => {
+  const ride = driverOwnsRide(req, res, Number(req.params.id));
+  if (!ride) return;
+  if (!ride.deposit_receipt) return res.status(404).json({ error: "El pasajero todavía no sube el comprobante" });
+  res.json({ image: ride.deposit_receipt, uploadedAt: ride.deposit_receipt_at });
+});
+
+// El chofer decide sobre el anticipo:
+//   confirm → ya lo vio en SU banco (no basta la foto: puede estar editada)
+//   reject  → no le ha llegado; el pasajero puede volver a subir comprobante
+//   waive   → quita el anticipo (ej. el pasajero no tiene cómo depositar y
+//             el chofer decide ir de todos modos, cobrando todo al llegar)
+const DEPOSIT_ACTIONS = {
+  confirm: { from: ["pendiente", "enviado", "rechazado"], to: "confirmado" },
+  reject: { from: ["enviado"], to: "rechazado" },
+  waive: { from: ["pendiente", "enviado", "rechazado"], to: null },
+};
+
+router.post("/rides/:id/deposit/:action", (req, res) => {
+  const action = DEPOSIT_ACTIONS[req.params.action];
+  if (!action) return res.status(404).json({ error: "Acción no válida" });
+  const rideId = Number(req.params.id);
+  const ride = driverOwnsRide(req, res, rideId);
+  if (!ride) return;
+  if (!ACTIVE_STATUSES.includes(ride.status) || !action.from.includes(ride.deposit_status)) {
+    return res.status(409).json({ error: "El anticipo de este viaje ya no se puede cambiar" });
+  }
+
+  if (action.to === "confirmado") {
+    db.prepare(
+      "UPDATE rides SET deposit_status = 'confirmado', deposit_confirmed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?"
+    ).run(rideId);
+  } else if (action.to === "rechazado") {
+    db.prepare("UPDATE rides SET deposit_status = 'rechazado', updated_at = datetime('now') WHERE id = ?").run(rideId);
+  } else {
+    // Sin anticipo: se borra todo rastro (incluida la foto), como si nunca se
+    // hubiera pedido — no hay nada que el registro deba conservar.
+    db.prepare(
+      `UPDATE rides SET deposit_status = NULL, deposit_amount = NULL, deposit_bank = NULL, deposit_account = NULL,
+              deposit_holder = NULL, deposit_receipt = NULL, deposit_receipt_at = NULL, updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(rideId);
+  }
+
+  const updated = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
+  realtime.notifyRide(rideId, "deposit_update", { deposit: depositInfo(updated) });
+  res.json({ ok: true, deposit: depositInfo(updated) });
 });
 
 router.post("/rides/:id/arrived", (req, res) => {

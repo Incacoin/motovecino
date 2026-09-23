@@ -66,6 +66,24 @@
   .cancel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: flex-end; justify-content: center; z-index: 500; }
   .cancel-sheet { width: 100%; max-width: 420px; margin: 0 12px 12px; display: flex; flex-direction: column; gap: 8px; }
   .cancel-sheet .label { font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+  /* Anticipo del taxi foráneo */
+  .deposit-ask { margin-bottom: 6px; display: flex; flex-direction: column; gap: 4px; }
+  .deposit-ask label { font-size: 13px; color: var(--text-dim); }
+  .deposit-ask input { width: 100%; box-sizing: border-box; padding: 9px; font-size: 15px; }
+  .deposit-hint { font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+  .deposit-hint a { color: var(--accent); }
+  .deposit-note { font-size: 12.5px; color: var(--text-faint); line-height: 1.4; }
+  .deposit-box { margin: 8px 0; padding: 12px; border-radius: 12px; background: rgba(246,166,35,0.08); border: 1px solid rgba(246,166,35,0.35); display: flex; flex-direction: column; gap: 8px; }
+  .deposit-box.ok { background: rgba(46,204,113,0.08); border-color: rgba(46,204,113,0.4); }
+  .deposit-title { font-weight: 700; font-size: 14.5px; }
+  .deposit-warn { font-size: 12.5px; color: var(--accent); line-height: 1.4; }
+  .deposit-actions { display: flex; gap: 8px; }
+  .deposit-actions > * { flex: 1; margin: 0; }
+  #receiptOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 2500; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; box-sizing: border-box; }
+  #receiptOverlay img { max-width: 100%; max-height: 78vh; border-radius: 8px; object-fit: contain; background: #fff; }
+  .bank-form { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 4px; }
+  .bank-form input { width: 100%; box-sizing: border-box; padding: 10px; font-size: 15px; }
+  .deposit-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
   /* z-index > 1000 a propósito: Leaflet pinta sus controles (+/-, atribución)
      en 1000 y los dejaría encima de esta pantalla. */
   #profileScreen { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1500; overflow-y: auto; }
@@ -245,6 +263,36 @@
         <div class="profile-note" id="accountNote"></div>
       </div>
 
+      <button class="menu-row taxi-only" onclick="toggleSection('anticipos')">
+        <span>💵</span><span class="menu-label">Anticipos recibidos</span><span class="menu-chev" id="chev-anticipos">›</span>
+      </button>
+      <div id="section-anticipos" class="section-body" style="display:none;">
+        <div id="depositRows"></div>
+        <div class="deposit-list" id="depositList"></div>
+        <div class="profile-note">Solo cuentan los que tú confirmaste con "Ya me llegó". El dinero te llega directo a tu cuenta: MotoVecino no lo toca.</div>
+      </div>
+
+      <button class="menu-row taxi-only" onclick="toggleSection('cuenta')">
+        <span>🏦</span><span class="menu-label">Cuenta para anticipos</span><span class="menu-chev" id="chev-cuenta">›</span>
+      </button>
+      <div id="section-cuenta" class="section-body" style="display:none;">
+        <div class="bank-form">
+          <input id="bankNameInput" list="bankNames" maxlength="40" placeholder="Banco (ej. BBVA, Banco Azteca)" />
+          <datalist id="bankNames">
+            <option value="BBVA"></option><option value="Banco Azteca"></option><option value="Banorte"></option>
+            <option value="Santander"></option><option value="Banamex"></option><option value="Bancoppel"></option>
+            <option value="HSBC"></option><option value="Scotiabank"></option><option value="Banco del Bienestar"></option>
+            <option value="Nu"></option><option value="Mercado Pago"></option><option value="Spin by OXXO"></option>
+          </datalist>
+          <input id="bankAccountInput" inputmode="numeric" maxlength="22" placeholder="CLABE (18 dígitos) o tarjeta (16 dígitos)" />
+          <input id="bankHolderInput" maxlength="80" placeholder="Nombre del titular (como aparece en el banco)" />
+          <button class="btn" id="bankSaveBtn" onclick="saveBankAccount()">Guardar cuenta</button>
+          <button class="btn-sm" id="bankRemoveBtn" style="display:none;" onclick="removeBankAccount()">Quitar mi cuenta</button>
+          <div id="bankMsg" style="font-size:13px;min-height:16px;"></div>
+        </div>
+        <div class="profile-note">Solo la ve el pasajero de un viaje en el que tú pediste anticipo, y solo después de que aceptas. Con tarjeta de débito el pasajero puede depositarte en efectivo en OXXO.</div>
+      </div>
+
       <button class="menu-row" onclick="toggleSection('datos')">
         <span>🪪</span><span class="menu-label">Mis datos</span><span class="menu-chev" id="chev-datos">›</span>
       </button>
@@ -278,9 +326,16 @@
 
 <div id="toast" class="toast"></div>
 
+<div id="receiptOverlay" onclick="if(event.target===this)closeReceiptOverlay()">
+  <img id="receiptImg" alt="Comprobante del anticipo" />
+  <div style="color:#fff;font-size:13px;text-align:center;max-width:420px;">Revisa en la app de tu banco que el depósito sí llegó antes de salir.</div>
+  <button class="btn-sm" onclick="closeReceiptOverlay()">Cerrar</button>
+</div>
+
 <div id="cancelReasonOverlay" class="cancel-overlay">
   <div class="card cancel-sheet">
     <div class="label">¿Por qué cancelas este viaje?</div>
+    <div id="cancelDepositNote" class="deposit-warn" style="display:none;"></div>
     <button class="btn-secondary" onclick="confirmCancel('El pasajero no llegó')">El pasajero no llegó</button>
     <button class="btn-secondary" onclick="confirmCancel('Cambié de planes')">Cambié de planes</button>
     <button class="btn-secondary" onclick="confirmCancel('Otro motivo')">Otro motivo</button>
@@ -312,7 +367,13 @@ fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
   TAXI_COMMISSION_RATE = cfg.taxiCommissionRate;
   TAXI_COMMISSION_CAP = cfg.taxiCommissionCap;
   TAXI_WAIT_RATE_PER_MIN = cfg.taxiWaitRatePerMin;
+  if (cfg.depositSuggestedRate != null) DEPOSIT_SUGGESTED_RATE = cfg.depositSuggestedRate;
 }).catch(() => {});
+
+// Centros y radios de cada pueblo — para saber si una recogida de taxi es
+// "foránea" (fuera del pueblo, ej. una comisaría) y sugerir anticipo.
+let CITIES_LIST = [];
+fetch(API + "/api/cities").then((r) => r.json()).then((list) => { CITIES_LIST = list; }).catch(() => {});
 
 function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -541,6 +602,21 @@ let SERVICE_FEE = 2; // valor de respaldo hasta que cargue /api/config
 let TAXI_COMMISSION_RATE = 0.06;
 let TAXI_COMMISSION_CAP = 100;
 let TAXI_WAIT_RATE_PER_MIN = 2;
+let DEPOSIT_SUGGESTED_RATE = 0.5;
+
+// Recogida fuera del radio normal del pueblo (comisarías, Peto, Xul...). Ahí
+// es donde el anticipo tiene sentido: ir hasta allá en vacío cuesta.
+function isForaneo(ride) {
+  const city = CITIES_LIST.find((c) => c.id === ride.city);
+  if (!city || city.serviceRadiusKm == null) return false;
+  return haversine(ride.pickup_lat, ride.pickup_lng, city.lat, city.lng) > city.serviceRadiusKm;
+}
+
+// Anticipo sugerido redondeado a decenas ($350 → $180, no $175).
+function suggestedDeposit(price) {
+  if (!(price > 0)) return "";
+  return Math.max(10, Math.round((price * DEPOSIT_SUGGESTED_RATE) / 10) * 10);
+}
 
 // Ciudad resuelta por GPS (ver initCityBrand) — "tekax" hasta que se
 // confirme otra cosa, igual que en pasajero.html.
@@ -718,17 +794,32 @@ function connectWs() {
     if (type === "new_ride") addPendingRide(payload);
     if (type === "ride_taken") removePendingRide(payload.rideId);
     if (type === "ride_cancelled" && currentRide && currentRide.id === payload.rideId && !cancellingOwnRide) {
+      // Regla del anticipo (Aviso Legal): confirmado = ya salió por él, se lo
+      // queda; sin confirmar = lo que haya recibido se devuelve.
+      const dep = currentRide.deposit_status;
+      const depositMsg = dep === "confirmado"
+        ? ` · el anticipo de $${currentRide.deposit_amount} es tuyo`
+        : dep === "enviado" || dep === "rechazado"
+          ? " · si te llegó el anticipo, devuélveselo (no lo habías confirmado)"
+          : "";
       stopWaitTicker();
       clearWaitState(currentRide.id);
       currentRide = null;
       stopRouteTracking();
       hideChat();
-      showToast("El pasajero canceló el viaje");
+      showToast("El pasajero canceló el viaje" + depositMsg);
       renderRideList();
     }
     if (type === "chat") {
       showChatForRide(payload.rideId);
       appendChatMessage(payload.text, "them");
+    }
+    if (type === "deposit_receipt" && currentRide && currentRide.id === payload.rideId) {
+      currentRide.deposit_status = "enviado";
+      currentRide.deposit_has_receipt = true;
+      playNotificationSound();
+      showToast("📄 El pasajero subió su comprobante del anticipo");
+      renderRideList();
     }
   };
   ws.onclose = (ev) => {
@@ -945,7 +1036,7 @@ function renderRideList() {
   const el = document.getElementById("rideList");
 
   if (currentRide) {
-    const shape = "current:" + currentRide.id + ":" + currentRide.status;
+    const shape = "current:" + currentRide.id + ":" + currentRide.status + ":" + (currentRide.deposit_status || "");
     if (shape === renderedShape) { updateDistances(); return; }
     renderedShape = shape;
 
@@ -965,6 +1056,7 @@ function renderRideList() {
           </div>
           ${destLine}
           ${fareLine}
+          ${depositBoxHtml(currentRide)}
           <button class="btn" id="btnArrived" onclick="arriveAtPickup()">Ya llegué</button>
           <button class="btn-danger" onclick="cancelCurrentRide()">Cancelar viaje</button>
         </div>`;
@@ -979,6 +1071,7 @@ function renderRideList() {
           ${currentRide.ride_type === "taxi" && currentRide.agreed_price
             ? `<div class="ride-chips"><span class="chip">💰 Precio acordado: $${currentRide.agreed_price}</span></div>`
             : ""}
+          ${depositBoxHtml(currentRide)}
           <button class="btn" onclick="startTrip()">Iniciar viaje</button>
           <button class="btn-danger" onclick="cancelCurrentRide()">Cancelar viaje</button>
         </div>`;
@@ -1007,6 +1100,7 @@ function renderRideList() {
                  <input type="number" id="agreedPriceInput" inputmode="decimal" min="1" placeholder="Ej. 350" value="${currentRide.agreed_price ?? ""}" style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;">
                </div>`
             : ""}
+          ${depositBoxHtml(currentRide)}
           <button class="btn" onclick="completeRide()">Finalizar viaje</button>
         </div>`;
     }
@@ -1042,8 +1136,9 @@ function renderRideList() {
         </div>
         ${r.ride_type === "taxi"
           ? `<div style="margin-bottom:6px;">
-               <input type="number" id="taxiPriceInput-${r.id}" inputmode="decimal" min="1" placeholder="Precio que YA acordaste con el pasajero" style="width:100%;box-sizing:border-box;padding:9px;font-size:15px;">
-             </div>`
+               <input type="number" id="taxiPriceInput-${r.id}" inputmode="decimal" min="1" placeholder="Precio que YA acordaste con el pasajero" oninput="onTaxiPriceInput(${r.id})" style="width:100%;box-sizing:border-box;padding:9px;font-size:15px;">
+             </div>
+             ${depositRequestHtml(r)}`
           : ""}
         <button class="btn" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : acceptLabel}</button>
       </div>`;
@@ -1146,9 +1241,36 @@ async function updateRouteLine() {
   updateEtaDisplay(duration);
 }
 
+// --- Anticipo (taxi) al aceptar ---
+// Se ofrece en cualquier taxi, pero solo se sugiere solo (prellenado) cuando
+// la recogida es foránea: dentro del pueblo casi nunca vale la pena.
+function depositRequestHtml(r) {
+  const foraneo = isForaneo(r);
+  if (driver.hasDepositAccount === false) {
+    return foraneo
+      ? `<div class="deposit-hint">💵 Viaje foráneo. Para pedir anticipo, registra tu cuenta en <a href="#" onclick="openProfile();return false;">Mi perfil</a>.</div>`
+      : "";
+  }
+  return `
+    <div class="deposit-ask">
+      <label for="taxiDepositInput-${r.id}">💵 Anticipo por depósito ${foraneo ? "<strong>(recomendado: viaje foráneo)</strong>" : "(opcional)"}</label>
+      <input type="number" id="taxiDepositInput-${r.id}" inputmode="decimal" min="0" placeholder="${foraneo ? "Se llena solo al poner el precio" : "Déjalo vacío si no pides anticipo"}"
+             data-foraneo="${foraneo ? 1 : 0}" oninput="this.dataset.touched = 1">
+      <div class="deposit-note">El pasajero te deposita directo a tu cuenta antes de que salgas. El resto lo cobras al llegar.</div>
+    </div>`;
+}
+
+function onTaxiPriceInput(id) {
+  const priceEl = document.getElementById(`taxiPriceInput-${id}`);
+  const depEl = document.getElementById(`taxiDepositInput-${id}`);
+  if (!priceEl || !depEl || depEl.dataset.touched || depEl.dataset.foraneo !== "1") return;
+  depEl.value = suggestedDeposit(Number(priceEl.value));
+}
+
 async function acceptRide(id) {
   const ride = pendingRides[id];
   let agreedPrice;
+  let depositAmount = 0;
   if (ride && ride.ride_type === "taxi") {
     const input = document.getElementById(`taxiPriceInput-${id}`);
     agreedPrice = Number(input && input.value);
@@ -1156,18 +1278,101 @@ async function acceptRide(id) {
       showToast("Captura el precio que acordaste con el pasajero antes de aceptar");
       return;
     }
+    const depInput = document.getElementById(`taxiDepositInput-${id}`);
+    depositAmount = Number(depInput && depInput.value) || 0;
+    if (depositAmount > agreedPrice) {
+      showToast("El anticipo no puede ser mayor que el precio");
+      return;
+    }
   }
   const res = await fetch(API + `/api/rides/${id}/accept`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, agreedPrice }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, agreedPrice, depositAmount }),
   });
   if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))).error;
+    // Si solo falló por el anticipo (sin cuenta, monto mayor al precio), el
+    // viaje sigue libre: no lo quitamos de la lista para que pueda corregir.
+    if (res.status === 400) { showToast(err || "Revisa los datos"); return; }
     removePendingRide(id);
-    showToast((await res.json()).error || "Ya no disponible");
+    showToast(err || "Ya no disponible");
     return;
   }
   beginRide(await res.json());
+}
+
+// --- Anticipo en el viaje activo ---
+function depositBoxHtml(r) {
+  if (!r.deposit_status) return "";
+  const amount = `$${r.deposit_amount}`;
+  const rest = r.agreed_price ? Math.max(0, r.agreed_price - r.deposit_amount) : null;
+  const restLine = rest != null ? `<div class="deposit-note">Al llegar cobras el resto: <strong>$${rest}</strong></div>` : "";
+  if (r.deposit_status === "confirmado") {
+    return `<div class="deposit-box ok"><div class="deposit-title">✅ Anticipo recibido · ${amount}</div>${restLine}
+      <div class="deposit-note">Si el pasajero cancela, el anticipo es tuyo. Si cancelas tú, se lo devuelves completo.</div></div>`;
+  }
+  const safety = `<div class="deposit-warn">⚠️ No salgas solo por ver la foto: revisa en la app de TU banco que el dinero sí llegó. Una captura se puede editar.</div>`;
+  if (r.deposit_status === "enviado") {
+    return `
+      <div class="deposit-box">
+        <div class="deposit-title">📄 El pasajero subió su comprobante · ${amount}</div>
+        <button class="btn-sm" onclick="viewDepositReceipt()">Ver comprobante</button>
+        ${safety}
+        <div class="deposit-actions">
+          <button class="btn" onclick="depositAction('confirm')">✅ Ya me llegó</button>
+          <button class="btn-secondary" onclick="depositAction('reject')">❌ No me ha llegado</button>
+        </div>
+      </div>`;
+  }
+  const waitingText = r.deposit_status === "rechazado"
+    ? "Le avisamos al pasajero que no te ha llegado. Esperando que lo revise o suba otro comprobante."
+    : "Esperando que el pasajero te deposite. Cuando suba su comprobante te avisamos.";
+  return `
+    <div class="deposit-box">
+      <div class="deposit-title">💵 Anticipo pendiente · ${amount}</div>
+      <div class="deposit-note">${waitingText}</div>
+      ${safety}
+      <div class="deposit-actions">
+        <button class="btn-secondary" onclick="depositAction('confirm')">Ya me llegó</button>
+        <button class="btn-sm" onclick="depositAction('waive')">Quitar anticipo</button>
+      </div>
+    </div>`;
+}
+
+async function depositAction(action) {
+  if (!currentRide) return;
+  if (action === "waive" && !confirm("¿Quitar el anticipo? Irás sin depósito y cobrarás todo al llegar.")) return;
+  const res = await fetch(API + `/api/rides/${currentRide.id}/deposit/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { showToast(data.error || "No se pudo actualizar"); return; }
+  const d = data.deposit;
+  currentRide.deposit_status = d ? d.status : null;
+  currentRide.deposit_amount = d ? d.amount : null;
+  showToast(action === "confirm" ? "✅ Anticipo confirmado · ya puedes salir" : action === "reject" ? "Le avisamos al pasajero" : "Anticipo quitado");
+  renderRideList();
+}
+
+async function viewDepositReceipt() {
+  if (!currentRide) return;
+  const res = await fetch(API + `/api/rides/${currentRide.id}/deposit/receipt/view`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { showToast(data.error || "No se pudo abrir el comprobante"); return; }
+  document.getElementById("receiptImg").src = data.image;
+  document.getElementById("receiptOverlay").style.display = "flex";
+}
+
+function closeReceiptOverlay() {
+  document.getElementById("receiptOverlay").style.display = "none";
+  document.getElementById("receiptImg").src = "";
 }
 
 // Deja la pantalla en "viaje activo": marcadores, ruta, chat y tarjeta del
@@ -1431,6 +1636,15 @@ function showDriverTierBadge(lifetimeTrips) {
 
 function cancelCurrentRide() {
   if (!currentRide) return;
+  // Si el pasajero ya le depositó y es el chofer quien se echa para atrás,
+  // ese dinero no es suyo — se lo recordamos antes de cancelar.
+  const note = document.getElementById("cancelDepositNote");
+  if (currentRide.deposit_status === "confirmado") {
+    note.textContent = `Ya recibiste un anticipo de $${currentRide.deposit_amount}. Si cancelas tú, debes devolvérselo completo al pasajero.`;
+    note.style.display = "block";
+  } else {
+    note.style.display = "none";
+  }
   document.getElementById("cancelReasonOverlay").style.display = "flex";
 }
 
@@ -1659,6 +1873,66 @@ function renderProfile(p) {
   ].join("");
 
   document.getElementById("profilePin").textContent = p.pin;
+
+  // --- Anticipos (solo taxi: el mototaxi no hace viajes foráneos) ---
+  const isTaxi = p.vehicleType === "taxi";
+  document.querySelectorAll(".taxi-only").forEach((el) => { el.style.display = isTaxi ? "" : "none"; });
+  if (!isTaxi) return;
+  renderBankAccount(p.bankAccount);
+  const dep = p.deposits || { count: 0, total: 0, totalMonth: 0, totalWeek: 0, recent: [] };
+  document.getElementById("depositRows").innerHTML = [
+    row("Últimos 7 días", `$${dep.totalWeek}`),
+    row("Este mes", `$${dep.totalMonth}`, dep.totalMonth ? "accent" : ""),
+    row("Total", `$${dep.total} · ${dep.count} anticipo${dep.count === 1 ? "" : "s"}`),
+  ].join("");
+  document.getElementById("depositList").innerHTML = dep.recent.length
+    ? dep.recent.map((d) => row(`${fmtDate(d.confirmedAt)} · ${escapeHtml(d.riderName)}${d.pickupLabel ? " · " + escapeHtml(d.pickupLabel) : ""}`, `$${d.amount}`)).join("")
+    : `<div class="profile-note">Todavía no has recibido anticipos.</div>`;
+}
+
+function renderBankAccount(acc) {
+  driver.hasDepositAccount = !!acc;
+  localStorage.setItem("motoya_driver", JSON.stringify(driver));
+  document.getElementById("bankNameInput").value = acc ? acc.bank : "";
+  document.getElementById("bankAccountInput").value = acc ? acc.account : "";
+  document.getElementById("bankHolderInput").value = acc ? acc.holder : "";
+  document.getElementById("bankSaveBtn").textContent = acc ? "Actualizar cuenta" : "Guardar cuenta";
+  document.getElementById("bankRemoveBtn").style.display = acc ? "" : "none";
+  renderedShape = null; // la lista de solicitudes cambia (ya puede o ya no puede pedir anticipo)
+  renderRideList();
+}
+
+async function postBankAccount(body, okText) {
+  const msg = document.getElementById("bankMsg");
+  msg.style.color = "var(--text-dim)";
+  msg.textContent = "Guardando...";
+  try {
+    const res = await fetch(API + "/api/drivers/bank-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: driver.phone, pin: driver.pin, ...body }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "No se pudo guardar");
+    renderBankAccount(data.bankAccount);
+    msg.style.color = "var(--success)";
+    msg.textContent = okText;
+  } catch (e) {
+    msg.style.color = "var(--danger)";
+    msg.textContent = e.message;
+  }
+}
+
+function saveBankAccount() {
+  postBankAccount({
+    bank: document.getElementById("bankNameInput").value,
+    account: document.getElementById("bankAccountInput").value,
+    holder: document.getElementById("bankHolderInput").value,
+  }, "✅ Cuenta guardada · ya puedes pedir anticipo al aceptar un taxi");
+}
+
+function removeBankAccount() {
+  postBankAccount({ account: "" }, "Cuenta quitada · ya no se te ofrecerá pedir anticipo");
 }
 
 function handleProfilePhoto(event) {

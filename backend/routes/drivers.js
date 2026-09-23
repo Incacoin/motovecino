@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, TAXI_WAIT_RATE_PER_MIN, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
+const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, TAXI_WAIT_RATE_PER_MIN, MONTHLY_FEE, TRIAL_END_DATE, DEPOSIT_SUGGESTED_RATE } = require("../constants");
+const { normalizeAccount } = require("../bankAccount");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
@@ -13,7 +14,7 @@ const router = express.Router();
 // Fuente única de las cuotas para los 3 frontends (pasajero, chofer, admin)
 // — evita que se desincronicen del valor real que se cobra.
 router.get("/config", (req, res) => {
-  res.json({ serviceFee: SERVICE_FEE, monthlyFee: MONTHLY_FEE, taxiCommissionRate: TAXI_COMMISSION_RATE, taxiCommissionCap: TAXI_COMMISSION_CAP, taxiWaitRatePerMin: TAXI_WAIT_RATE_PER_MIN });
+  res.json({ serviceFee: SERVICE_FEE, monthlyFee: MONTHLY_FEE, taxiCommissionRate: TAXI_COMMISSION_RATE, taxiCommissionCap: TAXI_COMMISSION_CAP, taxiWaitRatePerMin: TAXI_WAIT_RATE_PER_MIN, depositSuggestedRate: DEPOSIT_SUGGESTED_RATE });
 });
 
 // Choferes "disponibles" de verdad: con GPS reciente (no fantasmas de una
@@ -93,7 +94,7 @@ router.post("/drivers/login", (req, res) => {
   }
   const driver = db
     .prepare(
-      "SELECT id, name, phone, vehicle, vehicle_type, status, cooldown_until FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL"
+      "SELECT id, name, phone, vehicle, vehicle_type, status, cooldown_until, deposit_account FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL"
     )
     .get(phone, pin);
 
@@ -115,7 +116,10 @@ router.post("/drivers/login", (req, res) => {
     )
     .get(driver.id);
 
-  res.json({ ...driver, todayCount, lifetimeTrips });
+  // El número de cuenta completo no hace falta en el login (se guarda en el
+  // celular) — basta saber si ya tiene una para ofrecerle pedir anticipo.
+  const { deposit_account, ...driverOut } = driver;
+  res.json({ ...driverOut, hasDepositAccount: !!deposit_account, todayCount, lifetimeTrips });
 });
 
 // Pantalla "Mi perfil" del chofer. Se autentica igual que el login: con su
@@ -132,7 +136,7 @@ router.post("/drivers/profile", (req, res) => {
   const driver = db
     .prepare(
       `SELECT id, name, phone, vehicle, vehicle_type, grupo, photo, tipo, pin, created_at,
-              paid_until, cancel_count, es_fundador
+              paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
     .get(phone, pin);
@@ -173,6 +177,25 @@ router.post("/drivers/profile", (req, res) => {
   const pendingRides = pendingFeeRows.length;
   const pendingRidesAmount = pendingFeeRows.reduce((sum, r) => sum + rideFee(r), 0);
 
+  // Anticipos que el propio chofer confirmó haber recibido en su cuenta —
+  // se van sumando para que lleve la cuenta sin anotarlo aparte.
+  const depositTotals = db
+    .prepare(
+      `SELECT COUNT(*) AS count,
+              COALESCE(SUM(deposit_amount), 0) AS total,
+              COALESCE(SUM(CASE WHEN date(deposit_confirmed_at) >= date('now', 'start of month') THEN deposit_amount ELSE 0 END), 0) AS totalMonth,
+              COALESCE(SUM(CASE WHEN date(deposit_confirmed_at) >= date('now', '-6 days') THEN deposit_amount ELSE 0 END), 0) AS totalWeek
+       FROM rides WHERE driver_id = ? AND deposit_status = 'confirmado'`
+    )
+    .get(driver.id);
+  const recentDeposits = db
+    .prepare(
+      `SELECT id, deposit_amount AS amount, deposit_confirmed_at AS confirmedAt, rider_name AS riderName, pickup_label AS pickupLabel
+       FROM rides WHERE driver_id = ? AND deposit_status = 'confirmado'
+       ORDER BY deposit_confirmed_at DESC LIMIT 10`
+    )
+    .all(driver.id);
+
   res.json({
     id: driver.id,
     name: driver.name,
@@ -196,7 +219,49 @@ router.post("/drivers/profile", (req, res) => {
     pendingRides,
     pendingRidesAmount,
     serviceFee: SERVICE_FEE,
+    bankAccount: driver.deposit_account
+      ? { bank: driver.deposit_bank, account: driver.deposit_account, holder: driver.deposit_holder }
+      : null,
+    deposits: { ...depositTotals, recent: recentDeposits },
   });
+});
+
+// Cuenta para recibir anticipos (CLABE o tarjeta). La captura el propio
+// chofer — a diferencia de nombre/placa, esto no lo avala nadie: es SU
+// dinero y SU cuenta. Mandar account vacío la borra (deja de pedir anticipos).
+router.post("/drivers/bank-account", (req, res) => {
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const { phone, pin, bank, account, holder } = req.body;
+  if (!phone || !pin) {
+    return res.status(400).json({ error: "Falta teléfono o PIN" });
+  }
+  const driver = db
+    .prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
+    .get(phone, pin);
+  if (!driver) {
+    recordFailedAttempt(req.ip);
+    return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
+  }
+  clearAttempts(req.ip);
+
+  if (!String(account ?? "").trim()) {
+    db.prepare("UPDATE drivers SET deposit_bank = NULL, deposit_account = NULL, deposit_holder = NULL WHERE id = ?").run(driver.id);
+    return res.json({ ok: true, bankAccount: null });
+  }
+
+  const normalized = normalizeAccount(account);
+  if (normalized.error) return res.status(400).json({ error: normalized.error });
+  const cleanBank = String(bank ?? "").trim().slice(0, 40);
+  const cleanHolder = String(holder ?? "").trim().slice(0, 80);
+  if (!cleanBank) return res.status(400).json({ error: "Escribe el nombre de tu banco" });
+  if (!cleanHolder) return res.status(400).json({ error: "Escribe el nombre del titular de la cuenta" });
+
+  db.prepare("UPDATE drivers SET deposit_bank = ?, deposit_account = ?, deposit_holder = ? WHERE id = ?").run(
+    cleanBank, normalized.account, cleanHolder, driver.id
+  );
+  res.json({ ok: true, bankAccount: { bank: cleanBank, account: normalized.account, holder: cleanHolder } });
 });
 
 // La foto es lo único que el chofer puede cambiar de su propio perfil.

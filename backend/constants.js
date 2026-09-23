@@ -2,7 +2,7 @@ module.exports = {
   // Sube esta fecha cada vez que cambie el TEXTO del aviso legal o el
   // contrato (no por cambios de marca/cosméticos) — es lo que queda grabado
   // como "versión que aceptó" cada chofer al registrarse.
-  AVISO_LEGAL_VERSION: "2026-09-10",
+  AVISO_LEGAL_VERSION: "2026-09-23",
   LAUNCH_DATE: "2026-08-14",
   // Cuota mensual descontinuada 2026-09-08: ya no se cobra, solo queda el
   // cobro por viaje (SERVICE_FEE). En 0 para que las pantallas de chofer y
@@ -40,6 +40,15 @@ module.exports = {
   // solo aplica a viajes tipo taxi (ver rides.js/drivers.js/realtime.js);
   // moto se queda con el de arriba, sin cambios.
   MAX_MATCH_DISTANCE_KM_TAXI: 60,
+  // Anticipo sugerido para taxi foráneo (recogida fuera del radio normal del
+  // pueblo, ej. una comisaría): % del precio acordado que la app le propone
+  // al chofer al aceptar. Él lo puede cambiar o quitar — es una sugerencia,
+  // no una regla. Cubre la ida en vacío si el pasajero no aparece.
+  DEPOSIT_SUGGESTED_RATE: 0.5,
+  // Un viaje foráneo de taxi puede tardar más de una hora solo en llegar a
+  // recoger (50 km + esperar el anticipo) — con el límite normal de moto se
+  // cancelaba solo a medio camino.
+  ABANDONED_AFTER_MIN_TAXI: 180,
   // Si un chofer no manda su ubicación en este tiempo probablemente cerró la
   // app o se quedó sin señal — no debería seguir apareciendo como disponible.
   DRIVER_STALE_SECONDS: 90,
