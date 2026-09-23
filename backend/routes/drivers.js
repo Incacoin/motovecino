@@ -264,7 +264,12 @@ router.post("/chofer-solicitudes", (req, res) => {
   // validamos contra el radio real — evita altas "de Tekax" desde fuera de
   // Tekax. Sin GPS (permiso negado) no bloqueamos: no queremos perder un
   // chofer real solo porque no dio permiso de ubicación.
-  if (!isWithinServiceRadius(cityId, lat, lng, vehicleType === "taxi" ? "taxi" : "moto")) {
+  // A propósito NO se usa el radio ampliado de taxi aquí (ver rides.js) — el
+  // viaje foráneo sí puede pedirse desde Peto/Xul, pero darse de alta como
+  // chofer sigue exigiendo estar físicamente en Tekax, para cualquier
+  // vehículo. Es una decisión de control de quién se vuelve chofer, no un
+  // descuido.
+  if (!isWithinServiceRadius(cityId, lat, lng)) {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
   if (!name || !phone || !photo) {
