@@ -819,8 +819,15 @@ function setServiceType(type) {
   serviceType = type;
   document.getElementById("tabMoto").classList.toggle("active", type === "moto");
   document.getElementById("tabTaxi").classList.toggle("active", type === "taxi");
+  // Si ya marcó recogida y destino, el aviso "Listo..." tiene que decir el
+  // servicio que quedó elegido, no el que estaba cuando marcó el destino.
+  if (pickup && dest) document.getElementById("pickHint").textContent = readyHint();
   updateFareEstimate();
   if (map) startAvailableDriversPolling();
+}
+
+function readyHint() {
+  return serviceType === "taxi" ? "Listo. Puedes pedir tu taxi" : "Listo. Puedes pedir tu mototaxi";
 }
 
 // Solo cambia la etiqueta que ve el chofer (qué va a recoger), no el precio
@@ -1161,7 +1168,7 @@ function placePoint(latlng) {
   } else if (!dest) {
     dest = latlng;
     destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map).bindPopup(destPopupHtml(), { closeButton: false }).openPopup();
-    document.getElementById("pickHint").textContent = "Listo. Puedes pedir tu mototaxi";
+    document.getElementById("pickHint").textContent = readyHint();
   }
   document.getElementById("requestBtn").disabled = !pickup;
   updateFareEstimate();
