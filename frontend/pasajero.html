@@ -1248,8 +1248,13 @@ let wakeLock = null;
 
 async function requestWakeLock() {
   if (!("wakeLock" in navigator)) return;
+  if (wakeLock) return; // ya lo tiene, no pedir otro
   try {
-    wakeLock = await navigator.wakeLock.request("screen");
+    const lock = await navigator.wakeLock.request("screen");
+    wakeLock = lock;
+    // El celular suelta el bloqueo solo al salir a otra app; sin esto el
+    // visibilitychange de abajo creía que seguía y no lo volvía a pedir.
+    lock.addEventListener("release", () => { if (wakeLock === lock) wakeLock = null; });
   } catch (e) {
     console.warn("wake lock error", e);
   }

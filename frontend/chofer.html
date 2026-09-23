@@ -896,8 +896,15 @@ let wakeLock = null;
 
 async function requestWakeLock() {
   if (!("wakeLock" in navigator)) return;
+  if (wakeLock) return; // ya lo tiene, no pedir otro
   try {
-    wakeLock = await navigator.wakeLock.request("screen");
+    const lock = await navigator.wakeLock.request("screen");
+    wakeLock = lock;
+    // El celular suelta el bloqueo solo cuando el chofer sale a otra app
+    // (WhatsApp, Maps, una llamada). Sin esto `wakeLock` se quedaba con el
+    // bloqueo ya soltado y el visibilitychange de abajo nunca lo volvía a
+    // pedir: la pantalla se apagaba sola al regresar a MotoVecino.
+    lock.addEventListener("release", () => { if (wakeLock === lock) wakeLock = null; });
   } catch (e) {
     console.warn("wake lock error", e);
   }
