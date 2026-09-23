@@ -307,7 +307,11 @@ function escapeHtml(str) {
 }
 let deferredInstallPrompt = null;
 let resolvedCityLabel = "";
-fetch(API + "/api/config").then((r) => r.json()).then((cfg) => { SERVICE_FEE = cfg.serviceFee; }).catch(() => {});
+fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
+  SERVICE_FEE = cfg.serviceFee;
+  TAXI_COMMISSION_RATE = cfg.taxiCommissionRate;
+  TAXI_COMMISSION_CAP = cfg.taxiCommissionCap;
+}).catch(() => {});
 
 function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -533,6 +537,8 @@ const TICUL_CHILD_FARE_NIGHT = 10;
 // Cuota de la app, igual en todos los pueblos. La paga el pasajero, no sale
 // de lo que gana el chofer.
 let SERVICE_FEE = 2; // valor de respaldo hasta que cargue /api/config
+let TAXI_COMMISSION_RATE = 0.06;
+let TAXI_COMMISSION_CAP = 100;
 
 // Ciudad resuelta por GPS (ver initCityBrand) — "tekax" hasta que se
 // confirme otra cosa, igual que en pasajero.html.
@@ -1493,14 +1499,26 @@ function renderProfile(p) {
   }
 
   if (p.serviceFee > 0) {
+    // El taxi no paga una cuota fija por viaje (no tiene tarifa fija, se
+    // negocia con el pasajero) — paga un % de lo que reportó al completar,
+    // con tope. Antes esta etiqueta siempre decía "$2 c/u" aunque el chofer
+    // fuera taxi, aunque el monto de abajo ya se calculaba bien.
+    const isTaxi = p.vehicleType === "taxi";
+    const feeLabel = isTaxi
+      ? `comisión ${Math.round(TAXI_COMMISSION_RATE * 100)}% (tope $${TAXI_COMMISSION_CAP})`
+      : `$${p.serviceFee} c/u`;
     rows.push(
       row(
-        `Viajes sin liquidar ($${p.serviceFee} c/u)`,
+        `Viajes sin liquidar (${feeLabel})`,
         `${p.pendingRides} · $${p.pendingRidesAmount}`,
         p.pendingRides ? "accent" : ""
       )
     );
-    notes.push(`Los $${p.serviceFee} de servicio los paga el pasajero en cada viaje, no salen de lo que tú ganas.`);
+    notes.push(
+      isTaxi
+        ? `La comisión sale de lo que reportaste al completar cada viaje, no de un cobro aparte al pasajero.`
+        : `Los $${p.serviceFee} de servicio los paga el pasajero en cada viaje, no salen de lo que tú ganas.`
+    );
   }
 
   document.getElementById("accountRows").innerHTML = rows.join("");
