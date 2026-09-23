@@ -135,6 +135,14 @@
   .menu-row .menu-chev { color: var(--text-faint); font-size: 15px; transition: transform 0.15s ease; }
   .menu-row .menu-chev.open { transform: rotate(90deg); }
   .section-body { padding: 2px 4px 14px; }
+  /* Taxi con ofertas (estilo inDrive) */
+  .offer-in { margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: rgba(246,166,35,0.12); border: 1px solid rgba(246,166,35,0.45); display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .offer-in .lbl { font-size: 13px; color: var(--text-dim); }
+  .offer-in .amt { font-size: 26px; font-weight: 800; color: var(--accent); }
+  .counter-label { font-size: 12.5px; color: var(--text-dim); margin: 8px 0 4px; }
+  .counter-row { display: flex; gap: 6px; }
+  .counter-row .btn-sm { flex: 1; font-size: 15px; font-weight: 800; padding: 10px 0; }
+  .my-offer { margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: rgba(43,179,171,0.12); border: 1px solid rgba(43,179,171,0.5); font-size: 14px; }
 </style>
 </head>
 <body>
@@ -633,7 +641,10 @@ function estimateFare(ride) {
   const totalPeople = passengers + children;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
   if (ride.ride_type === "taxi") {
-    return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}` };
+    const people = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
+    if (ride.agreed_price) return { total: null, text: `🚕 Taxi · precio acordado $${ride.agreed_price} · ${people}` };
+    if (ride.offer_price != null) return { total: null, text: `🚕 Taxi · ${people}` };
+    return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero · ${people}` };
   }
   const night = isNightFare();
   const isTicul = resolvedCityId === "ticul";
@@ -792,7 +803,9 @@ function connectWs() {
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
     if (type === "new_ride") addPendingRide(payload);
-    if (type === "ride_taken") removePendingRide(payload.rideId);
+    if (type === "ride_taken") { delete myOffers[payload.rideId]; removePendingRide(payload.rideId); }
+    if (type === "offer_closed") onOfferClosed(payload);
+    if (type === "offer_accepted") onOfferAccepted(payload);
     if (type === "ride_cancelled" && currentRide && currentRide.id === payload.rideId && !cancellingOwnRide) {
       // Regla del anticipo (Aviso Legal): confirmado = ya salió por él, se lo
       // queda; sin confirmar = lo que haya recibido se devuelve.
@@ -1014,6 +1027,14 @@ function removePendingRide(id) {
 
 let renderedShape = null;
 
+// Taxi con ofertas: rideId -> { offerId, price, expiresAt } de las
+// contraofertas que este chofer mandó y siguen esperando al pasajero.
+const myOffers = {};
+
+function myOffersShape() {
+  return Object.entries(myOffers).map(([id, o]) => id + "=" + o.price).join(",");
+}
+
 // Cuántos viajes completados lleva el pasajero — mismo dato que ya se
 // calculaba para su propia insignia (ver pasajero.html), ahora expuesto
 // también al chofer para que sepa con quién está tratando.
@@ -1116,7 +1137,7 @@ function renderRideList() {
 
   const allPending = sortedPendingRides();
   const rides = allPending.slice(0, MAX_VISIBLE_PENDING_RIDES);
-  const shape = rides.length === 0 ? "empty:" + available : "pending:" + rides.map((r) => r.id).join(",") + ":" + allPending.length;
+  const shape = rides.length === 0 ? "empty:" + available : "pending:" + rides.map((r) => r.id).join(",") + ":" + allPending.length + ":" + myOffersShape();
   if (shape === renderedShape) { updateDistances(); return; }
   renderedShape = shape;
 
@@ -1141,13 +1162,17 @@ function renderRideList() {
         <div style="display:flex;gap:6px;margin-bottom:6px;">
           <button class="btn-sm wa" style="flex:1;" onclick="openMessageOverlay(${r.id})">💬 Mensaje</button>
         </div>
-        ${r.ride_type === "taxi"
+        ${r.ride_type === "taxi" && r.offer_price != null
+          ? taxiOfferBlockHtml(r)
+          : r.ride_type === "taxi"
           ? `<div style="margin-bottom:6px;">
                <input type="number" id="taxiPriceInput-${r.id}" inputmode="decimal" min="1" placeholder="Precio que YA acordaste con el pasajero" oninput="onTaxiPriceInput(${r.id})" style="width:100%;box-sizing:border-box;padding:9px;font-size:15px;">
              </div>
              ${depositRequestHtml(r)}`
           : ""}
-        <button class="btn" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : acceptLabel}</button>
+        ${r.ride_type === "taxi" && r.offer_price != null
+          ? ""
+          : `<button class="btn" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : acceptLabel}</button>`}
       </div>`;
   }).join("");
   const moreCount = allPending.length - rides.length;
@@ -1262,6 +1287,7 @@ function depositRequestHtml(r) {
     <div class="deposit-ask">
       <label for="taxiDepositInput-${r.id}">💵 Anticipo por depósito ${foraneo ? "<strong>(recomendado: viaje foráneo)</strong>" : "(opcional)"}</label>
       <input type="number" id="taxiDepositInput-${r.id}" inputmode="decimal" min="0" placeholder="${foraneo ? "Se llena solo al poner el precio" : "Déjalo vacío si no pides anticipo"}"
+             value="${foraneo && r.offer_price != null ? suggestedDeposit(r.offer_price) : ""}"
              data-foraneo="${foraneo ? 1 : 0}" oninput="this.dataset.touched = 1">
       <div class="deposit-note">El pasajero te deposita directo a tu cuenta antes de que salgas. El resto lo cobras al llegar.</div>
     </div>`;
@@ -1274,11 +1300,105 @@ function onTaxiPriceInput(id) {
   depEl.value = suggestedDeposit(Number(priceEl.value));
 }
 
+// Contraofertas rápidas sobre el precio del pasajero.
+const COUNTER_STEPS = [20, 50, 100];
+
+function taxiOfferBlockHtml(r) {
+  const mine = myOffers[r.id];
+  const counters = COUNTER_STEPS.map((step) => {
+    const price = r.offer_price + step;
+    return `<button class="btn-sm" onclick="sendTaxiOffer(${r.id}, ${price})" ${mine && mine.price === price ? "disabled" : ""}>$${price}</button>`;
+  }).join("");
+  const waiting = mine
+    ? `<div class="my-offer">⏳ Le mandaste <strong>$${mine.price}</strong> · esperando al pasajero (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>)</div>`
+    : "";
+  return `
+    <div class="offer-in"><span class="lbl">El pasajero ofrece</span><span class="amt">$${r.offer_price}</span></div>
+    ${depositRequestHtml(r)}
+    <button class="btn" onclick="acceptRide(${r.id})">Aceptar por $${r.offer_price}</button>
+    ${waiting}
+    <div class="counter-label">¿Otro precio? Mándale una contraoferta:</div>
+    <div class="counter-row">${counters}</div>`;
+}
+
+function fmtCountdown(ms) {
+  const secs = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+}
+
+async function sendTaxiOffer(id, price) {
+  const depInput = document.getElementById(`taxiDepositInput-${id}`);
+  const depositAmount = Number(depInput && depInput.value) || 0;
+  if (depositAmount > price) {
+    showToast("El anticipo no puede ser mayor que el precio");
+    return;
+  }
+  const res = await fetch(API + `/api/rides/${id}/offer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, price, depositAmount }),
+  }).catch(() => null);
+  if (!res) { showToast("Sin conexión, intenta de nuevo"); return; }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 409) removePendingRide(id);
+    showToast(data.error || "No se pudo mandar la oferta");
+    return;
+  }
+  myOffers[id] = { offerId: data.offerId, price: data.price, expiresAt: Date.now() + data.expiresInSec * 1000 };
+  showToast(`Le mandaste $${data.price} al pasajero`);
+  renderRideList();
+}
+
+// Cuenta regresiva de mis contraofertas (se vencen solas en el servidor).
+setInterval(() => {
+  let expired = false;
+  for (const [id, o] of Object.entries(myOffers)) {
+    if (o.expiresAt <= Date.now()) { delete myOffers[id]; expired = true; }
+  }
+  if (expired) { renderRideList(); return; }
+  document.querySelectorAll(".my-offer-timer").forEach((el) => {
+    const o = myOffers[el.dataset.ride];
+    if (o) el.textContent = fmtCountdown(o.expiresAt - Date.now());
+  });
+}, 1000);
+
+function onOfferClosed(payload) {
+  const mine = myOffers[payload.rideId];
+  if (!mine || mine.offerId !== payload.offerId) return;
+  delete myOffers[payload.rideId];
+  if (payload.reason === "rechazada") showToast(`El pasajero no aceptó tu oferta de $${mine.price}`);
+  else if (payload.reason === "vencida") showToast(`Tu oferta de $${mine.price} se venció`);
+  renderRideList();
+}
+
+function onOfferAccepted(payload) {
+  if (currentRide || !payload.ride) return;
+  Object.keys(myOffers).forEach((k) => delete myOffers[k]);
+  // Igual que al aceptar: queda "Disponible" (bloqueado mientras dure el viaje).
+  available = true;
+  document.getElementById("switch").classList.add("on");
+  document.getElementById("statusText").textContent = "Disponible";
+  requestWakeLock();
+  playNotificationSound();
+  showToast(`✅ El pasajero aceptó tu oferta de $${payload.ride.agreed_price}`);
+  beginRide(payload.ride);
+}
+
 async function acceptRide(id) {
   const ride = pendingRides[id];
   let agreedPrice;
   let depositAmount = 0;
-  if (ride && ride.ride_type === "taxi") {
+  if (ride && ride.ride_type === "taxi" && ride.offer_price != null) {
+    // Aceptar = aceptar el precio que ofreció el pasajero.
+    agreedPrice = ride.offer_price;
+    const depInput = document.getElementById(`taxiDepositInput-${id}`);
+    depositAmount = Number(depInput && depInput.value) || 0;
+    if (depositAmount > agreedPrice) {
+      showToast("El anticipo no puede ser mayor que el precio");
+      return;
+    }
+  } else if (ride && ride.ride_type === "taxi") {
     const input = document.getElementById(`taxiPriceInput-${id}`);
     agreedPrice = Number(input && input.value);
     if (!(agreedPrice > 0)) {

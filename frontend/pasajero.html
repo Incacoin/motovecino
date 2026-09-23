@@ -142,6 +142,23 @@
   .progress-fill { height: 100%; width: 8%; background: var(--accent); border-radius: 999px; animation: searchSweep 1.8s ease-in-out infinite; }
   @keyframes searchSweep { 0% { width: 8%; margin-left: 0%; } 50% { width: 55%; margin-left: 20%; } 100% { width: 8%; margin-left: 92%; } }
   #searchingBlock { width: 100%; flex-direction: column; gap: 14px; }
+  /* Taxi con ofertas (estilo inDrive) */
+  #taxiOfferBox { margin: 6px 0 10px; }
+  .offer-stepper { display: flex; align-items: center; justify-content: center; gap: 14px; }
+  .offer-stepper .btn-sm { min-width: 74px; font-size: 16px; font-weight: 800; padding: 10px 0; }
+  .offer-stepper .offer-value { font-size: 30px; font-weight: 800; min-width: 110px; text-align: center; color: var(--accent); }
+  .offer-note { font-size: 12.5px; color: var(--text-dim); text-align: center; margin-top: 6px; }
+  #offersList { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .offer-card { width: 100%; box-sizing: border-box; padding: 14px 16px; text-align: left; border: 1px solid var(--accent); }
+  .offer-head { display: flex; align-items: center; gap: 12px; }
+  .offer-head .driverPhoto { width: 48px; height: 48px; font-size: 24px; }
+  .offer-who { flex: 1; min-width: 0; }
+  .offer-who .name { font-weight: 800; font-size: 16px; }
+  .offer-who .sub, .offer-card .sub { font-size: 12.5px; color: var(--text-dim); }
+  .offer-price { font-size: 26px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+  .offer-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .offer-actions .btn { flex: 1; margin: 0; }
+  .offers-hint { font-size: 13px; color: var(--text-dim); text-align: center; }
   .badge-card { padding: 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; margin-bottom: 14px; }
   .badge-card .medal { font-size: 36px; line-height: 1; }
   .badge-card .tier-label { font-weight: 800; font-size: 16px; }
@@ -415,6 +432,14 @@
     <input id="referenceInput" placeholder="Referencia (ej. casa azul, portón negro)" />
     <div class="request-block">
       <div id="fareEstimate" class="hint"></div>
+      <div id="taxiOfferBox" style="display:none;">
+        <div class="offer-stepper">
+          <button class="btn-sm" id="offerMinusBtn" onclick="changeTaxiOffer(-10)">− $10</button>
+          <span class="offer-value" id="taxiOfferValue">$0</span>
+          <button class="btn-sm" onclick="changeTaxiOffer(10)">+ $10</button>
+        </div>
+        <div class="offer-note">Tú propones el precio. El taxista lo acepta o te manda otra oferta.</div>
+      </div>
       <button class="btn" id="requestBtn" disabled onclick="requestRide()">Pedir mototaxi</button>
     </div>
   </div>
@@ -422,7 +447,7 @@
 
 <div id="status" class="screen">
   <div class="status-header">
-    <span class="status-icon">🛵</span>
+    <span class="status-icon" id="statusIcon">🛵</span>
     <div class="status-header-text">
       <div class="big" id="statusText">Buscando chofer cercano...</div>
       <div id="tripCountBadge" class="etaText" style="display:none;"></div>
@@ -442,11 +467,12 @@
     </div>
     <div class="card search-card">
       <div class="search-title">
-        <span>Buscando chofer...</span>
+        <span id="searchTitleText">Buscando chofer...</span>
         <span class="timer" id="searchTimer">0:00</span>
       </div>
       <div class="progress-track"><div class="progress-fill"></div></div>
     </div>
+    <div id="offersList"></div>
   </div>
   <div id="driverCard" class="card fade-in" style="display:none;"></div>
   <button class="btn btn-secondary chat-toggle-btn" id="chatToggleBtn" onclick="toggleChat()" style="display:none;">💬 Chat</button>
@@ -789,16 +815,73 @@ function estimateFareTicul(night) {
   return { pricePerPerson, childRate, approx, nightNote };
 }
 
+// --- Taxi con ofertas (estilo inDrive) ---
+// El pasajero propone su precio (parte del sugerido: tabla de pueblos de los
+// taxistas + fórmula por km, ver backend/taxiFares.js) y los taxistas lo
+// aceptan o mandan contraoferta.
+let taxiSuggestion = null;
+let taxiSuggestKey = null;
+let taxiOffer = null;
+
+function roundTo10(n) { return Math.max(10, Math.round(n / 10) * 10); }
+function taxiOfferMin() { return Math.max(50, roundTo10((taxiSuggestion?.price || 0) * 0.7)); }
+function taxiOfferMax() { return Math.max(taxiOfferMin(), (taxiSuggestion?.price || 0) * 3); }
+
+function changeTaxiOffer(delta) {
+  if (taxiOffer == null) return;
+  taxiOffer = Math.min(taxiOfferMax(), Math.max(taxiOfferMin(), taxiOffer + delta));
+  updateFareEstimate();
+}
+
+function updateTaxiOfferUi() {
+  const el = document.getElementById("fareEstimate");
+  const btn = document.getElementById("requestBtn");
+  const box = document.getElementById("taxiOfferBox");
+  if (!pickup) { el.textContent = ""; btn.textContent = "Pedir taxi"; return; }
+  if (!dest) {
+    el.textContent = "Marca tu destino en el mapa para ver el precio sugerido";
+    document.getElementById("pickHint").textContent = "Toca el mapa para marcar tu destino";
+    btn.textContent = "Pedir taxi";
+    btn.disabled = true;
+    return;
+  }
+  const key = [pickup.lat, pickup.lng, dest.lat, dest.lng].map((n) => Number(n).toFixed(5)).join(",");
+  if (taxiSuggestKey !== key) {
+    taxiSuggestKey = key;
+    taxiSuggestion = null;
+    el.textContent = "Calculando precio sugerido...";
+    btn.textContent = "Pedir taxi";
+    btn.disabled = true;
+    fetch(API + `/api/taxi/suggest?plat=${pickup.lat}&plng=${pickup.lng}&dlat=${dest.lat}&dlng=${dest.lng}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .catch(() => ({ price: 150, place: null, km: null }))
+      .then((sug) => {
+        if (taxiSuggestKey !== key) return;
+        taxiSuggestion = sug;
+        taxiOffer = sug.price;
+        updateFareEstimate();
+      });
+    return;
+  }
+  if (!taxiSuggestion) return;
+  el.textContent = taxiSuggestion.place
+    ? `Precio sugerido a ${taxiSuggestion.place}: $${taxiSuggestion.price}`
+    : `Precio sugerido${taxiSuggestion.km ? ` (~${taxiSuggestion.km} km)` : ""}: $${taxiSuggestion.price}`;
+  document.getElementById("taxiOfferValue").textContent = `$${taxiOffer}`;
+  document.getElementById("offerMinusBtn").disabled = taxiOffer <= taxiOfferMin();
+  box.style.display = "block";
+  btn.disabled = false;
+  btn.textContent = `Pedir taxi por $${taxiOffer}`;
+}
+
 function updateFareEstimate() {
   const el = document.getElementById("fareEstimate");
   const btn = document.getElementById("requestBtn");
   const baseLabel = serviceType === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
+  document.getElementById("taxiOfferBox").style.display = "none";
+  if (serviceType === "taxi") { updateTaxiOfferUi(); return; }
+  btn.disabled = !pickup;
   if (!pickup) { el.textContent = ""; btn.textContent = baseLabel; return; }
-  if (serviceType === "taxi") {
-    el.textContent = `Viaje foráneo: acuerda el precio directo con el chofer`;
-    btn.textContent = baseLabel;
-    return;
-  }
   const night = isNightFare();
   const result = resolvedCityId === "ticul" ? estimateFareTicul(night) : estimateFareTekax(night);
   if (result.longTrip) {
@@ -1198,6 +1281,10 @@ function resetPins() {
 }
 
 async function requestRide() {
+  if (serviceType === "taxi" && (!dest || taxiOffer == null)) {
+    showToast("Marca tu destino para pedir taxi");
+    return;
+  }
   const rider = JSON.parse(localStorage.getItem("motoya_rider"));
   const pickupLabel = document.getElementById("referenceInput").value.trim();
   const res = await fetch(API + "/api/rides", {
@@ -1215,6 +1302,7 @@ async function requestRide() {
       children,
       ride_type: serviceType,
       service_kind: serviceCategory,
+      offer_price: serviceType === "taxi" ? taxiOffer : undefined,
     }),
   });
   if (!res.ok) {
@@ -1239,6 +1327,8 @@ async function requestRide() {
   if (dest) L.marker([dest.lat, dest.lng], { icon: numberedIcon(2, "#3498db") }).addTo(statusMap);
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
+  document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
+  if (serviceType === "taxi") setupTaxiSearch(ride.offer_price, []);
 
   connectWs();
   requestWakeLock();
@@ -1282,7 +1372,9 @@ function connectWs() {
   };
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
-    if (type === "ride_accepted") onDriverAssigned(payload, payload.agreedPrice, payload.deposit);
+    if (type === "ride_accepted" && currentRideStatus === "buscando") onDriverAssigned(payload, payload.agreedPrice, payload.deposit);
+    if (type === "offer_new" && currentRideStatus === "buscando") addTaxiOffer(payload);
+    if (type === "offer_removed") removeTaxiOffer(payload.offerId);
     if (type === "deposit_update") onDepositUpdate(payload.deposit);
     if (type === "driver_location") onDriverLocation(payload);
     if (type === "status_change" && payload.status === "llegue") onDriverArrived();
@@ -1309,8 +1401,129 @@ function connectWs() {
 
 const RANK_EMOJI = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
+// offerId -> { ...oferta, expiresAt }
+const taxiOffers = new Map();
+let offersTicker = null;
+
+function setupTaxiSearch(offerPrice, offers) {
+  document.getElementById("searchTitleText").textContent = offerPrice
+    ? `Buscando taxi · tu oferta $${offerPrice}`
+    : "Buscando taxi...";
+  document.getElementById("statusText").textContent = "Buscando taxi...";
+  taxiOffers.clear();
+  for (const o of offers || []) addTaxiOffer(o, false);
+  renderTaxiOffers();
+  clearInterval(offersTicker);
+  offersTicker = setInterval(tickTaxiOffers, 1000);
+}
+
+function addTaxiOffer(offer, notify = true) {
+  taxiOffers.set(offer.id, { ...offer, expiresAt: Date.now() + (offer.expiresInSec || 0) * 1000 });
+  if (notify) {
+    renderTaxiOffers();
+    try { navigator.vibrate && navigator.vibrate(200); } catch {}
+  }
+}
+
+function removeTaxiOffer(offerId) {
+  if (taxiOffers.delete(offerId)) renderTaxiOffers();
+}
+
+function clearTaxiOffers() {
+  taxiOffers.clear();
+  clearInterval(offersTicker);
+  offersTicker = null;
+  const list = document.getElementById("offersList");
+  if (list) list.innerHTML = "";
+}
+
+function fmtCountdown(ms) {
+  const secs = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+}
+
+function renderTaxiOffers() {
+  const list = document.getElementById("offersList");
+  if (!list) return;
+  if (taxiOffers.size === 0) {
+    list.innerHTML = serviceType === "taxi" && currentRideStatus === "buscando"
+      ? `<div class="offers-hint">Los taxistas cercanos están viendo tu oferta. Si alguno te propone otro precio, aparece aquí.</div>`
+      : "";
+    return;
+  }
+  list.innerHTML = [...taxiOffers.values()]
+    .sort((a, b) => a.price - b.price)
+    .map((o) => {
+      const d = o.driver || {};
+      const photo = d.photo
+        ? `<img class="driverPhoto" src="${d.photo}" />`
+        : `<div class="driverPhoto driverPhotoFallback">🚕</div>`;
+      return `
+      <div class="card offer-card fade-in">
+        <div class="offer-head">
+          ${photo}
+          <div class="offer-who">
+            <div class="name">${escapeHtml(d.name || "Taxista")}${d.es_fundador ? " 🏅" : ""}</div>
+            <div class="sub">🚕 ${escapeHtml(d.vehicle || "Taxi")} · te lleva por</div>
+          </div>
+          <div class="offer-price">$${o.price}</div>
+        </div>
+        ${o.depositAmount ? `<div class="sub" style="margin-top:6px;">💵 Pide anticipo de $${o.depositAmount} por depósito</div>` : ""}
+        <div class="offer-actions">
+          <button class="btn" onclick="acceptTaxiOffer(${o.id})">Aceptar $${o.price}</button>
+          <button class="btn btn-secondary" onclick="rejectTaxiOffer(${o.id})">No, gracias</button>
+        </div>
+        <div class="sub" style="margin-top:6px;text-align:center;">Vence en <span class="offer-timer" data-offer="${o.id}">${fmtCountdown(o.expiresAt - Date.now())}</span></div>
+      </div>`;
+    })
+    .join("");
+}
+
+function tickTaxiOffers() {
+  let changed = false;
+  for (const [id, o] of taxiOffers) {
+    if (o.expiresAt <= Date.now()) { taxiOffers.delete(id); changed = true; }
+  }
+  if (changed) { renderTaxiOffers(); return; }
+  document.querySelectorAll(".offer-timer").forEach((el) => {
+    const o = taxiOffers.get(Number(el.dataset.offer));
+    if (o) el.textContent = fmtCountdown(o.expiresAt - Date.now());
+  });
+}
+
+async function acceptTaxiOffer(offerId) {
+  const me = JSON.parse(localStorage.getItem("motoya_rider"));
+  const btns = document.querySelectorAll(".offer-actions .btn");
+  btns.forEach((b) => (b.disabled = true));
+  const res = await fetch(API + `/api/rides/${ride.id}/offers/${offerId}/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ riderPhone: me.phone, riderPin: me.pin }),
+  }).catch(() => null);
+  btns.forEach((b) => (b.disabled = false));
+  if (!res) { showToast("Sin conexión, intenta de nuevo"); return; }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    removeTaxiOffer(offerId);
+    showToast(data.error || "Esa oferta ya no está disponible");
+    return;
+  }
+  if (currentRideStatus === "buscando") onDriverAssigned(data.driver, data.agreedPrice, data.deposit);
+}
+
+async function rejectTaxiOffer(offerId) {
+  const me = JSON.parse(localStorage.getItem("motoya_rider"));
+  removeTaxiOffer(offerId);
+  fetch(API + `/api/rides/${ride.id}/offers/${offerId}/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ riderPhone: me.phone, riderPin: me.pin }),
+  }).catch(() => {});
+}
+
 async function onDriverAssigned(driver, agreedPrice, deposit) {
   stopStatusAvailableDriversPolling();
+  clearTaxiOffers();
   currentRideStatus = "aceptado";
   document.getElementById("statusText").textContent = "¡Chofer en camino!";
   const cancelBtnEl = document.getElementById("cancelBtn");
@@ -2161,6 +2374,7 @@ async function rateRide(rating) {
 
 function onNoDriversAvailable() {
   stopStatusAvailableDriversPolling();
+  clearTaxiOffers();
   currentRideStatus = "cancelado";
   localStorage.removeItem("motoya_active_ride");
   document.getElementById("statusText").textContent = "😕 No hay choferes disponibles ahorita. Intenta de nuevo en unos minutos.";
@@ -2297,6 +2511,8 @@ async function restoreActiveRide() {
   if (dest) L.marker([dest.lat, dest.lng], { icon: numberedIcon(2, "#3498db") }).addTo(statusMap);
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
+  document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
+  if (fetched.status === "buscando" && fetched.ride_type === "taxi") setupTaxiSearch(fetched.offer_price, fetched.offers);
 
   if (fetched.driver) {
     await onDriverAssigned(fetched.driver, fetched.agreed_price, fetched.deposit_status ? {

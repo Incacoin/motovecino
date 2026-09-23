@@ -421,6 +421,12 @@ router.post("/admin/riders/:id/delete", checkAdminPin, (req, res) => {
   // SQLite que usa este proyecto la exige por defecto. Un viaje cancelado o
   // abandonado (no es historial real, no lo protege el conteo de arriba)
   // igual apunta al pasajero y bloquea el DELETE si no se limpia primero.
+  // Las ofertas de taxi (ride_offers) también apuntan al viaje: van primero.
+  db.prepare(
+    trips > 0
+      ? "DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ?)"
+      : "DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ? AND status != 'completado')"
+  ).run(req.params.id);
   db.prepare("DELETE FROM rides WHERE rider_id = ? AND status != 'completado'").run(req.params.id);
   if (trips > 0) {
     db.prepare("DELETE FROM rides WHERE rider_id = ? AND status = 'completado'").run(req.params.id);
@@ -447,6 +453,7 @@ router.post("/admin/rides/list", checkAdminPin, (req, res) => {
 });
 
 router.post("/admin/rides/reset", checkAdminPin, (req, res) => {
+  db.prepare("DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE city = ?)").run(req.adminCity);
   db.prepare("DELETE FROM rides WHERE city = ?").run(req.adminCity);
   res.json({ ok: true });
 });

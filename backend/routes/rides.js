@@ -5,7 +5,8 @@ const realtime = require("../realtime");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { photoUrls } = require("../photos");
-const { ABANDONED_AFTER_MIN_TAXI } = require("../constants");
+const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC } = require("../constants");
+const { suggestTaxiFare } = require("../taxiFares");
 
 function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
@@ -61,6 +62,7 @@ router.post("/rides", (req, res) => {
     children,
     ride_type,
     service_kind,
+    offer_price,
   } = req.body;
   const VALID_SERVICE_KINDS = ["pasaje", "domicilio", "mandado"];
   const cleanServiceKind = VALID_SERVICE_KINDS.includes(service_kind) ? service_kind : "pasaje";
@@ -85,6 +87,21 @@ router.post("/rides", (req, res) => {
   clearAttempts(req.ip);
   const rider_name = rider.name;
 
+  // Taxi estilo inDrive: el pasajero propone su precio y hace falta destino
+  // (sin destino no hay precio que sugerir ni que negociar). Clientes viejos
+  // sin offer_price siguen con el flujo anterior (el chofer pone el precio).
+  const isTaxiRequest = ride_type === "taxi";
+  let offerPrice = null;
+  if (isTaxiRequest && offer_price != null) {
+    offerPrice = Math.round(Number(offer_price));
+    if (!(offerPrice >= 10) || offerPrice > 20000) {
+      return res.status(400).json({ error: "Revisa el precio que ofreces" });
+    }
+    if (dest_lat == null || dest_lng == null) {
+      return res.status(400).json({ error: "Marca tu destino para pedir taxi" });
+    }
+  }
+
   db.prepare("UPDATE riders SET last_ride_at = datetime('now') WHERE id = ?").run(rider.id);
 
   // La ciudad del viaje es la de la recogida (no la de quien lo pide desde su
@@ -106,8 +123,8 @@ router.post("/rides", (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token, offer_price)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       rider_name,
@@ -124,7 +141,8 @@ router.post("/rides", (req, res) => {
       ride_type === "taxi" ? "taxi" : "moto",
       city,
       cleanServiceKind,
-      generateShareToken()
+      generateShareToken(),
+      offerPrice
     );
 
   const ride = db
@@ -139,7 +157,7 @@ router.post("/rides", (req, res) => {
   Object.assign(ride, riderInfo);
 
   realtime.broadcastNewRide(ride);
-  realtime.startNoDriverTimer(ride.id);
+  realtime.startNoDriverTimer(ride.id, ride.ride_type);
   res.status(201).json({ ...ride, riderTripCount: riderInfo.riderTripCount });
 });
 
@@ -187,6 +205,9 @@ router.get("/rides/:id", (req, res) => {
 
   if (ride.driver_id) {
     ride.driver = driverForRide(ride.driver_id);
+  }
+  if (ride.status === "buscando" && ride.ride_type === "taxi") {
+    ride.offers = openOffersForRide(ride.id);
   }
   Object.assign(ride, riderInfoFor(ride.rider_phone));
   res.json(publicRide(ride));
@@ -275,10 +296,16 @@ router.post("/rides/:id/accept", (req, res) => {
   // compromete, en vez de quedarse esperando a un chofer específico sin
   // saber si el precio le va a convenir. El chofer debe negociarlo por el
   // chat (botón "Mensaje" en la solicitud) ANTES de aceptar.
-  const pendingRide = db.prepare("SELECT ride_type FROM rides WHERE id = ?").get(rideId);
+  const pendingRide = db.prepare("SELECT ride_type, offer_price FROM rides WHERE id = ?").get(rideId);
   const isTaxi = pendingRide?.ride_type === "taxi";
   if (isTaxi && !(Number(agreedPrice) > 0)) {
     return res.status(400).json({ error: "Captura el precio que acordaste con el pasajero" });
+  }
+  // Taxi con oferta del pasajero: "Aceptar" es aceptar SU precio. Un precio
+  // distinto es una contraoferta (POST /rides/:id/offer) que el pasajero
+  // tiene que aprobar antes de que el chofer salga.
+  if (isTaxi && pendingRide.offer_price != null && Number(agreedPrice) !== pendingRide.offer_price) {
+    return res.status(400).json({ error: "Para cobrar otro precio, manda una contraoferta" });
   }
 
   // Anticipo (solo taxi): el chofer pide que le depositen una parte ANTES de
@@ -327,6 +354,8 @@ router.post("/rides/:id/accept", (req, res) => {
   );
   realtime.clearNoDriverTimer(rideId);
   realtime.clearPreAcceptContact(rideId);
+  realtime.closeOpenOffers(rideId, "cerrada");
+  closeDriverOtherOffers(driverId);
 
   const ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
   Object.assign(ride, riderInfoFor(ride.rider_phone));
@@ -335,6 +364,185 @@ router.post("/rides/:id/accept", (req, res) => {
   realtime.notifyRide(rideId, "ride_accepted", { ...driver, agreedPrice: ride.agreed_price, deposit: depositInfo(ride) });
   realtime.broadcastRideTaken(rideId, driverId);
   res.json(publicRide(ride));
+});
+
+// --- Taxi con ofertas (estilo inDrive) ---
+
+// Precio sugerido para el taxi: punto de partida que ve el pasajero.
+router.get("/taxi/suggest", (req, res) => {
+  const [plat, plng, dlat, dlng] = ["plat", "plng", "dlat", "dlng"].map((k) => Number(req.query[k]));
+  if (![plat, plng, dlat, dlng].every(Number.isFinite)) {
+    return res.status(400).json({ error: "Faltan coordenadas" });
+  }
+  res.json(suggestTaxiFare(plat, plng, dlat, dlng));
+});
+
+const OFFER_SELECT = "SELECT o.id, o.price, o.deposit_amount, o.created_at, d.id AS driver_id, d.name, d.vehicle, d.photo, d.es_fundador FROM ride_offers o JOIN drivers d ON d.id = o.driver_id";
+
+// Lo que ve el pasajero de cada contraoferta: quién ofrece y cuánto. El
+// teléfono del chofer no: ese solo se entrega cuando el pasajero acepta.
+function openOffersForRide(rideId) {
+  return db
+    .prepare(
+      OFFER_SELECT +
+        " WHERE o.ride_id = ? AND o.status = 'pendiente' AND (julianday('now') - julianday(o.created_at)) * 86400 <= ? ORDER BY o.price ASC, o.id ASC"
+    )
+    .all(rideId, TAXI_OFFER_TTL_SEC)
+    .map(offerForRider);
+}
+
+function offerForRider(o) {
+  const ageSec = (Date.now() - Date.parse(o.created_at.replace(" ", "T") + "Z")) / 1000;
+  return {
+    id: o.id,
+    price: o.price,
+    depositAmount: o.deposit_amount || null,
+    expiresInSec: Math.max(0, Math.round(TAXI_OFFER_TTL_SEC - ageSec)),
+    driver: { id: o.driver_id, name: o.name, vehicle: o.vehicle, es_fundador: o.es_fundador, ...photoUrls("d", o.driver_id, o.photo) },
+  };
+}
+
+// Al tomar un viaje, sus contraofertas en OTROS viajes dejan de valer (ya no
+// está libre); cada pasajero la ve desaparecer de su lista.
+function closeDriverOtherOffers(driverId) {
+  const open = db.prepare("SELECT id, ride_id FROM ride_offers WHERE driver_id = ? AND status = 'pendiente'").all(driverId);
+  for (const o of open) {
+    db.prepare("UPDATE ride_offers SET status = 'cerrada', responded_at = datetime('now') WHERE id = ?").run(o.id);
+    realtime.notifyRide(o.ride_id, "offer_removed", { offerId: o.id });
+  }
+}
+
+// Valida el anticipo que pide el chofer (mismas reglas que /accept).
+function validateDeposit(driverId, price, depositAmount) {
+  const deposit = Math.round(Number(depositAmount) || 0);
+  if (deposit <= 0) return { deposit: 0, bank: null };
+  if (deposit > price) return { error: "El anticipo no puede ser mayor que el precio" };
+  const bank = db
+    .prepare("SELECT deposit_bank, deposit_account, deposit_holder FROM drivers WHERE id = ?")
+    .get(driverId);
+  if (!bank?.deposit_account) return { error: "Primero registra tu cuenta en Mi perfil → Cuenta para anticipos" };
+  return { deposit, bank };
+}
+
+// El chofer de taxi manda una contraoferta (un precio distinto al que ofreció
+// el pasajero). No toma el viaje: el pasajero tiene que aceptarla.
+router.post("/rides/:id/offer", (req, res) => {
+  const rideId = Number(req.params.id);
+  const { driverId, pin, price, depositAmount } = req.body || {};
+  if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
+  if (isRateLimited(req.ip)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  if (!driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "PIN incorrecto" });
+  }
+  clearAttempts(req.ip);
+
+  const ride = db.prepare("SELECT id, status, ride_type, offer_price FROM rides WHERE id = ?").get(rideId);
+  if (!ride || ride.status !== "buscando") return res.status(409).json({ error: "El viaje ya no está disponible" });
+  if (ride.ride_type !== "taxi" || ride.offer_price == null) {
+    return res.status(400).json({ error: "Este viaje no acepta contraofertas" });
+  }
+  const driverRow = db.prepare("SELECT vehicle_type FROM drivers WHERE id = ?").get(driverId);
+  if (driverRow?.vehicle_type !== "taxi") return res.status(403).json({ error: "Solo choferes de taxi" });
+  const active = db
+    .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
+    .get(driverId);
+  if (active) return res.status(409).json({ error: "Ya tienes otro viaje activo" });
+
+  const offerPrice = Math.round(Number(price));
+  if (!(offerPrice >= 10) || offerPrice > 20000) return res.status(400).json({ error: "Revisa el precio" });
+  const dep = validateDeposit(driverId, offerPrice, depositAmount);
+  if (dep.error) return res.status(400).json({ error: dep.error });
+
+  // Una sola oferta viva por chofer en cada viaje: la nueva reemplaza la anterior.
+  const previous = db
+    .prepare("SELECT id FROM ride_offers WHERE ride_id = ? AND driver_id = ? AND status = 'pendiente'")
+    .all(rideId, driverId);
+  for (const p of previous) {
+    db.prepare("UPDATE ride_offers SET status = 'reemplazada', responded_at = datetime('now') WHERE id = ?").run(p.id);
+    realtime.notifyRide(rideId, "offer_removed", { offerId: p.id });
+  }
+  const result = db
+    .prepare("INSERT INTO ride_offers (ride_id, driver_id, price, deposit_amount) VALUES (?, ?, ?, ?)")
+    .run(rideId, driverId, offerPrice, dep.deposit || null);
+  const row = db.prepare(OFFER_SELECT + " WHERE o.id = ?").get(result.lastInsertRowid);
+  realtime.notifyRide(rideId, "offer_new", offerForRider(row));
+  res.status(201).json({ offerId: row.id, price: row.price, expiresInSec: TAXI_OFFER_TTL_SEC });
+});
+
+// El pasajero acepta una contraoferta: el viaje queda asignado a ese chofer
+// con ese precio, igual que si el chofer hubiera aceptado.
+router.post("/rides/:id/offers/:offerId/accept", (req, res) => {
+  const rideId = Number(req.params.id);
+  const ride = riderOwnsRide(req, res, rideId);
+  if (!ride) return;
+  if (ride.status !== "buscando") return res.status(409).json({ error: "Este viaje ya no está buscando taxi" });
+
+  const offer = db
+    .prepare(
+      "SELECT * FROM ride_offers WHERE id = ? AND ride_id = ? AND status = 'pendiente' AND (julianday('now') - julianday(created_at)) * 86400 <= ?"
+    )
+    .get(Number(req.params.offerId), rideId, TAXI_OFFER_TTL_SEC);
+  if (!offer) return res.status(409).json({ error: "Esa oferta ya no está disponible" });
+
+  const busy = db
+    .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
+    .get(offer.driver_id);
+  if (busy) {
+    db.prepare("UPDATE ride_offers SET status = 'cerrada', responded_at = datetime('now') WHERE id = ?").run(offer.id);
+    realtime.notifyRide(rideId, "offer_removed", { offerId: offer.id });
+    return res.status(409).json({ error: "Ese chofer ya tomó otro viaje" });
+  }
+
+  // Si mientras tanto el chofer quitó su cuenta, el viaje sigue sin anticipo.
+  const dep = validateDeposit(offer.driver_id, offer.price, offer.deposit_amount);
+  const deposit = dep.error ? 0 : dep.deposit;
+  const bank = dep.error ? null : dep.bank;
+
+  const result = db
+    .prepare(
+      `UPDATE rides SET driver_id = ?, status = 'aceptado', agreed_price = ?,
+              deposit_amount = ?, deposit_status = ?, deposit_bank = ?, deposit_account = ?, deposit_holder = ?,
+              updated_at = datetime('now')
+       WHERE id = ? AND status = 'buscando'`
+    )
+    .run(
+      offer.driver_id, offer.price,
+      deposit > 0 ? deposit : null, deposit > 0 ? "pendiente" : null,
+      bank?.deposit_bank ?? null, bank?.deposit_account ?? null, bank?.deposit_holder ?? null,
+      rideId
+    );
+  if (result.changes === 0) return res.status(409).json({ error: "Este viaje ya no está buscando taxi" });
+
+  db.prepare("UPDATE ride_offers SET status = 'aceptada', responded_at = datetime('now') WHERE id = ?").run(offer.id);
+  db.prepare("UPDATE drivers SET status = 'en_viaje' WHERE id = ?").run(offer.driver_id);
+  realtime.clearNoDriverTimer(rideId);
+  realtime.clearPreAcceptContact(rideId);
+  realtime.closeOpenOffers(rideId, "rechazada", offer.id);
+  closeDriverOtherOffers(offer.driver_id);
+
+  const updated = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
+  Object.assign(updated, riderInfoFor(updated.rider_phone));
+  const driver = driverForRide(offer.driver_id);
+  // Al chofer: su oferta ganó, con el viaje completo (igual que la respuesta de /accept).
+  realtime.notifyDriver(offer.driver_id, "offer_accepted", { rideId, offerId: offer.id, ride: publicRide(updated) });
+  realtime.notifyRide(rideId, "ride_accepted", { ...driver, agreedPrice: updated.agreed_price, deposit: depositInfo(updated) });
+  realtime.broadcastRideTaken(rideId, offer.driver_id);
+  res.json({ ok: true, driver, agreedPrice: updated.agreed_price, deposit: depositInfo(updated) });
+});
+
+// El pasajero dice "No, gracias" a una contraoferta. El viaje sigue buscando.
+router.post("/rides/:id/offers/:offerId/reject", (req, res) => {
+  const rideId = Number(req.params.id);
+  const ride = riderOwnsRide(req, res, rideId);
+  if (!ride) return;
+  const offer = db
+    .prepare("SELECT id, driver_id FROM ride_offers WHERE id = ? AND ride_id = ? AND status = 'pendiente'")
+    .get(Number(req.params.offerId), rideId);
+  if (!offer) return res.json({ ok: true }); // ya se había vencido o cerrado
+  db.prepare("UPDATE ride_offers SET status = 'rechazada', responded_at = datetime('now') WHERE id = ?").run(offer.id);
+  realtime.notifyDriver(offer.driver_id, "offer_closed", { rideId, offerId: offer.id, reason: "rechazada" });
+  res.json({ ok: true });
 });
 
 // --- Anticipo del taxi foráneo ---
@@ -626,6 +834,7 @@ router.post("/rides/:id/cancel", (req, res) => {
   realtime.clearDisconnectTimer(rideId);
   realtime.clearNoDriverTimer(rideId);
   realtime.clearPreAcceptContact(rideId);
+  realtime.closeOpenOffers(rideId, "cerrada");
 
   let cooldownUntil = null;
   if (ride.driver_id) {

@@ -49,6 +49,13 @@ module.exports = {
   // recoger (50 km + esperar el anticipo) — con el límite normal de moto se
   // cancelaba solo a medio camino.
   ABANDONED_AFTER_MIN_TAXI: 180,
+  // Taxi con ofertas (estilo inDrive): el pasajero propone un precio, cada
+  // chofer lo acepta o manda una contraoferta, y el pasajero escoge. Eso toma
+  // más que el minuto que se le da al mototaxi (precio fijo, aceptar directo).
+  TAXI_SEARCH_MS: 5 * 60 * 1000,
+  // Una contraoferta sin respuesta del pasajero se vence sola, para que el
+  // chofer no se quede esperando y pueda tomar otro viaje.
+  TAXI_OFFER_TTL_SEC: 120,
   // Si un chofer no manda su ubicación en este tiempo probablemente cerró la
   // app o se quedó sin señal — no debería seguir apareciendo como disponible.
   DRIVER_STALE_SECONDS: 90,

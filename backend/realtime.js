@@ -2,7 +2,7 @@ const { WebSocketServer } = require("ws");
 const url = require("node:url");
 const db = require("./db");
 const { photoUrls } = require("./photos");
-const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI } = require("./constants");
+const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC } = require("./constants");
 
 // driverId -> WebSocket
 const driverSockets = new Map();
@@ -25,6 +25,11 @@ const DISCONNECT_GRACE_MS = 20000;
 // no hay choferes disponibles. Si se queda "buscando" más de esto sin que
 // nadie lo acepte, probablemente no hay oferta suficiente en ese momento.
 const NO_DRIVER_GRACE_MS = 60000;
+
+// El taxi negocia por ofertas (ver rides.js /offer), así que busca más tiempo.
+function searchWindowMs(rideType) {
+  return rideType === "taxi" ? TAXI_SEARCH_MS : NO_DRIVER_GRACE_MS;
+}
 
 // Si un pasajero o chofer se quedó a medias (app cerrada, celular apagado,
 // etc.) con un viaje ya asignado, se da por abandonado tras esto — mismo
@@ -82,7 +87,7 @@ function handleDriverReconnected(driverId) {
   notifyRide(ride.id, "driver_reconnected", {});
 }
 
-function startNoDriverTimer(rideId) {
+function startNoDriverTimer(rideId, rideType) {
   const timer = setTimeout(() => {
     noDriverTimers.delete(rideId);
     const ride = db.prepare("SELECT status FROM rides WHERE id = ?").get(rideId);
@@ -91,9 +96,10 @@ function startNoDriverTimer(rideId) {
     db.prepare(
       "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = 'system', cancel_reason = 'Nadie lo tomó a tiempo' WHERE id = ?"
     ).run(rideId);
+    closeOpenOffers(rideId, "cerrada");
     notifyRide(rideId, "no_drivers_available", {});
     broadcastRideRemoved(rideId);
-  }, NO_DRIVER_GRACE_MS);
+  }, searchWindowMs(rideType));
   noDriverTimers.set(rideId, timer);
 }
 
@@ -118,16 +124,29 @@ function sweepStaleRides() {
   try {
     const stuckSearching = db
       .prepare(
-        "SELECT id FROM rides WHERE status = 'buscando' AND (julianday('now') - julianday(created_at)) * 86400000 > ?"
+        "SELECT id FROM rides WHERE status = 'buscando' AND (julianday('now') - julianday(created_at)) * 86400000 > CASE WHEN ride_type = 'taxi' THEN ? ELSE ? END"
       )
-      .all(NO_DRIVER_GRACE_MS);
+      .all(TAXI_SEARCH_MS, NO_DRIVER_GRACE_MS);
     for (const ride of stuckSearching) {
       db.prepare(
         "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = 'system', cancel_reason = 'Nadie lo tomó a tiempo' WHERE id = ? AND status = 'buscando'"
       ).run(ride.id);
       clearNoDriverTimer(ride.id);
+      closeOpenOffers(ride.id, "cerrada");
       notifyRide(ride.id, "no_drivers_available", {});
       broadcastRideRemoved(ride.id);
+    }
+
+    // Contraofertas de taxi que el pasajero no contestó a tiempo.
+    const expiredOffers = db
+      .prepare(
+        "SELECT id, ride_id, driver_id FROM ride_offers WHERE status = 'pendiente' AND (julianday('now') - julianday(created_at)) * 86400 > ?"
+      )
+      .all(TAXI_OFFER_TTL_SEC);
+    for (const offer of expiredOffers) {
+      db.prepare("UPDATE ride_offers SET status = 'vencida', responded_at = datetime('now') WHERE id = ? AND status = 'pendiente'").run(offer.id);
+      notifyDriver(offer.driver_id, "offer_closed", { rideId: offer.ride_id, offerId: offer.id, reason: "vencida" });
+      notifyRide(offer.ride_id, "offer_removed", { offerId: offer.id });
     }
 
     // Se mide desde updated_at (el último cambio de estado real), no desde
@@ -389,7 +408,7 @@ function notifyPendingRides(driverId) {
     .prepare(
       "SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ? AND (julianday('now') - julianday(created_at)) * 86400000 <= ?"
     )
-    .all(driver.vehicle_type, NO_DRIVER_GRACE_MS);
+    .all(driver.vehicle_type, searchWindowMs(driver.vehicle_type));
   const maxDistance = driver.vehicle_type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   for (const ride of pending) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
@@ -429,6 +448,19 @@ function clearPreAcceptContact(rideId) {
   preAcceptContact.delete(rideId);
 }
 
+// Cierra las contraofertas que sigan pendientes en ese viaje (el pasajero
+// aceptó otra, canceló, o se venció la búsqueda) y le avisa a cada chofer
+// para que su tarjeta deje de decir "esperando al pasajero".
+function closeOpenOffers(rideId, newStatus, exceptOfferId) {
+  const open = db
+    .prepare("SELECT id, driver_id FROM ride_offers WHERE ride_id = ? AND status = 'pendiente' AND id != ?")
+    .all(rideId, exceptOfferId || 0);
+  for (const offer of open) {
+    db.prepare("UPDATE ride_offers SET status = ?, responded_at = datetime('now') WHERE id = ?").run(newStatus, offer.id);
+    notifyDriver(offer.driver_id, "offer_closed", { rideId, offerId: offer.id, reason: newStatus });
+  }
+}
+
 module.exports = {
   attach,
   ABANDONED_AFTER_MIN,
@@ -441,4 +473,5 @@ module.exports = {
   clearDisconnectTimer,
   startNoDriverTimer,
   clearNoDriverTimer,
+  closeOpenOffers,
 };

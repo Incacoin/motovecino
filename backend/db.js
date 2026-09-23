@@ -567,4 +567,26 @@ if (ridesWithoutToken.length) {
   }
 }
 
+// Taxi con ofertas (estilo inDrive): el precio que propone el pasajero al
+// pedir, y las contraofertas de los choferes. El precio que acepta el
+// pasajero es el que queda como agreed_price (base de la comisión).
+try {
+  db.exec("ALTER TABLE rides ADD COLUMN offer_price INTEGER");
+} catch {
+  // la columna ya existe
+}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ride_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ride_id INTEGER NOT NULL REFERENCES rides(id),
+    driver_id INTEGER NOT NULL REFERENCES drivers(id),
+    price INTEGER NOT NULL,
+    deposit_amount INTEGER,
+    status TEXT NOT NULL DEFAULT 'pendiente',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    responded_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_ride_offers_ride ON ride_offers(ride_id);
+`);
+
 module.exports = db;
