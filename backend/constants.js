@@ -28,6 +28,12 @@ module.exports = {
   // realista que llegue por él, ya sea un pasajero viendo el mapa o un chofer
   // viendo a sus compañeros. Mismo radio que usa el matcheo de viajes nuevos.
   MAX_MATCH_DISTANCE_KM: 8,
+  // El taxi sí hace viajes foráneos (a Peto, Xul, etc. — ~50 km a la redonda
+  // de Tekax) porque no tiene tarifa fija, cobra comisión sobre lo acordado
+  // con el pasajero — un mototaxi no. Este radio más amplio de emparejamiento
+  // solo aplica a viajes tipo taxi (ver rides.js/drivers.js/realtime.js);
+  // moto se queda con el de arriba, sin cambios.
+  MAX_MATCH_DISTANCE_KM_TAXI: 60,
   // Si un chofer no manda su ubicación en este tiempo probablemente cerró la
   // app o se quedó sin señal — no debería seguir apareciendo como disponible.
   DRIVER_STALE_SECONDS: 90,

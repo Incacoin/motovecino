@@ -2,6 +2,7 @@ const { WebSocketServer } = require("ws");
 const url = require("node:url");
 const db = require("./db");
 const { photoUrls } = require("./photos");
+const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI } = require("./constants");
 
 // driverId -> WebSocket
 const driverSockets = new Map();
@@ -327,11 +328,6 @@ function notifyRide(rideId, type, payload) {
   for (const ws of clients) send(ws, type, payload);
 }
 
-// Un chofer que dejó su sesión "disponible" mientras anda en otro pueblo (o
-// simplemente muy lejos de la recogida) no debería poder recibir ni aceptar
-// un viaje que nunca podría cubrir de verdad.
-const MAX_MATCH_DISTANCE_KM = 8;
-
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -354,6 +350,7 @@ function omitRiderPhone(ride) {
 
 function broadcastNewRide(ride) {
   const rideType = ride.ride_type === "taxi" ? "taxi" : "moto";
+  const maxDistance = rideType === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   const available = db
     .prepare(
       "SELECT id, lat, lng FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
@@ -363,7 +360,7 @@ function broadcastNewRide(ride) {
   for (const driver of available) {
     if (driver.lat == null || driver.lng == null) continue;
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
-    if (distanceKm > MAX_MATCH_DISTANCE_KM) continue;
+    if (distanceKm > maxDistance) continue;
     const ws = driverSockets.get(driver.id);
     if (ws) send(ws, "new_ride", payload);
   }
@@ -388,9 +385,10 @@ function notifyPendingRides(driverId) {
       "SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ? AND (julianday('now') - julianday(created_at)) * 86400000 <= ?"
     )
     .all(driver.vehicle_type, NO_DRIVER_GRACE_MS);
+  const maxDistance = driver.vehicle_type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   for (const ride of pending) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
-    if (distanceKm > MAX_MATCH_DISTANCE_KM) continue;
+    if (distanceKm > maxDistance) continue;
     const riderRow = db.prepare("SELECT id, photo FROM riders WHERE phone = ?").get(ride.rider_phone);
     const { trips } = db
       .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_phone = ? AND status = 'completado'")

@@ -69,7 +69,7 @@ router.post("/rides", (req, res) => {
   // Fuera del radio real de servicio de esa ciudad (ej. alguien pidiendo
   // desde otro país) — antes esto caía en DEFAULT_CITY_ID sin más, dejando
   // pedir un viaje que ningún chofer real podría atender.
-  if (!isWithinServiceRadius(city, pickup_lat, pickup_lng)) {
+  if (!isWithinServiceRadius(city, pickup_lat, pickup_lng, ride_type === "taxi" ? "taxi" : "moto")) {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
 

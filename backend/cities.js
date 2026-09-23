@@ -11,7 +11,10 @@ const CITIES = [
   // completo (la entrada-salida por carretera mide 7.2km) con margen para
   // colonias de orilla y el margen de error normal del GPS, sin llegar a
   // Akil (~9-10km, decisión de expansión pendiente y aparte).
-  { id: "tekax", label: "Tekax", lat: 20.2071, lng: -89.2809, serviceRadiusKm: 4.5 },
+  // serviceRadiusKmTaxi: el taxi sí hace viajes foráneos (Peto, Xul, ~50km a
+  // la redonda) porque no tiene tarifa fija — el mototaxi se queda con el
+  // radio normal de arriba, sin cambios.
+  { id: "tekax", label: "Tekax", lat: 20.2071, lng: -89.2809, serviceRadiusKm: 4.5, serviceRadiusKmTaxi: 50 },
   { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389 },
 ];
 
@@ -45,11 +48,17 @@ function getCityById(id) {
 // fuera de él, no se debe dejar pasar. Sin ciudad conocida, sin radio
 // configurado (ciudad aún no restringida), o sin coordenadas, no bloquea —
 // eso lo sigue decidiendo cada endpoint según sus propios datos requeridos.
-function isWithinServiceRadius(cityId, lat, lng) {
+// rideType "taxi" usa serviceRadiusKmTaxi si la ciudad lo define (viajes
+// foráneos); cualquier otro valor usa el radio normal, sin cambios.
+function isWithinServiceRadius(cityId, lat, lng, rideType) {
   const city = getCityById(cityId);
-  if (!city || city.serviceRadiusKm == null) return true;
+  if (!city) return true;
+  const radius = rideType === "taxi" && city.serviceRadiusKmTaxi != null
+    ? city.serviceRadiusKmTaxi
+    : city.serviceRadiusKm;
+  if (radius == null) return true;
   if (lat == null || lng == null) return true;
-  return haversineKm(lat, lng, city.lat, city.lng) <= city.serviceRadiusKm;
+  return haversineKm(lat, lng, city.lat, city.lng) <= radius;
 }
 
 module.exports = {

@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
+const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
@@ -39,8 +39,9 @@ router.get("/drivers/available", (req, res) => {
     )
     .all(type);
 
+  const maxDistance = type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   const nearby = drivers.filter(
-    (d) => haversineKm(ref.lat, ref.lng, d.lat, d.lng) <= MAX_MATCH_DISTANCE_KM
+    (d) => haversineKm(ref.lat, ref.lng, d.lat, d.lng) <= maxDistance
   );
   res.json(nearby);
 });
@@ -263,7 +264,7 @@ router.post("/chofer-solicitudes", (req, res) => {
   // validamos contra el radio real — evita altas "de Tekax" desde fuera de
   // Tekax. Sin GPS (permiso negado) no bloqueamos: no queremos perder un
   // chofer real solo porque no dio permiso de ubicación.
-  if (!isWithinServiceRadius(cityId, lat, lng)) {
+  if (!isWithinServiceRadius(cityId, lat, lng, vehicleType === "taxi" ? "taxi" : "moto")) {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
   if (!name || !phone || !photo) {
