@@ -410,7 +410,13 @@ let currentPickupMarker = null, currentDestMarker = null;
 const pendingMarkers = {};
 let pendingRides = {};
 let currentRide = null;
-let available = false;
+// Arranca ya "disponible" si así quedó la última vez — sin esto, cada vez
+// que Android descarga la pestaña de la memoria (muy común al pasar rato en
+// otra app como WhatsApp) la pantalla vuelve a arrancar de cero y el
+// interruptor nace apagado, aunque el chofer nunca lo haya apagado a mano.
+let available = (() => {
+  try { return localStorage.getItem("motoya_available") === "1"; } catch { return false; }
+})();
 let myPos = null;
 let todayCount = 0;
 let otherDriverMarkers = new Map();
@@ -612,6 +618,7 @@ function logout() {
   if (ws) { ws.onclose = null; ws.close(); }
   releaseWakeLock();
   localStorage.removeItem("motoya_driver");
+  localStorage.removeItem("motoya_available");
   location.reload();
 }
 
@@ -631,6 +638,12 @@ function startApp() {
   document.getElementById("driverName").textContent += driver.vehicle_type === "taxi" ? " · 🚕 Taxi" : " · 🛵 Mototaxi";
   document.getElementById("todayCountText").textContent = `Viajes hoy: ${todayCount}`;
   if (driver.cooldown_until) applyCooldown(driver.cooldown_until);
+  // Refleja en la pantalla el "disponible" que ya se restauró al cargar el
+  // script (ver declaración de `available` arriba) — si no, el interruptor
+  // se ve apagado aunque por dentro ya esté prendido.
+  document.getElementById("switch").classList.toggle("on", available);
+  document.getElementById("statusText").textContent = available ? "Disponible" : "Desconectado";
+  if (available) requestWakeLock();
   refreshRankBadge();
   showDriverTierBadge(driver.lifetimeTrips);
 
@@ -760,6 +773,7 @@ function toggleAvailable() {
     return;
   }
   available = !available;
+  try { localStorage.setItem("motoya_available", available ? "1" : "0"); } catch {}
   const sw = document.getElementById("switch");
   sw.classList.toggle("on", available);
   document.getElementById("statusText").textContent = available ? "Disponible" : "Desconectado";
