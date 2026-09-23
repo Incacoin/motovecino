@@ -22,6 +22,12 @@ module.exports = {
   // caro no pague una cuota desproporcionada.
   TAXI_COMMISSION_RATE: 0.06,
   TAXI_COMMISSION_CAP: 100,
+  // Cobro de espera del taxi (ej. lo hacen esperar en el destino mientras el
+  // pasajero hace algo) — $100/hora que ya cobraban por su cuenta, pasado a
+  // por minuto. Se le suma al precio acordado antes de calcular la comisión
+  // de arriba, no es aparte — el chofer lo activa/detiene desde la app
+  // (ver chofer.html) y el total se agrega solo al precio final.
+  TAXI_WAIT_RATE_PER_MIN: 2,
   // null = prueba gratis indefinida, sin fecha de corte automática.
   TRIAL_END_DATE: null,
   // Un chofer "disponible" a más de esto de quien está mirando el mapa no es

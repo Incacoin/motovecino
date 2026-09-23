@@ -311,6 +311,7 @@ fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
   SERVICE_FEE = cfg.serviceFee;
   TAXI_COMMISSION_RATE = cfg.taxiCommissionRate;
   TAXI_COMMISSION_CAP = cfg.taxiCommissionCap;
+  TAXI_WAIT_RATE_PER_MIN = cfg.taxiWaitRatePerMin;
 }).catch(() => {});
 
 function isStandalone() {
@@ -539,6 +540,7 @@ const TICUL_CHILD_FARE_NIGHT = 10;
 let SERVICE_FEE = 2; // valor de respaldo hasta que cargue /api/config
 let TAXI_COMMISSION_RATE = 0.06;
 let TAXI_COMMISSION_CAP = 100;
+let TAXI_WAIT_RATE_PER_MIN = 2;
 
 // Ciudad resuelta por GPS (ver initCityBrand) — "tekax" hasta que se
 // confirme otra cosa, igual que en pasajero.html.
@@ -716,6 +718,8 @@ function connectWs() {
     if (type === "new_ride") addPendingRide(payload);
     if (type === "ride_taken") removePendingRide(payload.rideId);
     if (type === "ride_cancelled" && currentRide && currentRide.id === payload.rideId && !cancellingOwnRide) {
+      stopWaitTicker();
+      clearWaitState(currentRide.id);
       currentRide = null;
       stopRouteTracking();
       hideChat();
@@ -988,8 +992,15 @@ function renderRideList() {
           </div>
           ${fareLine}
           ${currentRide.ride_type === "taxi"
-            ? `<div style="margin:8px 0;">
-                 <label style="display:block;font-size:13px;color:var(--text-dim);margin-bottom:4px;">¿Cuánto cobraste? (precio acordado con el pasajero)</label>
+            ? `<div style="margin:8px 0;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
+                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                   <span style="font-size:13px;color:var(--text-dim);">⏱️ Si te hacen esperar en el destino ($${TAXI_WAIT_RATE_PER_MIN}/min)</span>
+                   <button class="btn-sm" id="btnWaitToggle" onclick="toggleWaitCharge()">Iniciar espera</button>
+                 </div>
+                 <div id="waitChargeDisplay" style="display:none;margin-top:6px;font-weight:700;"></div>
+               </div>
+               <div style="margin:8px 0;">
+                 <label style="display:block;font-size:13px;color:var(--text-dim);margin-bottom:4px;">¿Cuánto cobraste? (precio acordado con el pasajero, sin contar la espera — esa se suma sola)</label>
                  <input type="number" id="agreedPriceInput" inputmode="decimal" min="1" placeholder="Ej. 350" style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;">
                </div>`
             : ""}
@@ -1158,6 +1169,94 @@ function beginRide(ride) {
   routeRefreshInterval = setInterval(updateRouteLine, 15000);
   showChat();
   renderRideList();
+  resumeWaitCharge();
+}
+
+// --- Cobro de espera del taxi (ver constants.js TAXI_WAIT_RATE_PER_MIN) ---
+// Se guarda en el teléfono, por viaje — mismo motivo que "Disponible": si
+// Android mata la pestaña mientras el chofer espera, no se pierde el tiempo
+// ya corrido al volver a abrir la app.
+let waitTickerInterval = null;
+
+function waitStorageKey(rideId) {
+  return `motoya_wait_${rideId}`;
+}
+
+function loadWaitState(rideId) {
+  try {
+    const raw = localStorage.getItem(waitStorageKey(rideId));
+    return raw ? JSON.parse(raw) : { totalMs: 0, runningSince: null };
+  } catch {
+    return { totalMs: 0, runningSince: null };
+  }
+}
+
+function saveWaitState(rideId, state) {
+  try { localStorage.setItem(waitStorageKey(rideId), JSON.stringify(state)); } catch {}
+}
+
+function clearWaitState(rideId) {
+  try { localStorage.removeItem(waitStorageKey(rideId)); } catch {}
+}
+
+function currentWaitMs(state) {
+  return state.totalMs + (state.runningSince ? Date.now() - state.runningSince : 0);
+}
+
+// Redondeado hacia arriba por minuto — un minuto empezado se cobra completo,
+// igual que ya hacen ellos a mano.
+function waitChargeFor(ms) {
+  const minutes = Math.ceil(ms / 60000);
+  return minutes > 0 ? minutes * TAXI_WAIT_RATE_PER_MIN : 0;
+}
+
+function renderWaitChargeDisplay() {
+  if (!currentRide || currentRide.ride_type !== "taxi") return;
+  const state = loadWaitState(currentRide.id);
+  const ms = currentWaitMs(state);
+  const display = document.getElementById("waitChargeDisplay");
+  const btn = document.getElementById("btnWaitToggle");
+  if (!display || !btn) return;
+  if (ms > 0) {
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    display.style.display = "block";
+    display.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")} de espera · +$${waitChargeFor(ms)} (se suma solo al precio final)`;
+  } else {
+    display.style.display = "none";
+  }
+  btn.textContent = state.runningSince ? "Detener espera" : "Iniciar espera";
+}
+
+function startWaitTicker() {
+  stopWaitTicker();
+  waitTickerInterval = setInterval(renderWaitChargeDisplay, 1000);
+}
+
+function stopWaitTicker() {
+  if (waitTickerInterval) { clearInterval(waitTickerInterval); waitTickerInterval = null; }
+}
+
+function toggleWaitCharge() {
+  if (!currentRide || currentRide.ride_type !== "taxi") return;
+  const state = loadWaitState(currentRide.id);
+  if (state.runningSince) {
+    state.totalMs += Date.now() - state.runningSince;
+    state.runningSince = null;
+    stopWaitTicker();
+  } else {
+    state.runningSince = Date.now();
+    startWaitTicker();
+  }
+  saveWaitState(currentRide.id, state);
+  renderWaitChargeDisplay();
+}
+
+function resumeWaitCharge() {
+  if (!currentRide || currentRide.ride_type !== "taxi") return;
+  const state = loadWaitState(currentRide.id);
+  if (state.runningSince) startWaitTicker();
+  renderWaitChargeDisplay();
 }
 
 // Al abrir la app el chofer arranca en blanco. Si tenía un viaje en curso
@@ -1238,11 +1337,15 @@ async function completeRide() {
   let agreedPrice;
   if (currentRide.ride_type === "taxi") {
     const input = document.getElementById("agreedPriceInput");
-    agreedPrice = Number(input && input.value);
-    if (!(agreedPrice > 0)) {
+    const typed = Number(input && input.value);
+    if (!(typed > 0)) {
       showToast("Captura cuánto cobraste antes de finalizar");
       return false;
     }
+    // La espera se suma sola al precio acordado — el chofer no tiene que
+    // sumarla a mano ni arriesgarse a olvidarla.
+    const waitState = loadWaitState(currentRide.id);
+    agreedPrice = typed + waitChargeFor(currentWaitMs(waitState));
   }
   const res = await fetch(API + `/api/rides/${currentRide.id}/complete`, {
     method: "POST",
@@ -1258,6 +1361,8 @@ async function completeRide() {
   driver.todayCount = todayCount;
   localStorage.setItem("motoya_driver", JSON.stringify(driver));
   document.getElementById("todayCountText").textContent = `Viajes hoy: ${todayCount}`;
+  stopWaitTicker();
+  clearWaitState(currentRide.id);
   currentRide = null;
   stopRouteTracking();
   hideChat();
@@ -1350,6 +1455,8 @@ async function confirmCancel(reason) {
     body: JSON.stringify({ driverId: driver.id, pin: driver.pin, reason }),
   });
   const data = await res.json().catch(() => ({}));
+  stopWaitTicker();
+  clearWaitState(rideId);
   currentRide = null;
   stopRouteTracking();
   hideChat();

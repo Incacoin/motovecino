@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
+const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, TAXI_WAIT_RATE_PER_MIN, MONTHLY_FEE, TRIAL_END_DATE } = require("../constants");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
@@ -13,7 +13,7 @@ const router = express.Router();
 // Fuente única de las cuotas para los 3 frontends (pasajero, chofer, admin)
 // — evita que se desincronicen del valor real que se cobra.
 router.get("/config", (req, res) => {
-  res.json({ serviceFee: SERVICE_FEE, monthlyFee: MONTHLY_FEE, taxiCommissionRate: TAXI_COMMISSION_RATE, taxiCommissionCap: TAXI_COMMISSION_CAP });
+  res.json({ serviceFee: SERVICE_FEE, monthlyFee: MONTHLY_FEE, taxiCommissionRate: TAXI_COMMISSION_RATE, taxiCommissionCap: TAXI_COMMISSION_CAP, taxiWaitRatePerMin: TAXI_WAIT_RATE_PER_MIN });
 });
 
 // Choferes "disponibles" de verdad: con GPS reciente (no fantasmas de una
