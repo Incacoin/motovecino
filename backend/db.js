@@ -481,6 +481,12 @@ try {
 } catch {
   // la columna ya existe
 }
+// Lo mismo para pasajeros: sus viajes no cuentan en el resumen del admin.
+try {
+  db.exec("ALTER TABLE riders ADD COLUMN es_prueba INTEGER NOT NULL DEFAULT 0");
+} catch {
+  // la columna ya existe
+}
 
 // Recalcula los fundadores en cada arranque (también cubre a los choferes que
 // ya estaban dados de alta antes de que existiera la insignia).

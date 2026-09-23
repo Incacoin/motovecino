@@ -896,7 +896,7 @@ function renderRiderRows() {
   const visible = applyPreviewCap(filtered, query, showAllRiders, "riderShowMore", "toggleShowAllRiders");
   document.getElementById("riderRows").innerHTML = visible.map((r) => `
     <tr>
-      <td>${escapeHtml(r.name) || "—"}</td>
+      <td>${escapeHtml(r.name) || "—"}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>` : ""}</td>
       <td>${r.phone}</td>
       <td>${r.trips}</td>
       <td>${r.no_show_count >= 2 ? `<span style="color:#e05d5d;font-weight:600;">${r.no_show_count} ⚠️</span>` : (r.no_show_count || 0)}</td>
@@ -904,11 +904,31 @@ function renderRiderRows() {
       <td>${r.last_ride_at ? r.last_ride_at.slice(0, 10) : "—"}</td>
       <td class="row-actions">
         <button class="btn-sm" onclick="resetRiderPin(${r.id})">Restablecer PIN</button>
+        <button class="btn-sm" onclick="toggleRiderTestAccount(${r.id})">${r.es_prueba ? "🧪 Quitar prueba" : "🧪 Es prueba"}</button>
         <button class="btn-sm danger" onclick="deleteRider(${r.id})">Eliminar</button>
       </td>
     </tr>`).join("") || (query
     ? `<tr><td colspan="7" class="ago">Sin resultados para "${query}".</td></tr>`
     : `<tr><td colspan="7" class="ago">Todavía no hay pasajeros registrados.</td></tr>`);
+}
+
+// Un pasajero de prueba sigue funcionando igual; solo sus viajes dejan de
+// sumarse en el resumen del admin.
+async function toggleRiderTestAccount(id) {
+  const rider = ridersCache.find((r) => r.id === id);
+  const esPrueba = !rider.es_prueba;
+  const res = await fetch(API + `/api/admin/riders/${id}/test-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin, esPrueba }),
+  });
+  if (!res.ok) {
+    showToast((await res.json()).error || "No se pudo actualizar");
+    return;
+  }
+  const name = rider.name || rider.phone;
+  showToast(esPrueba ? `${name}: cuenta de prueba, sus viajes ya no cuentan en el resumen` : `${name}: cuenta real otra vez`);
+  loadRiders();
 }
 
 async function resetRiderPin(id) {
@@ -1026,7 +1046,7 @@ async function toggleTestAccount(id) {
     showToast((await res.json()).error || "No se pudo actualizar");
     return;
   }
-  showToast(esPrueba ? `${driver.name}: cuenta de prueba, ya no cuenta para fundador ni ranking` : `${driver.name}: cuenta real otra vez`);
+  showToast(esPrueba ? `${driver.name}: cuenta de prueba, ya no cuenta para fundador, ranking ni resumen` : `${driver.name}: cuenta real otra vez`);
   loadDrivers();
 }
 
@@ -1151,7 +1171,7 @@ function renderDriverRows() {
     const founderTag = d.es_fundador
       ? ` <span title="Chofer fundador" style="font-size:11px;">🏅</span>`
       : d.es_prueba
-      ? ` <span title="Cuenta de prueba: no cuenta para fundador ni para el ranking" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>`
+      ? ` <span title="Cuenta de prueba: no cuenta para fundador, ranking ni resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>`
       : "";
     const nameWithReferral = d.referred_by
       ? `<span>${escapeHtml(d.name)}${founderTag}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${escapeHtml(d.referred_by)}</div>`

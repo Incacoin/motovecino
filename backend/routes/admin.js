@@ -370,7 +370,7 @@ router.post("/admin/chofer-solicitudes/:id/dismiss", checkAdminPin, (req, res) =
 router.post("/admin/riders/list", checkAdminPin, (req, res) => {
   const riders = db
     .prepare(
-      `SELECT r.id, r.name, r.phone, r.created_at, r.last_ride_at, r.no_show_count,
+      `SELECT r.id, r.name, r.phone, r.created_at, r.last_ride_at, r.no_show_count, r.es_prueba,
               (SELECT COUNT(*) FROM rides WHERE rider_id = r.id AND status = 'completado') AS trips
        FROM riders r
        WHERE r.city = ?
@@ -378,6 +378,14 @@ router.post("/admin/riders/list", checkAdminPin, (req, res) => {
     )
     .all(req.adminCity);
   res.json(riders);
+});
+
+// Marca/desmarca un pasajero como cuenta de prueba: sus viajes dejan de
+// contar en el resumen del admin (/admin/stats). No borra nada.
+router.post("/admin/riders/:id/test-account", checkAdminPin, (req, res) => {
+  if (!assertOwnCity("riders", req, res)) return;
+  db.prepare("UPDATE riders SET es_prueba = ? WHERE id = ?").run(req.body.esPrueba ? 1 : 0, req.params.id);
+  res.json({ ok: true });
 });
 
 // Único recurso de soporte hoy: si un pasajero pierde su PIN (o cambia de
@@ -443,21 +451,26 @@ router.post("/admin/rides/reset", checkAdminPin, (req, res) => {
   res.json({ ok: true });
 });
 
+// Viaje "real" para el resumen: ni el chofer ni el pasajero son cuenta de
+// prueba (es_prueba, se marca en el admin). Espera el viaje con alias `r`.
+const REAL_RIDE = `NOT EXISTS (SELECT 1 FROM drivers td WHERE td.id = r.driver_id AND td.es_prueba = 1)
+         AND NOT EXISTS (SELECT 1 FROM riders tr WHERE tr.id = r.rider_id AND tr.es_prueba = 1)`;
+
 router.post("/admin/stats", checkAdminPin, (req, res) => {
   const city = req.adminCity;
   const ridesToday = db
-    .prepare("SELECT COUNT(*) AS n FROM rides WHERE status = 'completado' AND date(updated_at) = date('now') AND city = ?")
+    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at) = date('now') AND r.city = ? AND ${REAL_RIDE}`)
     .get(city).n;
   const ridesWeek = db
-    .prepare("SELECT COUNT(*) AS n FROM rides WHERE status = 'completado' AND date(updated_at) >= date('now', '-6 days') AND city = ?")
+    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at) >= date('now', '-6 days') AND r.city = ? AND ${REAL_RIDE}`)
     .get(city).n;
   const cancelledToday = db
-    .prepare("SELECT COUNT(*) AS n FROM rides WHERE status = 'cancelado' AND date(updated_at) = date('now') AND city = ?")
+    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'cancelado' AND date(r.updated_at) = date('now') AND r.city = ? AND ${REAL_RIDE}`)
     .get(city).n;
   const driversOnline = db
     .prepare(
       `SELECT COUNT(*) AS n FROM drivers
-       WHERE deleted_at IS NULL AND city = ?
+       WHERE deleted_at IS NULL AND es_prueba = 0 AND city = ?
          AND (status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))`
     )
     .get(city).n;
@@ -465,7 +478,7 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
     .prepare(
       `SELECT d.name, COUNT(*) AS rides
        FROM rides r JOIN drivers d ON d.id = r.driver_id
-       WHERE r.status = 'completado' AND date(r.updated_at) >= date('now', '-6 days') AND r.city = ?
+       WHERE r.status = 'completado' AND date(r.updated_at) >= date('now', '-6 days') AND r.city = ? AND ${REAL_RIDE}
        GROUP BY r.driver_id
        ORDER BY rides DESC
        LIMIT 5`
@@ -473,9 +486,9 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
     .all(city);
   const ratings = db
     .prepare(
-      `SELECT COUNT(*) AS total, SUM(rating) AS good
-       FROM rides
-       WHERE rating IS NOT NULL AND date(updated_at) >= date('now', '-6 days') AND city = ?`
+      `SELECT COUNT(*) AS total, SUM(r.rating) AS good
+       FROM rides r
+       WHERE r.rating IS NOT NULL AND date(r.updated_at) >= date('now', '-6 days') AND r.city = ? AND ${REAL_RIDE}`
     )
     .get(city);
   const satisfactionPct = ratings.total > 0 ? Math.round((ratings.good / ratings.total) * 100) : null;
@@ -483,21 +496,21 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
     .prepare(
       `SELECT COALESCE(SUM(p.amount), 0) AS total FROM driver_payments p
        JOIN drivers d ON d.id = p.driver_id
-       WHERE date(p.paid_at) >= date('now', '-6 days') AND d.city = ?`
+       WHERE date(p.paid_at) >= date('now', '-6 days') AND d.city = ? AND d.es_prueba = 0`
     )
     .get(city).total;
   const collectedMonth = db
     .prepare(
       `SELECT COALESCE(SUM(p.amount), 0) AS total FROM driver_payments p
        JOIN drivers d ON d.id = p.driver_id
-       WHERE date(p.paid_at) >= date('now', '-29 days') AND d.city = ?`
+       WHERE date(p.paid_at) >= date('now', '-29 days') AND d.city = ? AND d.es_prueba = 0`
     )
     .get(city).total;
   const launchRanking = db
     .prepare(
       `SELECT d.id, d.name, COUNT(*) AS rides
        FROM rides r JOIN drivers d ON d.id = r.driver_id
-       WHERE r.status = 'completado' AND date(r.updated_at) >= date(?) AND (r.rating IS NULL OR r.rating = 1) AND r.city = ?
+       WHERE r.status = 'completado' AND date(r.updated_at) >= date(?) AND (r.rating IS NULL OR r.rating = 1) AND r.city = ? AND ${REAL_RIDE}
        GROUP BY r.driver_id
        ORDER BY rides DESC
        LIMIT 5`
