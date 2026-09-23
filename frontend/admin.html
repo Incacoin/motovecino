@@ -1011,6 +1011,25 @@ async function resetDriverPin(id) {
   loadDrivers();
 }
 
+// Una cuenta de prueba no ocupa lugar de "chofer fundador" ni entra al ranking de
+// Top chofer: al marcarla, su
+// lugar pasa al siguiente chofer real (lo recalcula el servidor).
+async function toggleTestAccount(id) {
+  const driver = driversCache.find((d) => d.id === id);
+  const esPrueba = !driver.es_prueba;
+  const res = await fetch(API + `/api/admin/drivers/${id}/test-account`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin, esPrueba }),
+  });
+  if (!res.ok) {
+    showToast((await res.json()).error || "No se pudo actualizar");
+    return;
+  }
+  showToast(esPrueba ? `${driver.name}: cuenta de prueba, ya no cuenta para fundador ni ranking` : `${driver.name}: cuenta real otra vez`);
+  loadDrivers();
+}
+
 function vehicleTypeBadge(vehicleType) {
   const t = vehicleType === "taxi" ? "taxi" : "moto";
   return t === "taxi" ? `<span class="badge-tipo formal">🚕 Taxi</span>` : `<span class="badge-tipo informal">🛵 Mototaxi</span>`;
@@ -1131,6 +1150,8 @@ function renderDriverRows() {
       : "";
     const founderTag = d.es_fundador
       ? ` <span title="Chofer fundador" style="font-size:11px;">🏅</span>`
+      : d.es_prueba
+      ? ` <span title="Cuenta de prueba: no cuenta para fundador ni para el ranking" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>`
       : "";
     const nameWithReferral = d.referred_by
       ? `<span>${escapeHtml(d.name)}${founderTag}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${escapeHtml(d.referred_by)}</div>`
@@ -1166,6 +1187,7 @@ function renderDriverRows() {
         <button class="btn-sm wa" onclick="sendWhatsappFor(${d.id})">WhatsApp</button>
         <button class="btn-sm" onclick="startEdit(${d.id})">Editar</button>
         <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
+        <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "🧪 Quitar prueba" : "🧪 Es prueba"}</button>
         <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
       </td>
     </tr>`;

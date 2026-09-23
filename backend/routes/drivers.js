@@ -51,6 +51,7 @@ router.get("/drivers/available", (req, res) => {
 // pero solo entre los que además tienen buena calificación — así no gana
 // solo por volumen alguien con mala fama. Requiere mínimo de viajes y de
 // calificaciones recibidas para no premiar una racha de suerte con 1-2 viajes.
+// Las cuentas de prueba (es_prueba, se marcan en el admin) no entran.
 router.get("/drivers/ranking", (req, res) => {
   const rows = db
     .prepare(
@@ -60,7 +61,7 @@ router.get("/drivers/ranking", (req, res) => {
               SUM(CASE WHEN r.rating IS NOT NULL THEN 1 ELSE 0 END) AS ratedCount
        FROM drivers d
        JOIN rides r ON r.driver_id = d.id AND r.status = 'completado' AND date(r.updated_at) >= date('now', '-30 days')
-       WHERE d.deleted_at IS NULL
+       WHERE d.deleted_at IS NULL AND d.es_prueba = 0
        GROUP BY d.id
        HAVING trips >= 5 AND ratedCount >= 3 AND (thumbsUp * 1.0 / ratedCount) >= 0.8
        ORDER BY trips DESC, (thumbsUp * 1.0 / ratedCount) DESC
