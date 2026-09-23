@@ -1255,7 +1255,7 @@ function connectWs() {
     if (type === "ride_accepted") onDriverAssigned(payload);
     if (type === "driver_location") onDriverLocation(payload);
     if (type === "status_change" && payload.status === "llegue") onDriverArrived();
-    if (type === "status_change" && payload.status === "en_curso") onTripStarted();
+    if (type === "status_change" && payload.status === "en_curso") onTripStarted(payload.agreedPrice);
     if (type === "status_change" && payload.status === "completado") onCompleted();
     if (type === "status_change" && payload.status === "cancelado") onCancelledByDriver();
     if (type === "driver_disconnected") onDriverDisconnected();
@@ -1309,7 +1309,8 @@ async function onDriverAssigned(driver) {
         ${driver.grupo ? `<div class="meta">Agrupación: ${escapeHtml(driver.grupo)}</div>` : ""}
         <div class="meta">Tel: ${driver.phone}</div>
       </div>
-    </div>`;
+    </div>
+    <div id="agreedPriceBox"></div>`;
   if (driver.lat) {
     driverPos = { lat: driver.lat, lng: driver.lng };
     driverMarker = L.marker([driver.lat, driver.lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
@@ -1324,10 +1325,18 @@ function onDriverArrived() {
   updateRouteLine();
 }
 
-function onTripStarted() {
+function onTripStarted(agreedPrice) {
   currentRideStatus = "en_curso";
   document.getElementById("statusText").textContent = `En camino a tu destino ${serviceType === "taxi" ? "🚕" : "🛵"}`;
   updateRouteLine();
+  const box = document.getElementById("agreedPriceBox");
+  if (box && agreedPrice > 0) {
+    box.innerHTML = `
+      <div style="margin-top:10px;padding:12px;background:rgba(246,166,35,0.08);border:1px solid rgba(246,166,35,0.35);border-radius:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--accent);">Precio acordado</div>
+        <div style="font-size:22px;font-weight:800;">$${agreedPrice} <span style="font-size:12px;font-weight:500;color:var(--text-dim);">MXN</span></div>
+      </div>`;
+  }
 }
 
 function appendChatMessage(text, who) {
@@ -2078,9 +2087,9 @@ async function restoreActiveRide() {
   updateEmergencyBtn();
 
   if (fetched.driver) {
-    onDriverAssigned(fetched.driver);
+    await onDriverAssigned(fetched.driver);
     if (fetched.status === "llegue") onDriverArrived();
-    if (fetched.status === "en_curso") onTripStarted();
+    if (fetched.status === "en_curso") onTripStarted(fetched.agreed_price);
   }
 
   connectWs();
