@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
+const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const { photoUrls, cleanThumb } = require("../photos");
 
 const router = express.Router();
@@ -19,8 +19,14 @@ function generateRiderPin() {
 // escribe cualquier teléfono": una vez que un número tiene PIN, hace falta
 // para volver a usarlo.
 router.post("/riders/register", (req, res) => {
+  // A diferencia de las demás rutas de este archivo, esta es pública (nadie
+  // ha probado PIN todavía) — sin este límite, un script podía crear cuentas
+  // sin parar. Mismo contador que ya usa /chofer-solicitudes.
+  if (isSubmissionRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
   const { name, phone } = req.body;
-  if (!name || !phone || phone.length !== 10) {
+  if (typeof name !== "string" || typeof phone !== "string" || !name.trim() || phone.length !== 10) {
     return res.status(400).json({ error: "Falta nombre o teléfono válido" });
   }
 
@@ -31,6 +37,8 @@ router.post("/riders/register", (req, res) => {
   }
 
   const pin = generateRiderPin();
+
+  recordSubmission(req.ip);
 
   if (existing) {
     // Rider de antes de que existiera el PIN (dato viejo) — se lo asignamos

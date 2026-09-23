@@ -102,6 +102,18 @@ app.use("/api", rideRoutes);
 app.use("/api", adminRoutes);
 app.use("/api", photoRoutes);
 
+// Última red de seguridad: si algo revienta sin que la ruta lo haya
+// atrapado (un tipo de dato inesperado, un error de SQLite, etc.), esto
+// evita que Express regrese su página de error por defecto — que en modo
+// desarrollo manda la ruta completa del archivo y el stack trace. Hoy
+// Render pone NODE_ENV=production y por eso ya sale genérico, pero eso es
+// un comportamiento de la plataforma, no algo que garantice el código; esto
+// lo deja garantizado pase lo que pase.
+app.use((err, req, res, next) => {
+  console.error("[error]", err);
+  res.status(500).json({ error: "Algo salió mal, intenta de nuevo" });
+});
+
 startBackupSchedule(6);
 startRetentionSchedule();
 
