@@ -217,7 +217,7 @@ router.post("/rides/active", (req, res) => {
 
 router.post("/rides/:id/accept", (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId, pin } = req.body;
+  const { driverId, pin, agreedPrice } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
@@ -241,11 +241,21 @@ router.post("/rides/:id/accept", (req, res) => {
     return res.status(409).json({ error: "Ya tienes otro viaje activo" });
   }
 
+  // El taxi captura el precio acordado AQUÍ, al aceptar — no hasta que llega
+  // a recoger. Así el pasajero ve el precio desde que el chofer se
+  // compromete, en vez de quedarse esperando a un chofer específico sin
+  // saber si el precio le va a convenir. El chofer debe negociarlo por el
+  // chat (botón "Mensaje" en la solicitud) ANTES de aceptar.
+  const pendingRide = db.prepare("SELECT ride_type FROM rides WHERE id = ?").get(rideId);
+  if (pendingRide?.ride_type === "taxi" && !(Number(agreedPrice) > 0)) {
+    return res.status(400).json({ error: "Captura el precio que acordaste con el pasajero" });
+  }
+
   const result = db
     .prepare(
-      "UPDATE rides SET driver_id = ?, status = 'aceptado', updated_at = datetime('now') WHERE id = ? AND status = 'buscando'"
+      "UPDATE rides SET driver_id = ?, status = 'aceptado', agreed_price = ?, updated_at = datetime('now') WHERE id = ? AND status = 'buscando'"
     )
-    .run(driverId, rideId);
+    .run(driverId, pendingRide?.ride_type === "taxi" ? Number(agreedPrice) : null, rideId);
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "El viaje ya fue tomado" });
@@ -261,7 +271,7 @@ router.post("/rides/:id/accept", (req, res) => {
   Object.assign(ride, riderInfoFor(ride.rider_phone));
   const driver = driverForRide(driverId);
 
-  realtime.notifyRide(rideId, "ride_accepted", driver);
+  realtime.notifyRide(rideId, "ride_accepted", { ...driver, agreedPrice: ride.agreed_price });
   realtime.broadcastRideTaken(rideId, driverId);
   res.json(ride);
 });
@@ -295,7 +305,7 @@ router.post("/rides/:id/arrived", (req, res) => {
 
 router.post("/rides/:id/start", (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId, pin, agreedPrice } = req.body;
+  const { driverId, pin } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
@@ -306,26 +316,19 @@ router.post("/rides/:id/start", (req, res) => {
   }
   clearAttempts(req.ip);
 
-  const ride = db.prepare("SELECT ride_type FROM rides WHERE id = ?").get(rideId);
-  // El taxi captura el precio acordado AQUÍ, al arrancar, no hasta el final
-  // — así queda registrado desde el momento en que de verdad se negoció
-  // (y visible para el pasajero desde ahí), en vez de que el chofer lo
-  // escriba de memoria hasta que ya terminó el viaje.
-  if (ride?.ride_type === "taxi" && !(Number(agreedPrice) > 0)) {
-    return res.status(400).json({ error: "Falta el precio acordado con el pasajero" });
-  }
-
+  // El precio del taxi ya se capturó al aceptar (ver /accept) — aquí solo
+  // se cambia el estado, sin tocar agreed_price.
   const result = db
     .prepare(
-      "UPDATE rides SET status = 'en_curso', agreed_price = ?, updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'llegue'"
+      "UPDATE rides SET status = 'en_curso', updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'llegue'"
     )
-    .run(ride?.ride_type === "taxi" ? Number(agreedPrice) : null, rideId, driverId);
+    .run(rideId, driverId);
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "No se pudo actualizar el viaje" });
   }
 
-  realtime.notifyRide(rideId, "status_change", { status: "en_curso", agreedPrice: ride?.ride_type === "taxi" ? Number(agreedPrice) : null });
+  realtime.notifyRide(rideId, "status_change", { status: "en_curso" });
   res.json({ ok: true });
 });
 
@@ -343,7 +346,7 @@ router.post("/rides/:id/complete", (req, res) => {
   clearAttempts(req.ip);
 
   const ride = db.prepare("SELECT ride_type, agreed_price FROM rides WHERE id = ?").get(rideId);
-  // El precio del taxi ya se capturó al arrancar (ver /start) — aquí solo se
+  // El precio del taxi ya se capturó al aceptar (ver /accept) — aquí solo se
   // vuelve a pedir si por alguna razón no quedó guardado entonces (viajes
   // viejos, o un reintento). Si el chofer manda uno nuevo aquí, se respeta
   // (algo pudo cambiar de verdad a medio viaje), pero ya no es obligatorio

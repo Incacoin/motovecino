@@ -976,11 +976,8 @@ function renderRideList() {
           <div class="ride-chips"><span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"}</span></div>
           ${destLine}
           ${fareLine}
-          ${currentRide.ride_type === "taxi"
-            ? `<div style="margin:8px 0;">
-                 <label style="display:block;font-size:13px;color:var(--text-dim);margin-bottom:4px;">¿Cuánto acordaste con el pasajero? (lo va a ver en su pantalla)</label>
-                 <input type="number" id="startPriceInput" inputmode="decimal" min="1" placeholder="Ej. 350" style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;">
-               </div>`
+          ${currentRide.ride_type === "taxi" && currentRide.agreed_price
+            ? `<div class="ride-chips"><span class="chip">💰 Precio acordado: $${currentRide.agreed_price}</span></div>`
             : ""}
           <button class="btn" onclick="startTrip()">Iniciar viaje</button>
           <button class="btn-danger" onclick="cancelCurrentRide()">Cancelar viaje</button>
@@ -1043,7 +1040,12 @@ function renderRideList() {
         <div style="display:flex;gap:6px;margin-bottom:6px;">
           <button class="btn-sm wa" style="flex:1;" onclick="openMessageOverlay(${r.id})">💬 Mensaje</button>
         </div>
-        <button class="btn" onclick="acceptRide(${r.id})">${acceptLabel}</button>
+        ${r.ride_type === "taxi"
+          ? `<div style="margin-bottom:6px;">
+               <input type="number" id="taxiPriceInput-${r.id}" inputmode="decimal" min="1" placeholder="Precio que YA acordaste con el pasajero" style="width:100%;box-sizing:border-box;padding:9px;font-size:15px;">
+             </div>`
+          : ""}
+        <button class="btn" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : acceptLabel}</button>
       </div>`;
   }).join("");
   const moreCount = allPending.length - rides.length;
@@ -1145,10 +1147,20 @@ async function updateRouteLine() {
 }
 
 async function acceptRide(id) {
+  const ride = pendingRides[id];
+  let agreedPrice;
+  if (ride && ride.ride_type === "taxi") {
+    const input = document.getElementById(`taxiPriceInput-${id}`);
+    agreedPrice = Number(input && input.value);
+    if (!(agreedPrice > 0)) {
+      showToast("Captura el precio que acordaste con el pasajero antes de aceptar");
+      return;
+    }
+  }
   const res = await fetch(API + `/api/rides/${id}/accept`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, agreedPrice }),
   });
   if (!res.ok) {
     removePendingRide(id);
@@ -1325,26 +1337,16 @@ async function arriveAtPickup() {
 }
 
 async function startTrip() {
-  let agreedPrice;
-  if (currentRide.ride_type === "taxi") {
-    const input = document.getElementById("startPriceInput");
-    agreedPrice = Number(input && input.value);
-    if (!(agreedPrice > 0)) {
-      showToast("Captura el precio acordado antes de arrancar");
-      return;
-    }
-  }
   const res = await fetch(API + `/api/rides/${currentRide.id}/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, agreedPrice }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo actualizar");
     return;
   }
   currentRide.status = "en_curso";
-  currentRide.agreed_price = agreedPrice ?? null;
   updateRouteLine();
   renderRideList();
 }

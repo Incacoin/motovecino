@@ -1252,10 +1252,10 @@ function connectWs() {
   };
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
-    if (type === "ride_accepted") onDriverAssigned(payload);
+    if (type === "ride_accepted") onDriverAssigned(payload, payload.agreedPrice);
     if (type === "driver_location") onDriverLocation(payload);
     if (type === "status_change" && payload.status === "llegue") onDriverArrived();
-    if (type === "status_change" && payload.status === "en_curso") onTripStarted(payload.agreedPrice);
+    if (type === "status_change" && payload.status === "en_curso") onTripStarted();
     if (type === "status_change" && payload.status === "completado") onCompleted();
     if (type === "status_change" && payload.status === "cancelado") onCancelledByDriver();
     if (type === "driver_disconnected") onDriverDisconnected();
@@ -1278,7 +1278,7 @@ function connectWs() {
 
 const RANK_EMOJI = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
-async function onDriverAssigned(driver) {
+async function onDriverAssigned(driver, agreedPrice) {
   stopStatusAvailableDriversPolling();
   currentRideStatus = "aceptado";
   document.getElementById("statusText").textContent = "¡Chofer en camino!";
@@ -1311,6 +1311,7 @@ async function onDriverAssigned(driver) {
       </div>
     </div>
     <div id="agreedPriceBox"></div>`;
+  renderAgreedPrice(agreedPrice);
   if (driver.lat) {
     driverPos = { lat: driver.lat, lng: driver.lng };
     driverMarker = L.marker([driver.lat, driver.lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
@@ -1325,10 +1326,17 @@ function onDriverArrived() {
   updateRouteLine();
 }
 
-function onTripStarted(agreedPrice) {
+function onTripStarted() {
   currentRideStatus = "en_curso";
   document.getElementById("statusText").textContent = `En camino a tu destino ${serviceType === "taxi" ? "🚕" : "🛵"}`;
   updateRouteLine();
+}
+
+// El precio del taxi ya se sabe desde que el chofer acepta (ver
+// onDriverAssigned) — antes se mostraba hasta que arrancaba el viaje, pero
+// para entonces el pasajero ya estaba esperando a ese chofer sin saber si
+// el precio le convenía.
+function renderAgreedPrice(agreedPrice) {
   const box = document.getElementById("agreedPriceBox");
   if (box && agreedPrice > 0) {
     box.innerHTML = `
@@ -2087,9 +2095,9 @@ async function restoreActiveRide() {
   updateEmergencyBtn();
 
   if (fetched.driver) {
-    await onDriverAssigned(fetched.driver);
+    await onDriverAssigned(fetched.driver, fetched.agreed_price);
     if (fetched.status === "llegue") onDriverArrived();
-    if (fetched.status === "en_curso") onTripStarted(fetched.agreed_price);
+    if (fetched.status === "en_curso") onTripStarted();
   }
 
   connectWs();
