@@ -157,7 +157,9 @@
   <div id="comingSoonScreen" class="card">
     <div class="big">🗺️</div>
     <h2>¡Pronto en más municipios de Yucatán!</h2>
-    <p>Todavía no llegamos a tu zona, pero MotoVecino sigue creciendo por el estado. Síguenos en redes para enterarte en cuanto abramos cerca de ti.</p>
+    <p>Por ahora solo registramos choferes de Tekax. MotoVecino sigue creciendo por el estado.</p>
+    <p><strong>¿Eres chofer de Akil u otro pueblo cercano?</strong> Escríbenos y te avisamos en cuanto lleguemos a tu pueblo.</p>
+    <a class="btn" id="interestWaBtn" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none;">💬 Escribir por WhatsApp</a>
   </div>
 
   <p class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong></p>
@@ -227,7 +229,15 @@ function applyCityFromDetection(city, label) {
 // cerca, así que no le ofrecemos "elegir" Tekax: mejor un mensaje honesto de
 // "aún no" con marca Yucatán, en vez de uno de Tekax que el backend igual
 // va a rechazar al enviar el formulario.
+// Número de soporte de MotoVecino (mismo que chofer.html / pasajero.html).
+const SOPORTE_WHATSAPP_NUMBER = "9979739422";
+
 function showComingSoon() {
+  // Cada chofer de otro pueblo que escribe aquí es una señal real de demanda
+  // para decidir a qué pueblo abrir después (p. ej. Akil).
+  const text = "Hola, soy chofer y me interesa MotoVecino. Soy del pueblo de: ";
+  document.getElementById("interestWaBtn").href =
+    `https://api.whatsapp.com/send?phone=52${SOPORTE_WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`;
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));
   document.title = "MotoVecino Yucatán — Quiero ser chofer";
   document.getElementById("formScreen").style.display = "none";

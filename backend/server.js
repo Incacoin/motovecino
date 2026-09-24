@@ -16,7 +16,7 @@ const { router: photoRoutes } = require("./photos");
 const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
-const { CITIES, resolveCity, isWithinServiceRadius } = require("./cities");
+const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID } = require("./cities");
 
 const app = express();
 app.disable("x-powered-by");
@@ -93,7 +93,17 @@ app.get("/api/cities/resolve", (req, res) => {
   // lo usa para no anunciar una ciudad a la que luego el backend le va a
   // negar el registro o el viaje.
   const inService = city ? isWithinServiceRadius(city.id, lat, lng) : false;
-  res.json(city ? { city: city.id, label: city.label, inService } : { city: null, label: null, inService: false });
+  // zone: qué se puede pedir en este punto, con la misma regla que POST
+  // /rides (sin pueblo cercano cae en DEFAULT_CITY_ID): "in" = mototaxi y
+  // taxi, "taxi" = solo taxi (comisarías, pueblos vecinos), "out" = nada.
+  const zoneCityId = city ? city.id : DEFAULT_CITY_ID;
+  const zone = isWithinServiceRadius(zoneCityId, lat, lng, "moto")
+    ? "in"
+    : isWithinServiceRadius(zoneCityId, lat, lng, "taxi") ? "taxi" : "out";
+  const zoneLabel = getCityById(zoneCityId)?.label || null;
+  res.json(city
+    ? { city: city.id, label: city.label, inService, zone, zoneLabel }
+    : { city: null, label: null, inService: false, zone, zoneLabel });
 });
 
 app.use("/api", driverRoutes);

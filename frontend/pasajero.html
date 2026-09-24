@@ -110,6 +110,10 @@
   .segmented { display: flex; gap: 4px; padding: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; }
   .service-tab { flex: 1; padding: 9px 8px; font-size: 13px; border-radius: 999px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; transition: background 0.18s ease, color 0.18s ease; }
   .service-tab.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; box-shadow: 0 4px 10px -4px rgba(246, 166, 35, 0.5); }
+  .service-tab.unavailable { opacity: 0.45; }
+  .service-tab small { display: block; font-size: 10.5px; font-weight: 600; margin-top: 1px; }
+  #zoneNotice { display: none; font-size: 13px; line-height: 1.35; padding: 10px 12px; border-radius: 12px; background: rgba(246,166,35,0.12); border: 1px solid rgba(246,166,35,0.45); color: var(--text); }
+  #zoneNotice.out { background: rgba(229,72,77,0.10); border-color: rgba(229,72,77,0.4); }
   #referenceInput { width: 100%; }
   .stepper { display: flex; align-items: center; gap: 12px; }
   .stepper .btn-sm { width: 34px; height: 34px; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
@@ -397,6 +401,7 @@
   <div id="pickHint">Toca el mapa para marcar dónde te recogemos</div>
   <div id="pickBar">
     <div class="sheet-handle"></div>
+    <div id="zoneNotice"></div>
     <div class="segmented" id="serviceTypeRow">
       <button class="service-tab active" id="tabMoto" onclick="setServiceType('moto')">🛵 Mototaxi</button>
       <button class="service-tab" id="tabTaxi" onclick="setServiceType('taxi')">🚕 Taxi</button>
@@ -623,8 +628,12 @@ function initCityBrand(attempt) {
       fetch(API + `/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
         .then((data) => {
-          applyCityLabel(data.label);
+          // Dentro del pueblo: "MotoVecino Tekax". En un pueblo vecino o más
+          // lejos: "MotoVecino Yucatán" — no ponerle a Akil el nombre de Tekax.
+          applyCityLabel(data.zone === "in" ? data.label : "Yucatán");
           if (data.city) { resolvedCityId = data.city; updateFareEstimate(); }
+          // Mientras no marque recogida, el aviso se basa en dónde está el celular.
+          if (!pickup) applyZone(data.zone, data.zoneLabel);
         })
         .catch(() => {});
     },
@@ -879,6 +888,12 @@ function updateFareEstimate() {
   const btn = document.getElementById("requestBtn");
   const baseLabel = serviceType === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
   document.getElementById("taxiOfferBox").style.display = "none";
+  if (serviceZone === "out" && pickup) {
+    el.textContent = "";
+    btn.textContent = baseLabel;
+    btn.disabled = true;
+    return;
+  }
   if (serviceType === "taxi") { updateTaxiOfferUi(); return; }
   btn.disabled = !pickup;
   if (!pickup) { el.textContent = ""; btn.textContent = baseLabel; return; }
@@ -897,7 +912,57 @@ function updateFareEstimate() {
   btn.textContent = `${baseLabel} · $${total} MXN`;
 }
 
+// --- Zona de servicio ---
+// Lo que decide es el punto de RECOGIDA (no dónde está el celular): desde
+// Akil se le puede pedir un mototaxi a alguien dentro de Tekax.
+let serviceZone = "in";
+let zoneCheckSeq = 0;
+// true si la app cambió sola a Taxi por estar fuera de zona (no lo eligió él).
+let zoneForcedTaxi = false;
+
+function applyZone(zone, zoneLabel) {
+  serviceZone = zone || "in";
+  const notice = document.getElementById("zoneNotice");
+  const tabMoto = document.getElementById("tabMoto");
+  const town = zoneLabel || "Tekax";
+  notice.classList.toggle("out", serviceZone === "out");
+  if (serviceZone === "in") {
+    notice.style.display = "none";
+    tabMoto.classList.remove("unavailable");
+    tabMoto.innerHTML = "🛵 Mototaxi";
+    if (zoneForcedTaxi) { zoneForcedTaxi = false; setServiceType("moto"); }
+  } else if (serviceZone === "taxi") {
+    notice.innerHTML = `📍 <strong>Estás fuera de la zona de mototaxi de ${escapeHtml(town)}.</strong> Desde aquí puedes pedir 🚕 <strong>Taxi</strong>.`;
+    notice.style.display = "block";
+    tabMoto.classList.add("unavailable");
+    tabMoto.innerHTML = `🛵 Mototaxi<small>Solo dentro de ${escapeHtml(town)}</small>`;
+    if (serviceType !== "taxi") { zoneForcedTaxi = true; setServiceType("taxi"); }
+  } else {
+    notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más pueblos de Yucatán!";
+    if (pickup) document.getElementById("pickHint").textContent = "Todavía no llegamos a este punto";
+    notice.style.display = "block";
+    tabMoto.classList.add("unavailable");
+    tabMoto.innerHTML = "🛵 Mototaxi";
+  }
+  updateFareEstimate();
+}
+
+function checkPickupZone() {
+  if (!pickup) return;
+  const seq = ++zoneCheckSeq;
+  fetch(API + `/api/cities/resolve?lat=${pickup.lat}&lng=${pickup.lng}`)
+    .then((r) => r.json())
+    .then((data) => { if (seq === zoneCheckSeq && pickup) applyZone(data.zone, data.zoneLabel); })
+    .catch(() => {});
+}
+
 function setServiceType(type) {
+  if (type === "moto" && serviceZone !== "in") {
+    showToast(serviceZone === "taxi"
+      ? "El mototaxi solo recoge dentro del pueblo. Desde aquí pide 🚕 Taxi."
+      : "MotoVecino todavía no llega a tu zona.");
+    return;
+  }
   if (serviceType === type) return;
   serviceType = type;
   document.getElementById("tabMoto").classList.toggle("active", type === "moto");
@@ -1230,6 +1295,8 @@ function removePickup() {
   if (pickupMarker) map.removeLayer(pickupMarker);
   pickup = null;
   pickupMarker = null;
+  zoneCheckSeq++;
+  applyZone("in");
   document.getElementById("pickHint").textContent = "Toca el mapa para marcar dónde te recogemos";
   document.getElementById("requestBtn").disabled = true;
   updateFareEstimate();
@@ -1248,6 +1315,7 @@ function placePoint(latlng) {
     pickup = latlng;
     pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida"), { closeButton: false }).openPopup();
     document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
+    checkPickupZone();
   } else if (!dest) {
     dest = latlng;
     destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map).bindPopup(destPopupHtml(), { closeButton: false }).openPopup();
@@ -1268,6 +1336,7 @@ function useMyLocation() {
     document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
     document.getElementById("requestBtn").disabled = false;
     updateFareEstimate();
+    checkPickupZone();
   }, () => showLocationBanner());
 }
 
@@ -1275,6 +1344,8 @@ function resetPins() {
   if (pickupMarker) map.removeLayer(pickupMarker);
   if (destMarker) map.removeLayer(destMarker);
   pickup = null; dest = null; pickupMarker = null; destMarker = null;
+  zoneCheckSeq++;
+  applyZone("in");
   document.getElementById("pickHint").textContent = "Toca el mapa para marcar dónde te recogemos";
   document.getElementById("requestBtn").disabled = true;
   updateFareEstimate();
@@ -2129,6 +2200,7 @@ function useHomeLocation() {
   document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
   document.getElementById("requestBtn").disabled = false;
   updateFareEstimate();
+  checkPickupZone();
 }
 
 function togglePinVisibility() {
