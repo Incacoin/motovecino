@@ -6,13 +6,39 @@
 <title>MotoVecino Chofer</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#f6a623" />
+<meta name="theme-color" content="#000000" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="MotoVecino Chofer" />
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
+<script>
+// Tema del chofer: "auto" (claro de 6 am a 7 pm, oscuro de noche), "light" o
+// "dark". Va en el <head> para que la app abra ya con el color correcto.
+function driverThemeFor(pref) {
+  if (pref === "light" || pref === "dark") return pref;
+  const h = new Date().getHours();
+  return h >= 6 && h < 19 ? "light" : "dark";
+}
+function applyDriverTheme() {
+  let pref = "auto";
+  try { pref = localStorage.getItem("motovecino_tema_chofer") || "auto"; } catch {}
+  const theme = driverThemeFor(pref);
+  document.documentElement.dataset.theme = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "light" ? "#ffffff" : "#000000");
+  document.querySelectorAll(".theme-picker button").forEach((b) => b.classList.toggle("active", b.dataset.pref === pref));
+}
+applyDriverTheme();
+// En automático, cambia solo al amanecer/anochecer aunque la app siga abierta.
+setInterval(applyDriverTheme, 60000);
+function setDriverTheme(pref) {
+  try { localStorage.setItem("motovecino_tema_chofer", pref); } catch {}
+  applyDriverTheme();
+}
+</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -143,6 +169,167 @@
   .counter-row { display: flex; gap: 6px; }
   .counter-row .btn-sm { flex: 1; font-size: 15px; font-weight: 800; padding: 10px 0; }
   .my-offer { margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: rgba(43,179,171,0.12); border: 1px solid rgba(43,179,171,0.5); font-size: 14px; }
+
+  /* ================================================================
+     TEMA FORMAL OSCURO (tipo Uber Driver) — solo app del chofer, 2026-09-23.
+     Negro y blanco, letra Inter. Oscuro a propósito: de noche no deslumbra
+     manejando y gasta menos batería (la app va prendida todo el día).
+     Se quedan con color, porque significan algo: el verde de "Disponible" y
+     los colores que distinguen cada solicitud en el mapa.
+     Va al final para ganarle a style.css (compartido) y a lo de arriba.
+     ================================================================ */
+  :root {
+    --bg: #000000;
+    --bg-panel: #111111;
+    --bg-card: #1b1b1b;
+    --bg-card-hover: #262626;
+    --border: #2e2e2e;
+    --accent: #ffffff;
+    --accent-light: #ffffff;
+    --accent-dark: #ffffff;
+    --accent-ink: #000000;
+    --text: #ffffff;
+    --text-dim: #a8a8a8;
+    --text-faint: #707070;
+    --success: #22c55e;
+    --danger: #ff5a5f;
+    --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+  body { font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif; background: #000; color: #fff; letter-spacing: -0.005em; }
+
+  /* Botones: blanco sólido con letra negra, sin brillos */
+  .btn { background: #fff; color: #000; box-shadow: none; border-radius: 12px; font-weight: 700; letter-spacing: 0; }
+  .btn:hover { filter: none; opacity: 0.9; }
+  .btn:disabled { background: #2a2a2a; color: #777; opacity: 1; }
+  .btn-secondary { background: #262626; color: #fff; border: none; }
+  .btn-secondary:hover { background: #303030; }
+  .btn-sm { background: #1b1b1b; color: #fff; border: 1px solid #333; }
+  .btn-sm:hover { background: #262626; }
+  .btn-sm.wa { color: #fff; }
+  .btn-danger { background: transparent; border: 1px solid rgba(255, 90, 95, 0.45); border-radius: 12px; }
+  @keyframes pulseReady { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,.45); } 50% { box-shadow: 0 0 0 8px rgba(255,255,255,0); } }
+
+  /* Campos */
+  input, select { background: #1b1b1b; border: 1.5px solid #2e2e2e; color: #fff; }
+  input:focus, select:focus { border-color: #fff; box-shadow: none; }
+
+  /* Tarjetas y paneles */
+  .card { background: #141414; border: 1px solid #262626; box-shadow: none; }
+  #login { background: #000; }
+  .brand { color: #fff; letter-spacing: -0.03em; }
+  .brand .brand-icon { background: #1b1b1b; border: 1px solid #333; box-shadow: none; border-radius: 12px; }
+  #topbar { background: #000; border-bottom: 1px solid #1f1f1f; }
+  #panel { background: #0d0d0d; box-shadow: 0 -8px 24px rgba(0,0,0,0.6); }
+  .sheet-handle { background: #3a3a3a; }
+
+  /* Mapa gris claro (igual que el pasajero): se lee bien de día y los
+     marcadores resaltan. */
+  #map .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.02); }
+  .leaflet-control-zoom a { color: #000 !important; }
+
+  /* Solicitudes y viaje */
+  .ride-card.pending { border-left-color: #fff; }
+  .ride-card .meta.fare { color: #fff; }
+  .chip { background: #262626; border: none; color: #cfcfcf; }
+  .chip-accent { background: #fff; border: none; color: #000; }
+  .offer-in { background: #1b1b1b; border: 1px solid #333; }
+  .offer-in .amt { color: #fff; letter-spacing: -0.02em; }
+  .my-offer { background: #1b1b1b; border: 1px solid #333; border-left: 4px solid #fff; }
+  .chat-msg.me { background: #fff; color: #000; }
+  .chat-msg.them { background: #262626; color: #fff; }
+
+  /* Interruptor "Disponible": apagado gris, prendido verde (se queda el verde) */
+  #switch { background: #333; }
+  #switch.on { background: var(--success); box-shadow: none; }
+
+  /* Anticipo */
+  .deposit-box { background: #1b1b1b; border: 1px solid #333; }
+  .deposit-box.ok { background: rgba(34,197,94,0.10); border-color: rgba(34,197,94,0.45); }
+  .deposit-warn { color: #f5b544; }
+  .deposit-hint a { color: #fff; }
+
+  /* Perfil */
+  #profilePhoto { border: 2px solid #fff; }
+  #profileAvatarBtn .circle { background: #fff; border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+  #modePasajeroBtn .circle { border: 1.5px solid #fff; background: #1b1b1b; }
+  .stat { background: #1b1b1b; }
+  .prow .v.accent { color: #fff; }
+  .pin-box { color: #fff; }
+  .toast { background: #fff; color: #000; border: none; }
+  /* El aviso sale arriba, sobre el mapa: abajo tapaba "Ya me llegó" / "Ya llegué". */
+  .toast { top: calc(env(safe-area-inset-top, 0px) + 84px); bottom: auto; transform: translateX(-50%) translateY(-12px); box-shadow: 0 6px 20px rgba(0,0,0,0.35); font-weight: 600; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  /* Botones grises sueltos (motivos de cancelación, "No me ha llegado"): antes
+     no tenían forma propia y se veían como texto plano pegado a la orilla. */
+  .btn-secondary:not(.btn) { padding: 13px 16px; border-radius: 12px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .cancel-sheet { padding: 18px; }
+
+  /* ================================================================
+     MODO CLARO DEL CHOFER (automático de día, o si él lo elige en "Mi
+     perfil"). A pleno sol lo oscuro se lee peor; de noche, lo claro
+     deslumbra. html[data-theme] lo pone el script del <head>.
+     ================================================================ */
+  html[data-theme="light"] {
+    --bg: #ffffff; --bg-panel: #ffffff; --bg-card: #f6f6f6; --bg-card-hover: #eeeeee;
+    --border: #e2e2e2; --accent: #000000; --accent-light: #000000; --accent-dark: #000000;
+    --accent-ink: #ffffff; --text: #000000; --text-dim: #545454; --text-faint: #8a8a8a;
+    --success: #16a34a; --danger: #d32f2f;
+    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08); --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+  html[data-theme="light"] body { background: #fff; color: #000; }
+  html[data-theme="light"] .btn { background: #000; color: #fff; }
+  html[data-theme="light"] .btn:disabled { background: #e8e8e8; color: #9a9a9a; }
+  html[data-theme="light"] .btn-secondary { background: #eeeeee; color: #000; }
+  html[data-theme="light"] .btn-secondary:hover { background: #e4e4e4; }
+  html[data-theme="light"] .btn-sm { background: #fff; color: #000; border-color: #e2e2e2; }
+  html[data-theme="light"] .btn-sm:hover { background: #f3f3f3; }
+  html[data-theme="light"] .btn-sm.wa { color: #fff; }
+  html[data-theme="light"] .btn-danger { border-color: rgba(211, 47, 47, 0.4); }
+  html[data-theme="light"] input, html[data-theme="light"] select { background: #f3f3f3; border-color: transparent; color: #000; }
+  html[data-theme="light"] input:focus, html[data-theme="light"] select:focus { border-color: #000; background: #fff; }
+  html[data-theme="light"] .card { background: #fff; border-color: #e2e2e2; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  html[data-theme="light"] #login { background: #fff; }
+  html[data-theme="light"] .brand { color: #000; }
+  html[data-theme="light"] .brand .brand-icon { background: #000; border: none; }
+  html[data-theme="light"] #topbar { background: #fff; border-bottom-color: #e2e2e2; }
+  html[data-theme="light"] #panel { background: #fff; box-shadow: 0 -6px 24px rgba(0,0,0,0.12); }
+  html[data-theme="light"] .sheet-handle { background: #d6d6d6; }
+  html[data-theme="light"] .ride-card.pending { border-left-color: #000; }
+  html[data-theme="light"] .ride-card .meta.fare { color: #000; }
+  html[data-theme="light"] .chip { background: #f3f3f3; color: #333; }
+  html[data-theme="light"] .chip-accent { background: #000; color: #fff; }
+  html[data-theme="light"] .offer-in { background: #f6f6f6; border-color: #e2e2e2; }
+  html[data-theme="light"] .offer-in .amt { color: #000; }
+  html[data-theme="light"] .my-offer { background: #f6f6f6; border-color: #e2e2e2; border-left-color: #000; }
+  html[data-theme="light"] .chat-msg.me { background: #000; color: #fff; }
+  html[data-theme="light"] .chat-msg.them { background: #f3f3f3; color: #000; }
+  html[data-theme="light"] #switch { background: #d6d6d6; }
+  /* Más específicos que las reglas generales de arriba: sin esto el interruptor
+     prendido se veía gris y el botón verde de Mensaje quedaba blanco. */
+  html[data-theme="light"] #switch.on { background: var(--success); }
+  html[data-theme="light"] .btn-sm.wa { background: #25d366; border-color: #25d366; color: #fff; }
+  html[data-theme="light"] [style*="rgba(255,255,255,0.04)"] { background: #f6f6f6 !important; }
+  html[data-theme="light"] .deposit-box { background: #f6f6f6; border-color: #e2e2e2; }
+  html[data-theme="light"] .deposit-box.ok { background: #eef7f1; border-color: #bfe3cc; }
+  html[data-theme="light"] .deposit-warn { color: #b45309; }
+  html[data-theme="light"] .deposit-hint a { color: #000; }
+  html[data-theme="light"] #profilePhoto { border-color: #000; }
+  html[data-theme="light"] #profileAvatarBtn .circle { background: #000; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+  html[data-theme="light"] #profileAvatarBtn svg { stroke: #fff; }
+  html[data-theme="light"] #modePasajeroBtn .circle { border-color: #000; background: #fff; }
+  html[data-theme="light"] .stat { background: #f6f6f6; }
+  html[data-theme="light"] .prow .v.accent, html[data-theme="light"] .pin-box { color: #000; }
+  html[data-theme="light"] .toast { background: #000; color: #fff; }
+  html[data-theme="light"] .profile-stars-row svg[fill="#ffffff"] { fill: #000; }
+  html[data-theme="light"] .profile-stars-row svg[stroke="#ffffff"] { stroke: #000; }
+  @keyframes pulseReadyDark { 0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,.35); } 50% { box-shadow: 0 0 0 8px rgba(0,0,0,0); } }
+  html[data-theme="light"] .btn.ready { animation-name: pulseReadyDark; }
+
+  /* Selector de apariencia en "Mi perfil" */
+  .theme-picker { display: flex; gap: 4px; padding: 4px; background: var(--bg-card-hover); border-radius: 999px; }
+  .theme-picker button { flex: 1; padding: 9px 6px; border: none; border-radius: 999px; background: transparent; color: var(--text-dim); font: 600 13.5px Inter, sans-serif; cursor: pointer; }
+  .theme-picker button.active { background: var(--accent); color: var(--accent-ink); }
 </style>
 </head>
 <body>
@@ -260,6 +447,16 @@
         <div class="stat"><span class="icon">⭐</span><div class="n" id="statRating">–</div><div class="l">Calificación</div></div>
       </div>
       <div class="profile-note" id="ratingNote"></div>
+    </div>
+
+    <div class="card profile-card">
+      <div class="card-title">Apariencia</div>
+      <div class="theme-picker">
+        <button data-pref="auto" onclick="setDriverTheme('auto')">Automático</button>
+        <button data-pref="light" onclick="setDriverTheme('light')">Claro</button>
+        <button data-pref="dark" onclick="setDriverTheme('dark')">Oscuro</button>
+      </div>
+      <div class="profile-note">Automático: claro de día (6 am a 7 pm) para leer bien bajo el sol, y oscuro de noche para que no te deslumbre manejando.</div>
     </div>
 
     <div class="card menu-card">
@@ -547,10 +744,17 @@ function hideChat() {
   document.getElementById("chatBox").style.display = "none";
 }
 
+// Tema formal: en el viaje activo la recogida (1) va en negro y el destino (2)
+// en blanco con borde negro. Las solicitudes pendientes conservan su color
+// (sirven para distinguir un pasajero de otro).
 function numberedIcon(num, color) {
+  const formal = color === "#f6a623" || color === "#3498db";
+  const bg = !formal ? color : num === 1 ? "#000" : "#fff";
+  const fg = !formal ? "#14161c" : num === 1 ? "#fff" : "#000";
+  const border = !formal ? "#fff" : num === 1 ? "#fff" : "#000";
   return L.divIcon({
     className: "",
-    html: `<div style="background:${color};width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff;"><span style="transform:rotate(45deg);font-weight:800;font-size:13px;color:#14161c;">${num}</span></div>`,
+    html: `<div style="background:${bg};width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.35);border:2px solid ${border};"><span style="transform:rotate(45deg);font-weight:800;font-size:13px;color:${fg};">${num}</span></div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 28],
   });
@@ -559,18 +763,18 @@ function numberedIcon(num, color) {
 function motoIcon() {
   return L.divIcon({
     className: "",
-    html: `<div style="background:#14161c;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #f6a623;font-size:17px;">🛵</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🛵</div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
   });
 }
 
 function taxiIcon() {
   return L.divIcon({
     className: "",
-    html: `<div style="background:#14161c;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #f6a623;font-size:17px;">🚕</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🚕</div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
   });
 }
 
@@ -1246,7 +1450,7 @@ async function updateRouteLine() {
   if (!currentRide || !myPos) return;
 
   let target = null;
-  let color = "#f6a623";
+  let color = "#000000";
   if (currentRide.status === "aceptado") {
     target = { lat: currentRide.pickup_lat, lng: currentRide.pickup_lng };
   } else if (currentRide.status === "en_curso" && currentRide.dest_lat) {
@@ -1882,6 +2086,7 @@ function row(k, v, cls) {
 }
 
 async function openProfile() {
+  applyDriverTheme();
   document.getElementById("profileScreen").style.display = "block";
   document.getElementById("profilePhotoMsg").textContent = "";
   if (!driver || !driver.pin || !driver.phone) {
@@ -1938,8 +2143,8 @@ function renderProfile(p) {
     let starsHtml = "";
     for (let i = 0; i < 5; i++) {
       starsHtml += i < filled
-        ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="#f6a623"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>`
-        : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f6a623" stroke-width="1.6"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>`;
+        ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="#ffffff"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>`
+        : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.6"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>`;
     }
     document.getElementById("profileStars").innerHTML = starsHtml;
     document.getElementById("profileStarsNote").textContent =

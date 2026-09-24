@@ -6,13 +6,14 @@
 <title>MotoVecino</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#f6a623" />
+<meta name="theme-color" content="#ffffff" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="MotoVecino" />
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -220,6 +221,122 @@
   .dep-rules { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; display: flex; flex-direction: column; gap: 3px; text-align: left; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px; }
   .dep-rules strong { color: var(--text); }
   .dep-rules a { color: var(--accent); }
+
+  /* ================================================================
+     TEMA FORMAL (tipo Uber) — solo app del pasajero, 2026-09-23.
+     Claro, blanco y negro, letra Inter. Mismo estilo que la publicidad.
+     Va al final para ganarle a style.css (compartido con chofer/admin,
+     que siguen en su tema oscuro) y a los estilos de arriba.
+     ================================================================ */
+  :root {
+    --bg: #ffffff;
+    --bg-panel: #ffffff;
+    --bg-card: #f6f6f6;
+    --bg-card-hover: #eeeeee;
+    --border: #e2e2e2;
+    --accent: #000000;
+    --accent-light: #000000;
+    --accent-dark: #000000;
+    --accent-ink: #ffffff;
+    --text: #000000;
+    --text-dim: #545454;
+    --text-faint: #8a8a8a;
+    --success: #0e8345;
+    --danger: #d32f2f;
+    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+  body { font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif; background: #fff; color: #000; letter-spacing: -0.005em; }
+
+  /* Botones: negro sólido, sin brillos ni sombras de color */
+  .btn { background: #000; color: #fff; box-shadow: none; border-radius: 12px; font-weight: 700; letter-spacing: 0; }
+  .btn:hover { filter: none; opacity: 0.88; }
+  .btn:disabled { background: #e8e8e8; color: #9a9a9a; opacity: 1; }
+  .btn-secondary { background: #eeeeee; color: #000; border: none; }
+  .btn-secondary:hover { background: #e4e4e4; }
+  .btn-sm { background: #fff; color: #000; border: 1px solid #e2e2e2; }
+  .btn-sm:hover { background: #f3f3f3; }
+  .btn-sm.wa { color: #fff; }
+
+  /* Campos de texto */
+  input, select { background: #f3f3f3; border: 1.5px solid transparent; color: #000; }
+  input:focus, select:focus { border-color: #000; box-shadow: none; background: #fff; }
+  .input-icon-row { background: #f3f3f3; border: 1.5px solid transparent; }
+  .input-icon-row:focus-within { border-color: #000; box-shadow: none; background: #fff; }
+
+  /* Tarjetas */
+  .card { background: #fff; border: 1px solid #e2e2e2; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+
+  /* Portada / registro */
+  #form { background: #fff; }
+  .brand { color: #000; letter-spacing: -0.03em; }
+  .brand .brand-icon { background: #000; box-shadow: none; border-radius: 12px; }
+  .credit strong { color: #000; }
+
+  /* Mapa: gris y limpio, que no compita con los botones */
+  #map .leaflet-tile-pane, #statusMap .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.04); }
+  #accountBtn { background: #fff; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.22); }
+  #accountBtn svg { stroke: #000; }
+  #pickHint { background: #000; color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+  .leaflet-control-zoom a { color: #000 !important; }
+
+  /* Panel inferior para pedir */
+  #pickBar { background: #fff; box-shadow: 0 -6px 24px rgba(0,0,0,0.12); border-radius: 20px 20px 0 0; }
+  .sheet-handle { background: #d6d6d6; }
+  .segmented { background: #f3f3f3; border: none; }
+  .service-tab { color: #545454; font-weight: 600; }
+  .service-tab.active { background: #000; color: #fff; box-shadow: none; }
+  #zoneNotice { background: #f6f6f6; border: 1px solid #e2e2e2; border-left: 4px solid #000; color: #000; }
+  #zoneNotice.out { background: #fdf3f3; border-color: #f2d2d2; border-left-color: #d32f2f; }
+  .pax-card { background: #f6f6f6; border: none; }
+  .stepper .btn-sm { border-radius: 50%; }
+  #fareEstimate { color: #000; }
+  .offer-stepper .offer-value { color: #000; letter-spacing: -0.02em; }
+
+  /* Pantalla del viaje */
+  .status-header { background: #fff; border: 1px solid #e2e2e2; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .verified-badge { color: #000; }
+  .search-title .timer { color: #000; }
+  .progress-track { background: #eeeeee; }
+  .progress-fill { background: #000; }
+  .avatar { border-color: #fff; }
+  #statusMap { border: 1px solid #e2e2e2; }
+  .offer-card { border: 1px solid #e2e2e2; }
+  .offer-price { color: #000; letter-spacing: -0.02em; }
+  .driverPhoto { border: 2px solid #000; }
+  .driverPhotoFallback { background: #f3f3f3; }
+  .chip { background: #f3f3f3; border: none; color: #333; }
+  .chip-accent { background: #000; border: none; color: #fff; }
+  .agreed-box { margin-top: 10px; padding: 12px 14px; background: #f6f6f6; border-radius: 12px; }
+  .agreed-box .lbl { font-size: 12px; font-weight: 600; color: #545454; }
+  .agreed-box .amt { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+  .chat-msg.me { background: #000; color: #fff; }
+  .chat-msg.them { background: #f3f3f3; color: #000; }
+
+  /* Anticipo */
+  .dep-box { background: #f6f6f6; border: 1px solid #e2e2e2; }
+  .dep-box.ok { background: #eef7f1; border-color: #bfe3cc; }
+  .dep-account { background: #fff; border: 1px solid #e2e2e2; }
+  .dep-rules { border-top-color: #e2e2e2; }
+  .dep-rules a { color: #000; }
+
+  /* Cuenta, menú lateral y avisos */
+  #profilePhoto { border: 2px solid #000; }
+  .account-card { background: #f6f6f6; border: 1px solid transparent; }
+  .account-card.open { border-color: #000; }
+  .load-more-btn { color: #000; }
+  .badge-card .progress-note { color: #000; }
+  /* La sombra solo con el menú abierto: cerrado se asomaba en la orilla izquierda. */
+  .app-drawer { background: #fff; border-right: none; box-shadow: none; }
+  .app-drawer.open { border-right: 1px solid #e2e2e2; box-shadow: 4px 0 24px rgba(0,0,0,0.12); }
+  .drawer-overlay { background: rgba(0,0,0,0.4); }
+  .drawer-city { color: #545454; }
+  .drawer-row { color: #000; font-weight: 600; }
+  .drawer-row:hover { background: #f6f6f6; }
+  .locationBanner { background: #000; color: #fff; }
+  .toast { background: #000; color: #fff; border: none; }
+  .spinner { border-color: rgba(0,0,0,0.12); border-top-color: #000; }
+  #photoLightbox img { border: 3px solid #fff; }
 </style>
 </head>
 <body>
@@ -699,7 +816,7 @@ async function updateRouteLine() {
   if (!driverPos || ["completado", "cancelado"].includes(currentRideStatus)) return;
 
   let target = null;
-  let color = "#f6a623";
+  let color = "#000000";
   if (currentRideStatus === "aceptado") {
     target = pickup;
   } else if (currentRideStatus === "en_curso" && dest) {
@@ -1009,10 +1126,15 @@ function setServiceCategory(category) {
   updateFareEstimate();
 }
 
+// Tema formal: la recogida (1) va en negro y el destino (2) en blanco con
+// borde negro — el color que manda cada llamada ya no se usa.
 function numberedIcon(num, color) {
+  const bg = num === 1 ? "#000" : "#fff";
+  const fg = num === 1 ? "#fff" : "#000";
+  const border = num === 1 ? "#fff" : "#000";
   return L.divIcon({
     className: "",
-    html: `<div style="background:${color};width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff;"><span style="transform:rotate(45deg);font-weight:800;font-size:13px;color:#14161c;">${num}</span></div>`,
+    html: `<div style="background:${bg};width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.35);border:2px solid ${border};"><span style="transform:rotate(45deg);font-weight:800;font-size:13px;color:${fg};">${num}</span></div>`,
     iconSize: [28, 28],
     iconAnchor: [14, 28],
   });
@@ -1021,18 +1143,18 @@ function numberedIcon(num, color) {
 function motoIcon() {
   return L.divIcon({
     className: "",
-    html: `<div style="background:#14161c;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #f6a623;font-size:17px;">🛵</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🛵</div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
   });
 }
 
 function taxiIcon() {
   return L.divIcon({
     className: "",
-    html: `<div style="background:#14161c;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #f6a623;font-size:17px;">🚕</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
+    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🚕</div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
   });
 }
 
@@ -1659,9 +1781,9 @@ function renderAgreedPrice(agreedPrice) {
   const box = document.getElementById("agreedPriceBox");
   if (box && agreedPrice > 0) {
     box.innerHTML = `
-      <div style="margin-top:10px;padding:12px;background:rgba(246,166,35,0.08);border:1px solid rgba(246,166,35,0.35);border-radius:12px;">
-        <div style="font-size:12px;font-weight:700;color:var(--accent);">Precio acordado</div>
-        <div style="font-size:22px;font-weight:800;">$${agreedPrice} <span style="font-size:12px;font-weight:500;color:var(--text-dim);">MXN</span></div>
+      <div class="agreed-box">
+        <div class="lbl">Precio acordado</div>
+        <div class="amt">$${agreedPrice} <span style="font-size:12px;font-weight:500;color:var(--text-dim);">MXN</span></div>
       </div>`;
   }
 }
