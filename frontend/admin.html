@@ -6,10 +6,12 @@
 <title>MotoVecinoTekax Admin</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%B5%3C/text%3E%3C/svg%3E" />
 <link rel="manifest" href="manifest-admin.json" />
-<meta name="theme-color" content="#f6a623" />
+<meta name="theme-color" content="#ffffff" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 <link rel="stylesheet" href="style.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <style>
   .screen { display: none; flex-direction: column; min-height: 100vh; }
   .screen.active { display: flex; }
@@ -122,6 +124,97 @@
   .pct-badge.alto { background: rgba(231, 76, 60, 0.15); color: var(--danger); }
   .pct-badge.medio { background: rgba(246, 166, 35, 0.15); color: var(--accent); }
   .pct-badge.bajo { background: rgba(255, 255, 255, 0.06); color: var(--text-dim); }
+
+  /* ================================================================
+     TEMA FORMAL (tipo Uber) — admin, 2026-09-24.
+     Claro, blanco y negro, letra Inter, igual que la app del pasajero.
+     Se quedan los colores que avisan algo: verde = activo/pagado,
+     rojo = bloqueado/vencido, ámbar = pendiente/en curso.
+     ================================================================ */
+  :root {
+    --bg: #ffffff;
+    --bg-panel: #ffffff;
+    --bg-card: #f6f6f6;
+    --bg-card-hover: #eeeeee;
+    --border: #e2e2e2;
+    --accent: #000000;
+    --accent-light: #000000;
+    --accent-dark: #000000;
+    --accent-ink: #ffffff;
+    --text: #000000;
+    --text-dim: #545454;
+    --text-faint: #8a8a8a;
+    --success: #0e8345;
+    --danger: #d32f2f;
+    --warn: #b25e00;
+    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06);
+    --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+  body { font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif; background: #fff; color: #000; letter-spacing: -0.005em; }
+
+  .brand { color: #000; letter-spacing: -0.03em; }
+  .brand .brand-icon { background: #000; box-shadow: none; border-radius: 12px; }
+  .credit strong { color: #000; }
+
+  .btn { background: #000; color: #fff; box-shadow: none; border-radius: 12px; font-weight: 700; letter-spacing: 0; }
+  .btn:hover { filter: none; opacity: 0.88; }
+  .btn:disabled { background: #e8e8e8; color: #9a9a9a; opacity: 1; }
+  .btn-secondary { background: #eeeeee; color: #000; border: none; }
+  .btn-secondary:hover { background: #e4e4e4; }
+  .btn-sm { background: #fff; color: #000; border: 1px solid #e2e2e2; }
+  .btn-sm:hover { background: #f3f3f3; }
+  .btn-sm.danger { color: var(--danger); border-color: rgba(211, 47, 47, 0.35); }
+  .btn-sm.wa { background: #25d366; border-color: #25d366; color: #04240f; }
+
+  input, select, textarea { background: #f3f3f3; border: 1.5px solid transparent; color: #000; }
+  input:focus, select:focus, textarea:focus { border-color: #000; box-shadow: none; background: #fff; }
+  .paidRow input[type="date"], .payRow input[type="number"], select.tipo-select, .phoneRow .prefix { background: #f3f3f3; border: 1.5px solid transparent; color: #000; }
+  #login input { background: #f3f3f3; }
+
+  .card, .section-card { background: #fff; border: 1px solid #e2e2e2; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .stat-tile { background: #f6f6f6; border: none; box-shadow: none; }
+  .stat-tile.accent .value { color: #000; }
+  #app h1 { color: #000; letter-spacing: -0.02em; }
+  #newPinCard .pin { color: #000; }
+  .modal-card h2 { color: #000; }
+  .legalCheck a, .histLink { color: #000; }
+  #driverCityDisplay { color: #000 !important; }
+
+  /* Tablas */
+  th { color: #545454; }
+  tbody tr:hover { background: #fafafa; }
+  .table-wrap { border: 1px solid #e2e2e2; }
+
+  /* Barra de arriba y menú lateral */
+  .app-topbar { background: #fff; }
+  .hamburger-btn { background: #fff; border-color: #e2e2e2; color: #000; }
+  .hamburger-btn:hover { background: #f3f3f3; }
+  .drawer-overlay { background: rgba(0,0,0,0.4); }
+  .admin-drawer { background: #fff; border-right: none; box-shadow: none; }
+  .admin-drawer.open { border-right: 1px solid #e2e2e2; box-shadow: 4px 0 24px rgba(0,0,0,0.12); }
+  .drawer-city { color: #545454; }
+  .drawer-row { color: #000; font-weight: 600; }
+  .drawer-row:hover { background: #f6f6f6; }
+  .drawer-row.active { color: #000; background: #f0f0f0; border-left-color: #000; font-weight: 800; }
+  .modal-overlay { background: rgba(0,0,0,0.4); }
+  .modal-card { background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,0.18); }
+
+  /* Colores que avisan algo (antes usaban el naranja) */
+  .badge-tipo.formal { background: rgba(14, 131, 69, 0.1); color: var(--success); }
+  .badge-tipo.informal, .pct-badge.medio { background: rgba(178, 94, 0, 0.1); color: var(--warn); }
+  .pct-badge.alto { background: rgba(211, 47, 47, 0.1); color: var(--danger); }
+  .pct-badge.bajo { background: #f0f0f0; color: #545454; }
+  .dot { box-shadow: none; }
+  .dot.disponible, .dot.completado { background: var(--success); box-shadow: 0 0 0 3px rgba(14, 131, 69, 0.15); }
+  .dot.en_viaje, .dot.aceptado, .dot.llegue, .dot.en_curso { background: var(--warn); box-shadow: 0 0 0 3px rgba(178, 94, 0, 0.15); }
+  .dot.cancelado { background: var(--danger); box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.15); }
+  .live-dot { box-shadow: 0 0 0 3px rgba(14, 131, 69, 0.15); }
+  .top-driver-bar-wrap { background: #eeeeee; }
+  .top-driver-bar { background: #000; }
+  .thumb { background: #f6f6f6; }
+  .locationBanner { background: #000; color: #fff; }
+  .spinner { border-color: rgba(0,0,0,0.12); border-top-color: #000; }
+  .toast { background: #000; color: #fff; border: none; }
 </style>
 </head>
 <body>
@@ -899,7 +992,7 @@ function renderRiderRows() {
       <td>${escapeHtml(r.name) || "—"}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>` : ""}</td>
       <td>${r.phone}</td>
       <td>${r.trips}</td>
-      <td>${r.no_show_count >= 2 ? `<span style="color:#e05d5d;font-weight:600;">${r.no_show_count} ⚠️</span>` : (r.no_show_count || 0)}</td>
+      <td>${r.no_show_count >= 2 ? `<span style="color:var(--danger);font-weight:600;">${r.no_show_count} ⚠️</span>` : (r.no_show_count || 0)}</td>
       <td>${r.created_at ? r.created_at.slice(0, 10) : ""}</td>
       <td>${r.last_ride_at ? r.last_ride_at.slice(0, 10) : "—"}</td>
       <td class="row-actions">
