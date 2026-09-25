@@ -664,9 +664,9 @@ function waLink(phone, text) {
 // lo toca el admin directamente, así el navegador no bloquea la ventana (antes
 // se abría solo tras la respuesta del servidor y Chrome lo tomaba como popup).
 let resetPinTarget = null;
-function showResetPin(label, phone, pin) {
+function showResetPin(label, phone, pin, role) {
   navigator.clipboard.writeText(pin).catch(() => {});
-  resetPinTarget = { phone, pin };
+  resetPinTarget = { phone, pin, role, name: label };
   document.getElementById("resetPinName").textContent = label;
   document.getElementById("resetPinValue").textContent = pin;
   const waBtn = document.getElementById("resetPinWaBtn");
@@ -677,7 +677,31 @@ function showResetPin(label, phone, pin) {
 
 function sendResetPinWhatsapp() {
   if (!resetPinTarget || !resetPinTarget.phone) return;
-  window.open(waLink(resetPinTarget.phone, `Hola, este es tu nuevo PIN de MotoVecino: ${resetPinTarget.pin}`), "_blank");
+  window.open(waLink(resetPinTarget.phone, resetPinMessage(resetPinTarget)), "_blank");
+}
+
+function resetPinMessage({ pin, role, name }) {
+  const isDriver = role === "driver";
+  const firstName = /\d/.test(name || "") ? "" : String(name || "").trim().split(/\s+/)[0];
+  const link = `${PUBLIC_ORIGIN}/${isDriver ? "chofer" : "pasajero"}.html`;
+  return [
+    `🛺 *MotoVecino*`,
+    ``,
+    `¡Hola${firstName ? ", " + firstName : ""}! 👋`,
+    `Listo, ya restablecimos tu PIN. Tu nuevo PIN es:`,
+    ``,
+    `🔑 *${pin}*`,
+    ``,
+    `👉 Entra aquí: ${link}`,
+    `Escribe tu número de celular y este PIN.`,
+    ``,
+    `💡 Guárdalo bien y no se lo compartas a nadie.`,
+    ``,
+    isDriver
+      ? `¡Que tengas muy buenos viajes hoy! 🚀`
+      : `¡Ya puedes pedir tu viaje cuando quieras! 🚀`,
+    `¿Alguna duda? Contesta este mensaje y con gusto te ayudamos. 😊`,
+  ].join("\n");
 }
 
 function closeResetPinModal() {
@@ -1074,7 +1098,7 @@ async function resetRiderPin(id) {
     return;
   }
   const { pin } = await res.json();
-  showResetPin(rider.name || rider.phone, rider.phone, pin);
+  showResetPin(rider.name || rider.phone, rider.phone, pin, "rider");
   loadRiders();
 }
 
@@ -1157,7 +1181,7 @@ async function resetDriverPin(id) {
     return;
   }
   const { pin } = await res.json();
-  showResetPin(driver.name, driver.phone, pin);
+  showResetPin(driver.name, driver.phone, pin, "driver");
   loadDrivers();
 }
 
