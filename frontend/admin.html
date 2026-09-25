@@ -687,19 +687,28 @@ function resetPinMessage({ pin, role, name }) {
   return [
     `🛺 *MotoVecino*`,
     ``,
-    `¡Hola${firstName ? ", " + firstName : ""}! 👋`,
-    `Listo, ya restablecimos tu PIN. Tu nuevo PIN es:`,
+    `¡Hola${firstName ? ", " + firstName : ""}! 👋 ${isDriver ? "Te damos la bienvenida al equipo." : "Te damos la bienvenida a MotoVecino."}`,
+    `Ya restablecimos tu PIN. Tu nuevo PIN es:`,
     ``,
     `🔑 *${pin}*`,
     ``,
     `👉 Entra aquí: ${link}`,
     `Escribe tu número de celular y este PIN.`,
-    ``,
     `💡 Guárdalo bien y no se lo compartas a nadie.`,
     ``,
-    isDriver
-      ? `¡Gracias por ser parte del equipo MotoVecino! 🙌`
-      : `¡Gracias por confiar en MotoVecino! 🙌`,
+    ...(isDriver ? [
+      `📢 Estamos arrancando: primero estamos sumando choferes y luego vamos a dar a conocer la app para que la gente empiece a pedir viajes. Te pedimos un poquito de paciencia.`,
+      ``,
+      `🤝 Si conoces a otros compañeros choferes, pásales la voz. Entre más seamos, mejor servicio vamos a dar y más rápido van a llegar los viajes para todos.`,
+      ``,
+      `¡Gracias por ser parte del equipo MotoVecino! 🙌`,
+    ] : [
+      `📢 Estamos arrancando y sumando choferes. Si al pedir tu viaje todavía no te toma nadie, te pedimos un poquito de paciencia: cada chofer que se une nos ayuda a darte un mejor servicio.`,
+      ``,
+      `🤝 Si conoces a algún chofer de mototaxi o taxi, cuéntale de MotoVecino. Entre más choferes seamos, mejor vamos a poder atenderte.`,
+      ``,
+      `¡Gracias por confiar en MotoVecino! 🙌`,
+    ]),
     `¿Alguna duda? Contesta este mensaje y con gusto te ayudamos. 😊`,
   ].join("\n");
 }
