@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>Viaje en vivo - MotoVecino</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -36,7 +37,7 @@
 <body>
 
 <div class="topbar">
-  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span class="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span class="cityLabel"></span></div>
   <div id="riderName"></div>
   <div id="statusText">Cargando viaje...</div>
   <div id="etaText"></div>
@@ -47,7 +48,7 @@
 <div id="driverCard" class="card fade-in"></div>
 
 <div id="errorScreen">
-  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span class="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span class="cityLabel"></span></div>
   <p id="errorText" style="color:var(--text-dim);"></p>
 </div>
 

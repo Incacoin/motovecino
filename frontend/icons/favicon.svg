@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><clipPath id="r"><rect width="100" height="100" rx="22"/></clipPath><g clip-path="url(#r)">
+<defs>
+ <radialGradient id="mv0bg" cx="50%" cy="38%" r="75%"><stop offset="0" stop-color="#171b23"/><stop offset="1" stop-color="#0a0c10"/></radialGradient>
+ <linearGradient id="mv0ln" gradientUnits="userSpaceOnUse" x1="74" y1="31" x2="74" y2="71"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#22c55e"/></linearGradient>
+ <filter id="mv0gl" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="4"/></filter>
+</defs>
+<rect width="100" height="100" fill="url(#mv0bg)"/>
+<path d="M26 71 L26 31 M26 31 L50 55 M50 55 L74 31" fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
+<path d="M74 31 L74 71" fill="none" stroke="url(#mv0ln)" stroke-width="2.3" stroke-linecap="round"/>
+<circle cx="74" cy="71" r="9" fill="#22c55e" opacity="0.45" filter="url(#mv0gl)"/>
+<g><polygon points="20.4576,67.8 26,71 26,77.4 20.4576,74.2" fill="#c4c8d0"/><polygon points="26,71 31.5424,67.8 31.5424,74.2 26,77.4" fill="#7d838f"/><polygon points="26,64.6 31.5424,67.8 26,71 20.4576,67.8" fill="#ffffff"/></g><g><polygon points="20.4576,27.8 26,31 26,37.4 20.4576,34.2" fill="#c4c8d0"/><polygon points="26,31 31.5424,27.8 31.5424,34.2 26,37.4" fill="#7d838f"/><polygon points="26,24.6 31.5424,27.8 26,31 20.4576,27.8" fill="#ffffff"/></g><g><polygon points="44.4576,51.8 50,55 50,61.4 44.4576,58.2" fill="#c4c8d0"/><polygon points="50,55 55.5424,51.8 55.5424,58.2 50,61.4" fill="#7d838f"/><polygon points="50,48.6 55.5424,51.8 50,55 44.4576,51.8" fill="#ffffff"/></g><g><polygon points="68.4576,27.8 74,31 74,37.4 68.4576,34.2" fill="#c4c8d0"/><polygon points="74,31 79.5424,27.8 79.5424,34.2 74,37.4" fill="#7d838f"/><polygon points="74,24.6 79.5424,27.8 74,31 68.4576,27.8" fill="#ffffff"/></g>
+<g><polygon points="67.459968,67.224 74,71 74,78.55199999999999 67.459968,74.776" fill="#22c55e"/><polygon points="74,71 80.540032,67.224 80.540032,74.776 74,78.55199999999999" fill="#15803d"/><polygon points="74,63.448 80.540032,67.224 74,71 67.459968,67.224" fill="#86efac"/></g>
+</g></svg>

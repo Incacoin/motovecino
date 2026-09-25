@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>MotoVecino</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#ffffff" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
@@ -364,7 +365,7 @@
     <button class="btn-sm" id="installBtn" onclick="installApp()" style="display:none;">Instalar app</button>
     <button class="installClose" onclick="dismissInstallBanner()">✕</button>
   </div>
-  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span id="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span id="cityLabel"></span></div>
   <div style="color:var(--text-dim);">Pide tu mototaxi</div>
   <div style="color:var(--text-dim); font-size:13px; margin-top:-4px;">Pasajes, delivery y mandados</div>
   <div class="input-icon-row">
@@ -509,7 +510,7 @@
 <div id="drawerOverlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 <div id="appDrawer" class="app-drawer">
   <div class="drawer-header">
-    <div class="brand brand-sm"><span class="brand-icon">🛵</span>MotoVecino</div>
+    <div class="brand brand-sm"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino</div>
     <div class="drawer-city" id="drawerCityLabel">📍 <span></span></div>
   </div>
   <div class="drawer-nav">

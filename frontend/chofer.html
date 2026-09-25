@@ -4,7 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>MotoVecino Chofer</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9B%BA%3C/text%3E%3C/svg%3E" />
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg" />
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#000000" />
 <link rel="apple-touch-icon" href="icons/icon-512.png" />
@@ -346,7 +347,7 @@ function setDriverTheme(pref) {
     <button class="btn-sm" id="installBtn" onclick="installApp()" style="display:none;">Instalar app</button>
     <button class="installClose" onclick="dismissInstallBanner()">✕</button>
   </div>
-  <div class="brand"><span class="brand-icon">🛵</span>MotoVecino<span id="cityLabel"></span></div>
+  <div class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span id="cityLabel"></span></div>
   <div style="color:var(--text-dim);">Ingresa tu teléfono y tu PIN de chofer</div>
   <input id="phoneLoginInput" inputmode="numeric" maxlength="10" placeholder="Tu teléfono" />
   <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••" />
