@@ -388,7 +388,7 @@
     <div>PIN para <strong id="newDriverName"></strong></div>
     <div class="pin" id="newPin"></div>
     <div class="sub">Compártele este PIN para que entre en chofer.html</div>
-    <button class="btn btn-sm wa" style="padding:12px 20px;font-size:15px;" onclick="sendLastWhatsapp()">Enviar por WhatsApp</button>
+    <button class="btn btn-sm wa" style="padding:12px 20px;font-size:15px;" onclick="sendLastWhatsapp()" id="newDriverWaBtn">Enviar por WhatsApp</button>
   </div>
   </div>
 
@@ -662,7 +662,17 @@ function showResetPin(label, phone, pin) {
 
 function welcomeMessage(driver) {
   const link = `${PUBLIC_ORIGIN}/chofer.html`;
-  return `¡Hola ${driver.name}! Gracias por tu confianza en MotoVecino ${adminCityLabel}.\n\nTu PIN de acceso de chofer es: ${driver.pin}\nEntra aquí para empezar a recibir viajes: ${link}`;
+  const firstName = String(driver.name || "").trim().split(/\s+/)[0];
+  return `¡Hola ${firstName}! 👋 Te escribimos del equipo de MotoVecino.\n\n` +
+    `Gracias por registrarte como chofer, ya recibimos tus datos. 🙌\n\n` +
+    `Te queremos ser sinceros desde el principio: la app apenas está empezando en ${adminCityLabel} y todavía se está dando a conocer. Por eso es probable que por ahora todavía no te lleguen viajes.\n\n` +
+    `Te pedimos un poquito de paciencia 🙏. Estamos trabajando en dos cosas:\n` +
+    `✅ Sumar más choferes para que la gente encuentre servicio cuando pida.\n` +
+    `✅ Hacer publicaciones y dar a conocer la app para que más personas empiecen a pedir viajes.\n\n` +
+    `También te pedimos una ayuda: si conoces a otros compañeros choferes, pásales la voz para que se unan. Entre más choferes seamos, más rápido la gente va a confiar en la app y van a empezar a llegar los viajes para todos. Esto lo sacamos adelante entre todos 🤝\n\n` +
+    `Tu PIN de acceso de chofer es: ${driver.pin}\n` +
+    `Entra aquí con tu PIN: ${link}\n\n` +
+    `Cualquier duda, aquí estamos para ayudarte. ¡Bienvenido a MotoVecino! 🛵`;
 }
 
 function sendLastWhatsapp() {
@@ -907,6 +917,7 @@ async function registerDriver() {
   lastRegistered = driver;
 
   document.getElementById("newDriverName").textContent = driver.name;
+  document.getElementById("newDriverWaBtn").textContent = `Enviar PIN por WhatsApp a ${driver.name}`;
   document.getElementById("newPin").textContent = driver.pin;
   document.getElementById("newPinCard").style.display = "block";
 
