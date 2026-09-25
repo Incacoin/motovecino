@@ -67,11 +67,18 @@
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35), 0 6px 14px -4px rgba(246, 166, 35, 0.5);
   }
   #pickBar {
-    padding: 10px 14px 16px; background: var(--bg-panel); display: flex; flex-direction: column; gap: 12px;
+    padding: 10px 14px 16px; background: var(--bg-panel); display: flex; flex-direction: column; gap: 10px;
     border-radius: 22px 22px 0 0; box-shadow: 0 -12px 28px -14px rgba(0, 0, 0, 0.55);
     position: relative; z-index: 10;
   }
   .sheet-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--border); margin: 0 auto 2px; }
+  /* Zona de toque grande alrededor de la rayita: tocar o deslizar minimiza el
+     panel para ver el mapa completo (queda solo el botón de pedir). */
+  #sheetGrip { margin: -10px -14px -4px; padding: 10px 14px 8px; cursor: pointer; touch-action: none; }
+  #sheetGripHint { display: none; font-size: 12px; color: var(--text-dim); text-align: center; margin-top: 6px; }
+  #pickBar.collapsed > *:not(#sheetGrip):not(.request-block) { display: none !important; }
+  #pickBar.collapsed .request-block > *:not(#requestBtn) { display: none !important; }
+  #pickBar.collapsed #sheetGripHint { display: block; }
   #pickBar .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
   #pickBar .row .btn-secondary { flex: 1; font-size: 12.5px; padding: 9px 6px; white-space: nowrap; }
   #pickBar .hint { font-size: 13.5px; color: var(--text-dim); text-align: center; }
@@ -105,8 +112,11 @@
     font-size: 12px; line-height: 1.35; padding: 7px 14px; border-radius: 12px; text-align: center;
     box-shadow: var(--shadow-card); backdrop-filter: blur(4px);
   }
-  .pax-card { display: flex; flex-direction: column; gap: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; }
-  .pax-col { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pax-card { display: flex; flex-direction: row; gap: 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 12px; }
+  .pax-col { flex: 1; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .pax-card .stepper { gap: 8px; }
+  .pax-card .stepper .btn-sm { width: 30px; height: 30px; font-size: 16px; }
+  .pax-card .pax-label { line-height: 1.15; }
   .pax-label { font-size: 13px; color: var(--text-dim); }
   .segmented { display: flex; gap: 4px; padding: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 999px; }
   .service-tab { flex: 1; padding: 9px 8px; font-size: 13px; border-radius: 999px; border: none; background: transparent; color: var(--text-dim); cursor: pointer; transition: background 0.18s ease, color 0.18s ease; }
@@ -517,7 +527,10 @@
   <div id="map"></div>
   <div id="pickHint">Toca el mapa para marcar dónde te recogemos</div>
   <div id="pickBar">
-    <div class="sheet-handle"></div>
+    <div id="sheetGrip" onclick="toggleSheet()" ontouchstart="gripTouchStart(event)" ontouchend="gripTouchEnd(event)">
+      <div class="sheet-handle"></div>
+      <div id="sheetGripHint">Toca aquí para ver todas las opciones</div>
+    </div>
     <div id="zoneNotice"></div>
     <div class="segmented" id="serviceTypeRow">
       <button class="service-tab active" id="tabMoto" onclick="setServiceType('moto')">🛵 Mototaxi</button>
@@ -543,7 +556,7 @@
         </div>
       </div>
       <div class="pax-col" id="childrenRow">
-        <span class="pax-label">Niños (3-9 años)</span>
+        <span class="pax-label">Niños<br>3-9 años</span>
         <div class="stepper">
           <button class="btn-sm" onclick="changeChildren(-1)">−</button>
           <span id="childrenCount">0</span>
@@ -1049,7 +1062,7 @@ function applyZone(zone, zoneLabel) {
     tabMoto.innerHTML = "🛵 Mototaxi";
     if (zoneForcedTaxi) { zoneForcedTaxi = false; setServiceType("moto"); }
   } else if (serviceZone === "taxi") {
-    notice.innerHTML = `📍 <strong>Estás fuera de la zona de mototaxi de ${escapeHtml(town)}.</strong> Desde aquí puedes pedir 🚕 <strong>Taxi</strong>.`;
+    notice.innerHTML = `📍 <strong>Fuera de la zona de mototaxi de ${escapeHtml(town)}:</strong> aquí solo hay 🚕 Taxi.`;
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
     tabMoto.innerHTML = `🛵 Mototaxi<small>Solo dentro de ${escapeHtml(town)}</small>`;
@@ -1062,6 +1075,38 @@ function applyZone(zone, zoneLabel) {
     tabMoto.innerHTML = "🛵 Mototaxi";
   }
   updateFareEstimate();
+}
+
+// --- Panel inferior que se minimiza ---
+let gripStartY = null;
+
+function setSheetCollapsed(collapsed) {
+  document.getElementById("pickBar").classList.toggle("collapsed", collapsed);
+  // El mapa cambia de alto: Leaflet necesita recalcular su tamaño, y de paso
+  // se acomoda para que se vean la recogida y el destino.
+  if (!map) return;
+  setTimeout(() => {
+    map.invalidateSize();
+    if (pickup && dest) map.fitBounds(L.latLngBounds([pickup, dest]), { padding: [50, 50], maxZoom: 16 });
+    else if (pickup) map.panTo(pickup);
+  }, 60);
+}
+
+function toggleSheet() {
+  setSheetCollapsed(!document.getElementById("pickBar").classList.contains("collapsed"));
+}
+
+function gripTouchStart(e) {
+  gripStartY = e.touches[0].clientY;
+}
+
+function gripTouchEnd(e) {
+  if (gripStartY === null) return;
+  const dy = e.changedTouches[0].clientY - gripStartY;
+  gripStartY = null;
+  if (Math.abs(dy) < 25) return; // fue un toque: lo maneja toggleSheet()
+  e.preventDefault(); // que el deslizamiento no dispare además el toque
+  setSheetCollapsed(dy > 0); // deslizar hacia abajo minimiza, hacia arriba abre
 }
 
 function checkPickupZone() {
