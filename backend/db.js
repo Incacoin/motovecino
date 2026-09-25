@@ -589,4 +589,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_ride_offers_ride ON ride_offers(ride_id);
 `);
 
+// Momento exacto (ms) en que el chofer tocó "Ya llegué" e "Iniciar viaje":
+// con eso chofer y pasajero calculan igual la espera en la recogida del taxi.
+// stop_wait_*: espera MANUAL del taxi (paradas en el camino) que el chofer
+// prende/apaga; se guarda aquí para que el pasajero la vea en vivo.
+for (const col of ["arrived_at_ms", "started_at_ms", "stop_wait_total_ms", "stop_wait_since_ms"]) {
+  try {
+    db.exec(`ALTER TABLE rides ADD COLUMN ${col} INTEGER`);
+  } catch {
+    // la columna ya existe
+  }
+}
+
 module.exports = db;

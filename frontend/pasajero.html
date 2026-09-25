@@ -661,7 +661,11 @@ function escapeHtml(str) {
 const PUBLIC_ORIGIN = "https://motovecinoapp.com";
 let deferredInstallPrompt = null;
 let resolvedCityLabel = "";
-fetch(API + "/api/config").then((r) => r.json()).then((cfg) => { SERVICE_FEE = cfg.serviceFee; }).catch(() => {});
+fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
+  SERVICE_FEE = cfg.serviceFee;
+  if (cfg.taxiWaitRatePerMin != null) TAXI_WAIT_RATE_PER_MIN = cfg.taxiWaitRatePerMin;
+  if (cfg.taxiPickupGraceMin != null) TAXI_PICKUP_GRACE_MIN = cfg.taxiPickupGraceMin;
+}).catch(() => {});
 
 function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
@@ -891,6 +895,8 @@ const TICUL_CHILD_FARE_NIGHT = 10;
 // Cuota de la app, igual en todos los pueblos. La paga el pasajero, no sale
 // de lo que gana el chofer.
 let SERVICE_FEE = 2; // valor de respaldo hasta que cargue /api/config
+let TAXI_WAIT_RATE_PER_MIN = 2;
+let TAXI_PICKUP_GRACE_MIN = 5;
 
 // Ciudad resuelta por GPS (ver initCityBrand) — "tekax" hasta que se confirme
 // otra cosa, para que la tarifa nunca quede indefinida.
@@ -1519,6 +1525,7 @@ function resetPins() {
 }
 
 async function requestRide() {
+  resetPickupWait();
   if (serviceType === "taxi" && (!dest || taxiOffer == null)) {
     showToast("Marca tu destino para pedir taxi");
     return;
@@ -1614,9 +1621,10 @@ function connectWs() {
     if (type === "offer_new" && currentRideStatus === "buscando") addTaxiOffer(payload);
     if (type === "offer_removed") removeTaxiOffer(payload.offerId);
     if (type === "deposit_update") onDepositUpdate(payload.deposit);
+    if (type === "wait_update") onStopWaitUpdate(payload.totalMs, payload.runningSince);
     if (type === "driver_location") onDriverLocation(payload);
-    if (type === "status_change" && payload.status === "llegue") onDriverArrived();
-    if (type === "status_change" && payload.status === "en_curso") onTripStarted();
+    if (type === "status_change" && payload.status === "llegue") onDriverArrived(payload.arrivedAt);
+    if (type === "status_change" && payload.status === "en_curso") onTripStarted(payload.startedAt);
     if (type === "status_change" && payload.status === "completado") onCompleted();
     if (type === "status_change" && payload.status === "cancelado") onCancelledByDriver();
     if (type === "driver_disconnected") onDriverDisconnected();
@@ -1793,6 +1801,8 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
       </div>
     </div>
     <div id="agreedPriceBox"></div>
+    <div id="pickupWaitBox"></div>
+    <div id="stopWaitBox"></div>
     <div id="depositBox"></div>`;
   renderAgreedPrice(agreedPrice);
   currentAgreedPrice = agreedPrice;
@@ -1806,16 +1816,108 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
   showChatToggle();
 }
 
-function onDriverArrived() {
+function onDriverArrived(arrivedAt) {
   currentRideStatus = "llegue";
   document.getElementById("statusText").textContent = `Tu chofer ya llegó ${serviceType === "taxi" ? "🚕" : "🛵"} Sal cuando estés listo`;
+  if (serviceType === "taxi") {
+    pickupArrivedAt = arrivedAt || pickupArrivedAt || Date.now();
+    startPickupWaitTicker();
+  }
   updateRouteLine();
 }
 
-function onTripStarted() {
+function onTripStarted(startedAt) {
   currentRideStatus = "en_curso";
   document.getElementById("statusText").textContent = `En camino a tu destino ${serviceType === "taxi" ? "🚕" : "🛵"}`;
+  if (serviceType === "taxi" && pickupArrivedAt) {
+    pickupStartedAt = startedAt || pickupStartedAt || Date.now();
+    renderPickupWaitBox();
+  }
+  clearInterval(pickupWaitTimer);
   updateRouteLine();
+}
+
+// --- Espera en la recogida del taxi ---
+// Mismo cálculo que ve el taxista (chofer.html): X minutos gratis desde que
+// tocó "Ya llegué", después se cobra por minuto hasta que arranca el viaje.
+let pickupArrivedAt = null;
+let pickupStartedAt = null;
+let pickupWaitTimer = null;
+
+function pickupWaitCharge(ms) {
+  const extraMs = ms - TAXI_PICKUP_GRACE_MIN * 60000;
+  return extraMs > 0 ? Math.ceil(extraMs / 60000) * TAXI_WAIT_RATE_PER_MIN : 0;
+}
+
+function fmtMmSs(ms) {
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function renderPickupWaitBox() {
+  const box = document.getElementById("pickupWaitBox");
+  if (!box) return;
+  if (!pickupArrivedAt) { box.innerHTML = ""; return; }
+  const ms = Math.max(0, (pickupStartedAt || Date.now()) - pickupArrivedAt);
+  const charge = pickupWaitCharge(ms);
+  if (pickupStartedAt) {
+    box.innerHTML = charge > 0
+      ? `<div class="agreed-box"><div class="lbl">Espera en la recogida</div><div style="font-weight:700;">+$${charge} · se suma al precio acordado</div></div>`
+      : "";
+    return;
+  }
+  const graceLeft = TAXI_PICKUP_GRACE_MIN * 60000 - ms;
+  box.innerHTML = `
+    <div class="agreed-box">
+      <div class="lbl">Tu taxi te está esperando</div>
+      <div style="font-weight:700;font-size:18px;">${charge > 0
+        ? `${fmtMmSs(ms)} · +$${charge} de espera`
+        : `Gratis · te quedan ${fmtMmSs(Math.max(0, graceLeft))}`}</div>
+      <div style="font-size:12.5px;color:#545454;margin-top:4px;">Tienes ${TAXI_PICKUP_GRACE_MIN} minutos gratis para salir. Después se cobran $${TAXI_WAIT_RATE_PER_MIN} por minuto de espera.</div>
+    </div>`;
+}
+
+function resetPickupWait() {
+  clearInterval(pickupWaitTimer);
+  pickupArrivedAt = null;
+  pickupStartedAt = null;
+  const box = document.getElementById("pickupWaitBox");
+  if (box) box.innerHTML = "";
+  onStopWaitUpdate(0, null);
+}
+
+// --- Paradas en el camino (espera manual que prende el taxista) ---
+let stopWaitTotalMs = 0;
+let stopWaitSince = null;
+let stopWaitTimer = null;
+
+function onStopWaitUpdate(totalMs, runningSince) {
+  stopWaitTotalMs = totalMs || 0;
+  stopWaitSince = runningSince || null;
+  clearInterval(stopWaitTimer);
+  renderStopWaitBox();
+  if (stopWaitSince) stopWaitTimer = setInterval(renderStopWaitBox, 1000);
+}
+
+function renderStopWaitBox() {
+  const box = document.getElementById("stopWaitBox");
+  if (!box) return;
+  const ms = stopWaitTotalMs + (stopWaitSince ? Math.max(0, Date.now() - stopWaitSince) : 0);
+  if (ms <= 0) { box.innerHTML = ""; return; }
+  const charge = Math.ceil(ms / 60000) * TAXI_WAIT_RATE_PER_MIN;
+  box.innerHTML = `
+    <div class="agreed-box">
+      <div class="lbl">${stopWaitSince ? "⏱️ Espera en curso (parada en el camino)" : "Paradas en el camino"}</div>
+      <div style="font-weight:700;font-size:18px;">${fmtMmSs(ms)} · +$${charge}</div>
+      <div style="font-size:12.5px;color:#545454;margin-top:4px;">$${TAXI_WAIT_RATE_PER_MIN} por minuto · se suma al precio acordado.</div>
+    </div>`;
+}
+
+function startPickupWaitTicker() {
+  clearInterval(pickupWaitTimer);
+  renderPickupWaitBox();
+  pickupWaitTimer = setInterval(renderPickupWaitBox, 1000);
 }
 
 // El precio del taxi ya se sabe desde que el chofer acepta (ver
@@ -2560,6 +2662,8 @@ function logoutRider() {
 }
 
 function onCompleted() {
+  clearInterval(pickupWaitTimer);
+  clearInterval(stopWaitTimer);
   stopStatusAvailableDriversPolling();
   currentRideStatus = "completado";
   localStorage.removeItem("motoya_active_ride");
@@ -2627,6 +2731,7 @@ function onNoDriversAvailable() {
 }
 
 function onCancelledByDriver() {
+  resetPickupWait();
   stopStatusAvailableDriversPolling();
   currentRideStatus = "cancelado";
   localStorage.removeItem("motoya_active_ride");
@@ -2761,8 +2866,12 @@ async function restoreActiveRide() {
       account: fetched.deposit_account,
       holder: fetched.deposit_holder,
     } : null);
-    if (fetched.status === "llegue") onDriverArrived();
-    if (fetched.status === "en_curso") onTripStarted();
+    if (fetched.status === "llegue") onDriverArrived(fetched.arrived_at_ms);
+    if (fetched.status === "en_curso") {
+      pickupArrivedAt = fetched.arrived_at_ms || null;
+      onTripStarted(fetched.started_at_ms);
+      if (fetched.ride_type === "taxi") onStopWaitUpdate(fetched.stop_wait_total_ms, fetched.stop_wait_since_ms);
+    }
   }
 
   connectWs();

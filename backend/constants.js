@@ -28,6 +28,10 @@ module.exports = {
   // de arriba, no es aparte — el chofer lo activa/detiene desde la app
   // (ver chofer.html) y el total se agrega solo al precio final.
   TAXI_WAIT_RATE_PER_MIN: 2,
+  // Minutos gratis de espera en la RECOGIDA (desde que el taxista toca "Ya
+  // llegué"). Pasando esto la espera se cobra sola a TAXI_WAIT_RATE_PER_MIN,
+  // hasta que toca "Iniciar viaje". El pasajero lo ve en vivo en su pantalla.
+  TAXI_PICKUP_GRACE_MIN: 5,
   // null = prueba gratis indefinida, sin fecha de corte automática.
   TRIAL_END_DATE: null,
   // Un chofer "disponible" a más de esto de quien está mirando el mapa no es

@@ -572,6 +572,7 @@ fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
   TAXI_COMMISSION_RATE = cfg.taxiCommissionRate;
   TAXI_COMMISSION_CAP = cfg.taxiCommissionCap;
   TAXI_WAIT_RATE_PER_MIN = cfg.taxiWaitRatePerMin;
+  if (cfg.taxiPickupGraceMin != null) TAXI_PICKUP_GRACE_MIN = cfg.taxiPickupGraceMin;
   if (cfg.depositSuggestedRate != null) DEPOSIT_SUGGESTED_RATE = cfg.depositSuggestedRate;
 }).catch(() => {});
 
@@ -814,6 +815,7 @@ let SERVICE_FEE = 2; // valor de respaldo hasta que cargue /api/config
 let TAXI_COMMISSION_RATE = 0.06;
 let TAXI_COMMISSION_CAP = 100;
 let TAXI_WAIT_RATE_PER_MIN = 2;
+let TAXI_PICKUP_GRACE_MIN = 5;
 let DEPOSIT_SUGGESTED_RATE = 0.5;
 
 // Recogida fuera del radio normal del pueblo (comisarías, Peto, Xul...). Ahí
@@ -1303,6 +1305,12 @@ function renderRideList() {
           ${currentRide.ride_type === "taxi" && currentRide.agreed_price
             ? `<div class="ride-chips"><span class="chip">💰 Precio acordado: $${currentRide.agreed_price}</span></div>`
             : ""}
+          ${currentRide.ride_type === "taxi"
+            ? `<div style="margin:8px 0;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
+                 <div style="font-size:13px;color:var(--text-dim);">⏱️ Espera en la recogida: ${TAXI_PICKUP_GRACE_MIN} min gratis, después $${TAXI_WAIT_RATE_PER_MIN}/min. Corre sola hasta que toques "Iniciar viaje".</div>
+                 <div id="pickupWaitDisplay" style="margin-top:6px;font-weight:700;"></div>
+               </div>`
+            : ""}
           ${depositBoxHtml(currentRide)}
           <button class="btn" onclick="startTrip()">Iniciar viaje</button>
           <button class="btn-danger" onclick="cancelCurrentRide()">Cancelar viaje</button>
@@ -1322,10 +1330,11 @@ function renderRideList() {
           ${currentRide.ride_type === "taxi"
             ? `<div style="margin:8px 0;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                   <span style="font-size:13px;color:var(--text-dim);">⏱️ Si te hacen esperar en el destino ($${TAXI_WAIT_RATE_PER_MIN}/min)</span>
+                   <span style="font-size:13px;color:var(--text-dim);">⏱️ Paradas o espera en el camino ($${TAXI_WAIT_RATE_PER_MIN}/min)</span>
                    <button class="btn-sm" id="btnWaitToggle" onclick="toggleWaitCharge()">Iniciar espera</button>
                  </div>
                  <div id="waitChargeDisplay" style="display:none;margin-top:6px;font-weight:700;"></div>
+                 <div id="pickupWaitDisplay" style="margin-top:6px;font-size:13px;color:var(--text-dim);"></div>
                </div>
                <div style="margin:8px 0;">
                  <label style="display:block;font-size:13px;color:var(--text-dim);margin-bottom:4px;">Precio acordado (el pasajero ya lo está viendo — solo cámbialo si de verdad cambió algo)</label>
@@ -1764,6 +1773,42 @@ function waitChargeFor(ms) {
   return minutes > 0 ? minutes * TAXI_WAIT_RATE_PER_MIN : 0;
 }
 
+// --- Espera en la RECOGIDA del taxi (automática, ver TAXI_PICKUP_GRACE_MIN) ---
+// La cuenta la lleva el servidor (arrived_at_ms / started_at_ms), así el
+// pasajero ve exactamente lo mismo en su pantalla.
+function pickupWaitMs(ride) {
+  if (!ride || ride.ride_type !== "taxi" || !ride.arrived_at_ms) return 0;
+  const end = ride.started_at_ms || Date.now();
+  return Math.max(0, end - ride.arrived_at_ms);
+}
+
+function pickupWaitCharge(ride) {
+  const extraMs = pickupWaitMs(ride) - TAXI_PICKUP_GRACE_MIN * 60000;
+  return extraMs > 0 ? Math.ceil(extraMs / 60000) * TAXI_WAIT_RATE_PER_MIN : 0;
+}
+
+function fmtMmSs(ms) {
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+function renderPickupWait() {
+  const el = document.getElementById("pickupWaitDisplay");
+  if (!el || !currentRide || currentRide.ride_type !== "taxi") return;
+  const ms = pickupWaitMs(currentRide);
+  const charge = pickupWaitCharge(currentRide);
+  if (currentRide.status === "llegue") {
+    const graceLeft = TAXI_PICKUP_GRACE_MIN * 60000 - ms;
+    el.textContent = charge > 0
+      ? `${fmtMmSs(ms)} esperando · +$${charge} de espera`
+      : `${fmtMmSs(ms)} esperando · gratis (quedan ${fmtMmSs(Math.max(0, graceLeft))})`;
+  } else {
+    el.textContent = charge > 0 ? `Espera en la recogida: +$${charge} (se suma solo al precio final)` : "";
+  }
+}
+setInterval(renderPickupWait, 1000);
+
 function renderWaitChargeDisplay() {
   if (!currentRide || currentRide.ride_type !== "taxi") return;
   const state = loadWaitState(currentRide.id);
@@ -1804,6 +1849,7 @@ function toggleWaitCharge() {
   }
   saveWaitState(currentRide.id, state);
   renderWaitChargeDisplay();
+  syncWaitToServer();
 }
 
 function resumeWaitCharge() {
@@ -1811,6 +1857,25 @@ function resumeWaitCharge() {
   const state = loadWaitState(currentRide.id);
   if (state.runningSince) startWaitTicker();
   renderWaitChargeDisplay();
+  if (currentRide.status === "en_curso" && (state.totalMs > 0 || state.runningSince)) syncWaitToServer();
+}
+
+// Manda la espera manual al servidor para que el pasajero la vea en vivo.
+// El teléfono sigue siendo la fuente (funciona sin señal); si falla, se
+// vuelve a mandar en el siguiente cambio o al reabrir la app.
+function syncWaitToServer() {
+  if (!currentRide || currentRide.ride_type !== "taxi" || currentRide.status !== "en_curso") return;
+  const state = loadWaitState(currentRide.id);
+  fetch(API + `/api/rides/${currentRide.id}/wait`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      driverId: driver.id,
+      pin: driver.pin,
+      totalMs: state.totalMs,
+      runningForMs: state.runningSince ? Date.now() - state.runningSince : null,
+    }),
+  }).catch(() => {});
 }
 
 // Al abrir la app el chofer arranca en blanco. Si tenía un viaje en curso
@@ -1866,7 +1931,9 @@ async function arriveAtPickup() {
     showToast((await res.json()).error || "No se pudo actualizar");
     return false;
   }
+  const arrivedData = await res.json().catch(() => ({}));
   currentRide.status = "llegue";
+  currentRide.arrived_at_ms = arrivedData.arrivedAt || Date.now();
   updateRouteLine();
   renderRideList();
   return true;
@@ -1882,7 +1949,9 @@ async function startTrip() {
     showToast((await res.json()).error || "No se pudo actualizar");
     return;
   }
+  const startedData = await res.json().catch(() => ({}));
   currentRide.status = "en_curso";
+  currentRide.started_at_ms = startedData.startedAt || Date.now();
   updateRouteLine();
   renderRideList();
 }
@@ -1899,7 +1968,7 @@ async function completeRide() {
     // La espera se suma sola al precio acordado — el chofer no tiene que
     // sumarla a mano ni arriesgarse a olvidarla.
     const waitState = loadWaitState(currentRide.id);
-    agreedPrice = typed + waitChargeFor(currentWaitMs(waitState));
+    agreedPrice = typed + waitChargeFor(currentWaitMs(waitState)) + pickupWaitCharge(currentRide);
   }
   const res = await fetch(API + `/api/rides/${currentRide.id}/complete`, {
     method: "POST",

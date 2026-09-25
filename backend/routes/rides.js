@@ -682,18 +682,19 @@ router.post("/rides/:id/arrived", (req, res) => {
   }
   clearAttempts(req.ip);
 
+  const arrivedAt = Date.now();
   const result = db
     .prepare(
-      "UPDATE rides SET status = 'llegue', updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'aceptado'"
+      "UPDATE rides SET status = 'llegue', arrived_at_ms = ?, updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'aceptado'"
     )
-    .run(rideId, driverId);
+    .run(arrivedAt, rideId, driverId);
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "No se pudo actualizar el viaje" });
   }
 
-  realtime.notifyRide(rideId, "status_change", { status: "llegue" });
-  res.json({ ok: true });
+  realtime.notifyRide(rideId, "status_change", { status: "llegue", arrivedAt });
+  res.json({ ok: true, arrivedAt });
 });
 
 router.post("/rides/:id/start", (req, res) => {
@@ -711,17 +712,56 @@ router.post("/rides/:id/start", (req, res) => {
 
   // El precio del taxi ya se capturó al aceptar (ver /accept) — aquí solo
   // se cambia el estado, sin tocar agreed_price.
+  const startedAt = Date.now();
   const result = db
     .prepare(
-      "UPDATE rides SET status = 'en_curso', updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'llegue'"
+      "UPDATE rides SET status = 'en_curso', started_at_ms = ?, updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'llegue'"
     )
-    .run(rideId, driverId);
+    .run(startedAt, rideId, driverId);
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "No se pudo actualizar el viaje" });
   }
 
-  realtime.notifyRide(rideId, "status_change", { status: "en_curso" });
+  realtime.notifyRide(rideId, "status_change", { status: "en_curso", startedAt });
+  res.json({ ok: true, startedAt });
+});
+
+// Espera manual del taxi (paradas en el camino). El chofer manda su estado
+// (tiempo acumulado y, si está corriendo, desde hace cuánto) y aquí se pasa
+// al reloj del servidor, para que el pasajero vea lo mismo aunque los
+// relojes de los dos celulares no estén iguales.
+router.post("/rides/:id/wait", (req, res) => {
+  const rideId = Number(req.params.id);
+  const { driverId, pin, totalMs, runningForMs } = req.body;
+  if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip);
+    return res.status(401).json({ error: "PIN incorrecto" });
+  }
+  clearAttempts(req.ip);
+
+  const SIX_HOURS = 6 * 60 * 60 * 1000;
+  const total = Number(totalMs);
+  const runningFor = runningForMs == null ? null : Number(runningForMs);
+  if (!Number.isFinite(total) || total < 0 || total > SIX_HOURS ||
+      (runningFor !== null && (!Number.isFinite(runningFor) || runningFor < 0 || runningFor > SIX_HOURS))) {
+    return res.status(400).json({ error: "Tiempo de espera inválido" });
+  }
+  const since = runningFor === null ? null : Date.now() - runningFor;
+  const result = db
+    .prepare(
+      "UPDATE rides SET stop_wait_total_ms = ?, stop_wait_since_ms = ? WHERE id = ? AND driver_id = ? AND ride_type = 'taxi' AND status = 'en_curso'"
+    )
+    .run(Math.round(total), since, rideId, driverId);
+  if (result.changes === 0) {
+    return res.status(409).json({ error: "No se pudo actualizar la espera" });
+  }
+
+  realtime.notifyRide(rideId, "wait_update", { totalMs: Math.round(total), runningSince: since });
   res.json({ ok: true });
 });
 
