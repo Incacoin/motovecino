@@ -512,6 +512,16 @@
   </div>
 </div>
 
+<div id="resetPinModal" class="modal-overlay">
+  <div class="modal-card" style="text-align:center;">
+    <h2>Nuevo PIN de <span id="resetPinName"></span></h2>
+    <div id="resetPinValue" style="font-size:40px;font-weight:800;letter-spacing:6px;margin:8px 0;"></div>
+    <div style="color:var(--text-dim);font-size:13px;margin-bottom:14px;">Ya se copió al portapapeles. El PIN anterior ya no funciona.</div>
+    <button class="btn btn-sm wa" id="resetPinWaBtn" style="padding:12px 20px;font-size:15px;width:100%;" onclick="sendResetPinWhatsapp()">Enviar PIN por WhatsApp</button>
+    <button class="btn modal-close" onclick="closeResetPinModal()">Cerrar</button>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script>
@@ -650,14 +660,29 @@ function waLink(phone, text) {
   return `https://api.whatsapp.com/send?phone=52${digits}&text=${encodeURIComponent(text)}`;
 }
 
-// Muestra el PIN restablecido, lo copia al portapapeles y ofrece mandarlo por
-// WhatsApp al teléfono de la persona (no se vuelve a mostrar después).
+// Muestra el PIN restablecido en una tarjeta con botón de WhatsApp. El botón
+// lo toca el admin directamente, así el navegador no bloquea la ventana (antes
+// se abría solo tras la respuesta del servidor y Chrome lo tomaba como popup).
+let resetPinTarget = null;
 function showResetPin(label, phone, pin) {
   navigator.clipboard.writeText(pin).catch(() => {});
-  const sendWa = confirm(`Nuevo PIN de ${label}: ${pin}\n\n(Ya se copió al portapapeles; no se vuelve a mostrar.)\n\n¿Abrir WhatsApp para enviárselo?`);
-  if (sendWa && phone) {
-    window.open(waLink(phone, `Hola, este es tu nuevo PIN de MotoVecino: ${pin}`), "_blank");
-  }
+  resetPinTarget = { phone, pin };
+  document.getElementById("resetPinName").textContent = label;
+  document.getElementById("resetPinValue").textContent = pin;
+  const waBtn = document.getElementById("resetPinWaBtn");
+  waBtn.textContent = `Enviar PIN por WhatsApp a ${label}`;
+  waBtn.style.display = phone ? "" : "none";
+  document.getElementById("resetPinModal").classList.add("active");
+}
+
+function sendResetPinWhatsapp() {
+  if (!resetPinTarget || !resetPinTarget.phone) return;
+  window.open(waLink(resetPinTarget.phone, `Hola, este es tu nuevo PIN de MotoVecino: ${resetPinTarget.pin}`), "_blank");
+}
+
+function closeResetPinModal() {
+  resetPinTarget = null;
+  document.getElementById("resetPinModal").classList.remove("active");
 }
 
 function welcomeMessage(driver) {
