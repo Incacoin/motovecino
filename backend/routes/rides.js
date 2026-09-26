@@ -12,6 +12,16 @@ function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
 }
 
+// El chofer y el pasajero solo ven los últimos 4 dígitos del teléfono del
+// otro ("••• 5145"): alcanza para confirmar que es la persona correcta, pero
+// no para guardarse el número y arreglar el siguiente viaje por fuera de la
+// app. El número completo solo se ve en el admin.
+function maskPhoneTail(phone) {
+  if (!phone) return phone;
+  const digits = String(phone).replace(/\D/g, "");
+  return "••• " + digits.slice(-4);
+}
+
 // El comprobante del anticipo es una foto (~100-300 KB) con datos bancarios
 // del pasajero: nunca viaja pegado al viaje (lo ven el enlace "Compartir" y
 // el contacto de emergencia) — solo el chofer de ese viaje lo pide aparte,
@@ -19,7 +29,7 @@ function generateShareToken() {
 function publicRide(ride) {
   if (!ride) return ride;
   const { deposit_receipt, ...rest } = ride;
-  return { ...rest, deposit_has_receipt: !!deposit_receipt };
+  return { ...rest, rider_phone: maskPhoneTail(rest.rider_phone), deposit_has_receipt: !!deposit_receipt };
 }
 
 // Lo que ve el pasajero del anticipo (y el chofer, para pintar su tarjeta).
@@ -233,7 +243,7 @@ function driverForRide(driverId) {
     .prepare("SELECT id, name, phone, vehicle, grupo, lat, lng, photo, es_fundador FROM drivers WHERE id = ?")
     .get(driverId);
   if (!driver) return driver;
-  return { ...driver, ...photoUrls("d", driver.id, driver.photo) };
+  return { ...driver, phone: maskPhoneTail(driver.phone), ...photoUrls("d", driver.id, driver.photo) };
 }
 
 // El viaje que el chofer ya tiene en curso (aceptado / llegué / en curso). La
