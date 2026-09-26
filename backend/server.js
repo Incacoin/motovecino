@@ -56,6 +56,15 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: "5mb" }));
 
+// admin.motovecinoapp.com: el admin en su propio subdominio. En el dominio
+// principal la app de pasajero/chofer (scope "/") cubre también /admin.html,
+// y Chrome no dejaba instalar el admin aparte: te mandaba a la app de
+// pasajero. Otro subdominio = otro origen, así cada app se instala sola.
+app.use((req, res, next) => {
+  if (req.hostname.startsWith("admin.") && req.path === "/") return res.redirect("/admin.html");
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 
 app.get("/api/health", (req, res) => {
