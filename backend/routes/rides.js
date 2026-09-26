@@ -198,7 +198,6 @@ router.get("/rides/:id", (req, res) => {
       }
       realtime.clearDisconnectTimer(ride.id);
       realtime.clearNoDriverTimer(ride.id);
-      realtime.clearPreAcceptContact(ride.id);
       ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(ride.id);
     }
   }
@@ -294,8 +293,8 @@ router.post("/rides/:id/accept", (req, res) => {
   // El taxi captura el precio acordado AQUÍ, al aceptar — no hasta que llega
   // a recoger. Así el pasajero ve el precio desde que el chofer se
   // compromete, en vez de quedarse esperando a un chofer específico sin
-  // saber si el precio le va a convenir. El chofer debe negociarlo por el
-  // chat (botón "Mensaje" en la solicitud) ANTES de aceptar.
+  // saber si el precio le va a convenir. El precio se negocia con las ofertas
+  // (ya no hay chat antes de aceptar).
   const pendingRide = db.prepare("SELECT ride_type, offer_price FROM rides WHERE id = ?").get(rideId);
   const isTaxi = pendingRide?.ride_type === "taxi";
   if (isTaxi && !(Number(agreedPrice) > 0)) {
@@ -353,7 +352,6 @@ router.post("/rides/:id/accept", (req, res) => {
     driverId
   );
   realtime.clearNoDriverTimer(rideId);
-  realtime.clearPreAcceptContact(rideId);
   realtime.closeOpenOffers(rideId, "cerrada");
   closeDriverOtherOffers(driverId);
 
@@ -517,7 +515,6 @@ router.post("/rides/:id/offers/:offerId/accept", (req, res) => {
   db.prepare("UPDATE ride_offers SET status = 'aceptada', responded_at = datetime('now') WHERE id = ?").run(offer.id);
   db.prepare("UPDATE drivers SET status = 'en_viaje' WHERE id = ?").run(offer.driver_id);
   realtime.clearNoDriverTimer(rideId);
-  realtime.clearPreAcceptContact(rideId);
   realtime.closeOpenOffers(rideId, "rechazada", offer.id);
   closeDriverOtherOffers(offer.driver_id);
 
@@ -873,7 +870,6 @@ router.post("/rides/:id/cancel", (req, res) => {
   }
   realtime.clearDisconnectTimer(rideId);
   realtime.clearNoDriverTimer(rideId);
-  realtime.clearPreAcceptContact(rideId);
   realtime.closeOpenOffers(rideId, "cerrada");
 
   let cooldownUntil = null;

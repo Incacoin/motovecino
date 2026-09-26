@@ -12,9 +12,19 @@ const rideSubscribers = new Map();
 const disconnectTimers = new Map();
 // rideId -> Timeout (cuenta regresiva de "nadie ha aceptado el viaje")
 const noDriverTimers = new Map();
-// rideId -> driverId: quién le escribió al pasajero antes de aceptar el viaje
-// (para poder enrutar su respuesta), se limpia al aceptar/cancelar/completar.
-const preAcceptContact = new Map();
+// El chat solo existe entre el chofer y el pasajero de un viaje YA aceptado.
+// Antes de aceptar no hay chat: el precio del taxi se negocia con las ofertas
+// (quedan registradas y son la base de la comisión) y así nadie se pasa el
+// número para arreglar el viaje por fuera de la app.
+const CHAT_STATUSES = ["aceptado", "llegue", "en_curso"];
+
+// Tapa los números de teléfono en el chat (7 o más dígitos seguidos, aunque
+// vengan separados por espacios, guiones, puntos o paréntesis) para que el
+// viaje no se arregle por fuera de la app. Precios ($200) o calles (Calle 41)
+// no llegan a 7 dígitos y pasan tal cual.
+function maskPhones(text) {
+  return text.replace(/\+?\d(?:[\s.\-()]*\d){6,}/g, (m) => m.replace(/\d/g, "•"));
+}
 
 // Ventana de gracia antes de avisarle al pasajero que el chofer no vuelve.
 // Cubre un parpadeo normal de señal (el chofer reconecta solo, en ~2s) sin
@@ -174,7 +184,6 @@ function sweepStaleRides() {
       }
       clearDisconnectTimer(ride.id);
       clearNoDriverTimer(ride.id);
-      clearPreAcceptContact(ride.id);
       // El pasajero escucha "status_change" (igual que /cancel y el resto
       // del ciclo de vida del viaje), no "ride_cancelled" — ese tipo es solo
       // para el canal del chofer. Mandar el equivocado aquí dejaba al
@@ -258,24 +267,11 @@ function attach(httpServer) {
           );
           if (status === "disponible") notifyPendingRides(driverId);
         } else if (msg.type === "chat" && typeof msg.text === "string" && msg.text.trim()) {
-          const text = msg.text.trim().slice(0, 300);
-          if (msg.rideId) {
-            // Mensaje a una solicitud pendiente (todavía no aceptada) desde
-            // la lista de viajes cercanos — validar que sigue disponible o
-            // que ya es del propio chofer, para no dejar escribirle a
-            // pasajeros de viajes de otros choferes.
-            const rideId = Number(msg.rideId);
-            const ride = db
-              .prepare("SELECT id, driver_id, status FROM rides WHERE id = ?")
-              .get(rideId);
-            if (!ride) return;
-            if (ride.driver_id && ride.driver_id !== driverId) return;
-            if (!["buscando", "aceptado", "llegue", "en_curso"].includes(ride.status)) return;
-            if (!ride.driver_id) preAcceptContact.set(rideId, driverId);
-            notifyRide(rideId, "chat", { text, rideId });
-          } else {
-            const ride = activeRideForDriver(driverId);
-            if (ride) notifyRide(ride.id, "chat", { text, rideId: ride.id });
+          const text = maskPhones(msg.text.trim().slice(0, 300));
+          const ride = activeRideForDriver(driverId);
+          // activeRideForDriver ya filtra aceptado/llegue/en_curso.
+          if (ride) {
+            notifyRide(ride.id, "chat", { text, rideId: ride.id });
           }
         }
       });
@@ -320,10 +316,9 @@ function attach(httpServer) {
           return;
         }
         if (msg.type === "chat" && typeof msg.text === "string" && msg.text.trim()) {
-          const current = db.prepare("SELECT driver_id FROM rides WHERE id = ?").get(rideId);
-          const targetDriverId = current?.driver_id || preAcceptContact.get(rideId);
-          if (targetDriverId) {
-            notifyDriver(targetDriverId, "chat", { text: msg.text.trim().slice(0, 300), rideId });
+          const current = db.prepare("SELECT driver_id, status FROM rides WHERE id = ?").get(rideId);
+          if (current?.driver_id && CHAT_STATUSES.includes(current.status)) {
+            notifyDriver(current.driver_id, "chat", { text: maskPhones(msg.text.trim().slice(0, 300)), rideId });
           }
         }
       });
@@ -444,10 +439,6 @@ function clearDisconnectTimer(rideId) {
   }
 }
 
-function clearPreAcceptContact(rideId) {
-  preAcceptContact.delete(rideId);
-}
-
 // Cierra las contraofertas que sigan pendientes en ese viaje (el pasajero
 // aceptó otra, canceló, o se venció la búsqueda) y le avisa a cada chofer
 // para que su tarjeta deje de decir "esperando al pasajero".
@@ -466,7 +457,6 @@ module.exports = {
   ABANDONED_AFTER_MIN,
   notifyRide,
   broadcastNewRide,
-  clearPreAcceptContact,
   broadcastRideTaken,
   broadcastRideRemoved,
   notifyDriver,

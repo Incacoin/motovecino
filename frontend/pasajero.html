@@ -2098,11 +2098,19 @@ async function uploadReceipt(dataUrl) {
   }
 }
 
+// Tapa los números de teléfono en el chat (7 o más dígitos seguidos, aunque
+// vengan separados por espacios, guiones, puntos o paréntesis) para que el
+// viaje no se arregle por fuera de la app. Precios ($200) o calles (Calle 41)
+// no llegan a 7 dígitos y pasan tal cual.
+function maskPhones(text) {
+  return text.replace(/\+?\d(?:[\s.\-()]*\d){6,}/g, (m) => m.replace(/\d/g, "•"));
+}
+
 function appendChatMessage(text, who) {
   const el = document.getElementById("chatMessages");
   const div = document.createElement("div");
   div.className = "chat-msg " + who;
-  div.textContent = text;
+  div.textContent = maskPhones(text);
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }

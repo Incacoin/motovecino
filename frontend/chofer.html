@@ -549,15 +549,6 @@ function setDriverTheme(pref) {
   </div>
 </div>
 
-<div id="messageOverlay" class="cancel-overlay">
-  <div class="card cancel-sheet">
-    <div class="label">Mensaje para el pasajero</div>
-    <input id="messageOverlayInput" type="text" maxlength="300" placeholder="Escribe tu mensaje..." style="width:100%;box-sizing:border-box;padding:10px;margin-bottom:8px;" onkeydown="if(event.key==='Enter')sendPendingMessage()" />
-    <button class="btn" onclick="sendPendingMessage()">Enviar</button>
-    <button class="btn-sm" onclick="closeMessageOverlay()">Cancelar</button>
-  </div>
-</div>
-
 <script>
 const API = "";
 // Nombres, direcciones escritas y otros textos libres vienen de cualquiera
@@ -705,11 +696,19 @@ function showToast(msg) {
   showToast._t = setTimeout(() => el.classList.remove("show"), 3200);
 }
 
+// Tapa los números de teléfono en el chat (7 o más dígitos seguidos, aunque
+// vengan separados por espacios, guiones, puntos o paréntesis) para que el
+// viaje no se arregle por fuera de la app. Precios ($200) o calles (Calle 41)
+// no llegan a 7 dígitos y pasan tal cual.
+function maskPhones(text) {
+  return text.replace(/\+?\d(?:[\s.\-()]*\d){6,}/g, (m) => m.replace(/\d/g, "•"));
+}
+
 function appendChatMessage(text, who) {
   const el = document.getElementById("chatMessages");
   const div = document.createElement("div");
   div.className = "chat-msg " + who;
-  div.textContent = text;
+  div.textContent = maskPhones(text);
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
 }
@@ -1373,9 +1372,6 @@ function renderRideList() {
         </div>
         ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde la recogida)</div>` : ""}
         <div class="meta fare">${fare.text}</div>
-        <div style="display:flex;gap:6px;margin-bottom:6px;">
-          <button class="btn-sm wa" style="flex:1;" onclick="openMessageOverlay(${r.id})">💬 Mensaje</button>
-        </div>
         ${r.ride_type === "taxi" && r.offer_price != null
           ? taxiOfferBlockHtml(r)
           : r.ride_type === "taxi"
@@ -2051,30 +2047,6 @@ function cancelCurrentRide() {
 
 function closeCancelOverlay() {
   document.getElementById("cancelReasonOverlay").style.display = "none";
-}
-
-let pendingMessageRideId = null;
-
-function openMessageOverlay(rideId) {
-  pendingMessageRideId = rideId;
-  document.getElementById("messageOverlayInput").value = "";
-  document.getElementById("messageOverlay").style.display = "flex";
-  document.getElementById("messageOverlayInput").focus();
-}
-
-function closeMessageOverlay() {
-  document.getElementById("messageOverlay").style.display = "none";
-  pendingMessageRideId = null;
-}
-
-function sendPendingMessage() {
-  const input = document.getElementById("messageOverlayInput");
-  const text = input.value.trim();
-  if (!text || !pendingMessageRideId || !ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify({ type: "chat", rideId: pendingMessageRideId, text }));
-  showChatForRide(pendingMessageRideId);
-  appendChatMessage(text, "me");
-  closeMessageOverlay();
 }
 
 async function confirmCancel(reason) {
