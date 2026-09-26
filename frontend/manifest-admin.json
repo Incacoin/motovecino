@@ -2,7 +2,7 @@
   "name": "MotoVecino Admin",
   "short_name": "MotoVecino Admin",
   "description": "Panel de administración de MotoVecino",
-  "id": "/admin.html",
+  "id": "/admin.html?app=mv",
   "start_url": "/admin.html",
   "scope": "/admin.html",
   "display": "standalone",
