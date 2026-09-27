@@ -6,7 +6,9 @@
 <title>MotoVecino — Quiero ser chofer</title>
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2" />
+<meta name="theme-color" content="#ffffff" />
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <style>
   body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
   .wrap { width: 100%; max-width: 380px; }
@@ -49,6 +51,54 @@
     flex: 1; width: 100%; border: none; border-radius: var(--radius-sm);
     background: #fff;
   }
+
+  /* Botones de foto: el <input type="file"> nativo ("Seleccionar archivo ·
+     Ningún archivo seleccionado") confundía; se esconde y se usa su <label>. */
+  .photoInput { display: none; }
+  .field .photoBtn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border-radius: 12px; background: #eeeeee; color: #000; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .field .photoBtn.done { background: #fff; border: 1.5px solid #0e8345; color: #0e8345; }
+
+  /* ================================================================
+     TEMA FORMAL (tipo Uber) — igual que pasajero.html, 2026-09-26.
+     Claro, blanco y negro, letra Inter. Va al final para ganarle a
+     style.css (compartido con chofer/admin).
+     ================================================================ */
+  :root {
+    --bg: #ffffff;
+    --bg-panel: #ffffff;
+    --bg-card: #f6f6f6;
+    --bg-card-hover: #eeeeee;
+    --border: #e2e2e2;
+    --accent: #000000;
+    --accent-light: #000000;
+    --accent-dark: #000000;
+    --accent-ink: #ffffff;
+    --text: #000000;
+    --text-dim: #545454;
+    --text-faint: #8a8a8a;
+    --success: #0e8345;
+    --danger: #d32f2f;
+    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+  body { font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif; background: #fff; color: #000; letter-spacing: -0.005em; }
+  .btn { background: #000; color: #fff; box-shadow: none; border-radius: 12px; font-weight: 700; letter-spacing: 0; }
+  .btn:hover { filter: none; opacity: 0.88; }
+  input, select { background: #f3f3f3; border: 1.5px solid transparent; color: #000; }
+  input:focus, select:focus { border-color: #000; box-shadow: none; background: #fff; }
+  .phoneRow .prefix { background: #f3f3f3; border: 1.5px solid transparent; color: #545454; }
+  .field label { color: #000; font-weight: 600; font-size: 13.5px; }
+  .field label.legalCheck { color: #545454; font-weight: 500; font-size: 12.5px; }
+  .legalCheck input { accent-color: #000; }
+  .fieldHint a, .legalCheck a { color: #000; font-weight: 600; }
+  .btn-clear-sign { border-color: #e2e2e2; color: #000; }
+  #signaturePad { border: 1.5px solid #e2e2e2; border-radius: 12px; }
+  .card { background: #fff; border: 1px solid #e2e2e2; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .brand { color: #000; letter-spacing: -0.03em; }
+  .brand .brand-icon { background: #000; box-shadow: none; border-radius: 12px; }
+  .credit strong { color: #000; }
+  #formScreen > svg rect, #formScreen > svg line { stroke: #bdbdbd; opacity: 1; }
+  #okScreen h2, #ticulSoonScreen h2, #comingSoonScreen h2 { color: #000; }
 </style>
 </head>
 <body>
@@ -91,21 +141,23 @@
     </div>
     <div class="field">
       <label>¿Con qué vehículo trabajas?</label>
-      <select id="vehicleType">
-        <option value="moto">🛵 Mototaxi (viajes cortos)</option>
-        <option value="taxi">🚕 Taxi / carro (viajes largos)</option>
+      <select id="vehicleType" onchange="updateVehicleLabels()">
+        <option value="moto">🛵 Mototaxi o motocarro</option>
+        <option value="taxi">🚕 Taxi o carro</option>
       </select>
     </div>
     <div class="field">
       <label>Foto de tu rostro</label>
       <p class="fieldHint">Una selfie clara de tu cara. Esta es la foto que le va a aparecer al pasajero cuando le llegue su viaje, para que te reconozca.</p>
-      <input type="file" id="photo" accept="image/*" capture="user" onchange="handlePhoto(event, 'photoPreview')" />
+      <input type="file" class="photoInput" id="photo" accept="image/*" capture="user" onchange="handlePhoto(event, 'photoPreview')" />
+      <label for="photo" class="photoBtn" id="photoBtn">📷 Tomar selfie</label>
       <img id="photoPreview" />
     </div>
     <div class="field">
-      <label>Foto de ti con tu moto</label>
+      <label id="photoPlacaLabel">Foto de ti con tu mototaxi</label>
       <p class="fieldHint">Solo para verificación interna — el pasajero nunca ve esta foto. No hace falta que se vea la placa.</p>
-      <input type="file" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
+      <input type="file" class="photoInput" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
+      <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn">📷 Tomar foto con tu mototaxi</label>
       <img id="photoPlacaPreview" />
     </div>
     <div class="field">
@@ -301,6 +353,16 @@ function resizeToDataUrl(file, onDone, onError) {
   reader.readAsDataURL(file);
 }
 
+// La foto de verificación dice "mototaxi" o "taxi" según el vehículo elegido.
+function vehicleWord() {
+  return document.getElementById("vehicleType").value === "taxi" ? "taxi" : "mototaxi";
+}
+function updateVehicleLabels() {
+  document.getElementById("photoPlacaLabel").textContent = "Foto de ti con tu " + vehicleWord();
+  const btn = document.getElementById("photoPlacaBtn");
+  if (!btn.classList.contains("done")) btn.textContent = "📷 Tomar foto con tu " + vehicleWord();
+}
+
 function handlePhoto(event, previewId) {
   const file = event.target.files[0];
   const err = document.getElementById("err");
@@ -317,6 +379,9 @@ function handlePhoto(event, previewId) {
       const preview = document.getElementById(previewId);
       preview.src = dataUrl;
       preview.style.display = "block";
+      const btn = document.getElementById(previewId === "photoPlacaPreview" ? "photoPlacaBtn" : "photoBtn");
+      btn.textContent = "✓ Foto lista · Cambiar";
+      btn.classList.add("done");
     },
     () => { err.textContent = "No se pudo leer la foto, intenta de nuevo"; }
   );
@@ -380,7 +445,7 @@ async function submitApplication() {
     return;
   }
   if (!photoPlacaDataUrl) {
-    err.textContent = "Falta la foto de ti con tu moto";
+    err.textContent = "Falta la foto de ti con tu " + vehicleWord();
     return;
   }
   const emergencyName = document.getElementById("emergencyName").value.trim();
