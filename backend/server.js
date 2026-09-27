@@ -66,6 +66,41 @@ app.use((req, res, next) => {
   next();
 });
 
+// Dominio oficial para Google. Los dominios viejos (motomayaapp.com,
+// motoyaapp.com, tekax.*, motoyatekax.onrender.com) siguen sirviendo la app
+// para no romper QRs impresos ni apps ya instaladas, pero Google los estaba
+// mostrando en los resultados (ej. el Aviso Legal con motomayaapp.com).
+// - Las páginas públicas se mandan con 301 a la MISMA ruta en el dominio
+//   oficial (conserva ruta y ?query, así los QRs siguen cayendo donde deben).
+// - Las pantallas de la app NO se redirigen (otro origen = sesión perdida
+//   para quien la instaló desde el dominio viejo): solo se les pide a Google
+//   que no las muestre.
+const CANONICAL_HOST = "motovecinoapp.com";
+const PUBLIC_PAGES = new Set([
+  "/aviso-legal.html",
+  "/aviso-privacidad.html",
+  "/contrato-prestacion-servicios.html",
+  "/quiero-ser-chofer.html",
+  "/quiero-ser-chofer",
+  "/quiero-ser-chofer/",
+]);
+// Pantallas internas que no deben salir en Google en ningún dominio.
+const NOINDEX_PATHS = new Set(["/admin.html", "/seguir.html", "/contrato-prestacion-servicios.html"]);
+const isLocalHost = (h) => h === "localhost" || h === "127.0.0.1" || h === "::1";
+
+app.use((req, res, next) => {
+  const host = req.hostname || "";
+  const isAdminHost = host.startsWith("admin.");
+  const isOldHost = !isLocalHost(host) && !isAdminHost && host !== CANONICAL_HOST;
+  if (isOldHost && req.method === "GET" && PUBLIC_PAGES.has(req.path)) {
+    return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
+  }
+  if (isOldHost || isAdminHost || NOINDEX_PATHS.has(req.path)) {
+    res.set("X-Robots-Tag", "noindex");
+  }
+  next();
+});
+
 // Dirección corta del registro de choferes: el tríptico impreso dice
 // "motovecinoapp.com/quiero-ser-chofer" (sin .html) y daba 404.
 app.get(["/quiero-ser-chofer", "/quiero-ser-chofer/"], (req, res) => {
