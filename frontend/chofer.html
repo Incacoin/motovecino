@@ -331,6 +331,14 @@ function setDriverTheme(pref) {
   .theme-picker { display: flex; gap: 4px; padding: 4px; background: var(--bg-card-hover); border-radius: 999px; }
   .theme-picker button { flex: 1; padding: 9px 6px; border: none; border-radius: 999px; background: transparent; color: var(--text-dim); font: 600 13.5px Inter, sans-serif; cursor: pointer; }
   .theme-picker button.active { background: var(--accent); color: var(--accent-ink); }
+  /* Ventana de confirmación propia (reemplaza confirm() del navegador, que
+     muestra "motoyaapp.com dice" arriba). Usa las variables del tema. */
+  .mv-confirm { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .mv-confirm-box { width: 100%; max-width: 320px; box-sizing: border-box; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 18px; padding: 22px 20px 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); text-align: left; }
+  .mv-confirm-box p { margin: 0 0 18px; font-size: 15.5px; line-height: 1.45; font-weight: 600; }
+  .mv-confirm-actions { display: flex; gap: 10px; }
+  .mv-confirm-actions .btn { flex: 1; width: auto; margin: 0; padding: 12px 10px; font-size: 14.5px; }
+  .mv-confirm-actions .btn.mv-danger { background: var(--danger); color: #fff; }
 </style>
 </head>
 <body>
@@ -1679,7 +1687,7 @@ function depositBoxHtml(r) {
 
 async function depositAction(action) {
   if (!currentRide) return;
-  if (action === "waive" && !confirm("¿Quitar el anticipo? Irás sin depósito y cobrarás todo al llegar.")) return;
+  if (action === "waive" && !(await mvConfirm("¿Quitar el anticipo? Irás sin depósito y cobrarás todo al llegar.", "Quitar anticipo"))) return;
   const res = await fetch(API + `/api/rides/${currentRide.id}/deposit/${action}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -2375,6 +2383,24 @@ if (saved) {
   driver = JSON.parse(saved);
   todayCount = driver.todayCount || 0;
   startApp();
+}
+// Ventana de confirmación con el diseño de MotoVecino, en vez de confirm()
+// del navegador (que pone "motoyaapp.com dice" arriba). Devuelve true/false.
+function mvConfirm(message, okText = "Aceptar", danger = false) {
+  return new Promise((resolve) => {
+    const ov = document.createElement("div");
+    ov.className = "mv-confirm";
+    ov.innerHTML = `<div class="mv-confirm-box" role="dialog" aria-modal="true"><p></p><div class="mv-confirm-actions"><button class="btn btn-secondary" data-r="0">Cancelar</button><button class="btn${danger ? " mv-danger" : ""}" data-r="1"></button></div></div>`;
+    ov.querySelector("p").textContent = message;
+    ov.querySelector('[data-r="1"]').textContent = okText;
+    const close = (v) => { ov.remove(); resolve(v); };
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov) return close(false);
+      const b = e.target.closest("[data-r]");
+      if (b) close(b.dataset.r === "1");
+    });
+    document.body.appendChild(ov);
+  });
 }
 </script>
 </body>

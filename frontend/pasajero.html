@@ -381,6 +381,15 @@ function toggleRiderTheme() {
   .spinner { border-color: rgba(0,0,0,0.12); border-top-color: #000; }
   #photoLightbox img { border: 3px solid #fff; }
 
+  /* Ventana de confirmación propia (reemplaza confirm() del navegador, que
+     muestra "motoyaapp.com dice" arriba). Usa las variables del tema. */
+  .mv-confirm { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .mv-confirm-box { width: 100%; max-width: 320px; box-sizing: border-box; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 18px; padding: 22px 20px 18px; box-shadow: 0 12px 40px rgba(0,0,0,0.35); text-align: left; }
+  .mv-confirm-box p { margin: 0 0 18px; font-size: 15.5px; line-height: 1.45; font-weight: 600; }
+  .mv-confirm-actions { display: flex; gap: 10px; }
+  .mv-confirm-actions .btn { flex: 1; width: auto; margin: 0; padding: 12px 10px; font-size: 14.5px; }
+  .mv-confirm-actions .btn.mv-danger { background: var(--danger); color: #fff; }
+
   /* Selector de tema (perfil) y botón rápido de la portada */
   .theme-block { width: 260px; margin-top: 22px; text-align: left; }
   .theme-block .account-detail-title { display: block; margin-bottom: 8px; }
@@ -2747,7 +2756,7 @@ function notifyEmergencyContact() {
 async function changeRiderPin() {
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   if (!rider) return;
-  if (!confirm("Se va a generar un PIN nuevo y el anterior deja de funcionar. ¿Continuar?")) return;
+  if (!(await mvConfirm("Se va a generar un PIN nuevo y el anterior deja de funcionar. ¿Continuar?", "Generar PIN"))) return;
   const errEl = document.getElementById("profileError");
   errEl.style.color = "var(--danger)";
   errEl.textContent = "Generando...";
@@ -2811,8 +2820,8 @@ function closeHistory() {
   document.getElementById(historyReturnScreen).classList.add("active");
 }
 
-function logoutRider() {
-  if (!confirm("¿Cerrar sesión? Vas a necesitar tu teléfono y PIN para volver a entrar.")) return;
+async function logoutRider() {
+  if (!(await mvConfirm("¿Cerrar sesión? Vas a necesitar tu teléfono y PIN para volver a entrar.", "Cerrar sesión", true))) return;
   localStorage.removeItem("motoya_rider");
   location.reload();
 }
@@ -2935,7 +2944,7 @@ async function cancelRide() {
     const msg = currentDeposit.status === "confirmado"
       ? `Tu chofer ya confirmó tu anticipo de $${currentDeposit.amount} y va por ti. Si sales ahora, el chofer se queda con el anticipo. ¿Salir del viaje?`
       : `Ya enviaste el comprobante de tu anticipo de $${currentDeposit.amount}. Como tu chofer todavía no lo confirma, si sales él debe devolvértelo. Mejor escríbele por el chat antes de salir. ¿Salir del viaje?`;
-    if (!confirm(msg)) return;
+    if (!(await mvConfirm(msg, "Salir del viaje", true))) return;
   }
   stopStatusAvailableDriversPolling();
   const wasActive = ["aceptado", "llegue", "en_curso"].includes(currentRideStatus);
@@ -3046,6 +3055,24 @@ async function initSession() {
   }
 }
 initSession();
+// Ventana de confirmación con el diseño de MotoVecino, en vez de confirm()
+// del navegador (que pone "motoyaapp.com dice" arriba). Devuelve true/false.
+function mvConfirm(message, okText = "Aceptar", danger = false) {
+  return new Promise((resolve) => {
+    const ov = document.createElement("div");
+    ov.className = "mv-confirm";
+    ov.innerHTML = `<div class="mv-confirm-box" role="dialog" aria-modal="true"><p></p><div class="mv-confirm-actions"><button class="btn btn-secondary" data-r="0">Cancelar</button><button class="btn${danger ? " mv-danger" : ""}" data-r="1"></button></div></div>`;
+    ov.querySelector("p").textContent = message;
+    ov.querySelector('[data-r="1"]').textContent = okText;
+    const close = (v) => { ov.remove(); resolve(v); };
+    ov.addEventListener("click", (e) => {
+      if (e.target === ov) return close(false);
+      const b = e.target.closest("[data-r]");
+      if (b) close(b.dataset.r === "1");
+    });
+    document.body.appendChild(ov);
+  });
+}
 </script>
 </body>
 </html>
