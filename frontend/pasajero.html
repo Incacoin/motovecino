@@ -13,6 +13,38 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="MotoVecino" />
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>
+// Tema del pasajero: "light" (por defecto), "dark" o "auto" (claro de 6 am a
+// 7 pm, oscuro de noche — igual que en chofer.html). Va en el <head> para que
+// la app abra ya con el color correcto, sin parpadeo.
+function riderThemeFor(pref) {
+  if (pref === "dark") return "dark";
+  if (pref === "auto") { const h = new Date().getHours(); return h >= 6 && h < 19 ? "light" : "dark"; }
+  return "light";
+}
+function applyRiderTheme() {
+  let pref = "light";
+  try { pref = localStorage.getItem("motovecino_tema_pasajero") || "light"; } catch {}
+  const theme = riderThemeFor(pref);
+  document.documentElement.dataset.theme = theme;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "light" ? "#ffffff" : "#000000");
+  document.querySelectorAll(".theme-picker button").forEach((b) => b.classList.toggle("active", b.dataset.pref === pref));
+  const quick = document.getElementById("themeQuickBtn");
+  if (quick) { quick.textContent = theme === "dark" ? "☀️" : "🌙"; quick.title = theme === "dark" ? "Tema claro" : "Tema oscuro"; }
+}
+applyRiderTheme();
+document.addEventListener("DOMContentLoaded", applyRiderTheme);
+setInterval(applyRiderTheme, 60000);
+function setRiderTheme(pref) {
+  try { localStorage.setItem("motovecino_tema_pasajero", pref); } catch {}
+  applyRiderTheme();
+}
+// Botón 🌙/☀️ de la portada: cambia directo entre claro y oscuro.
+function toggleRiderTheme() {
+  setRiderTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+}
+</script>
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -36,7 +68,7 @@
   .input-icon-row svg { flex-shrink: 0; }
   .pill-row { display: flex; gap: 10px; width: 260px; margin-top: 6px; }
   .pill-row .btn-sm { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; }
-  .installBanner { position: absolute; top: 14px; left: 14px; right: 14px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; text-align: left; font-size: 13.5px; }
+  .installBanner { position: absolute; top: 14px; left: 14px; right: 66px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; text-align: left; font-size: 13.5px; }
   .installBanner #installText { flex: 1; color: var(--text); line-height: 1.4; }
   .installClose { background: none; border: none; color: var(--text-faint); font-size: 15px; cursor: pointer; padding: 4px; flex-shrink: 0; }
   .btn:disabled { opacity: 0.4; }
@@ -348,6 +380,109 @@
   .toast { background: #000; color: #fff; border: none; }
   .spinner { border-color: rgba(0,0,0,0.12); border-top-color: #000; }
   #photoLightbox img { border: 3px solid #fff; }
+
+  /* Selector de tema (perfil) y botón rápido de la portada */
+  .theme-block { width: 260px; margin-top: 22px; text-align: left; }
+  .theme-block .account-detail-title { display: block; margin-bottom: 8px; }
+  .theme-picker { display: flex; gap: 4px; padding: 4px; background: #f3f3f3; border-radius: 999px; }
+  .theme-picker button { flex: 1; padding: 9px 4px; font-size: 13px; font-weight: 600; border: none; border-radius: 999px; background: transparent; color: #545454; cursor: pointer; font-family: inherit; }
+  .theme-picker button.active { background: #000; color: #fff; }
+  .theme-note { font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.4; }
+  #themeQuickBtn { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; border-radius: 50%; border: 1px solid #e2e2e2; background: #fff; font-size: 18px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+
+  /* ================================================================
+     TEMA OSCURO del pasajero (26-sep). Lo elige el pasajero; por defecto
+     abre en claro. Mismo estilo formal, invertido: fondo negro, letra
+     blanca, botones blancos. El mapa se queda claro (como en chofer.html)
+     para que las calles se lean bien.
+     ================================================================ */
+  html[data-theme="dark"] {
+    --bg: #000000;
+    --bg-panel: #111111;
+    --bg-card: #1a1a1a;
+    --bg-card-hover: #242424;
+    --border: #2a2a2a;
+    --accent: #ffffff;
+    --accent-light: #ffffff;
+    --accent-dark: #ffffff;
+    --accent-ink: #000000;
+    --text: #ffffff;
+    --text-dim: #a8a8a8;
+    --text-faint: #6b6b6b;
+    --success: #3ecf7a;
+    --danger: #ff6b6b;
+    --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.6);
+    background: #000;
+  }
+  html[data-theme="dark"] body { background: #000; color: #fff; }
+  html[data-theme="dark"] .btn { background: #fff; color: #000; }
+  html[data-theme="dark"] .btn:disabled { background: #222; color: #6b6b6b; }
+  html[data-theme="dark"] .btn-secondary { background: #1f1f1f; color: #fff; }
+  html[data-theme="dark"] .btn-secondary:hover { background: #282828; }
+  html[data-theme="dark"] .btn-sm { background: #111; color: #fff; border-color: #2a2a2a; }
+  html[data-theme="dark"] .btn-sm:hover { background: #1c1c1c; }
+  html[data-theme="dark"] .btn-sm.wa { background: #25d366; border-color: #25d366; color: #fff; }
+  html[data-theme="dark"] input, html[data-theme="dark"] select { background: #1a1a1a; color: #fff; }
+  html[data-theme="dark"] input::placeholder { color: #7a7a7a; }
+  html[data-theme="dark"] input:focus, html[data-theme="dark"] select:focus { border-color: #fff; background: #111; }
+  html[data-theme="dark"] .input-icon-row { background: #1a1a1a; }
+  html[data-theme="dark"] .input-icon-row:focus-within { border-color: #fff; background: #111; }
+  html[data-theme="dark"] .input-icon-row input, html[data-theme="dark"] .input-icon-row input:focus { background: transparent; }
+  html[data-theme="dark"] .card { background: #111; border-color: #262626; box-shadow: none; }
+  html[data-theme="dark"] #form { background: #000; }
+  html[data-theme="dark"] .brand { color: #fff; }
+  html[data-theme="dark"] .brand .brand-icon { box-shadow: 0 0 0 1px #333; }
+  html[data-theme="dark"] .credit strong { color: #fff; }
+  html[data-theme="dark"] #themeQuickBtn { background: #111; border-color: #2a2a2a; }
+  html[data-theme="dark"] .theme-picker { background: #1a1a1a; }
+  html[data-theme="dark"] .theme-picker button { color: #a8a8a8; }
+  html[data-theme="dark"] .theme-picker button.active { background: #fff; color: #000; }
+  html[data-theme="dark"] #accountBtn { background: #111; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+  html[data-theme="dark"] #accountBtn svg { stroke: #fff; }
+  html[data-theme="dark"] #pickHint { background: #fff; color: #000; }
+  html[data-theme="dark"] #pickBar { background: #111; box-shadow: 0 -6px 24px rgba(0,0,0,0.5); }
+  html[data-theme="dark"] .sheet-handle { background: #3a3a3a; }
+  html[data-theme="dark"] .segmented { background: #1a1a1a; }
+  html[data-theme="dark"] .service-tab { color: #a8a8a8; }
+  html[data-theme="dark"] .service-tab.active { background: #fff; color: #000; }
+  html[data-theme="dark"] #zoneNotice { background: #1a1a1a; border-color: #2a2a2a; border-left-color: #fff; color: #fff; }
+  html[data-theme="dark"] #zoneNotice.out { background: #2a1414; border-color: #4a2323; border-left-color: #ff6b6b; }
+  html[data-theme="dark"] .pax-card { background: #1a1a1a; }
+  html[data-theme="dark"] #fareEstimate, html[data-theme="dark"] .offer-stepper .offer-value { color: #fff; }
+  html[data-theme="dark"] .status-header { background: #111; border-color: #262626; box-shadow: none; }
+  html[data-theme="dark"] .verified-badge, html[data-theme="dark"] .search-title .timer { color: #fff; }
+  html[data-theme="dark"] .progress-track { background: #262626; }
+  html[data-theme="dark"] .progress-fill { background: #fff; }
+  html[data-theme="dark"] .avatar { border-color: #000; }
+  html[data-theme="dark"] #statusMap, html[data-theme="dark"] .offer-card { border-color: #262626; }
+  html[data-theme="dark"] .offer-price { color: #fff; }
+  html[data-theme="dark"] .driverPhoto { border-color: #fff; }
+  html[data-theme="dark"] .driverPhotoFallback { background: #1a1a1a; }
+  html[data-theme="dark"] .chip { background: #1f1f1f; color: #ccc; }
+  html[data-theme="dark"] .chip-accent { background: #fff; color: #000; }
+  html[data-theme="dark"] .agreed-box { background: #1a1a1a; }
+  html[data-theme="dark"] .agreed-box .lbl { color: #a8a8a8; }
+  html[data-theme="dark"] .chat-msg.me { background: #fff; color: #000; }
+  html[data-theme="dark"] .chat-msg.them { background: #1f1f1f; color: #fff; }
+  html[data-theme="dark"] .dep-box { background: #1a1a1a; border-color: #2a2a2a; }
+  html[data-theme="dark"] .dep-box.ok { background: #0f2419; border-color: #1f5134; }
+  html[data-theme="dark"] .dep-account { background: #111; border-color: #2a2a2a; }
+  html[data-theme="dark"] .dep-rules { border-top-color: #2a2a2a; }
+  html[data-theme="dark"] .dep-rules a { color: #fff; }
+  html[data-theme="dark"] #profilePhoto { border-color: #fff; }
+  html[data-theme="dark"] .account-card { background: #1a1a1a; }
+  html[data-theme="dark"] .account-card.open { border-color: #fff; }
+  html[data-theme="dark"] .load-more-btn, html[data-theme="dark"] .badge-card .progress-note { color: #fff; }
+  html[data-theme="dark"] .app-drawer { background: #111; }
+  html[data-theme="dark"] .app-drawer.open { border-right-color: #262626; box-shadow: 4px 0 24px rgba(0,0,0,0.6); }
+  html[data-theme="dark"] .drawer-overlay { background: rgba(0,0,0,0.6); }
+  html[data-theme="dark"] .drawer-city { color: #a8a8a8; }
+  html[data-theme="dark"] .drawer-row { color: #fff; }
+  html[data-theme="dark"] .drawer-row.danger { color: var(--danger); }
+  html[data-theme="dark"] .drawer-row:hover { background: #1a1a1a; }
+  html[data-theme="dark"] .locationBanner, html[data-theme="dark"] .toast { background: #fff; color: #000; }
+  html[data-theme="dark"] .spinner { border-color: rgba(255,255,255,0.15); border-top-color: #fff; }
 </style>
 </head>
 <body>
@@ -360,6 +495,7 @@
 <div id="toast" class="toast"></div>
 
 <div id="form" class="screen active">
+  <button id="themeQuickBtn" onclick="toggleRiderTheme()" title="Tema oscuro" aria-label="Cambiar tema">🌙</button>
   <div id="installBanner" class="card installBanner" style="display:none;">
     <div id="installText"></div>
     <button class="btn-sm" id="installBtn" onclick="installApp()" style="display:none;">Instalar app</button>
@@ -499,6 +635,16 @@
     <button class="btn-sm" onclick="saveEmergencyContact()">Guardar contacto</button>
     <button class="btn-sm" id="clearEmergencyBtn" style="display:none;color:var(--danger);border-color:rgba(229,72,77,0.35);" onclick="clearEmergencyContact()">Quitar contacto</button>
     <div id="emergencyMsg" style="font-size:13px;min-height:16px;"></div>
+  </div>
+
+  <div class="theme-block">
+    <span class="account-detail-title">Apariencia</span>
+    <div class="theme-picker">
+      <button data-pref="light" onclick="setRiderTheme('light')">Claro</button>
+      <button data-pref="dark" onclick="setRiderTheme('dark')">Oscuro</button>
+      <button data-pref="auto" onclick="setRiderTheme('auto')">Automático</button>
+    </div>
+    <div class="theme-note">Automático: claro de día (6 am a 7 pm) y oscuro de noche.</div>
   </div>
 
   <div class="account-footer">
@@ -1876,7 +2022,7 @@ function renderPickupWaitBox() {
       <div style="font-weight:700;font-size:18px;">${charge > 0
         ? `${fmtMmSs(ms)} · +$${charge} de espera`
         : `Gratis · te quedan ${fmtMmSs(Math.max(0, graceLeft))}`}</div>
-      <div style="font-size:12.5px;color:#545454;margin-top:4px;">Tienes ${TAXI_PICKUP_GRACE_MIN} minutos gratis para salir. Después se cobran $${TAXI_WAIT_RATE_PER_MIN} por minuto de espera.</div>
+      <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">Tienes ${TAXI_PICKUP_GRACE_MIN} minutos gratis para salir. Después se cobran $${TAXI_WAIT_RATE_PER_MIN} por minuto de espera.</div>
     </div>`;
 }
 
@@ -1912,7 +2058,7 @@ function renderStopWaitBox() {
     <div class="agreed-box">
       <div class="lbl">${stopWaitSince ? "⏱️ Espera en curso (parada en el camino)" : "Paradas en el camino"}</div>
       <div style="font-weight:700;font-size:18px;">${fmtMmSs(ms)} · +$${charge}</div>
-      <div style="font-size:12.5px;color:#545454;margin-top:4px;">$${TAXI_WAIT_RATE_PER_MIN} por minuto · se suma al precio acordado.</div>
+      <div style="font-size:12.5px;color:var(--text-dim);margin-top:4px;">$${TAXI_WAIT_RATE_PER_MIN} por minuto · se suma al precio acordado.</div>
     </div>`;
 }
 
