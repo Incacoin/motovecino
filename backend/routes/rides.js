@@ -73,7 +73,11 @@ router.post("/rides", (req, res) => {
     ride_type,
     service_kind,
     offer_price,
+    extra,
   } = req.body;
+  // Extra voluntario del pasajero en mototaxi (+$5 o +$10), todo para el
+  // chofer: no cambia la tarifa de servicio. El taxi negocia con ofertas.
+  const cleanExtra = ride_type !== "taxi" && [5, 10].includes(Number(extra)) ? Number(extra) : 0;
   const VALID_SERVICE_KINDS = ["pasaje", "domicilio", "mandado"];
   const cleanServiceKind = VALID_SERVICE_KINDS.includes(service_kind) ? service_kind : "pasaje";
 
@@ -133,8 +137,8 @@ router.post("/rides", (req, res) => {
 
   const result = db
     .prepare(
-      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token, offer_price)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token, offer_price, extra)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       rider_name,
@@ -152,7 +156,8 @@ router.post("/rides", (req, res) => {
       city,
       cleanServiceKind,
       generateShareToken(),
-      offerPrice
+      offerPrice,
+      cleanExtra
     );
 
   const ride = db

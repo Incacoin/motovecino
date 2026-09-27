@@ -375,4 +375,46 @@ router.post("/chofer-solicitudes", (req, res) => {
   res.status(201).json({ ok: true });
 });
 
+// ---- Avisos push de viajes nuevos (ver push.js) ----
+const push = require("../push");
+
+router.get("/push/public-key", (req, res) => {
+  res.json({ publicKey: push.getKeys().public_key });
+});
+
+// Igual que "Mi perfil": se autentica con su teléfono + PIN, nunca con un id.
+function driverFromPhonePin(req, res) {
+  if (isRateLimited(req.ip)) {
+    res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+    return null;
+  }
+  const { phone, pin } = req.body;
+  const driver = phone && pin
+    ? db.prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL").get(phone, pin)
+    : null;
+  if (!driver) {
+    recordFailedAttempt(req.ip);
+    res.status(404).json({ error: "Teléfono o PIN incorrectos" });
+    return null;
+  }
+  clearAttempts(req.ip);
+  return driver;
+}
+
+router.post("/drivers/push/subscribe", (req, res) => {
+  const driver = driverFromPhonePin(req, res);
+  if (!driver) return;
+  const endpoint = req.body.endpoint;
+  if (!push.isValidEndpoint(endpoint)) return res.status(400).json({ error: "Suscripción no válida" });
+  push.saveSubscription(driver.id, endpoint);
+  res.json({ ok: true });
+});
+
+router.post("/drivers/push/unsubscribe", (req, res) => {
+  const driver = driverFromPhonePin(req, res);
+  if (!driver) return;
+  if (typeof req.body.endpoint === "string") push.removeSubscription(driver.id, req.body.endpoint);
+  res.json({ ok: true });
+});
+
 module.exports = router;

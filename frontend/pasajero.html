@@ -217,6 +217,14 @@ function toggleRiderTheme() {
   #driverCard { padding: 18px; width: 280px; }
   #driverCard .name { font-size: 18px; font-weight: 700; }
   #driverCard .meta { color: var(--text-dim); margin-top: 4px; font-size: 14px; }
+  /* Extra voluntario al chofer (mototaxi): +$5 / +$10 */
+  #extraBox { display: flex; align-items: center; gap: 10px; border: 1.5px solid var(--border); border-radius: 14px; padding: 8px 8px 8px 12px; margin: 0 0 10px; text-align: left; }
+  #extraBox .extra-t { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; line-height: 1.3; color: var(--text); }
+  #extraBox .extra-t span { display: block; font-weight: 500; color: var(--text-dim); }
+  #extraBox .extra-chips { display: flex; gap: 6px; flex-shrink: 0; }
+  #extraBox .extra-chip { width: 64px; padding: 9px 0; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 800; border: 1.5px solid var(--border); background: var(--bg-panel); color: var(--text); cursor: pointer; }
+  #extraBox .extra-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  #extraNote { width: 280px; box-sizing: border-box; font-size: 13.5px; font-weight: 600; text-align: center; padding: 10px 12px; border-radius: 12px; background: var(--bg-card); color: var(--text); }
   /* Negocio aliado: un anuncio por viaje, mientras busca chofer o lo espera. */
   #allyAd { width: 280px; box-sizing: border-box; padding: 14px 16px 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); text-align: left; }
   #allyAd .ally-label { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
@@ -740,6 +748,13 @@ function toggleRiderTheme() {
         </div>
         <div class="offer-note">Tú propones el precio. El taxista lo acepta o te manda otra oferta.</div>
       </div>
+      <div id="extraBox" style="display:none;">
+        <div class="extra-t">¿Lejos o con prisa? <span>Súmale al chofer:</span></div>
+        <div class="extra-chips">
+          <button type="button" class="extra-chip" id="extraChip5" onclick="setTripExtra(5)">+ $5</button>
+          <button type="button" class="extra-chip" id="extraChip10" onclick="setTripExtra(10)">+ $10</button>
+        </div>
+      </div>
       <button class="btn" id="requestBtn" disabled onclick="requestRide()">Pedir mototaxi</button>
     </div>
   </div>
@@ -755,6 +770,7 @@ function toggleRiderTheme() {
     </div>
   </div>
   <div id="connWarning"></div>
+  <div id="extraNote" style="display:none;"></div>
   <div id="statusMap"></div>
   <div id="searchingBlock" style="display:none;">
     <div class="verified-badge">
@@ -1190,6 +1206,8 @@ function updateFareEstimate() {
   const btn = document.getElementById("requestBtn");
   const baseLabel = serviceType === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
   document.getElementById("taxiOfferBox").style.display = "none";
+  // Se vuelve a mostrar solo en mototaxi con precio (al final de esta función).
+  document.getElementById("extraBox").style.display = "none";
   if (serviceZone === "out" && pickup) {
     el.textContent = "";
     btn.textContent = baseLabel;
@@ -1208,10 +1226,31 @@ function updateFareEstimate() {
   }
   const { pricePerPerson, childRate, approx, nightNote } = result;
   const totalPeople = passengers + children;
-  const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE;
+  const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE + tripExtra;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
-  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}, incluye $${SERVICE_FEE} de servicio${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
+  const extraNote = tripExtra ? ` + $${tripExtra} extra para el chofer` : "";
+  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}, incluye $${SERVICE_FEE} de servicio${extraNote}${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
   btn.textContent = `${baseLabel} · $${total} MXN`;
+  document.getElementById("extraBox").style.display = "flex";
+}
+
+// --- Extra voluntario al chofer (solo mototaxi) ---
+// +$5 o +$10 para que un chofer acepte más rápido o llegue hasta la puerta.
+// Todo es para el chofer; tocar el mismo botón otra vez lo quita.
+let tripExtra = 0;
+
+function setTripExtra(amount) {
+  tripExtra = tripExtra === amount ? 0 : amount;
+  document.getElementById("extraChip5").classList.toggle("on", tripExtra === 5);
+  document.getElementById("extraChip10").classList.toggle("on", tripExtra === 10);
+  updateFareEstimate();
+}
+
+function showExtraNote(extra) {
+  const note = document.getElementById("extraNote");
+  if (!note) return;
+  note.textContent = extra ? `💵 Le ofreciste +$${extra} extra al chofer` : "";
+  note.style.display = extra ? "block" : "none";
 }
 
 // --- Zona de servicio ---
@@ -1714,6 +1753,7 @@ async function requestRide() {
       ride_type: serviceType,
       service_kind: serviceCategory,
       offer_price: serviceType === "taxi" ? taxiOffer : undefined,
+      extra: serviceType === "taxi" ? 0 : tripExtra,
     }),
   });
   if (!res.ok) {
@@ -1744,6 +1784,7 @@ async function requestRide() {
   connectWs();
   requestWakeLock();
   loadAllyAd();
+  showExtraNote(ride.extra);
 }
 
 // --- Negocio aliado (un anuncio por viaje) ---
@@ -3078,6 +3119,7 @@ async function restoreActiveRide() {
   document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
   if (fetched.status === "buscando" && fetched.ride_type === "taxi") setupTaxiSearch(fetched.offer_price, fetched.offers);
   loadAllyAd();
+  showExtraNote(fetched.extra);
 
   if (fetched.driver) {
     await onDriverAssigned(fetched.driver, fetched.agreed_price, fetched.deposit_status ? {

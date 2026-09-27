@@ -2,6 +2,7 @@ const { WebSocketServer } = require("ws");
 const url = require("node:url");
 const db = require("./db");
 const { photoUrls } = require("./photos");
+const push = require("./push");
 const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC } = require("./constants");
 
 // driverId -> WebSocket
@@ -266,6 +267,12 @@ function attach(httpServer) {
             driverId
           );
           if (status === "disponible") notifyPendingRides(driverId);
+          // "Disponible" = quiere trabajar (le siguen llegando avisos push
+          // aunque cierre la app); "offline" mandado a propósito = ya terminó.
+          if (msg.status === "disponible") push.setWantsRides(driverId, true);
+          else if (msg.status === "offline") push.setWantsRides(driverId, false);
+        } else if (msg.type === "wants_rides") {
+          push.setWantsRides(driverId, !!msg.on);
         } else if (msg.type === "chat" && typeof msg.text === "string" && msg.text.trim()) {
           const text = maskPhones(msg.text.trim().slice(0, 300));
           const ride = activeRideForDriver(driverId);
@@ -382,6 +389,13 @@ function broadcastNewRide(ride) {
     if (distanceKm > maxDistance) continue;
     const ws = driverSockets.get(driver.id);
     if (ws) send(ws, "new_ride", payload);
+  }
+  // Y a los que quieren trabajar pero tienen la app cerrada o la pantalla
+  // apagada. Si algo falla con los avisos, el viaje se pide igual.
+  try {
+    push.notifyNewRide(ride);
+  } catch (e) {
+    console.warn("[push] no se pudo avisar:", e.message);
   }
 }
 

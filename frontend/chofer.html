@@ -72,8 +72,20 @@ function setDriverTheme(pref) {
   .ride-card .btn { width: 100%; margin-top: 8px; }
   .ride-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
   .chip { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: var(--bg-card-hover); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px; font-weight: 600; }
+  .chip.chip-extra, html[data-theme] .chip.chip-extra { background: #0e8345; border-color: #0e8345; color: #fff; font-weight: 700; }
   .chip-accent { background: rgba(246, 166, 35, 0.15); border-color: rgba(246, 166, 35, 0.35); color: var(--accent); }
   .empty { text-align: center; color: var(--text-faint); padding: 26px 12px; font-size: 14px; }
+  /* Avisos push de viajes nuevos */
+  .push-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .push-card .push-txt { flex: 1; min-width: 0; font-size: 13px; line-height: 1.4; color: var(--text-dim); }
+  .push-card .push-txt b { display: block; font-size: 14.5px; color: var(--text); margin-bottom: 2px; }
+  .push-card .btn-sm { flex-shrink: 0; font-weight: 700; padding: 9px 12px; }
+  .push-state { display: flex; align-items: center; gap: 12px; margin: 8px 0 10px; }
+  .push-state .ico { font-size: 26px; line-height: 1; }
+  .push-state b { display: block; font-size: 17px; }
+  .push-state.on b { color: var(--success); }
+  .push-state span { display: block; font-size: 13px; color: var(--text-dim); line-height: 1.4; margin-top: 2px; }
+  .push-toggle { width: 100%; margin: 4px 0 12px; }
   #switch { position: relative; width: 52px; height: 30px; background: #2a2e38; border-radius: 20px; cursor: pointer; transition: background 0.2s ease; }
   #switch .knob { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #cfd3db; transition: left 0.18s ease, background 0.18s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
   #switch.on { background: linear-gradient(180deg, #34d47f, var(--success)); box-shadow: inset 0 1px 3px rgba(0,0,0,0.25), 0 0 0 3px rgba(46,204,113,0.18); }
@@ -413,6 +425,7 @@ function setDriverTheme(pref) {
   <div id="map"></div>
   <div id="panel">
     <div class="sheet-handle"></div>
+    <div id="pushCard" class="card push-card" style="display:none;"></div>
     <div id="rideList"></div>
     <div id="chatBox" class="card" style="display:none;">
       <div id="chatMessages"></div>
@@ -456,6 +469,12 @@ function setDriverTheme(pref) {
         <div class="stat"><span class="icon">⭐</span><div class="n" id="statRating">–</div><div class="l">Calificación</div></div>
       </div>
       <div class="profile-note" id="ratingNote"></div>
+    </div>
+
+    <div class="card profile-card">
+      <div class="card-title">Avisos de viajes</div>
+      <div id="pushProfileStatus"></div>
+      <div class="profile-note">💡 ¿Solo quieres descansar hoy? No hace falta desactivarlos: ponte «Desconectado» y no te llega nada. Cuando te pongas «Disponible», regresan solos.</div>
     </div>
 
     <div class="card profile-card">
@@ -877,9 +896,16 @@ function estimateFare(ride) {
     }
   }
   const childRate = night ? (isTicul ? TICUL_CHILD_FARE_NIGHT : TEKAX_CHILD_FARE_NIGHT) : (isTicul ? TICUL_CHILD_FARE_DAY : TEKAX_CHILD_FARE_DAY);
-  const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE;
+  const extra = ride.extra || 0; // extra voluntario del pasajero, todo para el chofer
+  const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE + extra;
   const nightNote = night ? " · tarifa nocturna" : "";
-  return { total, text: `$${total} MXN (incl. $${SERVICE_FEE} servicio)${nightNote} · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${approx ? " (aprox.)" : ""}` };
+  const extraNote = extra ? ` + $${extra} extra` : "";
+  return { total, text: `$${total} MXN (incl. $${SERVICE_FEE} servicio${extraNote})${nightNote} · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${approx ? " (aprox.)" : ""}` };
+}
+
+// Chip verde con el extra que ofreció el pasajero (mototaxi).
+function extraChipHtml(ride) {
+  return ride.extra ? `<span class="chip chip-extra">💵 +$${ride.extra} extra del pasajero</span>` : "";
 }
 
 // Número de soporte para "¿Olvidaste tu PIN?". Vacío = el botón no aparece.
@@ -919,11 +945,14 @@ async function login() {
   }
 }
 
-function logout() {
+async function logout() {
   if (currentRide) {
     showToast("No puedes cerrar sesión con un viaje activo");
     return;
   }
+  // Cerrar sesión = ya no quiere viajes en este celular: que dejen de sonar.
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "status", status: "offline" }));
+  await Promise.race([forgetPushOnThisPhone(), new Promise((r) => setTimeout(r, 2000))]);
   if (ws) { ws.onclose = null; ws.close(); }
   releaseWakeLock();
   localStorage.removeItem("motoya_driver");
@@ -965,6 +994,115 @@ function startApp() {
   watchLocation();
   startOtherDriversPolling();
   restoreActiveRide();
+  refreshPushUi(true);
+}
+
+// ---------- Avisos push de viajes nuevos (ver backend/push.js) ----------
+function pushSupported() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+function isIphone() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
+function b64ToBytes(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+async function currentPushSub() {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+async function sendPushSub(sub) {
+  const res = await fetch(API + "/api/drivers/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: driver.phone, pin: driver.pin, endpoint: sub.endpoint }),
+  });
+  return res.ok;
+}
+// Estado: "on" | "off" | "denied" | "iphone" (falta instalarla) | "unsupported"
+async function pushState() {
+  if (!pushSupported()) return isIphone() ? "iphone" : "unsupported";
+  if (Notification.permission === "denied") return "denied";
+  const sub = await currentPushSub().catch(() => null);
+  return sub && Notification.permission === "granted" ? "on" : "off";
+}
+async function refreshPushUi(resync) {
+  // Para que el aviso diga "🚕 taxi" o "🛵" según el chofer (lo lee sw.js).
+  if ("caches" in window && driver) {
+    caches.open("mv-chofer").then((c) => c.put("/__tipo", new Response(driver.vehicle_type === "taxi" ? "taxi" : "moto"))).catch(() => {});
+  }
+  const state = await pushState();
+  // Al abrir la app se vuelve a mandar la suscripción: si el servidor la
+  // borró (p. ej. cambió de chofer en este celular) se recupera sola.
+  if (resync && state === "on") currentPushSub().then((s) => s && sendPushSub(s)).catch(() => {});
+  const card = document.getElementById("pushCard");
+  const texts = {
+    off: ["🔔 Activa los avisos de viajes", "Te suena aunque tengas la app cerrada o la pantalla apagada.", "Activar"],
+    denied: ["🔕 Los avisos están bloqueados", "Actívalos en los permisos del navegador: Notificaciones → Permitir.", ""],
+    iphone: ["🔔 Avisos en iPhone", "Primero instala la app: Safari → Compartir → «Agregar a pantalla de inicio». Luego ábrela desde el ícono.", ""],
+  };
+  // Si él mismo los desactivó, no se le vuelve a insistir en el mapa (puede
+  // activarlos otra vez desde Mi perfil).
+  let optedOut = false;
+  try { optedOut = localStorage.getItem("motovecino_avisos_off") === "1"; } catch {}
+  if (texts[state] && !(state === "off" && optedOut)) {
+    const [title, body, btn] = texts[state];
+    card.innerHTML = `<div class="push-txt"><b>${title}</b>${body}</div>${btn ? `<button class="btn-sm" onclick="enablePush()">${btn}</button>` : ""}`;
+    card.style.display = "flex";
+  } else {
+    card.style.display = "none";
+  }
+  const prof = document.getElementById("pushProfileStatus");
+  if (prof) {
+    const row = (cls, ico, title, text) => `<div class="push-state ${cls}"><div class="ico">${ico}</div><div><b>${title}</b><span>${text}</span></div></div>`;
+    prof.innerHTML = state === "on"
+      ? row("on", "🔔", "Activados", "Te llega un aviso de cada viaje nuevo aunque tengas la app cerrada o la pantalla apagada, mientras estés «Disponible».") +
+        `<button class="btn-secondary push-toggle" onclick="disablePush()">Desactivar avisos</button>`
+      : state === "off"
+      ? row("", "🔕", "Desactivados", "No te llegan avisos. Solo verás los viajes nuevos si tienes la app abierta en la pantalla.") +
+        `<button class="btn push-toggle" onclick="enablePush()">Activar avisos</button>`
+      : state === "denied"
+      ? row("", "🔕", "Bloqueados en el celular", "Para activarlos: toca el candado 🔒 junto a la dirección de arriba → Permisos → Notificaciones → Permitir.")
+      : state === "iphone"
+      ? row("", "🔔", "Primero instala la app", "En iPhone: Safari → Compartir → «Agregar a pantalla de inicio». Ábrela desde el ícono y aquí te saldrá «Activar avisos».")
+      : row("", "🔕", "No disponibles", "Este celular o navegador no permite avisos. Prueba abriendo la app en Chrome.");
+  }
+}
+async function disablePush() {
+  try { localStorage.setItem("motovecino_avisos_off", "1"); } catch {}
+  await forgetPushOnThisPhone();
+  showToast("🔕 Avisos desactivados");
+  refreshPushUi();
+}
+async function enablePush() {
+  if (!pushSupported()) { refreshPushUi(); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { showToast("Sin permiso no te podemos avisar"); refreshPushUi(); return; }
+  try {
+    const { publicKey } = await (await fetch(API + "/api/push/public-key")).json();
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) }));
+    if (!(await sendPushSub(sub))) throw new Error("server");
+    try { localStorage.removeItem("motovecino_avisos_off"); } catch {}
+    showToast("🔔 Avisos activados");
+  } catch (e) {
+    showToast("No se pudieron activar los avisos, intenta de nuevo");
+  }
+  refreshPushUi();
+}
+function forgetPushOnThisPhone() {
+  return currentPushSub().then((sub) => {
+    if (!sub) return;
+    sub.unsubscribe().catch(() => {});
+    return fetch(API + "/api/drivers/push/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: driver.phone, pin: driver.pin, endpoint: sub.endpoint }),
+      keepalive: true,
+    }).catch(() => {});
+  }).catch(() => {});
 }
 
 async function loadOtherDrivers() {
@@ -1009,6 +1147,9 @@ function connectWs() {
   let pingInterval;
   ws.onopen = () => {
     if (available) ws.send(JSON.stringify({ type: "status", status: "disponible" }));
+    // Si abrió la app ya "Desconectado" (o lo cambió sin conexión), que el
+    // servidor lo sepa para no mandarle avisos push de viajes.
+    else ws.send(JSON.stringify({ type: "wants_rides", on: false }));
     if (myPos) ws.send(JSON.stringify({ type: "location", lat: myPos.lat, lng: myPos.lng }));
     pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
@@ -1295,6 +1436,7 @@ function renderRideList() {
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           <div class="ride-chips">
             <span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>
+            ${extraChipHtml(currentRide)}
           </div>
           ${destLine}
           ${fareLine}
@@ -1376,6 +1518,7 @@ function renderRideList() {
         <div class="label">${riderAvatarHtml(r.riderPhoto)}<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:7px;"></span>${serviceKindPrefix(r)}${escapeHtml(r.rider_name)}${riderTripText(r)}</div>
         <div class="ride-chips">
           <span class="chip">📍 <span id="dist-${r.id}">${dist}</span> km</span>
+          ${extraChipHtml(r)}
           ${r.pickup_label ? `<span class="chip">${escapeHtml(r.pickup_label)}</span>` : ""}
         </div>
         ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde la recogida)</div>` : ""}
@@ -2137,6 +2280,7 @@ function row(k, v, cls) {
 
 async function openProfile() {
   applyDriverTheme();
+  refreshPushUi();
   document.getElementById("profileScreen").style.display = "block";
   document.getElementById("profilePhotoMsg").textContent = "";
   if (!driver || !driver.pin || !driver.phone) {

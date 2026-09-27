@@ -601,6 +601,13 @@ for (const col of ["arrived_at_ms", "started_at_ms", "stop_wait_total_ms", "stop
   }
 }
 
+// Extra voluntario del pasajero en mototaxi (+$5 / +$10), 100% para el chofer.
+try {
+  db.exec("ALTER TABLE rides ADD COLUMN extra INTEGER NOT NULL DEFAULT 0");
+} catch {
+  // la columna ya existe
+}
+
 // Negocios aliados: un anuncio a la vez en la app del pasajero mientras busca
 // chofer o lo espera. El WhatsApp es el del NEGOCIO. A ellos solo se les dan
 // conteos (vistas / toques), nunca datos de pasajeros. ally_settings guarda el

@@ -1503,7 +1503,7 @@ function renderRideRows(rides) {
     return `
     <tr>
       <td>${escapeHtml(r.rider_name)}<br><span class="ago">${r.rider_phone}</span></td>
-      <td>${vehicleTypeBadge(r.ride_type)}</td>
+      <td>${vehicleTypeBadge(r.ride_type)}${r.extra ? `<br><span class="ago" style="color:#0e8345;font-weight:700;">💵 +$${r.extra} extra</span>` : ""}</td>
       <td>${escapeHtml(r.driver_name) || "—"}${disconnected}</td>
       <td>${escapeHtml(r.pickup_label) || "—"}</td>
       <td>${escapeHtml(r.dest_label) || "—"}</td>
