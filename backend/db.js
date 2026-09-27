@@ -601,4 +601,39 @@ for (const col of ["arrived_at_ms", "started_at_ms", "stop_wait_total_ms", "stop
   }
 }
 
+// Negocios aliados: un anuncio a la vez en la app del pasajero mientras busca
+// chofer o lo espera. El WhatsApp es el del NEGOCIO. A ellos solo se les dan
+// conteos (vistas / toques), nunca datos de pasajeros. ally_settings guarda el
+// interruptor general por ciudad: se construye apagado y el admin lo prende
+// cuando ya haya choferes activos.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ally_ads (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    city TEXT NOT NULL DEFAULT 'tekax',
+    name TEXT NOT NULL,
+    tagline TEXT,
+    whatsapp TEXT NOT NULL,
+    image TEXT,
+    tier TEXT NOT NULL DEFAULT 'aliado',
+    active INTEGER NOT NULL DEFAULT 1,
+    starts_on TEXT,
+    ends_on TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+  );
+  CREATE TABLE IF NOT EXISTS ally_ad_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ad_id INTEGER NOT NULL REFERENCES ally_ads(id),
+    ride_id INTEGER NOT NULL REFERENCES rides(id),
+    kind TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_ally_ad_events_once ON ally_ad_events(ad_id, ride_id, kind);
+  CREATE TABLE IF NOT EXISTS ally_settings (
+    city TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0
+  );
+`);
+
 module.exports = db;

@@ -217,6 +217,14 @@ function toggleRiderTheme() {
   #driverCard { padding: 18px; width: 280px; }
   #driverCard .name { font-size: 18px; font-weight: 700; }
   #driverCard .meta { color: var(--text-dim); margin-top: 4px; font-size: 14px; }
+  /* Negocio aliado: un anuncio por viaje, mientras busca chofer o lo espera. */
+  #allyAd { width: 280px; box-sizing: border-box; padding: 14px 16px 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); text-align: left; }
+  #allyAd .ally-label { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+  #allyAd .ally-row { display: flex; align-items: center; gap: 12px; margin: 10px 0 12px; }
+  #allyAd .ally-logo { width: 54px; height: 54px; border-radius: 14px; object-fit: cover; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border); }
+  #allyAd .ally-name { font-size: 16.5px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+  #allyAd .ally-tag { font-size: 13px; color: var(--text-dim); margin-top: 2px; line-height: 1.35; }
+  #allyAd .btn { width: 100%; margin: 0; font-size: 15px; padding: 12px; white-space: nowrap; }
   .driverInfo { display: flex; align-items: center; gap: 14px; }
   .driverInfo-main { flex: 1; min-width: 0; }
   .driverPhoto { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2.5px solid var(--accent); cursor: pointer; }
@@ -767,6 +775,7 @@ function toggleRiderTheme() {
     <div id="offersList"></div>
   </div>
   <div id="driverCard" class="card fade-in" style="display:none;"></div>
+  <div id="allyAd" class="fade-in" style="display:none;"></div>
   <button class="btn btn-secondary chat-toggle-btn" id="chatToggleBtn" onclick="toggleChat()" style="display:none;">💬 Chat</button>
   <div id="chatBox" class="card fade-in">
     <div id="chatMessages"></div>
@@ -1734,6 +1743,47 @@ async function requestRide() {
 
   connectWs();
   requestWakeLock();
+  loadAllyAd();
+}
+
+// --- Negocio aliado (un anuncio por viaje) ---
+// Sale mientras busca chofer y mientras lo espera; se quita al arrancar el
+// viaje. El WhatsApp es el del negocio: el pasajero decide si le escribe.
+let allyAd = null;
+
+async function loadAllyAd() {
+  if (!ride || !ride.share_token) return;
+  try {
+    const res = await fetch(API + `/api/ally-ad?ride=${ride.id}&t=${encodeURIComponent(ride.share_token)}`);
+    const data = res.ok ? await res.json() : null;
+    allyAd = data && data.ad;
+  } catch { allyAd = null; }
+  const box = document.getElementById("allyAd");
+  if (!allyAd || !["buscando", "aceptado", "llegue"].includes(currentRideStatus)) { hideAllyAd(); return; }
+  box.innerHTML = `
+    <div class="ally-label">🤝 Negocio aliado</div>
+    <div class="ally-row">
+      ${allyAd.image ? `<img class="ally-logo" src="${allyAd.image}" alt="" />` : ""}
+      <div><div class="ally-name">${escapeHtml(allyAd.name)}</div>${allyAd.tagline ? `<div class="ally-tag">${escapeHtml(allyAd.tagline)}</div>` : ""}</div>
+    </div>
+    <button class="btn" onclick="tapAllyAd()">💬 Escribir por WhatsApp</button>`;
+  box.style.display = "block";
+}
+
+function hideAllyAd() {
+  const box = document.getElementById("allyAd");
+  if (box) { box.style.display = "none"; box.innerHTML = ""; }
+}
+
+function tapAllyAd() {
+  if (!allyAd) return;
+  fetch(API + `/api/ally-ads/${allyAd.id}/tap`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ride: ride.id, t: ride.share_token }),
+  }).catch(() => {});
+  const text = "Hola, vi su anuncio en MotoVecino 🛵";
+  window.open(`https://api.whatsapp.com/send?phone=52${allyAd.whatsapp}&text=${encodeURIComponent(text)}`, "_blank");
 }
 
 let wakeLock = null;
@@ -1985,6 +2035,7 @@ function onDriverArrived(arrivedAt) {
 
 function onTripStarted(startedAt) {
   currentRideStatus = "en_curso";
+  hideAllyAd();
   document.getElementById("statusText").textContent = `En camino a tu destino ${serviceType === "taxi" ? "🚕" : "🛵"}`;
   if (serviceType === "taxi" && pickupArrivedAt) {
     pickupStartedAt = startedAt || pickupStartedAt || Date.now();
@@ -2831,6 +2882,7 @@ function onCompleted() {
   clearInterval(stopWaitTimer);
   stopStatusAvailableDriversPolling();
   currentRideStatus = "completado";
+  hideAllyAd();
   localStorage.removeItem("motoya_active_ride");
   if (ride) saveRideToLocalHistory(ride.id, ride.share_token);
   document.getElementById("statusText").textContent = `¡Buen viaje! Gracias por usar MotoVecino ${resolvedCityLabel} 🛵`;
@@ -2884,6 +2936,7 @@ function onNoDriversAvailable() {
   stopStatusAvailableDriversPolling();
   clearTaxiOffers();
   currentRideStatus = "cancelado";
+  hideAllyAd();
   localStorage.removeItem("motoya_active_ride");
   document.getElementById("statusText").textContent = "😕 No hay choferes disponibles ahorita. Intenta de nuevo en unos minutos.";
   document.getElementById("connWarning").style.display = "none";
@@ -2899,6 +2952,7 @@ function onCancelledByDriver() {
   resetPickupWait();
   stopStatusAvailableDriversPolling();
   currentRideStatus = "cancelado";
+  hideAllyAd();
   localStorage.removeItem("motoya_active_ride");
   document.getElementById("statusText").textContent = "El viaje fue cancelado.";
   document.getElementById("connWarning").style.display = "none";
@@ -2949,6 +3003,7 @@ async function cancelRide() {
   stopStatusAvailableDriversPolling();
   const wasActive = ["aceptado", "llegue", "en_curso"].includes(currentRideStatus);
   currentRideStatus = "cancelado";
+  hideAllyAd();
   localStorage.removeItem("motoya_active_ride");
   stopRouteTracking();
   releaseWakeLock();
@@ -3022,6 +3077,7 @@ async function restoreActiveRide() {
   updateEmergencyBtn();
   document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
   if (fetched.status === "buscando" && fetched.ride_type === "taxi") setupTaxiSearch(fetched.offer_price, fetched.offers);
+  loadAllyAd();
 
   if (fetched.driver) {
     await onDriverAssigned(fetched.driver, fetched.agreed_price, fetched.deposit_status ? {

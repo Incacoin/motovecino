@@ -589,3 +589,6 @@ router.post("/admin/reports/cancelaciones", checkAdminPin, (req, res) => {
 });
 
 module.exports = router;
+
+// Lo usan otras rutas de admin (p. ej. routes/allyAds.js).
+module.exports.checkAdminPin = checkAdminPin;

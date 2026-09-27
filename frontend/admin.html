@@ -216,6 +216,44 @@
   .locationBanner { background: #000; color: #fff; }
   .spinner { border-color: rgba(0,0,0,0.12); border-top-color: #000; }
   .toast { background: #000; color: #fff; border: none; }
+
+  /* ---- Negocios aliados ---- */
+  .ally-switch { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; border: 1px solid #e2e2e2; border-radius: 14px; margin: 14px 0 18px; }
+  .ally-switch b { display: block; font-size: 15px; }
+  .ally-switch span { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 3px; line-height: 1.4; }
+  .ally-switch button { flex-shrink: 0; min-width: 118px; }
+  .ally-switch.on { border-color: #0e8345; background: #f2fbf5; }
+  .ally-form { display: none; border: 1px solid #e2e2e2; border-radius: 14px; padding: 16px; margin-bottom: 18px; }
+  .ally-form.open { display: block; }
+  .ally-form label { display: block; font-size: 12.5px; font-weight: 600; margin: 12px 0 5px; }
+  .ally-form input, .ally-form select { width: 100%; box-sizing: border-box; }
+  .ally-form .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ally-form .row2 > div, .ally-form .row2 input { min-width: 0; }
+  .ally-form .hint { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .ally-preview-wrap { margin-top: 16px; padding: 14px; background: #f6f6f6; border-radius: 14px; }
+  .ally-preview-wrap > div:first-child { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .ally-ad { width: 280px; max-width: 100%; box-sizing: border-box; padding: 14px 16px 16px; background: #fff; border: 1px solid #e2e2e2; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .ally-ad .ally-label { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #545454; }
+  .ally-ad .ally-row { display: flex; align-items: center; gap: 12px; margin: 10px 0 12px; }
+  .ally-ad .ally-logo { width: 54px; height: 54px; border-radius: 14px; object-fit: cover; flex-shrink: 0; background: #f3f3f3; border: 1px solid #e2e2e2; }
+  .ally-ad .ally-name { font-size: 16.5px; font-weight: 800; letter-spacing: -0.02em; }
+  .ally-ad .ally-tag { font-size: 13px; color: #545454; margin-top: 2px; line-height: 1.35; }
+  .ally-ad .ally-btn { background: #000; color: #fff; border-radius: 12px; padding: 11px; text-align: center; font-weight: 700; font-size: 14px; }
+  .ally-list { display: grid; gap: 12px; }
+  .ally-item { border: 1px solid #e2e2e2; border-radius: 14px; padding: 14px; }
+  .ally-item-top { display: flex; gap: 12px; align-items: center; }
+  .ally-item-top img, .ally-item-top .noimg { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; background: #f3f3f3; flex-shrink: 0; }
+  .ally-item-top b { font-size: 16px; }
+  .ally-item-top .sub { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .ally-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .ally-chips span { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #eee; }
+  .ally-chips .on { background: #e3f5ea; color: #0e8345; }
+  .ally-chips .off { background: #fdeaea; color: #b3261e; }
+  .ally-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0; }
+  .ally-stats div { background: #f6f6f6; border-radius: 10px; padding: 10px; }
+  .ally-stats b { display: block; font-size: 20px; }
+  .ally-stats span { font-size: 12px; color: var(--text-dim); }
+  .ally-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 </style>
 </head>
 <body>
@@ -242,6 +280,7 @@
     <button id="tabBtn-pasajeros" class="drawer-row" onclick="switchTab('pasajeros')"><span class="row-icon">🧍</span>Pasajeros</button>
     <button id="tabBtn-viajes" class="drawer-row" onclick="switchTab('viajes')"><span class="row-icon">🚗</span>Viajes</button>
     <button id="tabBtn-alertas" class="drawer-row" onclick="switchTab('alertas')"><span class="row-icon">🚩</span>Alertas</button>
+    <button id="tabBtn-negocios" class="drawer-row" onclick="switchTab('negocios')"><span class="row-icon">🤝</span>Negocios</button>
   </div>
 </div>
 
@@ -495,6 +534,56 @@
   </div>
   </div>
   </div>
+
+  <div id="tabPanel-negocios" class="tab-panel">
+  <div class="section-card">
+  <h1>🤝 Negocios aliados</h1>
+  <p class="section-hint">Un anuncio por viaje en la app del pasajero, mientras busca chofer y mientras lo espera. El botón de WhatsApp lleva al número del negocio. Al negocio solo se le reportan cuántos lo vieron y cuántos le escribieron — nunca datos de pasajeros.</p>
+
+  <div class="ally-switch" id="allySwitch">
+    <div><b id="allySwitchTitle">Anuncios apagados</b><span id="allySwitchHint">Nadie los ve todavía. Préndelos cuando ya tengas choferes activos.</span></div>
+    <button class="btn" id="allySwitchBtn" onclick="toggleAllyEnabled()">Prender</button>
+  </div>
+
+  <button class="btn" id="allyNewBtn" onclick="openAllyForm()">＋ Agregar negocio</button>
+
+  <div class="ally-form" id="allyForm">
+    <h2 id="allyFormTitle" style="margin:0 0 4px;font-size:18px;">Nuevo negocio aliado</h2>
+    <label for="allyName">Nombre del negocio</label>
+    <input id="allyName" maxlength="40" placeholder="Ej. El Tío Erik" oninput="renderAllyPreview()" />
+    <label for="allyTagline">Frase corta</label>
+    <input id="allyTagline" maxlength="60" placeholder="Ej. Hamburguesas y más · Av. 41 x 42" oninput="renderAllyPreview()" />
+    <div class="hint"><span id="allyTaglineCount">0</span>/60 — qué venden y dónde están.</div>
+    <label for="allyWhatsapp">WhatsApp del negocio</label>
+    <input id="allyWhatsapp" inputmode="numeric" maxlength="10" placeholder="10 dígitos" oninput="this.value=this.value.replace(/\D/g,'')" />
+    <div class="hint">Que sea el número que el negocio SÍ contesta (de preferencia su WhatsApp Business).</div>
+    <label>Logo o foto</label>
+    <input type="file" id="allyImageInput" accept="image/*" style="display:none;" onchange="handleAllyImage(event)" />
+    <button class="btn-sm" type="button" onclick="document.getElementById('allyImageInput').click()">📷 Elegir logo</button>
+    <div class="row2">
+      <div><label for="allyStarts">Desde</label><input type="date" id="allyStarts" /></div>
+      <div><label for="allyEnds">Hasta (opcional)</label><input type="date" id="allyEnds" /></div>
+    </div>
+    <label for="allyTier">Tipo</label>
+    <select id="allyTier">
+      <option value="aliado">Aliado (gratis)</option>
+      <option value="pagado">Pagado</option>
+    </select>
+    <div class="hint">Aliado: no paga, a cambio de promover la app (historias, QR en su mostrador).</div>
+    <div class="ally-preview-wrap">
+      <div>Así lo verá el pasajero:</div>
+      <div class="ally-ad" id="allyPreview"></div>
+    </div>
+    <div id="allyFormErr" style="color:var(--danger);font-size:13px;min-height:16px;margin-top:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="btn" style="flex:1" onclick="saveAllyAd()">Guardar</button>
+      <button class="btn-sm" onclick="closeAllyForm()">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="ally-list" id="allyList"></div>
+  </div>
+  </div>
 </div>
 
 <div id="paymentsModal" class="modal-overlay">
@@ -585,10 +674,10 @@ let lastRegistered = null;
 let editingId = null;
 let ridesPollTimer = null;
 
-const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas" };
+const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas", negocios: "Negocios aliados" };
 
 function switchTab(tab) {
-  ["resumen", "choferes", "pasajeros", "viajes", "alertas"].forEach((t) => {
+  ["resumen", "choferes", "pasajeros", "viajes", "alertas", "negocios"].forEach((t) => {
     document.getElementById(`tabPanel-${t}`).classList.toggle("active", t === tab);
     document.getElementById(`tabBtn-${t}`).classList.toggle("active", t === tab);
   });
@@ -777,6 +866,7 @@ async function login() {
   loadStats();
   loadApplications();
   loadAlertas();
+  loadAllyAds();
   updateQrLink();
   clearInterval(ridesPollTimer);
   ridesPollTimer = setInterval(() => { loadRides(); loadStats(); loadApplications(); loadDrivers(); }, 4000);
@@ -1531,6 +1621,293 @@ async function showActivityModal(id) {
 
 function closeActivityModal() {
   document.getElementById("activityModal").classList.remove("active");
+}
+
+// ================= Negocios aliados =================
+let allyAdsCache = [];
+let allyEnabled = false;
+let allyEditingId = null;
+let allyPendingImage = null; // data URL nueva (null = no cambió)
+
+async function loadAllyAds() {
+  const res = await fetch(API + "/api/admin/ally-ads/list", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }),
+  });
+  if (!res.ok) return;
+  const data = await res.json();
+  allyEnabled = data.enabled;
+  allyAdsCache = data.ads;
+  renderAllySwitch();
+  renderAllyList();
+}
+
+function renderAllySwitch() {
+  document.getElementById("allySwitch").classList.toggle("on", allyEnabled);
+  document.getElementById("allySwitchTitle").textContent = allyEnabled ? "Anuncios encendidos" : "Anuncios apagados";
+  document.getElementById("allySwitchHint").textContent = allyEnabled
+    ? "Los pasajeros ya ven a los negocios activos."
+    : "Nadie los ve todavía. Préndelos cuando ya tengas choferes activos.";
+  const btn = document.getElementById("allySwitchBtn");
+  btn.textContent = allyEnabled ? "Apagar" : "Prender";
+}
+
+async function toggleAllyEnabled() {
+  const next = !allyEnabled;
+  if (next && !confirm("¿Prender los anuncios? Los pasajeros empezarán a ver a los negocios activos en cada viaje.")) return;
+  const res = await fetch(API + "/api/admin/ally-ads/enabled", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, enabled: next }),
+  });
+  if (!res.ok) { showToast("No se pudo cambiar"); return; }
+  allyEnabled = (await res.json()).enabled;
+  renderAllySwitch();
+  showToast(allyEnabled ? "Anuncios encendidos" : "Anuncios apagados");
+}
+
+function allyCardHtml(ad) {
+  const img = ad.image ? `<img class="ally-logo" src="${ad.image}" alt="" />` : `<div class="ally-logo"></div>`;
+  return `<div class="ally-label">🤝 Negocio aliado</div>
+    <div class="ally-row">${img}<div><div class="ally-name">${escapeHtml(ad.name || "Nombre del negocio")}</div>${ad.tagline ? `<div class="ally-tag">${escapeHtml(ad.tagline)}</div>` : ""}</div></div>
+    <div class="ally-btn">💬 Escribir por WhatsApp</div>`;
+}
+
+function renderAllyPreview() {
+  const editing = allyAdsCache.find((a) => a.id === allyEditingId);
+  const tagline = document.getElementById("allyTagline").value;
+  document.getElementById("allyTaglineCount").textContent = tagline.length;
+  document.getElementById("allyPreview").innerHTML = allyCardHtml({
+    name: document.getElementById("allyName").value.trim(),
+    tagline: tagline.trim(),
+    image: allyPendingImage || (editing && editing.image) || null,
+  });
+}
+
+function openAllyForm(id) {
+  allyEditingId = id || null;
+  allyPendingImage = null;
+  const ad = allyAdsCache.find((a) => a.id === id) || {};
+  document.getElementById("allyFormTitle").textContent = id ? "Editar negocio" : "Nuevo negocio aliado";
+  document.getElementById("allyName").value = ad.name || "";
+  document.getElementById("allyTagline").value = ad.tagline || "";
+  document.getElementById("allyWhatsapp").value = ad.whatsapp || "";
+  document.getElementById("allyStarts").value = ad.starts_on || new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10);
+  document.getElementById("allyEnds").value = ad.ends_on || "";
+  document.getElementById("allyTier").value = ad.tier || "aliado";
+  document.getElementById("allyFormErr").textContent = "";
+  document.getElementById("allyForm").classList.add("open");
+  document.getElementById("allyNewBtn").style.display = "none";
+  renderAllyPreview();
+  document.getElementById("allyForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function closeAllyForm() {
+  document.getElementById("allyForm").classList.remove("open");
+  document.getElementById("allyNewBtn").style.display = "";
+  allyEditingId = null;
+  allyPendingImage = null;
+}
+
+// Se reduce el logo a 480 px antes de subirlo.
+function handleAllyImage(event) {
+  const file = event.target.files[0];
+  event.target.value = "";
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 480, k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      allyPendingImage = c.toDataURL("image/jpeg", 0.85);
+      renderAllyPreview();
+    };
+    img.onerror = () => showToast("No se pudo leer la imagen");
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveAllyAd() {
+  const err = document.getElementById("allyFormErr");
+  err.textContent = "";
+  const body = {
+    adminPin,
+    id: allyEditingId,
+    name: document.getElementById("allyName").value.trim(),
+    tagline: document.getElementById("allyTagline").value.trim(),
+    whatsapp: document.getElementById("allyWhatsapp").value.trim(),
+    startsOn: document.getElementById("allyStarts").value || null,
+    endsOn: document.getElementById("allyEnds").value || null,
+    tier: document.getElementById("allyTier").value,
+  };
+  if (allyPendingImage) body.image = allyPendingImage;
+  const res = await fetch(API + "/api/admin/ally-ads/save", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { err.textContent = data.error || "No se pudo guardar"; return; }
+  closeAllyForm();
+  showToast("Negocio guardado");
+  loadAllyAds();
+}
+
+async function setAllyActive(id, active) {
+  const res = await fetch(API + `/api/admin/ally-ads/${id}/active`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, active }),
+  });
+  if (!res.ok) { showToast("No se pudo cambiar"); return; }
+  showToast(active ? "Negocio activado" : "Negocio en pausa");
+  loadAllyAds();
+}
+
+async function deleteAllyAd(id) {
+  const ad = allyAdsCache.find((a) => a.id === id);
+  if (!ad || !confirm(`¿Quitar a "${ad.name}" de los negocios aliados? Sus números se pierden.`)) return;
+  const res = await fetch(API + `/api/admin/ally-ads/${id}/delete`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }),
+  });
+  if (!res.ok) { showToast("No se pudo quitar"); return; }
+  showToast("Negocio quitado");
+  loadAllyAds();
+}
+
+function fmtAllyDate(d) {
+  if (!d) return "";
+  const [y, m, day] = d.split("-");
+  return `${Number(day)}/${Number(m)}/${y.slice(2)}`;
+}
+
+function renderAllyList() {
+  const el = document.getElementById("allyList");
+  if (!allyAdsCache.length) {
+    el.innerHTML = '<div class="empty" style="padding:18px 0;color:var(--text-dim);">Todavía no hay negocios aliados. Agrega el primero con el botón de arriba.</div>';
+    return;
+  }
+  const today = new Date(Date.now() - 6 * 3600e3).toISOString().slice(0, 10);
+  el.innerHTML = allyAdsCache.map((a) => {
+    const vencido = a.ends_on && a.ends_on < today;
+    const estado = !a.active ? '<span class="off">En pausa</span>' : vencido ? '<span class="off">Vencido</span>' : '<span class="on">Activo</span>';
+    const fechas = a.starts_on || a.ends_on ? `<span>${fmtAllyDate(a.starts_on) || "hoy"} → ${fmtAllyDate(a.ends_on) || "sin fin"}</span>` : "";
+    return `<div class="ally-item">
+      <div class="ally-item-top">
+        ${a.image ? `<img src="${a.image}" alt="" />` : '<div class="noimg"></div>'}
+        <div style="min-width:0;">
+          <b>${escapeHtml(a.name)}</b>
+          <div class="sub">${escapeHtml(a.tagline || "")}${a.tagline ? " · " : ""}WhatsApp ${escapeHtml(a.whatsapp)}</div>
+          <div class="ally-chips">${estado}<span>${a.tier === "pagado" ? "Pagado" : "Aliado"}</span>${fechas}</div>
+        </div>
+      </div>
+      <div class="ally-stats">
+        <div><b>${a.views7}</b><span>👁 lo vieron (7 días) · ${a.views} en total</span></div>
+        <div><b>${a.taps7}</b><span>💬 le escribieron (7 días) · ${a.taps} en total</span></div>
+      </div>
+      <div class="ally-actions">
+        <button class="btn-sm" onclick="openAllyForm(${a.id})">✏️ Editar</button>
+        <button class="btn-sm" onclick="setAllyActive(${a.id}, ${!a.active})">${a.active ? "⏸ Pausar" : "▶️ Activar"}</button>
+        <button class="btn-sm" onclick="downloadAllyArt(${a.id}, 'historia')">📲 Imagen para historia</button>
+        <button class="btn-sm" onclick="downloadAllyArt(${a.id}, 'mostrador')">🏪 Letrero de mostrador</button>
+        <button class="btn-sm wa" onclick="sendAllyReport(${a.id})">📊 Enviar reporte</button>
+        <button class="btn-sm danger" onclick="deleteAllyAd(${a.id})">Quitar</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// Reporte semanal para el negocio, por su WhatsApp. Solo conteos.
+function sendAllyReport(id) {
+  const a = allyAdsCache.find((x) => x.id === id);
+  if (!a) return;
+  const text = `¡Hola, ${a.name}! 👋 Te compartimos cómo te fue en MotoVecino estos últimos 7 días:\n\n` +
+    `👁 ${a.views7} ${a.views7 === 1 ? "persona vio" : "personas vieron"} tu anuncio\n💬 ${a.taps7} ${a.taps7 === 1 ? "persona te escribió" : "personas te escribieron"} desde la app\n\n` +
+    `¡Gracias por ser negocio aliado de MotoVecino ${adminCityLabel}! 🛵`;
+  window.open(waLink(a.whatsapp, text), "_blank");
+}
+
+// ---- Imágenes para que el negocio presuma: historia (1080×1920) y letrero (1080×1350) ----
+function loadImg(src) {
+  return new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+}
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function wrapText(ctx, text, x, y, maxW, lineH) {
+  const words = String(text).split(" "); let line = "", yy = y;
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, yy); line = w; yy += lineH; } else line = test;
+  }
+  if (line) ctx.fillText(line, x, yy);
+  return yy;
+}
+async function downloadAllyArt(id, kind) {
+  const a = allyAdsCache.find((x) => x.id === id);
+  if (!a) return;
+  await Promise.all([document.fonts.load("800 80px Inter"), document.fonts.load("500 40px Inter")]).catch(() => {});
+  const W = 1080, H = kind === "historia" ? 1920 : 1350;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  const [mvLogo, qr, logo] = await Promise.all([
+    loadImg("icons/icon-512.png?v=2").catch(() => null),
+    loadImg("icons/qr-app.png").catch(() => null),
+    a.image ? loadImg(a.image).catch(() => null) : null,
+  ]);
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = "left"; ctx.fillStyle = "#000";
+  const top = kind === "historia" ? 150 : 70;
+  if (mvLogo) { ctx.save(); roundRect(ctx, 64, top, 64, 64, 14); ctx.clip(); ctx.drawImage(mvLogo, 64, top, 64, 64); ctx.restore(); }
+  ctx.font = "800 38px Inter"; ctx.fillText("MotoVecino", 146, top + 46);
+  const mw = ctx.measureText("MotoVecino ").width;
+  ctx.font = "500 38px Inter"; ctx.fillStyle = "#6b6b6b"; ctx.fillText(adminCityLabel, 146 + mw, top + 46);
+
+  // El cuerpo se dibuja dos veces: una en borrador para medir su alto y otra
+  // de verdad, centrado entre el encabezado y el pie.
+  const story = kind === "historia";
+  const G = story ? 1.4 : 1;
+  const L = story ? 320 : 220, Q = story ? 440 : 340, NAME = story ? 88 : 70;
+  const drawBody = (ctx, y) => {
+    ctx.textAlign = "center";
+    if (logo) {
+      ctx.save(); roundRect(ctx, (W - L) / 2, y, L, L, 48); ctx.clip();
+      const k = Math.max(L / logo.width, L / logo.height);
+      ctx.drawImage(logo, (W - logo.width * k) / 2, y + (L - logo.height * k) / 2, logo.width * k, logo.height * k);
+      ctx.restore();
+      ctx.strokeStyle = "#e2e2e2"; ctx.lineWidth = 3; roundRect(ctx, (W - L) / 2, y, L, L, 48); ctx.stroke();
+      y += L + 50 * G;
+    }
+    ctx.fillStyle = "#000"; ctx.font = `800 ${NAME}px Inter`;
+    y = wrapText(ctx, a.name, W / 2, y + NAME * 0.8, W - 140, NAME * 1.1) + 44 * G;
+    ctx.font = "600 34px Inter";
+    const pillText = story ? "🤝 Somos negocio aliado de MotoVecino" : "🤝 Aquí somos aliados de MotoVecino";
+    const pw = ctx.measureText(pillText).width + 64;
+    ctx.fillStyle = "#000"; roundRect(ctx, (W - pw) / 2, y, pw, 72, 36); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.fillText(pillText, W / 2, y + 48);
+    y += 72 + 56 * G;
+    ctx.fillStyle = "#545454"; ctx.font = "500 38px Inter";
+    y = wrapText(ctx, story ? "Pide tu mototaxi o taxi en " + adminCityLabel + ". Instala la app:" : "Pide tu mototaxi o taxi desde tu celular. Escanea e instala la app:", W / 2, y + 34, W - 200, 50) + 40 * G;
+    if (qr) {
+      ctx.fillStyle = "#fff"; ctx.strokeStyle = "#e2e2e2"; ctx.lineWidth = 3;
+      roundRect(ctx, (W - Q) / 2 - 24, y, Q + 48, Q + 48, 30); ctx.fill(); ctx.stroke();
+      ctx.drawImage(qr, (W - Q) / 2, y + 24, Q, Q);
+      y += Q + 48 + 56 * G;
+    }
+    ctx.fillStyle = "#000"; ctx.font = "800 54px Inter";
+    ctx.fillText("motovecinoapp.com", W / 2, y + 42);
+    return y + 56;
+  };
+  const scratch = document.createElement("canvas"); scratch.width = W; scratch.height = H;
+  const bodyH = drawBody(scratch.getContext("2d"), 0);
+  const areaTop = top + 64, areaBottom = H - (story ? 140 : 60);
+  drawBody(ctx, Math.max(areaTop + 50, areaTop + (areaBottom - areaTop - bodyH) / 2));
+
+  const link = document.createElement("a");
+  link.download = `MotoVecino_${kind}_${a.name.replace(/[^\wÁÉÍÓÚáéíóúÑñ]+/g, "_")}.png`;
+  link.href = c.toDataURL("image/png");
+  link.click();
+  showToast(kind === "historia" ? "Imagen para historia descargada" : "Letrero descargado");
 }
 </script>
 </body>
