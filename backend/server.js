@@ -65,6 +65,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Dirección corta del registro de choferes: el tríptico impreso dice
+// "motovecinoapp.com/quiero-ser-chofer" (sin .html) y daba 404.
+app.get(["/quiero-ser-chofer", "/quiero-ser-chofer/"], (req, res) => {
+  const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
+  res.redirect("/quiero-ser-chofer.html" + qs);
+});
+
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 
 app.get("/api/health", (req, res) => {
