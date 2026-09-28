@@ -66,7 +66,42 @@ function setDriverTheme(pref) {
   #topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
   #topbar .name { font-weight: 700; }
   #toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-dim); }
+  #mapWrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
   #map { flex: 1; min-height: 0; }
+  /* Cajita "hoy" arriba del mapa, como Uber: se ve sin entrar al perfil. */
+  #earnPill {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 500;
+    display: flex; align-items: baseline; gap: 6px; padding: 9px 18px; border: 0; border-radius: 999px;
+    background: #000; color: #fff; font: inherit; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  }
+  #earnPill .amt { font-size: 19px; font-weight: 800; letter-spacing: -0.3px; }
+  #earnPill .lbl { font-size: 13px; color: #bdbdbd; }
+  /* Con meta del día: "$95 de $200" y una barrita que se llena. */
+  #earnPill.has-goal { flex-direction: column; align-items: stretch; gap: 5px; padding: 8px 16px 9px; }
+  #earnPill .row { display: flex; align-items: baseline; justify-content: center; gap: 6px; }
+  #earnPill .bar { height: 4px; border-radius: 999px; background: #3a3a3a; overflow: hidden; min-width: 120px; }
+  #earnPill .bar > div { height: 100%; width: 0; background: #22c55e; border-radius: 999px; transition: width .6s ease; }
+  /* "+$20" que sube al terminar un viaje. */
+  .earn-plus {
+    position: absolute; top: 80px; left: 50%; z-index: 501; pointer-events: none;
+    font-size: 24px; font-weight: 800; color: #16a34a; text-shadow: 0 1px 0 #fff, 0 2px 10px rgba(0,0,0,.25);
+    animation: earnPlus 1.6s ease-out forwards;
+  }
+  @keyframes earnPlus {
+    0% { opacity: 0; transform: translate(-50%, 24px) scale(.8); }
+    20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+    70% { opacity: 1; transform: translate(-50%, -30px) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -48px) scale(.9); }
+  }
+  #earnPill.bump { animation: earnBump .45s ease-out 1.1s; }
+  @keyframes earnBump { 50% { transform: translateX(-50%) scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) {
+    .earn-plus { animation-duration: .01s; animation-delay: 1.2s; }
+    #earnPill.bump { animation: none; }
+  }
+  .goal-row { display: flex; gap: 8px; align-items: center; }
+  .goal-row input { flex: 1; min-width: 0; padding: 10px; font-size: 16px; font-weight: 700; }
+  .goal-row .btn-sm { flex-shrink: 0; font-weight: 700; padding: 10px 14px; }
   #panel {
     max-height: 42vh; overflow-y: auto; background: var(--bg-panel); padding: 10px 10px 14px;
     border-radius: 20px 20px 0 0; box-shadow: 0 -12px 28px -14px rgba(0, 0, 0, 0.55); position: relative; z-index: 10;
@@ -444,7 +479,13 @@ function setDriverTheme(pref) {
       </div>
     </div>
   </div>
-  <div id="map"></div>
+  <div id="mapWrap">
+    <div id="map"></div>
+    <button id="earnPill" onclick="openEarnings()" style="display:none;" title="Mis ganancias">
+      <span class="row"><span class="amt" id="earnPillAmt">$0</span><span class="lbl" id="earnPillLbl">hoy</span></span>
+      <span class="bar" id="earnPillBar" style="display:none;"><div></div></span>
+    </button>
+  </div>
   <div id="panel">
     <div class="sheet-handle"></div>
     <div id="pushCard" class="card push-card" style="display:none;"></div>
@@ -503,6 +544,15 @@ function setDriverTheme(pref) {
       <div class="earn-grid">
         <div class="stat"><div class="n" id="earnWeek">$0</div><div class="l" id="earnWeekTrips">Esta semana</div></div>
         <div class="stat"><div class="n" id="earnMonth">$0</div><div class="l" id="earnMonthTrips">Este mes</div></div>
+      </div>
+      <div class="goal-box">
+        <div class="card-title" style="font-size:12.5px;">🎯 Mi meta de hoy</div>
+        <div class="goal-row">
+          <input id="goalInput" type="number" inputmode="numeric" min="0" step="10" placeholder="Ej. 200" />
+          <button class="btn-sm" onclick="saveGoal()">Guardar</button>
+          <button class="btn-sm" id="goalClearBtn" onclick="clearGoal()" style="display:none;">Quitar</button>
+        </div>
+        <div class="profile-note" id="goalNote">Ponte cuánto quieres ganar al día y ve cómo se llena la barrita arriba del mapa.</div>
       </div>
       <div class="earn-list" id="earnRecent"></div>
       <div class="profile-note" id="earnNote"></div>
@@ -1019,6 +1069,7 @@ function startApp() {
   document.getElementById("switch").classList.toggle("on", available);
   document.getElementById("statusText").textContent = available ? "Disponible" : "Desconectado";
   if (available) requestWakeLock();
+  refreshTodayEarnings();
   refreshRankBadge();
   showDriverTierBadge(driver.lifetimeTrips);
 
@@ -2167,6 +2218,11 @@ async function completeRide() {
   const data = await res.json();
   todayCount = data.todayCount ?? todayCount + 1;
   driver.todayCount = todayCount;
+  if (data.todayEarned != null) {
+    const gained = data.todayEarned - todayEarned;
+    setEarnPill(data.todayEarned);
+    if (gained > 0) showEarnPlus(gained);
+  }
   localStorage.setItem("motoya_driver", JSON.stringify(driver));
   document.getElementById("todayCountText").textContent = `Viajes hoy: ${todayCount}`;
   stopWaitTicker();
@@ -2376,6 +2432,8 @@ function renderEarnings(e) {
   const card = document.getElementById("earningsCard");
   if (!e) { card.style.display = "none"; return; }
   card.style.display = "flex";
+  setEarnPill(e.today.total);
+  renderGoalBox();
   document.getElementById("earnToday").textContent = fmtMoney(e.today.total);
   document.getElementById("earnTodayTrips").textContent = tripsLabel(e.today.trips);
   document.getElementById("earnWeek").textContent = fmtMoney(e.week.total);
@@ -2392,6 +2450,108 @@ function renderEarnings(e) {
   document.getElementById("earnNote").textContent = e.allTrips
     ? "Lo que te quedó de cada viaje de la app. En mototaxi, los $2 de servicio los pone el pasajero aparte; en taxi ya va descontada la cuota. Las propinas en efectivo no aparecen aquí."
     : "Aquí vas a ver cuánto llevas ganado hoy, en la semana y en el mes. Se empieza a contar con tus próximos viajes.";
+}
+
+// Cajita "hoy" arriba del mapa. Al abrir la app se pide al servidor (lo
+// guardado en el celular puede ser de ayer); después se actualiza sola con
+// la respuesta de cada viaje terminado.
+let todayEarned = 0;
+
+function setEarnPill(total) {
+  todayEarned = Number(total) || 0;
+  const pill = document.getElementById("earnPill");
+  const goal = getGoal();
+  document.getElementById("earnPillAmt").textContent = fmtMoney(todayEarned);
+  const lbl = document.getElementById("earnPillLbl");
+  const bar = document.getElementById("earnPillBar");
+  if (goal) {
+    lbl.textContent = todayEarned >= goal ? "¡meta cumplida! 🎉" : `de ${fmtMoney(goal)}`;
+    bar.style.display = "block";
+    bar.firstElementChild.style.width = Math.min(100, (todayEarned / goal) * 100) + "%";
+  } else {
+    lbl.textContent = "hoy";
+    bar.style.display = "none";
+  }
+  pill.classList.toggle("has-goal", !!goal);
+  pill.style.display = "flex";
+}
+
+// "+$20" que sube hacia la cajita al terminar un viaje: el premio se ve en
+// el momento, igual que el número que sube en Uber.
+function showEarnPlus(amount) {
+  const el = document.createElement("div");
+  el.className = "earn-plus";
+  el.textContent = "+" + fmtMoney(amount);
+  document.getElementById("mapWrap").appendChild(el);
+  setTimeout(() => el.remove(), 1800);
+  const pill = document.getElementById("earnPill");
+  pill.classList.remove("bump");
+  void pill.offsetWidth;
+  pill.classList.add("bump");
+}
+
+// Meta del día: la pone el chofer y se guarda en su celular (es solo para
+// él, el servidor no la necesita). Se queda igual cada día hasta que la cambie.
+function goalKey() {
+  return "mv_goal_" + (driver && driver.id);
+}
+
+function getGoal() {
+  try {
+    const v = Number(localStorage.getItem(goalKey()));
+    return v > 0 ? v : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function renderGoalBox() {
+  const goal = getGoal();
+  document.getElementById("goalInput").value = goal || "";
+  document.getElementById("goalClearBtn").style.display = goal ? "" : "none";
+  document.getElementById("goalNote").textContent = goal
+    ? (todayEarned >= goal
+        ? `¡Ya cumpliste tu meta de hoy! Llevas ${fmtMoney(todayEarned)}.`
+        : `Te faltan ${fmtMoney(goal - todayEarned)} para tu meta de hoy.`)
+    : "Ponte cuánto quieres ganar al día y ve cómo se llena la barrita arriba del mapa.";
+}
+
+function saveGoal() {
+  const v = Math.round(Number(document.getElementById("goalInput").value));
+  if (!(v > 0)) {
+    showToast("Escribe cuánto quieres ganar hoy");
+    return;
+  }
+  try { localStorage.setItem(goalKey(), String(v)); } catch (e) {}
+  setEarnPill(todayEarned);
+  renderGoalBox();
+  showToast("Meta guardada: " + fmtMoney(v));
+}
+
+function clearGoal() {
+  try { localStorage.removeItem(goalKey()); } catch (e) {}
+  setEarnPill(todayEarned);
+  renderGoalBox();
+}
+
+async function refreshTodayEarnings() {
+  if (!driver || !driver.pin || !driver.phone) return;
+  try {
+    const res = await fetch(API + "/api/drivers/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: driver.phone, pin: driver.pin }),
+    });
+    if (!res.ok) return;
+    const p = await res.json();
+    if (!p.earnings) return;
+    setEarnPill(p.earnings.today.total);
+  } catch (e) {}
+}
+
+async function openEarnings() {
+  await openProfile();
+  document.getElementById("earningsCard").scrollIntoView({ block: "start" });
 }
 
 function renderProfile(p) {

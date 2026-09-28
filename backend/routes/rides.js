@@ -821,9 +821,10 @@ router.post("/rides/:id/complete", (req, res) => {
     driverId
   );
 
-  const { count: todayCount } = db
+  // todayEarned: para la cajita "hoy" arriba del mapa en chofer.html.
+  const { count: todayCount, earned: todayEarned } = db
     .prepare(
-      `SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado' AND ${LOCAL_DONE_DATE} = ${LOCAL_TODAY}`
+      `SELECT COUNT(*) as count, COALESCE(SUM(driver_earnings), 0) as earned FROM rides WHERE driver_id = ? AND status = 'completado' AND ${LOCAL_DONE_DATE} = ${LOCAL_TODAY}`
     )
     .get(driverId);
 
@@ -834,7 +835,7 @@ router.post("/rides/:id/complete", (req, res) => {
     .get(driverId);
 
   realtime.notifyRide(rideId, "status_change", { status: "completado" });
-  res.json({ ok: true, todayCount, lifetimeTrips });
+  res.json({ ok: true, todayCount, todayEarned, lifetimeTrips });
 });
 
 // Enfriamiento tras cancelación del chofer: si ya se había comprometido con un
