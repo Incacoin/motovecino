@@ -726,11 +726,58 @@ function showToast(msg) {
 
 // Chrome bloquea abrir un data: URL directo en pestaña nueva (pantalla en
 // negro) — hay que convertirlo primero a un blob: URL, que sí puede navegarse.
-function viewImage(dataUrl) {
-  fetch(dataUrl)
-    .then((res) => res.blob())
-    .then((blob) => window.open(URL.createObjectURL(blob), "_blank"))
-    .catch(() => showToast("No se pudo abrir la imagen"));
+// Visor de fotos dentro del panel (cara, moto, firma). Antes abría una ventana
+// nueva con window.open y el celular la bloqueaba con el admin instalado como app.
+// Zoom: pellizcar con dos dedos o doble toque; arrastrar para moverse; ✕ o tocar
+// el fondo para cerrar.
+function viewImage(src) {
+  let box = document.getElementById("imgViewer");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "imgViewer";
+    box.style.cssText = "position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;touch-action:none;overflow:hidden";
+    box.innerHTML = `<img id="imgViewerImg" alt="" style="max-width:100%;max-height:100%;object-fit:contain;transform-origin:center center;user-select:none;-webkit-user-drag:none" />
+      <button type="button" aria-label="Cerrar" style="position:absolute;z-index:2;box-shadow:0 2px 10px rgba(0,0,0,.5);top:calc(14px + env(safe-area-inset-top));right:14px;width:48px;height:48px;border-radius:50%;border:0;background:rgba(0,0,0,.7);color:#fff;font-size:24px;line-height:48px;cursor:pointer">✕</button>
+      <div style="position:absolute;z-index:2;pointer-events:none;text-shadow:0 1px 4px #000;bottom:calc(18px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;color:rgba(255,255,255,.7);font-size:13px">Pellizca o toca dos veces para acercar</div>`;
+    document.body.appendChild(box);
+    const img = box.querySelector("img");
+    const v = { s: 1, x: 0, y: 0 };
+    const apply = () => { img.style.transform = `translate(${v.x}px,${v.y}px) scale(${v.s})`; };
+    box._reset = () => { v.s = 1; v.x = 0; v.y = 0; apply(); };
+    const close = () => { box.style.display = "none"; img.src = ""; };
+    box.querySelector("button").onclick = close;
+    let pinch = null, pan = null, lastTap = 0, moved = false;
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    box.addEventListener("touchstart", (e) => {
+      moved = false;
+      if (e.touches.length === 2) { pinch = { d: dist(e.touches), s: v.s }; pan = null; }
+      else if (e.touches.length === 1) pan = { x: e.touches[0].clientX - v.x, y: e.touches[0].clientY - v.y };
+    }, { passive: true });
+    box.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      moved = true;
+      if (pinch && e.touches.length === 2) v.s = Math.min(6, Math.max(1, pinch.s * dist(e.touches) / pinch.d));
+      else if (pan && e.touches.length === 1 && v.s > 1) { v.x = e.touches[0].clientX - pan.x; v.y = e.touches[0].clientY - pan.y; }
+      if (v.s === 1) { v.x = 0; v.y = 0; }
+      apply();
+    }, { passive: false });
+    box.addEventListener("touchend", (e) => {
+      if (e.touches.length < 2) pinch = null;
+      if (e.touches.length === 1) pan = { x: e.touches[0].clientX - v.x, y: e.touches[0].clientY - v.y };
+      if (moved || e.touches.length) return;
+      const now = Date.now();
+      if (now - lastTap < 300) { if (v.s > 1) box._reset(); else { v.s = 2.5; apply(); } lastTap = 0; e.preventDefault(); }
+      else lastTap = now;
+    });
+    // Computadora: rueda para acercar, clic en el fondo para cerrar.
+    box.addEventListener("wheel", (e) => { e.preventDefault(); v.s = Math.min(6, Math.max(1, v.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); if (v.s === 1) { v.x = 0; v.y = 0; } apply(); }, { passive: false });
+    box.addEventListener("click", (e) => { if (e.target === box && v.s === 1 && !moved) close(); });
+  }
+  const img = box.querySelector("img");
+  img.onerror = () => { box.style.display = "none"; showToast("No se pudo abrir la imagen"); };
+  img.src = src;
+  box._reset();
+  box.style.display = "flex";
 }
 
 
