@@ -96,7 +96,10 @@ router.post("/riders/login", (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const { phone, pin } = req.body;
+  const { phone, pin } = req.body || {};
+  if (!phone || !pin) {
+    return res.status(400).json({ error: "Falta teléfono o PIN" });
+  }
   const rider = db
     .prepare(
       "SELECT id, name, phone, pin, photo, home_lat, home_lng, home_label, emergency_contact_name, emergency_contact_phone FROM riders WHERE phone = ? AND pin = ?"
