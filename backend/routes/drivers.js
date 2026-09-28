@@ -7,6 +7,7 @@ const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, i
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius } = require("../cities");
 const { rideFee } = require("../fees");
+const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
 const { photoUrls, cleanThumb } = require("../photos");
 
 const router = express.Router();
@@ -107,7 +108,7 @@ router.post("/drivers/login", (req, res) => {
 
   const { count: todayCount } = db
     .prepare(
-      "SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado' AND date(updated_at) = date('now')"
+      `SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado' AND ${LOCAL_DONE_DATE} = ${LOCAL_TODAY}`
     )
     .get(driver.id);
 
@@ -151,7 +152,7 @@ router.post("/drivers/profile", (req, res) => {
   const stats = db
     .prepare(
       `SELECT COUNT(*) AS lifetimeTrips,
-              SUM(CASE WHEN date(updated_at) >= date('now', 'start of month') THEN 1 ELSE 0 END) AS tripsMonth,
+              SUM(CASE WHEN ${LOCAL_DONE_DATE} >= date('now', '${LOCAL_OFFSET}', 'start of month') THEN 1 ELSE 0 END) AS tripsMonth,
               SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) AS thumbsUp,
               SUM(CASE WHEN rating IS NOT NULL THEN 1 ELSE 0 END) AS ratedCount
        FROM rides WHERE driver_id = ? AND status = 'completado'`
@@ -224,6 +225,7 @@ router.post("/drivers/profile", (req, res) => {
       ? { bank: driver.deposit_bank, account: driver.deposit_account, holder: driver.deposit_holder }
       : null,
     deposits: { ...depositTotals, recent: recentDeposits },
+    earnings: earningsSummary(db, driver.id),
   });
 });
 

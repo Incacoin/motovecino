@@ -466,13 +466,13 @@ const REAL_RIDE = `NOT EXISTS (SELECT 1 FROM drivers td WHERE td.id = r.driver_i
 router.post("/admin/stats", checkAdminPin, (req, res) => {
   const city = req.adminCity;
   const ridesToday = db
-    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at) = date('now') AND r.city = ? AND ${REAL_RIDE}`)
+    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at, '-6 hours') = date('now', '-6 hours') AND r.city = ? AND ${REAL_RIDE}`)
     .get(city).n;
   const ridesWeek = db
-    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at) >= date('now', '-6 days') AND r.city = ? AND ${REAL_RIDE}`)
+    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at, '-6 hours') >= date('now', '-6 hours', '-6 days') AND r.city = ? AND ${REAL_RIDE}`)
     .get(city).n;
   const cancelledToday = db
-    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'cancelado' AND date(r.updated_at) = date('now') AND r.city = ? AND ${REAL_RIDE}`)
+    .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'cancelado' AND date(r.updated_at, '-6 hours') = date('now', '-6 hours') AND r.city = ? AND ${REAL_RIDE}`)
     .get(city).n;
   const driversOnline = db
     .prepare(
@@ -485,7 +485,7 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
     .prepare(
       `SELECT d.name, COUNT(*) AS rides
        FROM rides r JOIN drivers d ON d.id = r.driver_id
-       WHERE r.status = 'completado' AND date(r.updated_at) >= date('now', '-6 days') AND r.city = ? AND ${REAL_RIDE}
+       WHERE r.status = 'completado' AND date(r.updated_at, '-6 hours') >= date('now', '-6 hours', '-6 days') AND r.city = ? AND ${REAL_RIDE}
        GROUP BY r.driver_id
        ORDER BY rides DESC
        LIMIT 5`
@@ -495,7 +495,7 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
     .prepare(
       `SELECT COUNT(*) AS total, SUM(r.rating) AS good
        FROM rides r
-       WHERE r.rating IS NOT NULL AND date(r.updated_at) >= date('now', '-6 days') AND r.city = ? AND ${REAL_RIDE}`
+       WHERE r.rating IS NOT NULL AND date(r.updated_at, '-6 hours') >= date('now', '-6 hours', '-6 days') AND r.city = ? AND ${REAL_RIDE}`
     )
     .get(city);
   const satisfactionPct = ratings.total > 0 ? Math.round((ratings.good / ratings.total) * 100) : null;

@@ -7,6 +7,7 @@ const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } 
 const { photoUrls } = require("../photos");
 const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC } = require("../constants");
 const { suggestTaxiFare } = require("../taxiFares");
+const { driverEarnings, LOCAL_DONE_DATE, LOCAL_TODAY } = require("../earnings");
 
 function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
@@ -790,7 +791,7 @@ router.post("/rides/:id/complete", (req, res) => {
   }
   clearAttempts(req.ip);
 
-  const ride = db.prepare("SELECT ride_type, agreed_price FROM rides WHERE id = ?").get(rideId);
+  const ride = db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
   // El precio del taxi ya se capturó al aceptar (ver /accept) — aquí solo se
   // vuelve a pedir si por alguna razón no quedó guardado entonces (viajes
   // viejos, o un reintento). Si el chofer manda uno nuevo aquí, se respeta
@@ -801,11 +802,16 @@ router.post("/rides/:id/complete", (req, res) => {
     return res.status(400).json({ error: "Falta el precio acordado con el pasajero" });
   }
 
+  // Lo que le queda al chofer, para "Mis ganancias" (ver earnings.js).
+  const earnings = ride
+    ? driverEarnings({ ...ride, agreed_price: ride.ride_type === "taxi" ? finalPrice : ride.agreed_price })
+    : null;
+
   const result = db
     .prepare(
-      "UPDATE rides SET status = 'completado', agreed_price = ?, updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'en_curso'"
+      "UPDATE rides SET status = 'completado', agreed_price = ?, driver_earnings = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'en_curso'"
     )
-    .run(ride?.ride_type === "taxi" ? finalPrice : null, rideId, driverId);
+    .run(ride?.ride_type === "taxi" ? finalPrice : null, earnings, rideId, driverId);
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "No se pudo actualizar el viaje" });
@@ -817,7 +823,7 @@ router.post("/rides/:id/complete", (req, res) => {
 
   const { count: todayCount } = db
     .prepare(
-      "SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado' AND date(updated_at) = date('now')"
+      `SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado' AND ${LOCAL_DONE_DATE} = ${LOCAL_TODAY}`
     )
     .get(driverId);
 

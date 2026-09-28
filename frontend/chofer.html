@@ -150,6 +150,19 @@ function setDriverTheme(pref) {
   .profile-sub { color: var(--text-dim); font-size: 13.5px; text-align: center; }
   .profile-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .profile-card .card-title { font-weight: 700; font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+  /* Mis ganancias */
+  .earn-today { background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 14px; text-align: center; }
+  .earn-today .l { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+  .earn-today .n { font-size: 34px; font-weight: 800; color: var(--success); line-height: 1.15; margin-top: 2px; }
+  .earn-today .s { font-size: 13px; color: var(--text-dim); }
+  .earn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .earn-grid .stat .n { font-size: 18px; }
+  .earn-list { display: flex; flex-direction: column; }
+  .earn-list .erow { display: flex; align-items: center; gap: 10px; padding: 8px 2px; font-size: 14px; }
+  .earn-list .erow + .erow { border-top: 1px solid var(--border); }
+  .earn-list .erow .when { color: var(--text-dim); min-width: 74px; font-size: 13px; }
+  .earn-list .erow .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .earn-list .erow .amt { font-weight: 800; color: var(--success); }
   .prow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 14.5px; }
   .prow .k { color: var(--text-dim); }
   .prow .v { font-weight: 700; text-align: right; }
@@ -478,6 +491,21 @@ function setDriverTheme(pref) {
         <div class="stat"><span class="icon">⭐</span><div class="n" id="statRating">–</div><div class="l">Calificación</div></div>
       </div>
       <div class="profile-note" id="ratingNote"></div>
+    </div>
+
+    <div class="card profile-card" id="earningsCard" style="display:none;">
+      <div class="card-title">💰 Mis ganancias</div>
+      <div class="earn-today">
+        <div class="l">Hoy</div>
+        <div class="n" id="earnToday">$0</div>
+        <div class="s" id="earnTodayTrips">0 viajes</div>
+      </div>
+      <div class="earn-grid">
+        <div class="stat"><div class="n" id="earnWeek">$0</div><div class="l" id="earnWeekTrips">Esta semana</div></div>
+        <div class="stat"><div class="n" id="earnMonth">$0</div><div class="l" id="earnMonthTrips">Este mes</div></div>
+      </div>
+      <div class="earn-list" id="earnRecent"></div>
+      <div class="profile-note" id="earnNote"></div>
     </div>
 
     <div class="card profile-card">
@@ -2324,6 +2352,48 @@ function toggleSection(name) {
   chev.classList.toggle("open", !isOpen);
 }
 
+// "Mis ganancias": lo que le quedó al chofer de cada viaje de la app. Lo
+// calcula y guarda el servidor al completar (ver backend/earnings.js).
+function fmtMoney(n) {
+  const v = Math.round((Number(n) || 0) * 100) / 100;
+  return "$" + v.toLocaleString("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function tripsLabel(n, suffix) {
+  return `${n} viaje${n === 1 ? "" : "s"}${suffix ? " · " + suffix : ""}`;
+}
+
+function earnWhen(utc) {
+  const d = new Date(String(utc).replace(" ", "T") + "Z");
+  if (isNaN(d)) return "";
+  const today = new Date();
+  const time = d.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return time;
+  return d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+}
+
+function renderEarnings(e) {
+  const card = document.getElementById("earningsCard");
+  if (!e) { card.style.display = "none"; return; }
+  card.style.display = "flex";
+  document.getElementById("earnToday").textContent = fmtMoney(e.today.total);
+  document.getElementById("earnTodayTrips").textContent = tripsLabel(e.today.trips);
+  document.getElementById("earnWeek").textContent = fmtMoney(e.week.total);
+  document.getElementById("earnWeekTrips").textContent = tripsLabel(e.week.trips, "esta semana");
+  document.getElementById("earnMonth").textContent = fmtMoney(e.month.total);
+  document.getElementById("earnMonthTrips").textContent = tripsLabel(e.month.trips, "este mes");
+  document.getElementById("earnRecent").innerHTML = (e.recent || [])
+    .map((r) => {
+      const kind = r.rideType === "taxi" ? "🚕 Taxi" : "🛺 Mototaxi";
+      const dest = r.destLabel ? ` · ${escapeHtml(r.destLabel)}` : "";
+      return `<div class="erow"><span class="when">${earnWhen(r.completedAt)}</span><span class="what">${kind}${dest}</span><span class="amt">${fmtMoney(r.earnings)}</span></div>`;
+    })
+    .join("");
+  document.getElementById("earnNote").textContent = e.allTrips
+    ? "Lo que te quedó de cada viaje de la app. En mototaxi, los $2 de servicio los pone el pasajero aparte; en taxi ya va descontada la cuota. Las propinas en efectivo no aparecen aquí."
+    : "Aquí vas a ver cuánto llevas ganado hoy, en la semana y en el mes. Se empieza a contar con tus próximos viajes.";
+}
+
 function renderProfile(p) {
   const slot = document.getElementById("profilePhotoSlot");
   slot.innerHTML = p.photo
@@ -2361,6 +2431,8 @@ function renderProfile(p) {
     p.ratingPct == null
       ? "Todavía no tienes calificaciones. Los pasajeros califican al terminar el viaje."
       : `Basado en ${p.ratedCount} viaje${p.ratedCount === 1 ? "" : "s"} calificado${p.ratedCount === 1 ? "" : "s"}.`;
+
+  renderEarnings(p.earnings);
 
   // --- Mi cuenta (estado de pago) ---
   // Ya no hay mensualidad (descontinuada 2026-09-08) — el único cobro es el

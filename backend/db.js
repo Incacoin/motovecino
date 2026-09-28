@@ -608,6 +608,17 @@ try {
   // la columna ya existe
 }
 
+// "Mis ganancias" del chofer: cuándo se completó el viaje y cuánto le quedó
+// (ver earnings.js). Se guarda al completar porque la tarifa del mototaxi
+// depende de la hora del viaje y no se puede recalcular bien después.
+for (const [col, type] of [["completed_at", "TEXT"], ["driver_earnings", "REAL"]]) {
+  try {
+    db.exec(`ALTER TABLE rides ADD COLUMN ${col} ${type}`);
+  } catch {
+    // la columna ya existe
+  }
+}
+
 // Negocios aliados: un anuncio a la vez en la app del pasajero mientras busca
 // chofer o lo espera. El WhatsApp es el del NEGOCIO. A ellos solo se les dan
 // conteos (vistas / toques), nunca datos de pasajeros. ally_settings guarda el
