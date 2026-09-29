@@ -466,6 +466,14 @@
 
   <div id="tabPanel-viajes" class="tab-panel">
   <div class="section-card">
+  <h1>👤 Pedir para otra persona</h1>
+  <p class="section-hint">La mamá (o quien sea) pide el viaje desde su cuenta para otra persona: pone su nombre y una seña para reconocerla. El chofer habla con quien lo pidió por el chat. Prende esto solo cuando tengas choferes de noche.</p>
+  <div class="ally-switch" id="familySwitch">
+    <div><b id="familySwitchTitle">Apagado</b><span id="familySwitchHint">Los pasajeros todavía no ven la opción.</span></div>
+    <button class="btn" id="familySwitchBtn" onclick="toggleFamilyEnabled()">Prender</button>
+  </div>
+  </div>
+  <div class="section-card">
   <h1 class="rides-title"><span class="live-dot"></span>Viajes en vivo</h1>
   <p class="section-hint">Se actualiza solo cada 4 segundos. Últimos 50 viajes.</p>
   <div class="table-wrap">
@@ -914,6 +922,7 @@ async function login() {
   loadApplications();
   loadAlertas();
   loadAllyAds();
+  loadFamilySwitch();
   updateQrLink();
   clearInterval(ridesPollTimer);
   ridesPollTimer = setInterval(() => { loadRides(); loadStats(); loadApplications(); loadDrivers(); }, 4000);
@@ -1687,6 +1696,39 @@ async function showActivityModal(id) {
 
 function closeActivityModal() {
   document.getElementById("activityModal").classList.remove("active");
+}
+
+// ================= Pedir para otra persona =================
+let familyEnabled = false;
+
+async function loadFamilySwitch() {
+  const res = await fetch(API + "/api/admin/family-rides", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }),
+  });
+  if (!res.ok) return;
+  familyEnabled = (await res.json()).enabled;
+  renderFamilySwitch();
+}
+
+function renderFamilySwitch() {
+  document.getElementById("familySwitch").classList.toggle("on", familyEnabled);
+  document.getElementById("familySwitchTitle").textContent = familyEnabled ? "Prendido" : "Apagado";
+  document.getElementById("familySwitchHint").textContent = familyEnabled
+    ? "Los pasajeros ya pueden pedir para otra persona."
+    : "Los pasajeros todavía no ven la opción.";
+  document.getElementById("familySwitchBtn").textContent = familyEnabled ? "Apagar" : "Prender";
+}
+
+async function toggleFamilyEnabled() {
+  const next = !familyEnabled;
+  if (next && !confirm("¿Prender \"Pedir para otra persona\"? Úsalo solo si ya tienes choferes que cubran las noches.")) return;
+  const res = await fetch(API + "/api/admin/family-rides/enabled", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, enabled: next }),
+  });
+  if (!res.ok) { showToast("No se pudo cambiar"); return; }
+  familyEnabled = (await res.json()).enabled;
+  renderFamilySwitch();
+  showToast(familyEnabled ? "Pedir para otra persona: prendido" : "Pedir para otra persona: apagado");
 }
 
 // ================= Negocios aliados =================

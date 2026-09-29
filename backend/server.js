@@ -13,6 +13,7 @@ const riderRoutes = require("./routes/riders");
 const rideRoutes = require("./routes/rides");
 const adminRoutes = require("./routes/admin");
 const allyAdRoutes = require("./routes/allyAds");
+const familyRides = require("./routes/familyRides");
 const { router: photoRoutes } = require("./photos");
 const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
@@ -153,9 +154,11 @@ app.get("/api/cities/resolve", (req, res) => {
     ? "in"
     : isWithinServiceRadius(zoneCityId, lat, lng, "taxi") ? "taxi" : "out";
   const zoneLabel = getCityById(zoneCityId)?.label || null;
+  // Si en este pueblo ya está prendido "Pedir para otra persona" (ver familyRides.js).
+  const familyOn = familyRides.isFamilyEnabled(zoneCityId);
   res.json(city
-    ? { city: city.id, label: city.label, inService, zone, zoneLabel }
-    : { city: null, label: null, inService: false, zone, zoneLabel });
+    ? { city: city.id, label: city.label, inService, zone, zoneLabel, familyRides: familyOn }
+    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn });
 });
 
 app.use("/api", driverRoutes);
@@ -163,6 +166,7 @@ app.use("/api", riderRoutes);
 app.use("/api", rideRoutes);
 app.use("/api", adminRoutes);
 app.use("/api", allyAdRoutes);
+app.use("/api", familyRides.router);
 app.use("/api", photoRoutes);
 
 // Última red de seguridad: si algo revienta sin que la ruta lo haya

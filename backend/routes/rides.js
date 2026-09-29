@@ -9,6 +9,7 @@ const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC } = require("../constants")
 const { suggestTaxiFare } = require("../taxiFares");
 const { driverEarnings, LOCAL_DONE_DATE, LOCAL_TODAY } = require("../earnings");
 const { checkReferralReward } = require("../referrals");
+const { cleanForOther } = require("./familyRides");
 
 function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
@@ -76,6 +77,8 @@ router.post("/rides", (req, res) => {
     service_kind,
     offer_price,
     extra,
+    for_name,
+    for_note,
   } = req.body;
   // Extra voluntario del pasajero en mototaxi (+$5 o +$10), todo para el
   // chofer: no cambia la tarifa de servicio. El taxi negocia con ofertas.
@@ -137,10 +140,14 @@ router.post("/rides", (req, res) => {
   // que es lo que filtra el admin de cada pueblo (ver routes/admin.js).
   db.prepare("UPDATE riders SET city = ? WHERE id = ?").run(city, rider.id);
 
+  // "Pedir para otra persona" (solo pasaje, y solo si ya está prendido en ese
+  // pueblo — si no, se ignora y el viaje sale normal para quien lo pide).
+  const forOther = cleanServiceKind === "pasaje" ? cleanForOther(city, for_name, for_note) : null;
+
   const result = db
     .prepare(
-      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token, offer_price, extra)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token, offer_price, extra, for_name, for_note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       rider_name,
@@ -159,7 +166,9 @@ router.post("/rides", (req, res) => {
       cleanServiceKind,
       generateShareToken(),
       offerPrice,
-      cleanExtra
+      cleanExtra,
+      forOther ? forOther.name : null,
+      forOther ? forOther.note : null
     );
 
   const ride = db

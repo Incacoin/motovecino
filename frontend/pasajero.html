@@ -238,6 +238,15 @@ function toggleRiderTheme() {
   #extraBox .extra-chip { width: 64px; padding: 9px 0; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 800; border: 1.5px solid var(--border); background: var(--bg-panel); color: var(--text); cursor: pointer; }
   #extraBox .extra-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   #extraNote { width: 280px; box-sizing: border-box; font-size: 13.5px; font-weight: 600; text-align: center; padding: 10px 12px; border-radius: 12px; background: var(--bg-card); color: var(--text); }
+  /* "Pedir para otra persona" */
+  #forOtherBox { margin: 0 0 10px; }
+  #forOtherBox .for-seg { display: flex; background: var(--bg-card); border-radius: 12px; padding: 4px; gap: 4px; }
+  #forOtherBox .for-seg button { flex: 1; font: inherit; font-size: 14px; font-weight: 700; padding: 10px 0; border: 0; border-radius: 9px; background: transparent; color: var(--text-dim); cursor: pointer; }
+  #forOtherBox .for-seg button.on { background: var(--accent); color: var(--accent-ink); }
+  #forOtherFields input { width: 100%; box-sizing: border-box; margin-top: 8px; }
+  #forOtherFields .for-hint { font-size: 12.5px; color: var(--text-dim); margin-top: 6px; line-height: 1.35; }
+  #forOtherNote { width: 280px; box-sizing: border-box; font-size: 14px; font-weight: 700; text-align: center; padding: 10px 12px; border-radius: 12px; background: var(--bg-card); color: var(--text); }
+  #forOtherNote span { display: block; font-weight: 500; font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
   /* "¿Te avisamos de tu viaje?" (avisos al celular, ver backend/push.js) */
   #pushAsk { width: 280px; box-sizing: border-box; padding: 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); text-align: center; }
   #pushAsk .push-bell { width: 48px; height: 48px; margin: 0 auto 8px; border-radius: 50%; background: #eef9f1; display: flex; align-items: center; justify-content: center; font-size: 24px; }
@@ -758,6 +767,19 @@ function toggleRiderTheme() {
       </div>
     </div>
     <input id="referenceInput" placeholder="Referencia (ej. casa azul, portón negro)" />
+    <!-- "Pedir para otra persona" (ver backend/routes/familyRides.js): solo
+         sale si ya está prendido en el pueblo de la recogida. -->
+    <div id="forOtherBox" style="display:none;">
+      <div class="for-seg">
+        <button type="button" id="forMeBtn" class="on" onclick="setForOther(false)">Para mí</button>
+        <button type="button" id="forOtherBtn" onclick="setForOther(true)">Para otra persona</button>
+      </div>
+      <div id="forOtherFields" style="display:none;">
+        <input id="forNameInput" maxlength="40" placeholder="Nombre de quien se sube (ej. Juan)" />
+        <input id="forNoteInput" maxlength="100" placeholder="Seña para reconocerlo (ej. camisa roja, afuera del salón)" />
+        <div class="for-hint">El chofer te escribe a ti por el chat. Te avisamos cuando acepte y cuando llegue.</div>
+      </div>
+    </div>
     <div class="request-block">
       <div id="fareEstimate" class="hint"></div>
       <div id="taxiOfferBox" style="display:none;">
@@ -791,6 +813,7 @@ function toggleRiderTheme() {
   </div>
   <div id="connWarning"></div>
   <div id="extraNote" style="display:none;"></div>
+  <div id="forOtherNote" style="display:none;"></div>
   <div id="pushAsk" class="fade-in" style="display:none;">
     <div class="push-bell">🔔</div>
     <div class="push-title">¿Te avisamos de tu viaje?</div>
@@ -1352,7 +1375,7 @@ function checkPickupZone() {
   const seq = ++zoneCheckSeq;
   fetch(API + `/api/cities/resolve?lat=${pickup.lat}&lng=${pickup.lng}`)
     .then((r) => r.json())
-    .then((data) => { if (seq === zoneCheckSeq && pickup) applyZone(data.zone, data.zoneLabel); })
+    .then((data) => { if (seq === zoneCheckSeq && pickup) { applyZone(data.zone, data.zoneLabel); setFamilyAvailable(data.familyRides); } })
     .catch(() => {});
 }
 
@@ -1386,8 +1409,40 @@ const SERVICE_CATEGORY_REFERENCE_PLACEHOLDER = {
   mandado: "Qué necesita hacer el chofer (ej. recoger receta y medicina en la farmacia)",
 };
 
+// --- "Pedir para otra persona" (ver backend/routes/familyRides.js) ---
+// El servidor dice si ya está prendido en el pueblo de la recogida (lo manda
+// /api/cities/resolve). Solo para pasaje: nadie se sube en domicilio/mandado.
+let familyAvailable = false;
+let forOther = false;
+
+function setFamilyAvailable(on) {
+  familyAvailable = !!on;
+  updateForOtherBox();
+}
+function updateForOtherBox() {
+  const show = familyAvailable && serviceCategory === "pasaje";
+  document.getElementById("forOtherBox").style.display = show ? "block" : "none";
+  if (!show && forOther) setForOther(false);
+}
+function setForOther(on) {
+  forOther = !!on;
+  document.getElementById("forMeBtn").classList.toggle("on", !forOther);
+  document.getElementById("forOtherBtn").classList.toggle("on", forOther);
+  document.getElementById("forOtherFields").style.display = forOther ? "block" : "none";
+  if (forOther) document.getElementById("forNameInput").focus();
+}
+function showForOtherNote(r) {
+  const note = document.getElementById("forOtherNote");
+  if (!note) return;
+  note.innerHTML = r && r.for_name
+    ? `👤 Viaje para ${escapeHtml(r.for_name)}${r.for_note ? `<span>${escapeHtml(r.for_note)}</span>` : ""}`
+    : "";
+  note.style.display = r && r.for_name ? "block" : "none";
+}
+
 function setServiceCategory(category) {
   serviceCategory = category;
+  updateForOtherBox();
   document.getElementById("catPasaje").classList.toggle("active", category === "pasaje");
   document.getElementById("catDomicilio").classList.toggle("active", category === "domicilio");
   document.getElementById("catMandado").classList.toggle("active", category === "mandado");
@@ -1764,6 +1819,13 @@ async function requestRide() {
   }
   const rider = JSON.parse(localStorage.getItem("motoya_rider"));
   const pickupLabel = document.getElementById("referenceInput").value.trim();
+  const askingForOther = forOther && familyAvailable && serviceCategory === "pasaje";
+  const forName = document.getElementById("forNameInput").value.trim();
+  if (askingForOther && !forName) {
+    showToast("Escribe el nombre de quien se sube");
+    document.getElementById("forNameInput").focus();
+    return;
+  }
   const res = await fetch(API + "/api/rides", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1781,6 +1843,8 @@ async function requestRide() {
       service_kind: serviceCategory,
       offer_price: serviceType === "taxi" ? taxiOffer : undefined,
       extra: serviceType === "taxi" ? 0 : tripExtra,
+      for_name: askingForOther ? forName : undefined,
+      for_note: askingForOther ? document.getElementById("forNoteInput").value.trim() : undefined,
     }),
   });
   if (!res.ok) {
@@ -1812,6 +1876,7 @@ async function requestRide() {
   requestWakeLock();
   loadAllyAd();
   showExtraNote(ride.extra);
+  showForOtherNote(ride);
   setupRidePush();
 }
 
@@ -1859,7 +1924,13 @@ function setupRidePush() {
   let snoozedAt = 0;
   try { snoozedAt = Number(localStorage.getItem("motovecino_avisos_pasajero_no")) || 0; } catch {}
   if (Date.now() - snoozedAt < PUSH_ASK_SNOOZE_MS) return;
-  document.getElementById("pushAsk").style.display = "block";
+  const box = document.getElementById("pushAsk");
+  const para = ride && ride.for_name;
+  box.querySelector(".push-title").textContent = para ? `¿Te avisamos del viaje de ${para}?` : "¿Te avisamos de tu viaje?";
+  box.querySelector(".push-body").textContent = para
+    ? `Te llega un aviso cuando el chofer acepte y cuando llegue por ${para}, aunque tengas la app cerrada.`
+    : "Te llega un aviso cuando tu chofer acepte y cuando llegue por ti, aunque tengas la app cerrada.";
+  box.style.display = "block";
 }
 function hidePushAsk() {
   const box = document.getElementById("pushAsk");
@@ -3219,6 +3290,7 @@ async function restoreActiveRide() {
   if (fetched.status === "buscando" && fetched.ride_type === "taxi") setupTaxiSearch(fetched.offer_price, fetched.offers);
   loadAllyAd();
   showExtraNote(fetched.extra);
+  showForOtherNote(fetched);
 
   if (fetched.driver) {
     await onDriverAssigned(fetched.driver, fetched.agreed_price, fetched.deposit_status ? {

@@ -216,15 +216,21 @@ function riderMessage(ride, type, payload) {
     const d = ride.driver_id && db.prepare("SELECT name FROM drivers WHERE id = ?").get(ride.driver_id);
     return firstName(d && d.name);
   };
+  // Viaje pedido para otra persona (ver familyRides.js): el aviso habla de ella.
+  const para = ride.for_name;
   if (type === "ride_accepted") {
-    const vehiculo = ride.ride_type === "taxi" ? "Tu taxi" : "Tu mototaxi";
-    return { tag, title: `✅ ${firstName(payload.name)} aceptó tu viaje`, body: `${vehiculo} ya va en camino por ti.` };
+    const vehiculo = ride.ride_type === "taxi" ? "El taxi" : "El mototaxi";
+    return para
+      ? { tag, title: `✅ ${firstName(payload.name)} va por ${para}`, body: `${vehiculo} ya va en camino a recoger a ${para}.` }
+      : { tag, title: `✅ ${firstName(payload.name)} aceptó tu viaje`, body: `${vehiculo.replace("El", "Tu")} ya va en camino por ti.` };
   }
   if (type === "offer_new") {
     return { tag: `oferta-${ride.id}`, title: "🚕 Te llegó una oferta de taxi", body: `$${payload.price} · Tócala para verla antes de que se venza.` };
   }
   if (type === "status_change" && payload.status === "llegue") {
-    return { tag, title: "📍 Tu chofer ya llegó por ti", body: `${driverName()} te está esperando.` };
+    return para
+      ? { tag, title: `📍 El chofer ya llegó por ${para}`, body: `${driverName()} está esperando a ${para}.` }
+      : { tag, title: "📍 Tu chofer ya llegó por ti", body: `${driverName()} te está esperando.` };
   }
   if (type === "status_change" && payload.status === "cancelado" && ride.cancelled_by !== "rider") {
     return { tag, title: "Tu viaje se canceló", body: "Puedes pedir otro desde la app." };
@@ -248,7 +254,7 @@ function notifyRider(rideId, type, payload, onScreen) {
   if (!RIDER_PUSH_TYPES.has(type)) return;
   const subs = db.prepare("SELECT id, ride_id, endpoint, p256dh, auth FROM rider_push_subs WHERE ride_id = ?").all(rideId);
   if (!subs.length) return;
-  const ride = db.prepare("SELECT id, ride_type, status, driver_id, cancelled_by FROM rides WHERE id = ?").get(rideId);
+  const ride = db.prepare("SELECT id, ride_type, status, driver_id, cancelled_by, for_name FROM rides WHERE id = ?").get(rideId);
   if (!ride) return;
   const message = riderMessage(ride, type, payload || {});
   const sends = message ? subs.filter((s) => !(onScreen && onScreen.has(s.endpoint))).map((s) => sendToRider(s, message)) : [];
