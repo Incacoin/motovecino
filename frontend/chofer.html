@@ -194,6 +194,7 @@ function setDriverTheme(pref) {
   .invite-stats:empty { display: none; }
   .invite-promo { font-size: 13.5px; line-height: 1.4; background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 10px 12px; }
   .invite-promo:empty { display: none; }
+  .invite-fine { display: block; margin-top: 6px; font-size: 12px; color: var(--text-dim); }
   .invite-progress { flex-direction: column; gap: 4px; }
   .inv-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; margin-top: 6px; }
   .inv-bar { height: 6px; border-radius: 99px; background: var(--bg-card-hover); overflow: hidden; }
@@ -2429,7 +2430,7 @@ function renderInvite(inv) {
   if (!inviteInfo) return;
   const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   document.getElementById("invitePromo").innerHTML = promo
-    ? `🎁 <b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de descuento en la cuota. Promoción hasta el ${fmtPromoEnd(promo.end)}.`
+    ? `🎁 <b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de descuento en la cuota. Promoción hasta el ${fmtPromoEnd(promo.end)}.<small class="invite-fine">El saldo a favor se resta de tu cuota y lo que sobre se guarda para la próxima vez. No se cambia por efectivo.</small>`
     : "";
   const parts = [];
   if (inviteInfo.registered) {
