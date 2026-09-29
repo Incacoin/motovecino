@@ -232,6 +232,11 @@ function riderMessage(ride, type, payload) {
       ? { tag, title: `📍 El chofer ya llegó por ${para}`, body: `${driverName()} está esperando a ${para}.` }
       : { tag, title: "📍 Tu chofer ya llegó por ti", body: `${driverName()} te está esperando.` };
   }
+  // "Ya llegó": solo cuando se pidió para otra persona (quien viaja no necesita
+  // que le avisen que llegó). Es el aviso que deja dormir tranquila a la familia.
+  if (type === "status_change" && payload.status === "completado" && para) {
+    return { tag, title: `✅ ${para} ya llegó`, body: `${driverName()} terminó el viaje. Ya puedes descansar.` };
+  }
   if (type === "status_change" && payload.status === "cancelado" && ride.cancelled_by !== "rider") {
     return { tag, title: "Tu viaje se canceló", body: "Puedes pedir otro desde la app." };
   }

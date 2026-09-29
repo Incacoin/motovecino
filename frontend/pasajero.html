@@ -3092,7 +3092,9 @@ function onCompleted() {
   hideAllyAd();
   localStorage.removeItem("motoya_active_ride");
   if (ride) saveRideToLocalHistory(ride.id, ride.share_token);
-  document.getElementById("statusText").textContent = `¡Buen viaje! Gracias por usar MotoVecino ${resolvedCityLabel} 🛵`;
+  document.getElementById("statusText").textContent = ride && ride.for_name
+    ? `✅ ${ride.for_name} ya llegó. Gracias por usar MotoVecino ${resolvedCityLabel}`
+    : `¡Buen viaje! Gracias por usar MotoVecino ${resolvedCityLabel} 🛵`;
   document.getElementById("connWarning").style.display = "none";
   document.getElementById("driverCard").style.display = "none";
   hideChat();
