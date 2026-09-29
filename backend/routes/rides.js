@@ -965,4 +965,22 @@ router.post("/rides/:id/rate", (req, res) => {
   res.json({ ok: true });
 });
 
+// Avisos al celular del pasajero para ESTE viaje (ver push.js). Se autentica
+// con el token del viaje, igual que el WebSocket y GET /rides/:id.
+const push = require("../push");
+router.post("/rides/:id/push", (req, res) => {
+  const { t, endpoint, p256dh, auth } = req.body || {};
+  const ride = db.prepare("SELECT id, status, share_token FROM rides WHERE id = ?").get(Number(req.params.id));
+  if (!ride || !t || ride.share_token !== t) return res.status(404).json({ error: "Viaje no encontrado" });
+  if (!push.isValidEndpoint(endpoint) || !push.isValidRiderKeys(p256dh, auth)) {
+    return res.status(400).json({ error: "Suscripción no válida" });
+  }
+  if (["completado", "cancelado"].includes(ride.status)) return res.json({ ok: false });
+  // Pasajero + unos cuantos familiares; más que eso no es uso normal.
+  const { n } = db.prepare("SELECT COUNT(*) AS n FROM rider_push_subs WHERE ride_id = ? AND endpoint != ?").get(ride.id, endpoint);
+  if (n >= 5) return res.json({ ok: false });
+  push.saveRiderSubscription(ride.id, endpoint, p256dh, auth);
+  res.json({ ok: true });
+});
+
 module.exports = router;

@@ -350,8 +350,14 @@ function send(ws, type, payload) {
 
 function notifyRide(rideId, type, payload) {
   const clients = rideSubscribers.get(rideId);
-  if (!clients) return;
-  for (const ws of clients) send(ws, type, payload);
+  if (clients) for (const ws of clients) send(ws, type, payload);
+  // Y al celular del pasajero si activó los avisos (app cerrada o pantalla
+  // apagada). Si algo falla con los avisos, el viaje sigue igual.
+  try {
+    push.notifyRider(rideId, type, payload);
+  } catch (e) {
+    console.warn("[push] no se pudo avisar al pasajero:", e.message);
+  }
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {

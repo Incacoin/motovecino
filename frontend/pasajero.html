@@ -238,6 +238,13 @@ function toggleRiderTheme() {
   #extraBox .extra-chip { width: 64px; padding: 9px 0; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 800; border: 1.5px solid var(--border); background: var(--bg-panel); color: var(--text); cursor: pointer; }
   #extraBox .extra-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   #extraNote { width: 280px; box-sizing: border-box; font-size: 13.5px; font-weight: 600; text-align: center; padding: 10px 12px; border-radius: 12px; background: var(--bg-card); color: var(--text); }
+  /* "¿Te avisamos de tu viaje?" (avisos al celular, ver backend/push.js) */
+  #pushAsk { width: 280px; box-sizing: border-box; padding: 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); text-align: center; }
+  #pushAsk .push-bell { width: 48px; height: 48px; margin: 0 auto 8px; border-radius: 50%; background: #eef9f1; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  #pushAsk .push-title { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+  #pushAsk .push-body { font-size: 13.5px; color: var(--text-dim); line-height: 1.4; margin: 6px 0 12px; }
+  #pushAsk .btn { width: 100%; margin: 0; font-size: 15px; padding: 12px; }
+  #pushAsk .btn + .btn { margin-top: 8px; }
   /* Negocio aliado: un anuncio por viaje, mientras busca chofer o lo espera. */
   #allyAd { width: 280px; box-sizing: border-box; padding: 14px 16px 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); text-align: left; }
   #allyAd .ally-label { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
@@ -784,6 +791,13 @@ function toggleRiderTheme() {
   </div>
   <div id="connWarning"></div>
   <div id="extraNote" style="display:none;"></div>
+  <div id="pushAsk" class="fade-in" style="display:none;">
+    <div class="push-bell">🔔</div>
+    <div class="push-title">¿Te avisamos de tu viaje?</div>
+    <div class="push-body">Te llega un aviso cuando tu chofer acepte y cuando llegue por ti, aunque tengas la app cerrada.</div>
+    <button class="btn" onclick="acceptPushAsk()">Sí, avísame</button>
+    <button class="btn btn-secondary" onclick="declinePushAsk()">Ahora no</button>
+  </div>
   <div id="statusMap"></div>
   <div id="searchingBlock" style="display:none;">
     <div class="verified-badge">
@@ -1798,6 +1812,63 @@ async function requestRide() {
   requestWakeLock();
   loadAllyAd();
   showExtraNote(ride.extra);
+  setupRidePush();
+}
+
+// --- Avisos al celular del pasajero (ver backend/push.js) ---
+// Se piden una sola vez, justo al pedir el viaje. Con el permiso ya dado, cada
+// viaje nuevo se suscribe solo. "Ahora no" deja de preguntar unos días.
+const PUSH_ASK_SNOOZE_MS = 3 * 24 * 3600 * 1000;
+
+function riderPushSupported() {
+  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+}
+function b64ToBytes(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+async function subscribeRidePush() {
+  if (!ride || !ride.share_token) return false;
+  const { publicKey } = await (await fetch(API + "/api/push/public-key")).json();
+  const reg = await navigator.serviceWorker.ready;
+  const sub = (await reg.pushManager.getSubscription()) ||
+    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) }));
+  const keys = sub.toJSON().keys || {};
+  const res = await fetch(API + `/api/rides/${ride.id}/push`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ t: ride.share_token, endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+  });
+  return res.ok && (await res.json()).ok;
+}
+function setupRidePush() {
+  hidePushAsk();
+  if (!riderPushSupported() || Notification.permission === "denied") return;
+  if (Notification.permission === "granted") { subscribeRidePush().catch(() => {}); return; }
+  let snoozedAt = 0;
+  try { snoozedAt = Number(localStorage.getItem("motovecino_avisos_pasajero_no")) || 0; } catch {}
+  if (Date.now() - snoozedAt < PUSH_ASK_SNOOZE_MS) return;
+  document.getElementById("pushAsk").style.display = "block";
+}
+function hidePushAsk() {
+  const box = document.getElementById("pushAsk");
+  if (box) box.style.display = "none";
+}
+async function acceptPushAsk() {
+  hidePushAsk();
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { showToast("Sin permiso no te podemos avisar"); return; }
+  try {
+    if (!(await subscribeRidePush())) throw new Error("server");
+    showToast("✅ Listo. Te avisamos cuando tu chofer acepte y cuando llegue.");
+  } catch (e) {
+    showToast("No se pudieron activar los avisos, intenta de nuevo");
+  }
+}
+function declinePushAsk() {
+  try { localStorage.setItem("motovecino_avisos_pasajero_no", String(Date.now())); } catch {}
+  hidePushAsk();
 }
 
 // --- Negocio aliado (un anuncio por viaje) ---
@@ -2946,6 +3017,7 @@ function onCompleted() {
   document.getElementById("shareBtn").style.display = "none";
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
+  hidePushAsk();
   document.getElementById("ratingBox").style.display = "block";
   stopRouteTracking();
   releaseWakeLock();
@@ -2998,6 +3070,7 @@ function onNoDriversAvailable() {
   document.getElementById("shareBtn").style.display = "none";
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
+  hidePushAsk();
   stopRouteTracking();
   releaseWakeLock();
 }
@@ -3014,6 +3087,7 @@ function onCancelledByDriver() {
   document.getElementById("shareBtn").style.display = "none";
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
+  hidePushAsk();
   document.getElementById("reportBtn").style.display = "inline-block";
   stopRouteTracking();
   releaseWakeLock();
@@ -3078,6 +3152,7 @@ async function cancelRide() {
   document.getElementById("shareBtn").style.display = "none";
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
+  hidePushAsk();
 }
 
 async function restoreActiveRide() {
@@ -3152,6 +3227,7 @@ async function restoreActiveRide() {
 
   connectWs();
   requestWakeLock();
+  setupRidePush();
   return true;
 }
 
