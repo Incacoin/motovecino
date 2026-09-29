@@ -6,6 +6,7 @@ const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } 
 const { getCityById } = require("../cities");
 const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
+const { ensureInviteCode } = require("../invites");
 
 const router = express.Router();
 
@@ -62,7 +63,7 @@ router.post("/admin/login", checkAdminPin, (req, res) => {
 router.post("/admin/drivers", checkAdminPin, (req, res) => {
   const {
     name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, grupo,
-    emergencyContactName, emergencyContactPhone, referredBy,
+    emergencyContactName, emergencyContactPhone, referredBy, referredByDriverId,
   } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
@@ -99,14 +100,21 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
 
   const pin = generateDriverPin();
 
+  // Viene de una solicitud que llegó con el link "Invita a otro chofer": el
+  // que invitó tiene que ser un chofer real de esta misma ciudad.
+  const inviterId = Number.isInteger(referredByDriverId)
+    ? db.prepare("SELECT id FROM drivers WHERE id = ? AND city = ? AND deleted_at IS NULL").get(referredByDriverId, cityId)?.id ?? null
+    : null;
+
   const result = db
     .prepare(
-      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
       name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, photo || null, photoPlaca || null, signature || null, vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId,
-      emergencyContactName || null, emergencyContactPhone || null, referredBy || null, 0
+      emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0
     );
+  ensureInviteCode(db, result.lastInsertRowid);
   // Insignia de "chofer fundador" (simbólica, por haberse sumado temprano):
   // la decide recomputeFounders, que no cuenta las cuentas de prueba.
   recomputeFounders(db);
@@ -124,6 +132,8 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
               d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
+              (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
+              (SELECT COUNT(*) FROM drivers x WHERE x.referred_by_driver_id = d.id AND x.deleted_at IS NULL) AS invited_count,
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
               (SELECT paid_at FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_at,
               (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides,
@@ -353,7 +363,7 @@ router.post("/admin/drivers/:id/test-account", checkAdminPin, (req, res) => {
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, (req, res) => {
   const apps = db
     .prepare(
-      "SELECT id, name, phone, photo, photo_placa, signature, status, created_at, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, city, emergency_contact_name, emergency_contact_phone, referred_by FROM driver_applications WHERE status = 'pendiente' AND city = ? ORDER BY created_at DESC"
+      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
   res.json(apps);

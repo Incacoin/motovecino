@@ -497,6 +497,26 @@ try {
   // la columna ya existe
 }
 
+// "Invita a otro chofer" (ver invites.js): el código propio de cada chofer
+// y, en solicitudes y choferes, qué chofer lo invitó con su link. Es aparte
+// de referred_by (texto libre que sigue sirviendo para "Facebook", etc.).
+try {
+  db.exec("ALTER TABLE drivers ADD COLUMN invite_code TEXT");
+} catch {
+  // la columna ya existe
+}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_drivers_invite_code ON drivers(invite_code)");
+try {
+  db.exec("ALTER TABLE drivers ADD COLUMN referred_by_driver_id INTEGER REFERENCES drivers(id)");
+} catch {
+  // la columna ya existe
+}
+try {
+  db.exec("ALTER TABLE driver_applications ADD COLUMN referred_by_driver_id INTEGER REFERENCES drivers(id)");
+} catch {
+  // la columna ya existe
+}
+
 // Historial real de conexión/desconexión de cada chofer — a diferencia de
 // drivers.status (un solo estado actual, se sobrescribe) esto permite saber
 // cuánto tiempo estuvo conectado en un día dado y en cuántos días distintos

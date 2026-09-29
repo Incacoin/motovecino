@@ -189,6 +189,9 @@ function setDriverTheme(pref) {
   .profile-sub { color: var(--text-dim); font-size: 13.5px; text-align: center; }
   .profile-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .profile-card .card-title { font-weight: 700; font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+  /* Invita a otro chofer */
+  .invite-stats { font-size: 13px; color: var(--text); background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 9px 12px; }
+  .invite-stats:empty { display: none; }
   /* Mis ganancias */
   .earn-today { background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 14px; text-align: center; }
   .earn-today .l { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
@@ -560,6 +563,13 @@ function setDriverTheme(pref) {
       </div>
       <div class="earn-list" id="earnRecent"></div>
       <div class="profile-note" id="earnNote"></div>
+    </div>
+
+    <div class="card profile-card" id="inviteCard" style="display:none;">
+      <div class="card-title">🤝 Invita a otro chofer</div>
+      <div class="profile-note" style="margin-top:0;">¿Conoces a alguien que maneje mototaxi o taxi? Mándale tu invitación por WhatsApp. Cuando se registre, sabremos que tú lo invitaste.</div>
+      <button class="btn" onclick="shareInvite()">Invitar por WhatsApp</button>
+      <div class="invite-stats" id="inviteStats"></div>
     </div>
 
     <div class="card profile-card">
@@ -2400,6 +2410,33 @@ async function openProfile() {
   }
 }
 
+// "Invita a otro chofer": abre WhatsApp con el mensaje y su link personal
+// (quiero-ser-chofer.html?inv=CÓDIGO). Siempre el dominio actual, aunque la
+// app se haya abierto desde un dominio viejo.
+let inviteInfo = null;
+function renderInvite(inv) {
+  inviteInfo = inv && inv.code ? inv : null;
+  document.getElementById("inviteCard").style.display = inviteInfo ? "flex" : "none";
+  if (!inviteInfo) return;
+  const parts = [];
+  if (inviteInfo.registered) {
+    parts.push(`Has invitado a <b>${inviteInfo.registered} chofer${inviteInfo.registered === 1 ? "" : "es"}</b>`);
+    parts.push(`${inviteInfo.active} ya ${inviteInfo.active === 1 ? "hizo" : "hicieron"} viajes`);
+  }
+  if (inviteInfo.pending) parts.push(`${inviteInfo.pending} en revisión`);
+  document.getElementById("inviteStats").innerHTML = parts.join(" · ");
+}
+
+function shareInvite() {
+  if (!inviteInfo) return;
+  const link = `https://motovecinoapp.com/quiero-ser-chofer?inv=${encodeURIComponent(inviteInfo.code)}`;
+  const place = inviteInfo.cityLabel ? `aquí en ${inviteInfo.cityLabel}` : "aquí en el pueblo";
+  const text = `¡Hola! Yo ya manejo con MotoVecino, la app para pedir mototaxi y taxi ${place}. ` +
+    `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación:
+${link}`;
+  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+}
+
 function closeProfile() {
   document.getElementById("profileScreen").style.display = "none";
 }
@@ -2597,6 +2634,7 @@ function renderProfile(p) {
       : `Basado en ${p.ratedCount} viaje${p.ratedCount === 1 ? "" : "s"} calificado${p.ratedCount === 1 ? "" : "s"}.`;
 
   renderEarnings(p.earnings);
+  renderInvite(p.invite);
 
   // --- Mi cuenta (estado de pago) ---
   // Ya no hay mensualidad (descontinuada 2026-09-08) — el único cobro es el

@@ -401,7 +401,7 @@
   </div>
   <div class="field">
     <label>¿Quién lo invitó? (opcional)</label>
-    <input id="driverReferredBy" placeholder="Ej. Sergio" />
+    <input id="driverReferredBy" placeholder="Ej. el chofer que lo invitó, o Facebook" />
   </div>
   <div class="field">
     <label>Servicio</label>
@@ -989,7 +989,9 @@ function renderApplications(apps) {
             <span class="name">${escapeHtml(a.name)}</span>
             <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
             <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}</span>
-            ${a.referred_by ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
+            ${a.inviter_name
+              ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
+              : a.referred_by ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
             ${a.emergency_contact_name ? `<span class="meta">🚨 Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
           </div>
         </div>
@@ -1104,6 +1106,8 @@ async function registerDriver() {
     body: JSON.stringify({
       adminPin, name, phone, vehicle, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature,
       emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
+      // Si la solicitud llegó con el link de invitación de un chofer.
+      referredByDriverId: pendingApplicationId ? applicationsCache.find((a) => a.id === pendingApplicationId)?.referred_by_driver_id ?? null : null,
     }),
   });
   if (!res.ok) {
@@ -1474,9 +1478,13 @@ function renderDriverRows() {
       : d.es_prueba
       ? ` <span title="Cuenta de prueba: no cuenta para fundador, ranking ni resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>`
       : "";
-    const nameWithReferral = d.referred_by
-      ? `<span>${escapeHtml(d.name)}${founderTag}</span><div class="meta" style="color:var(--text-dim);font-size:11.5px;">🤝 ${escapeHtml(d.referred_by)}</div>`
-      : `<span>${escapeHtml(d.name)}${founderTag}</span>`;
+    // "Invita a otro chofer": quién lo trajo (con su link, o lo que escribió
+    // a mano) y a cuántos ha traído él.
+    const referralLines = [
+      d.inviter_name ? `🤝 Lo invitó ${escapeHtml(d.inviter_name)} (chofer)` : d.referred_by ? `🤝 ${escapeHtml(d.referred_by)}` : "",
+      d.invited_count ? `📨 Ha invitado a ${d.invited_count} chofer${d.invited_count === 1 ? "" : "es"}` : "",
+    ].filter(Boolean).map((t) => `<div class="meta" style="color:var(--text-dim);font-size:11.5px;">${t}</div>`).join("");
+    const nameWithReferral = `<span>${escapeHtml(d.name)}${founderTag}</span>${referralLines}`;
     const nameCell = d.photo
       ? `<div class="info"><img class="thumb" src="${d.photo}" onclick="viewImage('${d.photo}')" />${placaThumb}${sigThumb}<div>${nameWithReferral}</div></div>`
       : nameWithReferral;

@@ -112,6 +112,9 @@
   .credit strong { color: #000; }
   #formScreen > svg rect, #formScreen > svg line { stroke: #bdbdbd; opacity: 1; }
   #okScreen h2, #ticulSoonScreen h2, #comingSoonScreen h2 { color: #000; }
+  /* "Te invitó Carlos M." — solo si llegó con el link de un chofer */
+  #inviteBanner { display: none; margin: 4px 0 16px; padding: 12px 14px; border-radius: 12px; background: #eaf7ee; border: 1px solid #bfe5c9; color: #000; font-size: 14.5px; }
+  #inviteBanner b { font-weight: 700; }
 </style>
 </head>
 <body>
@@ -133,6 +136,7 @@
       <line x1="10" y1="130" x2="190" y2="130" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
     </svg>
     <p class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span id="cityLabel"></span></p>
+    <div id="inviteBanner">🤝 Te invitó <b id="inviteName"></b></div>
     <p class="lead">Regístrate como conductor y empieza a recibir viajes en <span id="cityLabelInline">tu zona</span>. Déjanos tu nombre y teléfono — te contactamos por WhatsApp para completar tu alta y darte tu PIN.</p>
 
     <div class="field">
@@ -187,7 +191,7 @@
     </div>
     <div class="field">
       <label>¿Quién te invitó a MotoVecino? (opcional)</label>
-      <input id="referredBy" placeholder="Ej. Sergio, o 'Facebook' si viste el anuncio" />
+      <input id="referredBy" placeholder="Ej. el chofer que te invitó, o 'Facebook' si viste el anuncio" />
     </div>
     <div class="field legalField">
       <label class="legalCheck">
@@ -237,6 +241,26 @@
 </div>
 
 <script>
+// "Invita a otro chofer": el link trae ?inv=CÓDIGO. Se guarda en la sesión
+// por si la página se recarga (ej. al volver de la cámara) y se pierde el ?inv.
+let inviteCode = null;
+try {
+  inviteCode = new URLSearchParams(location.search).get("inv") || sessionStorage.getItem("mvInvite");
+  if (inviteCode) sessionStorage.setItem("mvInvite", inviteCode);
+} catch (e) {}
+if (inviteCode) {
+  fetch("/api/drivers/invite/" + encodeURIComponent(inviteCode))
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (!data || !data.name) { inviteCode = null; return; }
+      document.getElementById("inviteName").textContent = data.name;
+      document.getElementById("inviteBanner").style.display = "block";
+      const ref = document.getElementById("referredBy");
+      if (!ref.value.trim()) ref.value = data.name + " (chofer)";
+    })
+    .catch(() => {});
+}
+
 // El Aviso Legal y el Contrato se muestran DENTRO de esta página (iframe +
 // overlay) en vez de navegar a otra URL — así nunca se pierde lo que el
 // chofer ya llenó (nombre, fotos, firma dibujada en el canvas), que se
@@ -489,6 +513,7 @@ async function submitApplication() {
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
       emergencyContactName: emergencyName, emergencyContactPhone: emergencyPhone,
       referredBy: document.getElementById("referredBy").value.trim() || null,
+      inviteCode,
       lat: detectedLat, lng: detectedLng,
     }),
   });

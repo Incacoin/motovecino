@@ -9,6 +9,7 @@ const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius } = require("../citi
 const { rideFee } = require("../fees");
 const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
 const { photoUrls, cleanThumb } = require("../photos");
+const { ensureInviteCode, findInviter, shortName } = require("../invites");
 
 const router = express.Router();
 
@@ -138,7 +139,7 @@ router.post("/drivers/profile", (req, res) => {
   const driver = db
     .prepare(
       `SELECT id, name, phone, vehicle, vehicle_type, grupo, photo, tipo, pin, created_at,
-              paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder
+              paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, city
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
     .get(phone, pin);
@@ -198,6 +199,20 @@ router.post("/drivers/profile", (req, res) => {
     )
     .all(driver.id);
 
+  // "Invita a otro chofer": su código y cómo le va con sus invitados —
+  // "activo" = ya completó al menos un viaje de la app.
+  const inviteCode = ensureInviteCode(db, driver.id);
+  const invited = db
+    .prepare(
+      `SELECT COUNT(*) AS registered,
+              SUM(CASE WHEN EXISTS (SELECT 1 FROM rides r WHERE r.driver_id = d.id AND r.status = 'completado') THEN 1 ELSE 0 END) AS active
+       FROM drivers d WHERE d.referred_by_driver_id = ? AND d.deleted_at IS NULL`
+    )
+    .get(driver.id);
+  const invitedPending = db
+    .prepare("SELECT COUNT(*) AS n FROM driver_applications WHERE referred_by_driver_id = ? AND status = 'pendiente'")
+    .get(driver.id).n;
+
   res.json({
     id: driver.id,
     name: driver.name,
@@ -226,7 +241,22 @@ router.post("/drivers/profile", (req, res) => {
       : null,
     deposits: { ...depositTotals, recent: recentDeposits },
     earnings: earningsSummary(db, driver.id),
+    invite: {
+      code: inviteCode,
+      cityLabel: getCityById(driver.city)?.label || null,
+      registered: invited.registered || 0,
+      active: invited.active || 0,
+      pending: invitedPending || 0,
+    },
   });
+});
+
+// Público (lo abre quien recibió el link de invitación): solo devuelve el
+// nombre corto de quien invita, para enseñar "Te invitó Carlos M.".
+router.get("/drivers/invite/:code", (req, res) => {
+  const inviter = findInviter(db, req.params.code);
+  if (!inviter) return res.status(404).json({ error: "Invitación no encontrada" });
+  res.json({ name: shortName(inviter.name) });
 });
 
 // Cuenta para recibir anticipos (CLABE o tarjeta). La captura el propio
@@ -306,7 +336,7 @@ router.post("/chofer-solicitudes", (req, res) => {
   }
   const {
     name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, grupo, viaLiderLink, formalIntent, city,
-    emergencyContactName, emergencyContactPhone, referredBy, lat, lng,
+    emergencyContactName, emergencyContactPhone, referredBy, inviteCode, lat, lng,
   } = req.body;
   for (const img of [photo, photoPlaca, signature]) {
     if (typeof img === "string" && img.length > MAX_APPLICATION_IMAGE_LENGTH) {
@@ -366,12 +396,18 @@ router.post("/chofer-solicitudes", (req, res) => {
     return res.status(400).json({ error: "Falta la foto de ti con tu moto" });
   }
 
+  // Vino con el link de invitación de un chofer: se guarda quién fue. Nadie
+  // puede invitarse a sí mismo (mismo teléfono).
+  const inviter = findInviter(db, inviteCode);
+  const inviterId = inviter && inviter.phone !== phone ? inviter.id : null;
+
   db.prepare(
-    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     name, phone, photo, photoPlaca || null, AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, signature, cityId,
     emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
-    typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null
+    typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
+    inviterId
   );
   recordSubmission(req.ip);
   res.status(201).json({ ok: true });
