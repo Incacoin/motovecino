@@ -322,6 +322,15 @@ function attach(httpServer) {
         } catch {
           return;
         }
+        // La app del pasajero avisa si está en pantalla: a ESE celular no se le
+        // manda push mientras tanto (ya lo está viendo, y Chrome se queja si
+        // llega un push que no muestra nada). Va por celular, no por viaje, para
+        // que a la familia le siga llegando aunque el pasajero tenga la app abierta.
+        if (msg.type === "visible") {
+          ws.visible = !!msg.on;
+          ws.pushEndpoint = typeof msg.endpoint === "string" ? msg.endpoint.slice(0, 1000) : null;
+          return;
+        }
         if (msg.type === "chat" && typeof msg.text === "string" && msg.text.trim()) {
           const current = db.prepare("SELECT driver_id, status FROM rides WHERE id = ?").get(rideId);
           if (current?.driver_id && CHAT_STATUSES.includes(current.status)) {
@@ -350,11 +359,17 @@ function send(ws, type, payload) {
 
 function notifyRide(rideId, type, payload) {
   const clients = rideSubscribers.get(rideId);
-  if (clients) for (const ws of clients) send(ws, type, payload);
+  const onScreen = new Set();
+  if (clients) {
+    for (const ws of clients) {
+      send(ws, type, payload);
+      if (ws.visible && ws.pushEndpoint) onScreen.add(ws.pushEndpoint);
+    }
+  }
   // Y al celular del pasajero si activó los avisos (app cerrada o pantalla
   // apagada). Si algo falla con los avisos, el viaje sigue igual.
   try {
-    push.notifyRider(rideId, type, payload);
+    push.notifyRider(rideId, type, payload, onScreen);
   } catch (e) {
     console.warn("[push] no se pudo avisar al pasajero:", e.message);
   }

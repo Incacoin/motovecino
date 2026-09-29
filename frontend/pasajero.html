@@ -1840,8 +1840,18 @@ async function subscribeRidePush() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ t: ride.share_token, endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }),
   });
-  return res.ok && (await res.json()).ok;
+  const ok = res.ok && (await res.json()).ok;
+  if (ok) { riderPushEndpoint = sub.endpoint; reportVisibility(); }
+  return ok;
 }
+// Le dice al servidor si la app está en pantalla: mientras lo esté, a este
+// celular no le manda avisos (ya lo está viendo aquí).
+let riderPushEndpoint = null;
+function reportVisibility() {
+  if (!riderPushEndpoint || !ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: "visible", on: document.visibilityState === "visible", endpoint: riderPushEndpoint }));
+}
+document.addEventListener("visibilitychange", reportVisibility);
 function setupRidePush() {
   hidePushAsk();
   if (!riderPushSupported() || Notification.permission === "denied") return;
@@ -1943,6 +1953,7 @@ function connectWs() {
   ws = new WebSocket(`${proto}://${location.host}/ws?role=rider&rideId=${ride.id}&t=${ride.share_token}`);
   let pingInterval;
   ws.onopen = () => {
+    reportVisibility();
     pingInterval = setInterval(() => {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
     }, 25000);

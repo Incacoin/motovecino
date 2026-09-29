@@ -243,14 +243,15 @@ const RIDE_OVER = new Set(["completado", "cancelado"]);
 
 // Se llama desde realtime.notifyRide con cada evento del viaje. La ubicación
 // del chofer (cada pocos segundos) se descarta aquí mismo, sin tocar la base.
-function notifyRider(rideId, type, payload) {
+// onScreen = celulares que tienen la app del pasajero en pantalla ahorita.
+function notifyRider(rideId, type, payload, onScreen) {
   if (!RIDER_PUSH_TYPES.has(type)) return;
   const subs = db.prepare("SELECT id, ride_id, endpoint, p256dh, auth FROM rider_push_subs WHERE ride_id = ?").all(rideId);
   if (!subs.length) return;
   const ride = db.prepare("SELECT id, ride_type, status, driver_id, cancelled_by FROM rides WHERE id = ?").get(rideId);
   if (!ride) return;
   const message = riderMessage(ride, type, payload || {});
-  const sends = message ? subs.map((s) => sendToRider(s, message)) : [];
+  const sends = message ? subs.filter((s) => !(onScreen && onScreen.has(s.endpoint))).map((s) => sendToRider(s, message)) : [];
   // El viaje terminó: ya no hay nada más que avisar.
   if (RIDE_OVER.has(ride.status) && (type === "status_change" || type === "no_drivers_available")) {
     Promise.allSettled(sends).then(() => db.prepare("DELETE FROM rider_push_subs WHERE ride_id = ?").run(rideId));
