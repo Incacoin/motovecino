@@ -8,6 +8,7 @@ const { photoUrls } = require("../photos");
 const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC } = require("../constants");
 const { suggestTaxiFare } = require("../taxiFares");
 const { driverEarnings, LOCAL_DONE_DATE, LOCAL_TODAY } = require("../earnings");
+const { checkReferralReward } = require("../referrals");
 
 function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
@@ -820,6 +821,10 @@ router.post("/rides/:id/complete", (req, res) => {
   db.prepare("UPDATE drivers SET status = 'disponible' WHERE id = ?").run(
     driverId
   );
+
+  // Premio de "Invita a otro chofer": ¿con este viaje ya llegó a la meta?
+  // Nunca debe tumbar el cierre del viaje, pase lo que pase.
+  try { checkReferralReward(db, driverId); } catch (e) { console.error("[referral]", e.message); }
 
   // todayEarned: para la cajita "hoy" arriba del mapa en chofer.html.
   const { count: todayCount, earned: todayEarned } = db

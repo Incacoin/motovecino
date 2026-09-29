@@ -10,6 +10,7 @@ const { rideFee } = require("../fees");
 const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
 const { photoUrls, cleanThumb } = require("../photos");
 const { ensureInviteCode, findInviter, shortName } = require("../invites");
+const { checkReferralReward, creditBalance, referralStatus } = require("../referrals");
 
 const router = express.Router();
 
@@ -162,7 +163,7 @@ router.post("/drivers/profile", (req, res) => {
 
   const lastPayment = db
     .prepare(
-      "SELECT amount, paid_at FROM driver_payments WHERE driver_id = ? ORDER BY paid_at DESC LIMIT 1"
+      "SELECT amount, paid_at, credit_applied FROM driver_payments WHERE driver_id = ? ORDER BY paid_at DESC LIMIT 1"
     )
     .get(driver.id);
 
@@ -179,6 +180,9 @@ router.post("/drivers/profile", (req, res) => {
     : [];
   const pendingRides = pendingFeeRows.length;
   const pendingRidesAmount = pendingFeeRows.reduce((sum, r) => sum + rideFee(r), 0);
+  // Saldo a favor por invitaciones: se resta de lo que entrega de cuota.
+  try { checkReferralReward(db, driver.id); } catch (e) { console.error("[referral]", e.message); }
+  const credit = creditBalance(db, driver.id);
 
   // Anticipos que el propio chofer confirmó haber recibido en su cuenta —
   // se van sumando para que lleve la cuenta sin anotarlo aparte.
@@ -235,6 +239,8 @@ router.post("/drivers/profile", (req, res) => {
     trialEndDate: TRIAL_END_DATE,
     pendingRides,
     pendingRidesAmount,
+    creditBalance: credit,
+    pendingNet: Math.max(0, Math.round((pendingRidesAmount - credit) * 100) / 100),
     serviceFee: SERVICE_FEE,
     bankAccount: driver.deposit_account
       ? { bank: driver.deposit_bank, account: driver.deposit_account, holder: driver.deposit_holder }
@@ -247,6 +253,7 @@ router.post("/drivers/profile", (req, res) => {
       registered: invited.registered || 0,
       active: invited.active || 0,
       pending: invitedPending || 0,
+      ...referralStatus(db, driver, shortName),
     },
   });
 });

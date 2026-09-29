@@ -517,6 +517,34 @@ try {
   // la columna ya existe
 }
 
+// Premio de invitación (ver referrals.js): un premio por invitado, y el saldo
+// a favor de cada chofer. El saldo se va usando al liquidar cuotas
+// (driver_payments.credit_applied = cuánto saldo se restó en ese cobro).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS referral_rewards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inviter_id INTEGER NOT NULL REFERENCES drivers(id),
+    invitee_id INTEGER NOT NULL UNIQUE REFERENCES drivers(id),
+    inviter_amount REAL NOT NULL DEFAULT 0,
+    invitee_amount REAL NOT NULL DEFAULT 0,
+    earned_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS driver_credits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    driver_id INTEGER NOT NULL REFERENCES drivers(id),
+    amount REAL NOT NULL,
+    reason TEXT NOT NULL,
+    reward_id INTEGER REFERENCES referral_rewards(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_driver_credits_driver ON driver_credits(driver_id);
+`);
+try {
+  db.exec("ALTER TABLE driver_payments ADD COLUMN credit_applied REAL NOT NULL DEFAULT 0");
+} catch {
+  // la columna ya existe
+}
+
 // Historial real de conexión/desconexión de cada chofer — a diferencia de
 // drivers.status (un solo estado actual, se sobrescribe) esto permite saber
 // cuánto tiempo estuvo conectado en un día dado y en cuántos días distintos

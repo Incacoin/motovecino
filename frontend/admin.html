@@ -1464,9 +1464,14 @@ function renderDriverRows() {
     const pendingFeeRate = d.vehicle_type === "taxi"
       ? `comisión ${Math.round(TAXI_COMMISSION_RATE * 100)}% (tope $${TAXI_COMMISSION_CAP})`
       : `$${SERVICE_FEE}/viaje`;
-    const pendingFeesLabel = pendingRides > 0
+    // Saldo a favor por invitaciones: se resta solo al registrar el cobro.
+    const credit = Math.round((d.credit_balance || 0) * 100) / 100;
+    const creditLabel = credit > 0
+      ? `<div class="lastPayment">🎁 saldo a favor por invitar: $${credit}${pendingFeeAmount > 0 ? ` → a pagar <strong>$${Math.max(0, pendingFeeAmount - credit)}</strong>` : ""}</div>`
+      : "";
+    const pendingFeesLabel = (pendingRides > 0
       ? `<div class="lastPayment">viajes sin cobrar: ${pendingRides} · ${pendingFeeRate} = <strong>$${pendingFeeAmount}</strong></div>`
-      : `<div class="lastPayment">sin viajes pendientes de cobrar</div>`;
+      : `<div class="lastPayment">sin viajes pendientes de cobrar</div>`) + creditLabel;
     const placaThumb = d.photo_placa
       ? `<img class="thumb" src="${d.photo_placa}" onclick="viewImage('${d.photo_placa}')" title="Foto con su moto" />`
       : "";
@@ -1505,7 +1510,7 @@ function renderDriverRows() {
       <td>
         ${lastPaymentLabel}
         ${pendingFeesLabel}
-        ${pendingRides > 0 ? `<button class="btn-sm" id="feesBtn-${d.id}" onclick="registerTripFees(${d.id})">Cobrar viajes ($${pendingFeeAmount})</button>` : ""}
+        ${pendingRides > 0 ? `<button class="btn-sm" id="feesBtn-${d.id}" onclick="registerTripFees(${d.id})">Cobrar viajes ($${Math.max(0, pendingFeeAmount - credit)})</button>` : ""}
         <button class="histLink" onclick="showPaymentsModal(${d.id})">Ver historial</button>
         <div class="payRow">
           <button class="btn-sm wa" onclick="sendPaymentReminder(${d.id})">📱 Recordatorio pago</button>
@@ -1584,8 +1589,12 @@ function paymentReminderMessage(d) {
       ? `• Viajes por cobrar: ${pendingRides} × ${feeRate} = $${feeAmount} MXN`
       : `• Viajes: sin pendientes 👍`,
   ];
+  // Saldo a favor por invitar choferes: se resta de lo que entrega.
+  const credit = Math.min(Math.round((d.credit_balance || 0) * 100) / 100, feeAmount);
+  const toPay = Math.max(0, feeAmount - credit);
+  if (credit > 0) lines.push(`• Tu saldo a favor por invitar choferes: −$${credit} MXN 🎁`);
 
-  const totalLine = feeAmount > 0 ? `\nTotal a pagar: $${feeAmount} MXN\n` : "";
+  const totalLine = toPay > 0 ? `\nTotal a pagar: $${toPay} MXN\n` : "";
 
   return `¡Hola ${d.name}! 🛵💛 Gracias por ser parte del equipo MotoVecino ${adminCityLabel}, se nota tu esfuerzo.\n\n${lines.join("\n")}\n${totalLine}\nEntrégalo directamente con nosotros como de costumbre.\n\n¡Sigue así! 🙌`;
 }
@@ -1615,8 +1624,10 @@ async function registerTripFees(id) {
     showToast((await res.json()).error || "No se pudo registrar el cobro");
     return;
   }
-  const { count, amount } = await res.json();
-  showToast(`Cobrado: ${count} viajes = $${Math.round(amount)}`);
+  const { count, amount, creditApplied } = await res.json();
+  showToast(creditApplied > 0
+    ? `Cobrado: ${count} viajes = $${Math.round(amount)} (se usaron $${creditApplied} de saldo a favor)`
+    : `Cobrado: ${count} viajes = $${Math.round(amount)}`);
   loadDrivers(); // el re-render deja el botón fresco y habilitado
   loadStats();
 }
@@ -1638,7 +1649,7 @@ async function showPaymentsModal(id) {
     ? payments.map((p) => `
       <div class="payHistRow">
         <span>${p.paid_at.slice(0, 10)}</span>
-        <span>$${p.amount}${p.concept === "viajes" ? ` (${p.ride_count} viajes)` : " (mensual)"}</span>
+        <span>$${p.amount}${p.concept === "viajes" ? ` (${p.ride_count} viajes${p.credit_applied > 0 ? ` · −$${p.credit_applied} saldo a favor` : ""})` : " (mensual)"}</span>
         <span class="ago">${p.concept === "viajes" ? "" : `${p.period_start || "—"} → ${p.period_end || "—"}`}</span>
       </div>`).join("")
     : `<div class="ago">Sin pagos registrados todavía.</div>`;

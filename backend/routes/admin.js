@@ -7,6 +7,7 @@ const { getCityById } = require("../cities");
 const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
+const { creditBalance } = require("../referrals");
 
 const router = express.Router();
 
@@ -134,6 +135,8 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
               (SELECT COUNT(*) FROM drivers x WHERE x.referred_by_driver_id = d.id AND x.deleted_at IS NULL) AS invited_count,
+              MAX(0, (SELECT COALESCE(SUM(amount), 0) FROM driver_credits WHERE driver_id = d.id)
+                   - (SELECT COALESCE(SUM(credit_applied), 0) FROM driver_payments WHERE driver_id = d.id)) AS credit_balance,
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
               (SELECT paid_at FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_at,
               (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides,
@@ -193,7 +196,8 @@ router.post("/admin/drivers/:id/pending-fees", checkAdminPin, (req, res) => {
     )
     .all(req.params.id);
   const amount = rides.reduce((sum, r) => sum + rideFee(r), 0);
-  res.json({ count: rides.length, amount, feePerRide: SERVICE_FEE });
+  const credit = creditBalance(db, req.params.id);
+  res.json({ count: rides.length, amount, credit, net: Math.max(0, amount - credit), feePerRide: SERVICE_FEE });
 });
 
 router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, (req, res) => {
@@ -214,22 +218,26 @@ router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, (req, res) =
   // colarse como "ya cobrado" sin haberse sumado al monto ni al pago.
   const ids = pendingRides.map((r) => r.id);
   const placeholders = ids.map(() => "?").join(",");
-  const amount = pendingRides.reduce((sum, r) => sum + rideFee(r), 0);
+  const gross = pendingRides.reduce((sum, r) => sum + rideFee(r), 0);
+  // Saldo a favor por invitaciones (referrals.js): se resta de lo que el
+  // chofer entrega. `amount` queda como lo que de verdad pagó.
+  const creditApplied = Math.min(creditBalance(db, req.params.id), gross);
+  const amount = Math.round((gross - creditApplied) * 100) / 100;
   db.prepare(
     `UPDATE rides SET fee_settled_at = datetime('now') WHERE id IN (${placeholders})`
   ).run(...ids);
   db.prepare(
-    "INSERT INTO driver_payments (driver_id, amount, concept, ride_count) VALUES (?, ?, 'viajes', ?)"
-  ).run(req.params.id, amount, ids.length);
+    "INSERT INTO driver_payments (driver_id, amount, concept, ride_count, credit_applied) VALUES (?, ?, 'viajes', ?, ?)"
+  ).run(req.params.id, amount, ids.length, creditApplied);
 
-  res.json({ ok: true, count: ids.length, amount });
+  res.json({ ok: true, count: ids.length, amount, gross, creditApplied });
 });
 
 router.post("/admin/drivers/:id/payments", checkAdminPin, (req, res) => {
   if (!assertOwnCity("drivers", req, res)) return;
   const payments = db
     .prepare(
-      "SELECT id, amount, period_start, period_end, paid_at, concept, ride_count FROM driver_payments WHERE driver_id = ? ORDER BY paid_at DESC"
+      "SELECT id, amount, period_start, period_end, paid_at, concept, ride_count, credit_applied FROM driver_payments WHERE driver_id = ? ORDER BY paid_at DESC"
     )
     .all(req.params.id);
   res.json(payments);

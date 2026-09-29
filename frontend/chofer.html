@@ -192,6 +192,13 @@ function setDriverTheme(pref) {
   /* Invita a otro chofer */
   .invite-stats { font-size: 13px; color: var(--text); background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 9px 12px; }
   .invite-stats:empty { display: none; }
+  .invite-promo { font-size: 13.5px; line-height: 1.4; background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .invite-promo:empty { display: none; }
+  .invite-progress { flex-direction: column; gap: 4px; }
+  .inv-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; margin-top: 6px; }
+  .inv-bar { height: 6px; border-radius: 99px; background: var(--bg-card-hover); overflow: hidden; }
+  .inv-bar i { display: block; height: 100%; background: var(--success); border-radius: 99px; }
+  .inv-hint { font-size: 12px; color: var(--text-dim); }
   /* Mis ganancias */
   .earn-today { background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 14px; text-align: center; }
   .earn-today .l { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
@@ -568,8 +575,10 @@ function setDriverTheme(pref) {
     <div class="card profile-card" id="inviteCard" style="display:none;">
       <div class="card-title">🤝 Invita a otro chofer</div>
       <div class="profile-note" style="margin-top:0;">¿Conoces a alguien que maneje mototaxi o taxi? Mándale tu invitación por WhatsApp. Cuando se registre, sabremos que tú lo invitaste.</div>
+      <div class="invite-promo" id="invitePromo"></div>
       <button class="btn" onclick="shareInvite()">Invitar por WhatsApp</button>
       <div class="invite-stats" id="inviteStats"></div>
+      <div class="invite-progress" id="inviteProgress" style="display:none;"></div>
     </div>
 
     <div class="card profile-card">
@@ -2418,6 +2427,10 @@ function renderInvite(inv) {
   inviteInfo = inv && inv.code ? inv : null;
   document.getElementById("inviteCard").style.display = inviteInfo ? "flex" : "none";
   if (!inviteInfo) return;
+  const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
+  document.getElementById("invitePromo").innerHTML = promo
+    ? `🎁 <b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de descuento en la cuota. Promoción hasta el ${fmtPromoEnd(promo.end)}.`
+    : "";
   const parts = [];
   if (inviteInfo.registered) {
     parts.push(`Has invitado a <b>${inviteInfo.registered} chofer${inviteInfo.registered === 1 ? "" : "es"}</b>`);
@@ -2425,15 +2438,45 @@ function renderInvite(inv) {
   }
   if (inviteInfo.pending) parts.push(`${inviteInfo.pending} en revisión`);
   document.getElementById("inviteStats").innerHTML = parts.join(" · ");
+
+  // Cómo va cada quien rumbo al premio: sus invitados y, si a él lo
+  // invitaron, él mismo.
+  const need = inviteInfo.promo || { trips: 20, riders: 10, amount: 20 };
+  const progressLine = (label, x, doneText) => {
+    if (x.rewarded) return `<div class="inv-row"><span>${label}</span><b>${doneText}</b></div>`;
+    const pct = Math.min(100, Math.round((x.trips / need.trips) * 100));
+    const ridersLeft = Math.max(0, need.riders - x.riders);
+    return `<div class="inv-row"><span>${label}</span><span>${Math.min(x.trips, need.trips)}/${need.trips} viajes</span></div>
+      <div class="inv-bar"><i style="width:${pct}%"></i></div>
+      ${x.trips >= need.trips && ridersLeft ? `<div class="inv-hint">Faltan viajes con ${ridersLeft} pasajero${ridersLeft === 1 ? "" : "s"} distinto${ridersLeft === 1 ? "" : "s"}.</div>` : ""}`;
+  };
+  const lines = [];
+  if (inviteInfo.mine && (promo || inviteInfo.mine.rewarded)) {
+    lines.push(progressLine(`Tú (te invitó ${escapeHtml(inviteInfo.mine.inviterName)})`, inviteInfo.mine, `✓ Ganaste $${need.amount}`));
+  }
+  for (const x of inviteInfo.invitees || []) {
+    if (!promo && !x.rewarded) continue;
+    lines.push(progressLine(escapeHtml(x.name), x, x.myAmount > 0 ? `✓ Ganaste $${x.myAmount}` : "✓ Completó (límite del mes)"));
+  }
+  const box = document.getElementById("inviteProgress");
+  box.innerHTML = lines.join("");
+  box.style.display = lines.length ? "block" : "none";
+}
+
+function fmtPromoEnd(ymd) {
+  const d = new Date(ymd + "T12:00:00");
+  return isNaN(d) ? ymd : d.toLocaleDateString("es-MX", { day: "numeric", month: "long" });
 }
 
 function shareInvite() {
   if (!inviteInfo) return;
   const link = `https://motovecinoapp.com/quiero-ser-chofer?inv=${encodeURIComponent(inviteInfo.code)}`;
   const place = inviteInfo.cityLabel ? `aquí en ${inviteInfo.cityLabel}` : "aquí en el pueblo";
+  const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   const text = `¡Hola! Yo ya manejo con MotoVecino, la app para pedir mototaxi y taxi ${place}. ` +
-    `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación:
-${link}`;
+    `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación` +
+    (promo ? `; cuando completes ${promo.trips} viajes, los dos ganamos $${promo.amount} de descuento en la cuota` : "") +
+    `:\n${link}`;
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
 
@@ -2643,7 +2686,7 @@ function renderProfile(p) {
   const notes = [];
 
   if (p.lastPayment) {
-    rows.push(row("Último pago", `$${p.lastPayment.amount} · ${fmtDate(p.lastPayment.paid_at)}`));
+    rows.push(row("Último pago", `$${p.lastPayment.amount}${p.lastPayment.credit_applied > 0 ? ` + $${p.lastPayment.credit_applied} de saldo a favor` : ""} · ${fmtDate(p.lastPayment.paid_at)}`));
   }
 
   if (p.serviceFee > 0) {
@@ -2662,6 +2705,11 @@ function renderProfile(p) {
         p.pendingRides ? "accent" : ""
       )
     );
+    // Saldo a favor por invitar choferes: se resta de lo que entrega.
+    if (p.creditBalance > 0) {
+      rows.push(row("🎁 Saldo a favor por invitar", `−$${p.creditBalance}`, "accent"));
+      if (p.pendingRides) rows.push(row("Total a entregar", `$${p.pendingNet}`));
+    }
     notes.push(
       isTaxi
         ? `La comisión sale de lo que reportaste al completar cada viaje, no de un cobro aparte al pasajero.`
