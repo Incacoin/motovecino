@@ -234,8 +234,16 @@ function riderMessage(ride, type, payload) {
   }
   // "Ya llegó": solo cuando se pidió para otra persona (quien viaja no necesita
   // que le avisen que llegó). Es el aviso que deja dormir tranquila a la familia.
+  // De noche (8pm-6am, hora de Yucatán) se agrega "Ya puedes descansar"; siempre
+  // se dan las gracias.
   if (type === "status_change" && payload.status === "completado" && para) {
-    return { tag, title: `✅ ${para} ya llegó`, body: `${driverName()} terminó el viaje. Ya puedes descansar.` };
+    const hora = new Date(Date.now() - 6 * 3600 * 1000).getUTCHours();
+    const deNoche = hora >= 20 || hora < 6;
+    return {
+      tag,
+      title: `✅ ${para} ya llegó`,
+      body: `${driverName()} terminó el viaje.${deNoche ? " Ya puedes descansar." : ""} Gracias por confiar en MotoVecino.`,
+    };
   }
   if (type === "status_change" && payload.status === "cancelado" && ride.cancelled_by !== "rider") {
     return { tag, title: "Tu viaje se canceló", body: "Puedes pedir otro desde la app." };
