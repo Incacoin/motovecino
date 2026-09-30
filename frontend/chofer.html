@@ -492,6 +492,58 @@ function setDriverTheme(pref) {
   @keyframes tdIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes tdPop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { #tripDone, .td-card { animation: none; } }
+
+  /* ===== Cuentas (30-sep): "Mi perfil" y "Pagos y cuenta" como el diseño ===== */
+  #profileScreen { background: radial-gradient(circle at 50% -10%, rgba(16,185,129,0.14), transparent 55%), var(--bg); }
+  .pf-page { gap: 12px !important; }
+  .pf-top { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
+  .pf-top h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+  .pf-back { width: 40px; height: 40px; border-radius: 13px; border: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text); background: rgba(15,23,42,0.06); flex-shrink: 0; }
+  html[data-theme="dark"] .pf-back { background: rgba(255,255,255,0.08); }
+  .pf-hero, .pf-unit, .pf-stats .stat, .pf-list, #inviteCard, .pf-next { background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.07) !important; box-shadow: none !important; }
+  html[data-theme="dark"] .pf-hero, html[data-theme="dark"] .pf-unit, html[data-theme="dark"] .pf-stats .stat, html[data-theme="dark"] .pf-list, html[data-theme="dark"] #inviteCard, html[data-theme="dark"] .pf-next { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+  .pf-hero { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 24px; }
+  .pf-av { position: relative; width: 76px; height: 76px; flex-shrink: 0; }
+  .pf-av #profilePhotoSlot, .pf-av #profilePhoto, .pf-av .profile-photo-fallback { width: 76px !important; height: 76px !important; border-radius: 50% !important; margin: 0 !important; box-sizing: border-box; }
+  .pf-av #profilePhoto { object-fit: cover; border: 3px solid #10b981 !important; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
+  .pf-av .profile-photo-fallback { display: flex; align-items: center; justify-content: center; border: 3px solid rgba(16,185,129,0.6) !important; }
+  .pf-av.gold #profilePhoto, .pf-av.gold .profile-photo-fallback { border-color: #e0b04a !important; box-shadow: 0 0 0 4px rgba(224,176,74,0.18) !important; }
+  .pf-cam { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25); padding: 0; }
+  .pf-hero-txt { flex: 1; min-width: 0; text-align: left; }
+  .pf-hero-txt .profile-name { font-size: 19px !important; font-weight: 800; letter-spacing: -0.02em; text-align: left !important; margin: 0 !important; }
+  .pf-hero-txt .profile-sub { font-size: 13px !important; text-align: left !important; margin: 2px 0 0 !important; color: var(--text-dim); }
+  .pf-hero-txt .founder-badge { margin: 7px 0 0 !important; font-size: 12px !important; padding: 4px 10px !important; border-radius: 99px !important; color: #b8860b !important; background: rgba(224,176,74,0.14) !important; border: 0 !important; }
+  html[data-theme="dark"] .pf-hero-txt .founder-badge { color: #f3c969 !important; }
+  .pf-unit { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 22px; }
+  .pf-unit-img { width: 118px; flex-shrink: 0; display: flex; justify-content: center; }
+  .pf-unit-img svg { display: block; }
+  .pf-unit b { display: block; font-size: 16px; font-weight: 800; }
+  .pf-unit span { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 2px; line-height: 1.35; }
+  .pf-stats { gap: 8px !important; }
+  .pf-stats .stat { border-radius: 18px !important; padding: 12px 6px !important; }
+  .pf-stats .stat .n { font-size: 22px !important; font-weight: 800; }
+  .pf-stats .stat .l { font-size: 12px !important; }
+  .pf-rating-note { margin-top: -6px !important; text-align: center; }
+  #pfMain #profileStarsRow { display: none !important; }
+  .pf-list { border-radius: 22px !important; padding: 2px 6px !important; }
+  .pf-list .menu-row { padding: 13px 6px; }
+  .pf-list .menu-row > span:first-child { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: rgba(15,23,42,0.06); flex-shrink: 0; }
+  html[data-theme="dark"] .pf-list .menu-row > span:first-child { background: rgba(255,255,255,0.08); }
+  .menu-label small { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-dim); margin-top: 2px; }
+  .menu-label { flex: 1; font-weight: 800 !important; }
+  .pf-pill { font-size: 11.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; background: rgba(127,127,127,0.15); color: var(--text-dim); white-space: nowrap; }
+  .pf-pill.on { color: #047857; background: rgba(16,185,129,0.14); }
+  html[data-theme="dark"] .pf-pill.on { color: #6ee7b7; }
+  #earningsCard { flex-direction: column; border-top: 1px solid var(--border); }
+  .pf-list .section-body { padding: 4px 6px 12px; }
+  #section-ganancias .earn-today, #section-ganancias .earn-grid { margin-top: 6px; }
+  #inviteCard { border-radius: 22px !important; }
+  #inviteCard .btn { background: #25d366 !important; color: #fff !important; font-weight: 800; border-radius: 16px; }
+  .pf-next { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 12px; border-radius: 22px; font: inherit; font-size: 15px; color: var(--text); text-align: left; cursor: pointer; }
+  .pf-next > span:first-child { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: rgba(16,185,129,0.14); flex-shrink: 0; }
+  .pf-section-label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin: 6px 4px -4px; }
+  #pfAccount .theme-picker { border-radius: 16px; }
+  .pf-logout { width: 100%; padding: 15px; border-radius: 18px; font: inherit; font-size: 15.5px; font-weight: 800; cursor: pointer; color: #ef4444; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -586,50 +638,52 @@ function setDriverTheme(pref) {
 </div>
 
 <div id="profileScreen">
-  <div class="profile-inner">
-    <div class="profile-head">
-      <div class="title">Mi perfil</div>
-      <button class="btn-sm" onclick="closeProfile()">Volver</button>
-    </div>
+  <div class="profile-inner pf-page" id="pfMain">
+    <div class="pf-top"><button class="pf-back" onclick="closeProfile()" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><h1>Mi perfil</h1></div>
 
-    <div class="profile-photo-wrap">
-      <div id="profilePhotoSlot"></div>
-      <input type="file" id="profilePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleProfilePhoto(event)" />
-      <button class="btn-sm" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()">📷 Cambiar mi foto</button>
-      <div class="profile-note" style="text-align:center;">Es la foto que ve el pasajero cuando aceptas su viaje.</div>
-      <div id="profilePhotoMsg" style="font-size:13px;min-height:16px;"></div>
+    <div class="pf-hero">
+      <div class="pf-av" id="pfAv">
+        <div id="profilePhotoSlot"></div>
+        <button class="pf-cam" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()" aria-label="Cambiar mi foto">📷</button>
+        <input type="file" id="profilePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleProfilePhoto(event)" />
+      </div>
+      <div class="pf-hero-txt">
+        <div class="profile-name" id="profileName"></div>
+        <div class="profile-sub" id="profileSub"></div>
+        <div class="founder-badge" id="founderBadge" style="display:none;">🏅 Chofer fundador</div>
+      </div>
     </div>
-
-    <div class="profile-name" id="profileName"></div>
-    <div class="founder-badge" id="founderBadge" style="display:none;">🏅 Chofer fundador</div>
+    <div id="profilePhotoMsg" style="font-size:13px;min-height:0;text-align:center;"></div>
     <div class="profile-stars-row" id="profileStarsRow" style="display:none;">
       <span class="stars" id="profileStars"></span>
       <span class="profile-sub" id="profileStarsNote"></span>
     </div>
-    <div class="profile-sub" id="profileSub"></div>
 
-    <div class="card profile-card">
-      <div class="card-title">Mis números</div>
-      <div class="stat-grid">
-        <div class="stat"><span class="icon">🚗</span><div class="n" id="statLifetime">–</div><div class="l">Viajes en total</div></div>
-        <div class="stat"><span class="icon">📅</span><div class="n" id="statMonth">–</div><div class="l">Este mes</div></div>
-        <div class="stat"><span class="icon">⭐</span><div class="n" id="statRating">–</div><div class="l">Calificación</div></div>
-      </div>
-      <div class="profile-note" id="ratingNote"></div>
+    <div class="pf-unit">
+      <div class="pf-unit-img" id="pfUnitImg"></div>
+      <div><b>Tu unidad</b><span>Tu foto y tu unidad es lo que ve el pasajero cuando aceptas.</span></div>
     </div>
 
-    <div class="card profile-card" id="earningsCard" style="display:none;">
-      <div class="card-title">💰 Mis ganancias</div>
-      <div class="earn-today">
-        <div class="l">Hoy</div>
-        <div class="n" id="earnToday">$0</div>
-        <div class="s" id="earnTodayTrips">0 viajes</div>
+    <div class="stat-grid pf-stats">
+      <div class="stat"><div class="n" id="statLifetime">–</div><div class="l">viajes</div></div>
+      <div class="stat"><div class="n" id="statMonth">–</div><div class="l">este mes</div></div>
+      <div class="stat"><div class="n" id="statRating">–</div><div class="l">calificación</div></div>
+    </div>
+    <div class="profile-note pf-rating-note" id="ratingNote"></div>
+
+    <div class="card menu-card pf-list">
+      <button class="menu-row" onclick="toggleSection('avisos')">
+        <span>🔔</span><span class="menu-label">Avisos de viajes<small>Te suena aunque cierres la app</small></span><span class="pf-pill" id="pfPushPill"></span><span class="menu-chev" id="chev-avisos">›</span>
+      </button>
+      <div id="section-avisos" class="section-body" style="display:none;">
+        <div id="pushProfileStatus"></div>
+        <div class="profile-note">💡 ¿Solo quieres descansar hoy? No hace falta desactivarlos: ponte «Desconectado» y no te llega nada. Cuando te pongas «Disponible», regresan solos.</div>
       </div>
-      <div class="earn-grid">
-        <div class="stat"><div class="n" id="earnWeek">$0</div><div class="l" id="earnWeekTrips">Esta semana</div></div>
-        <div class="stat"><div class="n" id="earnMonth">$0</div><div class="l" id="earnMonthTrips">Este mes</div></div>
-      </div>
-      <div class="goal-box">
+      <button class="menu-row" onclick="toggleSection('meta')">
+        <span>🎯</span><span class="menu-label">Mi meta de hoy<small id="pfGoalSub">Sin meta</small></span><span class="menu-chev" id="chev-meta">›</span>
+      </button>
+      <div id="section-meta" class="section-body" style="display:none;">
+  <div class="goal-box">
         <div class="card-title" style="font-size:12.5px;">🎯 Mi meta de hoy</div>
         <div class="goal-row">
           <input id="goalInput" type="number" inputmode="numeric" min="0" step="10" placeholder="Ej. 200" />
@@ -638,8 +692,25 @@ function setDriverTheme(pref) {
         </div>
         <div class="profile-note" id="goalNote">Ponte cuánto quieres ganar al día y ve cómo se llena la barrita arriba del mapa.</div>
       </div>
-      <div class="earn-list" id="earnRecent"></div>
+      </div>
+      <div id="earningsCard" style="display:none;">
+      <button class="menu-row" onclick="toggleSection('ganancias')">
+        <span>📊</span><span class="menu-label">Mis ganancias<small id="pfEarnSub"></small></span><span class="menu-chev" id="chev-ganancias">›</span>
+      </button>
+        <div id="section-ganancias" class="section-body" style="display:none;">
+    <div class="earn-today">
+        <div class="l">Hoy</div>
+        <div class="n" id="earnToday">$0</div>
+        <div class="s" id="earnTodayTrips">0 viajes</div>
+      </div>
+      <div class="earn-grid">
+        <div class="stat"><div class="n" id="earnWeek">$0</div><div class="l" id="earnWeekTrips">Esta semana</div></div>
+        <div class="stat"><div class="n" id="earnMonth">$0</div><div class="l" id="earnMonthTrips">Este mes</div></div>
+      </div>
+    <div class="earn-list" id="earnRecent"></div>
       <div class="profile-note" id="earnNote"></div>
+        </div>
+      </div>
     </div>
 
     <div class="card profile-card" id="inviteCard" style="display:none;">
@@ -651,25 +722,16 @@ function setDriverTheme(pref) {
       <div class="invite-progress" id="inviteProgress" style="display:none;"></div>
     </div>
 
-    <div class="card profile-card">
-      <div class="card-title">Avisos de viajes</div>
-      <div id="pushProfileStatus"></div>
-      <div class="profile-note">💡 ¿Solo quieres descansar hoy? No hace falta desactivarlos: ponte «Desconectado» y no te llega nada. Cuando te pongas «Disponible», regresan solos.</div>
-    </div>
+    <button class="pf-next" onclick="showPfPage('cuenta')"><span>💳</span><span class="menu-label">Pagos y cuenta<small>Mis pagos, anticipos, mis datos, PIN y apariencia</small></span><span class="menu-chev">›</span></button>
+    <div class="credit footer-credit" style="text-align:center;">⚡ Tecnología de <strong>Lealtad Digital</strong></div>
+  </div>
 
-    <div class="card profile-card">
-      <div class="card-title">Apariencia</div>
-      <div class="theme-picker">
-        <button data-pref="auto" onclick="setDriverTheme('auto')">Automático</button>
-        <button data-pref="light" onclick="setDriverTheme('light')">Claro</button>
-        <button data-pref="dark" onclick="setDriverTheme('dark')">Oscuro</button>
-      </div>
-      <div class="profile-note">Automático: claro de día (6 am a 7 pm) para leer bien bajo el sol, y oscuro de noche para que no te deslumbre manejando.</div>
-    </div>
+  <div class="profile-inner pf-page" id="pfAccount" style="display:none;">
+    <div class="pf-top"><button class="pf-back" onclick="showPfPage('main')" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><h1>Pagos y cuenta</h1></div>
 
-    <div class="card menu-card">
+    <div class="card menu-card pf-list">
       <button class="menu-row" onclick="toggleSection('pagos')">
-        <span>💳</span><span class="menu-label">Mis pagos</span><span class="menu-chev" id="chev-pagos">›</span>
+        <span>💳</span><span class="menu-label">Mis pagos<small>Lo que llevas de cuota de la app</small></span><span class="menu-chev" id="chev-pagos">›</span>
       </button>
       <div id="section-pagos" class="section-body" style="display:none;">
         <div id="accountRows"></div>
@@ -677,7 +739,7 @@ function setDriverTheme(pref) {
       </div>
 
       <button class="menu-row taxi-only" onclick="toggleSection('anticipos')">
-        <span>💵</span><span class="menu-label">Anticipos recibidos</span><span class="menu-chev" id="chev-anticipos">›</span>
+        <span>💵</span><span class="menu-label">Anticipos recibidos<small>Depósitos de viajes foráneos</small></span><span class="menu-chev" id="chev-anticipos">›</span>
       </button>
       <div id="section-anticipos" class="section-body" style="display:none;">
         <div id="depositRows"></div>
@@ -686,7 +748,7 @@ function setDriverTheme(pref) {
       </div>
 
       <button class="menu-row taxi-only" onclick="toggleSection('cuenta')">
-        <span>🏦</span><span class="menu-label">Cuenta para anticipos</span><span class="menu-chev" id="chev-cuenta">›</span>
+        <span>🏦</span><span class="menu-label">Cuenta para anticipos<small>Donde te depositan el anticipo</small></span><span class="menu-chev" id="chev-cuenta">›</span>
       </button>
       <div id="section-cuenta" class="section-body" style="display:none;">
         <div class="bank-form">
@@ -705,9 +767,12 @@ function setDriverTheme(pref) {
         </div>
         <div class="profile-note">Solo la ve el pasajero de un viaje en el que tú pediste anticipo, y solo después de que aceptas. Con tarjeta de débito el pasajero puede depositarte en efectivo en OXXO.</div>
       </div>
+    </div>
 
+    <div class="pf-section-label">Mi cuenta</div>
+    <div class="card menu-card pf-list">
       <button class="menu-row" onclick="toggleSection('datos')">
-        <span>🪪</span><span class="menu-label">Mis datos</span><span class="menu-chev" id="chev-datos">›</span>
+        <span>🪪</span><span class="menu-label">Mis datos<small>Nombre, teléfono y unidad</small></span><span class="menu-chev" id="chev-datos">›</span>
       </button>
       <div id="section-datos" class="section-body" style="display:none;">
         <div id="dataRows"></div>
@@ -715,25 +780,32 @@ function setDriverTheme(pref) {
       </div>
 
       <button class="menu-row" onclick="toggleSection('pin')">
-        <span>🔑</span><span class="menu-label">Mi PIN de acceso</span><span class="menu-chev" id="chev-pin">›</span>
+        <span>🔑</span><span class="menu-label">Mi PIN de acceso<small>Tócalo para verlo</small></span><span class="menu-chev" id="chev-pin">›</span>
       </button>
       <div id="section-pin" class="section-body" style="display:none;">
         <div class="pin-box" id="profilePin">••••</div>
         <div class="profile-note">Con este PIN entras a la app. No se lo compartas a nadie: quien lo tenga puede recibir viajes a tu nombre.</div>
       </div>
-
-      <a class="menu-row" href="aviso-legal.html">
-        <span>📄</span><span class="menu-label">Aviso legal</span>
-      </a>
-      <a class="menu-row" href="aviso-privacidad.html">
-        <span>🔒</span><span class="menu-label">Aviso de privacidad</span>
-      </a>
-      <button class="menu-row danger" onclick="logout()">
-        <span>🚪</span><span class="menu-label">Cerrar sesión</span>
-      </button>
     </div>
 
-    <div class="credit footer-credit" style="text-align:center;">⚡ Tecnología de <strong>Lealtad Digital</strong></div>
+    <div class="pf-section-label">Apariencia</div>
+    <div class="theme-picker">
+      <button data-pref="auto" onclick="setDriverTheme('auto')">Automático</button>
+      <button data-pref="light" onclick="setDriverTheme('light')">Claro</button>
+      <button data-pref="dark" onclick="setDriverTheme('dark')">Oscuro</button>
+    </div>
+    <div class="profile-note" style="margin-top:-6px;">Automático: claro de día (6 am a 7 pm) para leer bien bajo el sol, y oscuro de noche para que no te deslumbre manejando.</div>
+
+    <div class="card menu-card pf-list">
+      <a class="menu-row" href="aviso-legal.html">
+        <span>📄</span><span class="menu-label">Aviso legal</span><span class="menu-chev">›</span>
+      </a>
+      <a class="menu-row" href="aviso-privacidad.html">
+        <span>🔒</span><span class="menu-label">Aviso de privacidad</span><span class="menu-chev">›</span>
+      </a>
+    </div>
+
+    <button class="pf-logout" onclick="logout()">Cerrar sesión</button>
   </div>
 </div>
 
@@ -1220,6 +1292,8 @@ async function refreshPushUi(resync) {
   } else {
     card.style.display = "none";
   }
+  const pill = document.getElementById("pfPushPill");
+  if (pill) { pill.textContent = state === "on" ? "Activados" : "Apagados"; pill.classList.toggle("on", state === "on"); }
   const prof = document.getElementById("pushProfileStatus");
   if (prof) {
     const row = (cls, ico, title, text) => `<div class="push-state ${cls}"><div class="ico">${ico}</div><div><b>${title}</b><span>${text}</span></div></div>`;
@@ -2511,6 +2585,7 @@ async function openProfile() {
   applyDriverTheme();
   refreshPushUi();
   document.getElementById("profileScreen").style.display = "block";
+  showPfPage("main");
   document.getElementById("profilePhotoMsg").textContent = "";
   if (!driver || !driver.pin || !driver.phone) {
     // Sesión vieja guardada antes de que existiera esta pantalla: sin el
@@ -2593,6 +2668,13 @@ function shareInvite() {
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
 
+// Dos páginas dentro del perfil (diseño 30-sep): "Mi perfil" y "Pagos y cuenta".
+function showPfPage(which) {
+  document.getElementById("pfMain").style.display = which === "cuenta" ? "none" : "flex";
+  document.getElementById("pfAccount").style.display = which === "cuenta" ? "flex" : "none";
+  document.getElementById("profileScreen").scrollTop = 0;
+}
+
 function closeProfile() {
   document.getElementById("profileScreen").style.display = "none";
 }
@@ -2637,6 +2719,7 @@ function renderEarnings(e) {
   document.getElementById("earnWeekTrips").textContent = tripsLabel(e.week.trips, "esta semana");
   document.getElementById("earnMonth").textContent = fmtMoney(e.month.total);
   document.getElementById("earnMonthTrips").textContent = tripsLabel(e.month.trips, "este mes");
+  document.getElementById("pfEarnSub").textContent = "Hoy " + fmtMoney(e.today.total) + " · semana " + fmtMoney(e.week.total);
   document.getElementById("earnRecent").innerHTML = (e.recent || [])
     .map((r) => {
       const kind = r.rideType === "taxi" ? "🚕 Taxi" : "🛺 Mototaxi";
@@ -2731,6 +2814,8 @@ function renderGoalBox() {
         ? `¡Ya cumpliste tu meta de hoy! Llevas ${fmtMoney(todayEarned)}.`
         : `Te faltan ${fmtMoney(goal - todayEarned)} para tu meta de hoy.`)
     : "Ponte cuánto quieres ganar al día y ve cómo se llena la barrita arriba del mapa.";
+  const gs = document.getElementById("pfGoalSub");
+  if (gs) gs.textContent = goal ? fmtMoney(goal) : "Sin meta · toca para ponerla";
 }
 
 function saveGoal() {
@@ -2768,6 +2853,7 @@ async function refreshTodayEarnings() {
 
 async function openEarnings() {
   await openProfile();
+  if (document.getElementById("section-ganancias").style.display !== "block") toggleSection("ganancias");
   document.getElementById("earningsCard").scrollIntoView({ block: "start" });
 }
 
@@ -2778,7 +2864,9 @@ function renderProfile(p) {
     : `<div class="profile-photo-fallback"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#9aa1b0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg></div>`;
 
   document.getElementById("profileName").textContent = p.name;
-  document.getElementById("founderBadge").style.display = p.esFundador ? "block" : "none";
+  document.getElementById("founderBadge").style.display = p.esFundador ? "inline-block" : "none";
+  document.getElementById("pfAv").classList.toggle("gold", !!p.esFundador);
+  document.getElementById("pfUnitImg").innerHTML = p.vehicleType === "taxi" ? MVVeh.taxiSide(118) : MVVeh.motoSide(108);
   document.getElementById("profileSub").textContent =
     (p.vehicleType === "taxi" ? "🚕 Taxi" : "🛵 Mototaxi") +
     (p.grupo ? ` · ${p.grupo}` : "") +
@@ -2810,6 +2898,7 @@ function renderProfile(p) {
       : `Basado en ${p.ratedCount} viaje${p.ratedCount === 1 ? "" : "s"} calificado${p.ratedCount === 1 ? "" : "s"}.`;
 
   renderEarnings(p.earnings);
+  renderGoalBox();
   renderInvite(p.invite);
 
   // --- Mi cuenta (estado de pago) ---
