@@ -62,6 +62,7 @@ function toggleRiderTheme() {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="vehiculos-mapa.js?v=1"></script>
 <style>
   .screen { display: none; flex-direction: column; height: 100vh; overflow-y: auto; }
   .screen.active { display: flex; }
@@ -260,7 +261,18 @@ function toggleRiderTheme() {
   .badge-card .progress-note { color: var(--accent); font-size: 12px; font-weight: 700; margin-top: 2px; }
   .load-more-btn { font-size: 14px; padding: 11px 16px; border-radius: var(--radius-sm); background: var(--bg-card); color: var(--accent); border: 1px solid var(--border); font-weight: 700; width: 100%; cursor: pointer; margin-top: 4px; }
   .load-more-btn:hover { background: var(--bg-card-hover); }
-  #driverCard { padding: 18px; width: 280px; }
+  #driverCard { padding: 16px; width: min(360px, calc(100vw - 32px)); box-sizing: border-box; }
+  /* Tanda 1 (30-sep): "Llega en X min" en grande y el vehículo del chofer. */
+  #driverCard .eta-row, #driverCard .driverInfo-main { text-align: left; }
+  .eta-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .eta-txt b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .eta-txt span { display: block; font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+  .eta-badge { width: 56px; height: 56px; flex-shrink: 0; border-radius: 16px; background: linear-gradient(160deg, #34d399, #047857); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 10px 22px rgba(5,150,105,0.3); }
+  .eta-badge b { font-size: 22px; font-weight: 800; line-height: 1; }
+  .eta-badge small { font-size: 10.5px; font-weight: 700; opacity: 0.9; margin-top: 2px; }
+  .driverVeh { flex-shrink: 0; display: flex; align-items: center; }
+  .veh-icon { background: none; border: 0; }
+  .veh { width: 46px; height: 46px; transition: transform 0.6s ease; }
   #driverCard .name { font-size: 18px; font-weight: 700; }
   #driverCard .meta { color: var(--text-dim); margin-top: 4px; font-size: 14px; }
   /* Extra voluntario al chofer (mototaxi): +$5 / +$10 */
@@ -394,6 +406,14 @@ function toggleRiderTheme() {
 
   /* Mapa: gris y limpio, que no compita con los botones */
   #map .leaflet-tile-pane, #statusMap .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.04); }
+  /* De noche: el mismo mapa de OpenStreetMap pintado azul pizarra, con las calles
+     más claras que las manzanas (tanda 1, 30-sep). */
+  html[data-theme="dark"] #map .leaflet-tile-pane, html[data-theme="dark"] #statusMap .leaflet-tile-pane { filter: grayscale(1) brightness(0.34) contrast(1.35) sepia(0.6) hue-rotate(175deg) saturate(2.2); }
+  html[data-theme="dark"] #map, html[data-theme="dark"] #statusMap { background: #0b1017; }
+  html[data-theme="dark"] .leaflet-control-attribution { background: rgba(11,16,23,0.7) !important; color: #7b8794; }
+  html[data-theme="dark"] .leaflet-control-attribution a { color: #9aa9b8; }
+  html[data-theme="dark"] .leaflet-control-zoom a { background: rgba(17,20,26,0.85) !important; color: #fff !important; border-color: rgba(255,255,255,0.1) !important; }
+  html[data-theme="dark"] .leaflet-bar { border-color: rgba(255,255,255,0.12) !important; }
   #accountBtn { background: #fff; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.22); }
   #accountBtn svg { stroke: #000; }
   #pickHint { background: #000; color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
@@ -1116,6 +1136,25 @@ function updateEtaDisplay(durationSeconds) {
   const el = document.getElementById("etaText");
   if (!el) return;
   el.textContent = durationSeconds != null ? `Llega en ~${Math.max(1, Math.round(durationSeconds / 60))} min` : "";
+  updateEtaCard(durationSeconds);
+}
+
+// "Llega en X min" en grande dentro de la tarjeta del chofer.
+function updateEtaCard(durationSeconds) {
+  const big = document.getElementById("etaBig");
+  if (!big) return;
+  const sub = document.getElementById("etaSub"), badge = document.getElementById("etaBadge");
+  const min = durationSeconds != null ? Math.max(1, Math.round(durationSeconds / 60)) : null;
+  const unidad = serviceType === "taxi" ? "Tu taxi" : "Tu mototaxi";
+  if (currentRideStatus === "llegue") {
+    big.textContent = "Tu chofer ya llegó"; sub.textContent = "Sal cuando estés listo"; badge.style.display = "none"; return;
+  }
+  if (min == null) { badge.style.display = "none"; return; }
+  const at = new Date(Date.now() + min * 60000).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+  if (currentRideStatus === "en_curso") { big.textContent = `Llegas en ${min} min`; sub.textContent = `A tu destino · ${at}`; }
+  else { big.textContent = `Llega en ${min} min`; sub.textContent = `${unidad} va en camino · ${at}`; }
+  document.getElementById("etaMin").textContent = min;
+  badge.style.display = "flex";
 }
 
 async function updateRouteLine() {
@@ -1146,7 +1185,8 @@ async function updateRouteLine() {
   }
   if (["completado", "cancelado"].includes(currentRideStatus)) return;
   if (routeLine) statusMap.removeLayer(routeLine);
-  routeLine = L.polyline(points, { color, weight: 4 }).addTo(statusMap);
+  // Verde MotoVecino: se ve igual de bien en el mapa claro y en el oscuro.
+  routeLine = L.polyline(points, { color: color === "#3498db" ? "#10b981" : (document.documentElement.dataset.theme === "dark" ? "#34d399" : "#047857"), weight: 5, opacity: 0.95, lineCap: "round" }).addTo(statusMap);
   updateEtaDisplay(duration);
 }
 
@@ -1538,23 +1578,10 @@ function numberedIcon(num, color) {
   });
 }
 
-function motoIcon() {
-  return L.divIcon({
-    className: "",
-    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🛵</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-  });
-}
-
-function taxiIcon() {
-  return L.divIcon({
-    className: "",
-    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🚕</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-  });
-}
+// Motocarro o taxi visto desde arriba, que gira hacia donde va (vehiculos-mapa.js).
+// Cada marcador lleva su propio ícono.
+function motoIcon() { return MVVeh.vehIcon("moto"); }
+function taxiIcon() { return MVVeh.vehIcon("taxi"); }
 
 let availableDriverMarkers = new Map();
 let availableDriversPollTimer = null;
@@ -1568,14 +1595,13 @@ async function loadAvailableDrivers() {
   if (!res.ok) return;
   const drivers = await res.json();
   const seen = new Set();
-  const icon = serviceType === "taxi" ? taxiIcon() : motoIcon();
   for (const d of drivers) {
     seen.add(d.id);
     const pos = [d.lat, d.lng];
     if (availableDriverMarkers.has(d.id)) {
-      availableDriverMarkers.get(d.id).setLatLng(pos);
+      MVVeh.moveVeh(availableDriverMarkers.get(d.id), d.lat, d.lng);
     } else {
-      availableDriverMarkers.set(d.id, L.marker(pos, { icon }).addTo(map));
+      availableDriverMarkers.set(d.id, L.marker(pos, { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(map));
     }
   }
   for (const [id, marker] of availableDriverMarkers) {
@@ -1618,14 +1644,13 @@ async function loadStatusAvailableDrivers() {
   if (!res.ok) return;
   const drivers = await res.json();
   const seen = new Set();
-  const icon = serviceType === "taxi" ? taxiIcon() : motoIcon();
   for (const d of drivers) {
     seen.add(d.id);
     const pos = [d.lat, d.lng];
     if (statusAvailableDriverMarkers.has(d.id)) {
-      statusAvailableDriverMarkers.get(d.id).setLatLng(pos);
+      MVVeh.moveVeh(statusAvailableDriverMarkers.get(d.id), d.lat, d.lng);
     } else {
-      statusAvailableDriverMarkers.set(d.id, L.marker(pos, { icon }).addTo(statusMap));
+      statusAvailableDriverMarkers.set(d.id, L.marker(pos, { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap));
     }
   }
   for (const [id, marker] of statusAvailableDriverMarkers) {
@@ -2338,6 +2363,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
     // sin insignia si falla, no bloquea el resto del flujo
   }
   card.innerHTML = `
+    <div class="eta-row"><div class="eta-txt"><b id="etaBig">Tu chofer va en camino</b><span id="etaSub">${serviceType === "taxi" ? "Tu taxi" : "Tu mototaxi"} va por ti</span></div><div class="eta-badge" id="etaBadge" style="display:none;"><b id="etaMin"></b><small>min</small></div></div>
     <div class="driverInfo">
       ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
       <div class="driverInfo-main">
@@ -2350,6 +2376,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
         ${driver.grupo ? `<div class="meta">Agrupación: ${escapeHtml(driver.grupo)}</div>` : ""}
         <div class="meta">Tel: ${driver.phone}</div>
       </div>
+      <div class="driverVeh">${serviceType === "taxi" ? MVVeh.taxiSide(92) : MVVeh.motoSide(88)}</div>
     </div>
     <div id="agreedPriceBox"></div>
     <div id="pickupWaitBox"></div>
@@ -2370,6 +2397,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
 function onDriverArrived(arrivedAt) {
   currentRideStatus = "llegue";
   document.getElementById("statusText").textContent = `Tu chofer ya llegó ${serviceType === "taxi" ? "🚕" : "🛵"} Sal cuando estés listo`;
+  updateEtaCard(null);
   if (serviceType === "taxi") {
     pickupArrivedAt = arrivedAt || pickupArrivedAt || Date.now();
     startPickupWaitTicker();
@@ -2698,7 +2726,7 @@ function onDriverLocation({ lat, lng }) {
   if (!driverMarker) {
     driverMarker = L.marker([lat, lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
   } else {
-    driverMarker.setLatLng([lat, lng]);
+    MVVeh.moveVeh(driverMarker, lat, lng);
   }
   if (!routeRefreshInterval) startRouteTracking();
 }

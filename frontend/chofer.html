@@ -55,6 +55,7 @@ function setDriverTheme(pref) {
 </script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="vehiculos-mapa.js?v=1"></script>
 <style>
   #login {
     display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow-y: auto; gap: 16px; padding: 24px 24px 90px; text-align: center;
@@ -315,6 +316,15 @@ function setDriverTheme(pref) {
   /* Mapa gris claro (igual que el pasajero): se lee bien de día y los
      marcadores resaltan. */
   #map .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.02); }
+  /* De noche: el mismo mapa pintado azul pizarra, calles más claras (tanda 1, 30-sep). */
+  html[data-theme="dark"] #map .leaflet-tile-pane { filter: grayscale(1) brightness(0.34) contrast(1.35) sepia(0.6) hue-rotate(175deg) saturate(2.2); }
+  html[data-theme="dark"] #map { background: #0b1017; }
+  html[data-theme="dark"] .leaflet-control-attribution { background: rgba(11,16,23,0.7) !important; color: #7b8794; }
+  html[data-theme="dark"] .leaflet-control-attribution a { color: #9aa9b8; }
+  html[data-theme="dark"] .leaflet-control-zoom a { background: rgba(17,20,26,0.85) !important; color: #fff !important; border-color: rgba(255,255,255,0.1) !important; }
+  html[data-theme="dark"] .leaflet-bar { border-color: rgba(255,255,255,0.12) !important; }
+  .veh-icon { background: none; border: 0; }
+  .veh { width: 46px; height: 46px; transition: transform 0.6s ease; }
   .leaflet-control-zoom a { color: #000 !important; }
 
   /* Solicitudes y viaje */
@@ -903,23 +913,9 @@ function numberedIcon(num, color) {
   });
 }
 
-function motoIcon() {
-  return L.divIcon({
-    className: "",
-    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🛵</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-  });
-}
-
-function taxiIcon() {
-  return L.divIcon({
-    className: "",
-    html: `<div style="background:#fff;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);border:2px solid #000;font-size:17px;">🚕</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-  });
-}
+// Motocarro o taxi visto desde arriba, que gira hacia donde va (vehiculos-mapa.js).
+function motoIcon() { return MVVeh.vehIcon("moto"); }
+function taxiIcon() { return MVVeh.vehIcon("taxi"); }
 
 function vehicleIcon(vehicleType) {
   return vehicleType === "taxi" ? taxiIcon() : motoIcon();
@@ -1231,7 +1227,7 @@ async function loadOtherDrivers() {
     seen.add(d.id);
     const pos = [d.lat, d.lng];
     if (otherDriverMarkers.has(d.id)) {
-      otherDriverMarkers.get(d.id).setLatLng(pos);
+      MVVeh.moveVeh(otherDriverMarkers.get(d.id), d.lat, d.lng);
     } else {
       otherDriverMarkers.set(d.id, L.marker(pos, { icon: vehicleIcon(driver.vehicle_type) }).addTo(map));
     }
@@ -1335,7 +1331,7 @@ function watchLocation() {
           map.setView([myPos.lat, myPos.lng], 15);
         }
       } else {
-        myMarker.setLatLng([myPos.lat, myPos.lng]);
+        MVVeh.moveVeh(myMarker, myPos.lat, myPos.lng);
       }
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "location", lat: myPos.lat, lng: myPos.lng }));
