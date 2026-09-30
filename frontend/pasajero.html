@@ -408,12 +408,7 @@ function toggleRiderTheme() {
   #map .leaflet-tile-pane, #statusMap .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.04); }
   /* De noche: el mismo mapa de OpenStreetMap pintado azul pizarra, con las calles
      más claras que las manzanas (tanda 1, 30-sep). */
-  html[data-theme="dark"] #map .leaflet-tile-pane, html[data-theme="dark"] #statusMap .leaflet-tile-pane { filter: grayscale(1) brightness(0.34) contrast(1.35) sepia(0.6) hue-rotate(175deg) saturate(2.2); }
-  html[data-theme="dark"] #map, html[data-theme="dark"] #statusMap { background: #0b1017; }
-  html[data-theme="dark"] .leaflet-control-attribution { background: rgba(11,16,23,0.7) !important; color: #7b8794; }
-  html[data-theme="dark"] .leaflet-control-attribution a { color: #9aa9b8; }
-  html[data-theme="dark"] .leaflet-control-zoom a { background: rgba(17,20,26,0.85) !important; color: #fff !important; border-color: rgba(255,255,255,0.1) !important; }
-  html[data-theme="dark"] .leaflet-bar { border-color: rgba(255,255,255,0.12) !important; }
+  /* (30-sep: el usuario prefirió el mapa en su color de siempre también de noche.) */
   #accountBtn { background: #fff; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.22); }
   #accountBtn svg { stroke: #000; }
   #pickHint { background: #000; color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
@@ -635,6 +630,45 @@ function toggleRiderTheme() {
   #statusMap { border-radius: 26px; }
   #driverCard, .search-card, .status-header { border-radius: 24px; }
   html[data-theme="dark"] #driverCard, html[data-theme="dark"] .search-card, html[data-theme="dark"] .status-header { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+
+  /* ===== Detalles 30-sep: renglones de vehículo, botones viejos al estilo nuevo, menú ===== */
+  .veh-cards { flex-direction: column; gap: 8px; }
+  .veh-card { flex-direction: row; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; border-radius: 18px; }
+  .vc-img { height: auto; width: 76px; }
+  .vc-txt { flex: 1; text-align: left; }
+  .vc-txt b { font-size: 16.5px; }
+  .vc-price { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; }
+  #serviceCategoryRow { background: transparent !important; border: 0 !important; padding: 0 !important; gap: 8px; }
+  #serviceCategoryRow .service-tab { border-radius: 14px; padding: 11px 8px; font-size: 15px; font-weight: 700; background: rgba(15,23,42,0.05); color: var(--text); }
+  html[data-theme="dark"] #serviceCategoryRow .service-tab { background: rgba(255,255,255,0.06); color: #d1d5db; }
+  #serviceCategoryRow .service-tab.active { background: #10b981 !important; color: #fff !important; }
+  .pax-card { border-radius: 16px; padding: 8px 12px; background: rgba(15,23,42,0.045) !important; }
+  html[data-theme="dark"] .pax-card { background: rgba(255,255,255,0.06) !important; }
+  .pax-card .stepper .btn-sm { border-radius: 12px !important; background: transparent; }
+  #pickBar #referenceInput { border-radius: 14px; }
+  #extraBox { border-radius: 16px; border-color: rgba(16,185,129,0.35) !important; padding: 6px 6px 6px 12px; }
+  #extraBox .extra-chip { border-radius: 12px; }
+  #extraBox .extra-chip.on { background: #10b981 !important; border-color: #10b981 !important; color: #fff !important; }
+  #requestBtn:not(:disabled) { background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-weight: 800; border-radius: 18px; box-shadow: 0 12px 26px rgba(16,185,129,0.3); }
+  #collapsedSum { font-size: 14px; color: var(--text-dim); }
+  /* Menú lateral */
+  .app-drawer { border-radius: 0 26px 26px 0; }
+  html[data-theme="dark"] .app-drawer { background: #0f1115 !important; border-right: 1px solid rgba(255,255,255,0.07); }
+  .drawer-header { border-bottom: 0 !important; padding-bottom: 8px; }
+  .drawer-city { color: #059669 !important; }
+  html[data-theme="dark"] .drawer-city { color: #34d399 !important; }
+  .drawer-me { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 12px; border-radius: 18px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); }
+  .drawer-me:empty { display: none; }
+  .dm-av { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #1f2937, #0b1220); box-shadow: 0 0 0 2px #10b981; }
+  .dm-av img { width: 100%; height: 100%; object-fit: cover; }
+  .dm-txt b { display: block; font-size: 16px; font-weight: 800; color: var(--text); }
+  .dm-txt span { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-dim); margin-top: 2px; }
+  .drawer-nav { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .drawer-row { border-radius: 16px !important; padding: 12px 12px !important; }
+  .drawer-row .row-icon { width: 38px !important; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,0.05); }
+  html[data-theme="dark"] .drawer-row .row-icon { background: rgba(255,255,255,0.07); }
+  .drawer-row:hover { background: rgba(15,23,42,0.04); }
+  html[data-theme="dark"] .drawer-row:hover { background: rgba(255,255,255,0.05); }
 </style>
 </head>
 <body>
@@ -810,6 +844,7 @@ function toggleRiderTheme() {
   <div class="drawer-header">
     <div class="brand brand-sm"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino</div>
     <div class="drawer-city" id="drawerCityLabel">📍 <span></span></div>
+    <div class="drawer-me" id="drawerMe"></div>
   </div>
   <div class="drawer-nav">
     <button class="drawer-row" onclick="openProfile()"><span class="row-icon">🧍</span>Mi cuenta</button>
@@ -1393,6 +1428,7 @@ function updateTaxiOfferUi() {
   box.style.display = "block";
   btn.disabled = false;
   btn.textContent = `Pedir taxi por $${taxiOffer}`;
+  setVehPrice("Taxi", `$${taxiOffer}`);
 }
 
 function updateFareEstimate() {
@@ -1426,6 +1462,11 @@ function updateFareEstimate() {
   el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}, incluye $${SERVICE_FEE} de servicio${extraNote}${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
   btn.textContent = `${baseLabel} · $${total} MXN`;
   document.getElementById("extraBox").style.display = "flex";
+  setVehPrice("Moto", `$${total}`);
+}
+function setVehPrice(which, text) {
+  const el = document.getElementById("vcPrice" + which);
+  if (el) el.textContent = text || "";
 }
 
 // --- Extra voluntario al chofer (solo mototaxi) ---
@@ -1458,10 +1499,10 @@ let zoneForcedTaxi = false;
 // --- Tarjetas de vehículo (diseño 3, paso 2) ---
 // Mismos botones de siempre (#tabMoto/#tabTaxi): solo cambia lo que llevan adentro.
 function vehCardHtml(kind, note) {
-  const img = kind === "taxi" ? MVVeh.taxiSide(84) : MVVeh.motoSide(80);
+  const img = kind === "taxi" ? MVVeh.taxiSide(70) : MVVeh.motoSide(66);
   const name = kind === "taxi" ? "Taxi" : "Mototaxi";
   const sub = note || (kind === "taxi" ? "Tú propones el precio" : "Dentro del pueblo");
-  return `<span class="vc-img">${img}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span>`;
+  return `<span class="vc-img">${img}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${kind === "taxi" ? "Taxi" : "Moto"}"></span>`;
 }
 function renderVehCards(motoNote) {
   document.getElementById("tabMoto").innerHTML = vehCardHtml("moto", motoNote);
@@ -2927,8 +2968,21 @@ function expandHistory() {
 let historyReturnScreen = "form";
 
 function openDrawer() {
+  renderDrawerMe();
   document.getElementById("appDrawer").classList.add("open");
   document.getElementById("drawerOverlay").classList.add("open");
+}
+
+function renderDrawerMe() {
+  const box = document.getElementById("drawerMe");
+  if (!box) return;
+  let rider = null, count = 0;
+  try { rider = JSON.parse(localStorage.getItem("motoya_rider") || "null"); count = Number(localStorage.getItem("motoya_last_trip_count")) || 0; } catch {}
+  if (!rider) { box.innerHTML = ""; return; }
+  const initial = escapeHtml((rider.name || "?").trim().charAt(0).toUpperCase());
+  const tier = riderTierLabel(count);
+  box.innerHTML = `<div class="dm-av">${rider.photo ? `<img src="${rider.photo}" alt="" />` : initial}</div>
+    <div class="dm-txt"><b>${escapeHtml(rider.name || "")}</b>${tier ? `<span>${tier} · ${count} viajes</span>` : count ? `<span>${count} viajes con MotoVecino</span>` : ""}</div>`;
 }
 
 function closeDrawer() {

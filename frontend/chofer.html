@@ -317,12 +317,7 @@ function setDriverTheme(pref) {
      marcadores resaltan. */
   #map .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.02); }
   /* De noche: el mismo mapa pintado azul pizarra, calles más claras (tanda 1, 30-sep). */
-  html[data-theme="dark"] #map .leaflet-tile-pane { filter: grayscale(1) brightness(0.34) contrast(1.35) sepia(0.6) hue-rotate(175deg) saturate(2.2); }
-  html[data-theme="dark"] #map { background: #0b1017; }
-  html[data-theme="dark"] .leaflet-control-attribution { background: rgba(11,16,23,0.7) !important; color: #7b8794; }
-  html[data-theme="dark"] .leaflet-control-attribution a { color: #9aa9b8; }
-  html[data-theme="dark"] .leaflet-control-zoom a { background: rgba(17,20,26,0.85) !important; color: #fff !important; border-color: rgba(255,255,255,0.1) !important; }
-  html[data-theme="dark"] .leaflet-bar { border-color: rgba(255,255,255,0.12) !important; }
+  /* (30-sep: mapa en su color de siempre también de noche.) */
   .veh-icon { background: none; border: 0; }
   .veh { width: 46px; height: 46px; transition: transform 0.6s ease; }
   .leaflet-control-zoom a { color: #000 !important; }
