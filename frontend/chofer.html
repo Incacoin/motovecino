@@ -437,6 +437,33 @@ function setDriverTheme(pref) {
   .mv-confirm-actions { display: flex; gap: 10px; }
   .mv-confirm-actions .btn { flex: 1; width: auto; margin: 0; padding: 12px 10px; font-size: 14.5px; }
   .mv-confirm-actions .btn.mv-danger { background: var(--danger); color: #fff; }
+
+  /* ===== Diseño 3 · paso 3 (chofer): vidrio, cobro grande y botones deslizables ===== */
+  #topbar { background: rgba(255,255,255,0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-bottom: 1px solid rgba(15,23,42,0.07); }
+  html[data-theme="dark"] #topbar { background: rgba(12,14,18,0.86); border-bottom: 1px solid rgba(255,255,255,0.07); }
+  #panel { margin: 0 10px 10px; border-radius: 28px; background: rgba(255,255,255,0.88) !important; backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 18px 50px rgba(15,23,42,0.2) !important; }
+  html[data-theme="dark"] #panel { background: rgba(16,19,25,0.8) !important; border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 24px 60px rgba(0,0,0,0.55) !important; }
+  #earnPill { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  #earnPill .bar > div { background: linear-gradient(90deg, #059669, #34d399); }
+  .ride-card { border-radius: 22px; }
+  html[data-theme="dark"] .ride-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+  .ride-card.pending { border-left: 0 !important; border: 2px solid #10b981 !important; box-shadow: 0 0 0 6px rgba(16,185,129,0.12); }
+  .ride-card.active { border-left: 0 !important; }
+  .req-big { text-align: center; margin: 6px 0 4px; }
+  .req-big small { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+  .req-big b { display: block; font-size: 46px; font-weight: 800; letter-spacing: -0.05em; line-height: 1.05; }
+  .req-big span { display: block; font-size: 12.5px; font-weight: 700; color: #059669; margin-top: 2px; }
+  html[data-theme="dark"] .req-big span { color: #34d399; }
+  .btn.btn-accept { background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-size: 18px; font-weight: 800; border-radius: 18px; padding: 16px; box-shadow: 0 12px 26px rgba(16,185,129,0.3); }
+  /* Botón deslizable */
+  .slide { position: relative; height: 60px; border-radius: 20px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.45); display: flex; align-items: center; justify-content: center; margin: 10px 0 8px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .slide-lbl { font-size: 16px; font-weight: 800; color: #047857; padding-left: 40px; pointer-events: none; transition: opacity .15s; }
+  html[data-theme="dark"] .slide-lbl { color: #a7f3d0; }
+  .slide-knob { position: absolute; left: 5px; top: 5px; width: 50px; height: 50px; border-radius: 16px; background: linear-gradient(180deg, #34d399, #059669); color: #04110b; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; cursor: grab; box-shadow: 0 6px 16px rgba(5,150,105,0.35); z-index: 2; touch-action: none; }
+  .slide.ready { box-shadow: 0 0 0 4px rgba(16,185,129,0.25); }
+  .slide::after { content: ""; position: absolute; top: 0; bottom: 0; width: 70px; left: -70px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: slideShine 2.2s ease-in-out infinite; pointer-events: none; }
+  @keyframes slideShine { to { left: 110%; } }
+  @media (prefers-reduced-motion: reduce) { .slide::after { animation: none; } }
 </style>
 </head>
 <body>
@@ -1536,6 +1563,46 @@ function forOtherHtml(r, accepted) {
     <div class="for-other-by">Lo pidió ${escapeHtml(r.rider_name)}${accepted ? " · escríbele por el chat" : ""}</div></div>`;
 }
 
+// --- Botón que se desliza (diseño 3, paso 3) ---
+// Arrastrar la bolita hasta el final llama a la misma función de antes. Si la
+// acción falla (p. ej. taxi sin precio capturado), la bolita regresa sola.
+function slideHtml(id, label, fnName) {
+  return `<div class="slide" id="${id}" data-fn="${fnName}"><div class="slide-knob" role="button" aria-label="${label}">›</div><span class="slide-lbl">${label}</span></div>`;
+}
+document.addEventListener("pointerdown", (e) => {
+  const knob = e.target.closest && e.target.closest(".slide-knob");
+  if (!knob) return;
+  const track = knob.parentElement;
+  if (track.dataset.busy) return;
+  e.preventDefault();
+  const max = track.clientWidth - knob.offsetWidth - 10;
+  const startX = e.clientX;
+  let x = 0;
+  knob.style.transition = "none";
+  const move = (ev) => {
+    x = Math.max(0, Math.min(max, ev.clientX - startX));
+    knob.style.transform = `translateX(${x}px)`;
+    track.querySelector(".slide-lbl").style.opacity = String(1 - x / max);
+  };
+  const up = async () => {
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    document.removeEventListener("pointercancel", up);
+    knob.style.transition = "transform .25s ease";
+    const reset = () => { knob.style.transform = "translateX(0)"; track.querySelector(".slide-lbl").style.opacity = "1"; delete track.dataset.busy; };
+    if (x < max * 0.85) { reset(); return; }
+    knob.style.transform = `translateX(${max}px)`;
+    track.dataset.busy = "1";
+    try {
+      const ok = await window[track.dataset.fn]();
+      if (ok === false && document.body.contains(track)) reset();
+    } catch { if (document.body.contains(track)) reset(); }
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
+  document.addEventListener("pointercancel", up);
+});
+
 function renderRideList() {
   const el = document.getElementById("rideList");
 
@@ -1563,7 +1630,7 @@ function renderRideList() {
           ${destLine}
           ${fareLine}
           ${depositBoxHtml(currentRide)}
-          <button class="btn" id="btnArrived" onclick="arriveAtPickup()">Ya llegué</button>
+          ${slideHtml("btnArrived", "Desliza: ya llegué", "arriveAtPickup")}
           <button class="btn-danger" onclick="cancelCurrentRide()">Cancelar viaje</button>
         </div>`;
     } else if (currentRide.status === "llegue") {
@@ -1616,7 +1683,7 @@ function renderRideList() {
                </div>`
             : ""}
           ${depositBoxHtml(currentRide)}
-          <button class="btn" onclick="completeRide()">Finalizar viaje</button>
+          ${slideHtml("btnComplete", "Desliza: finalizar viaje", "completeRide")}
         </div>`;
     }
     return;
@@ -1647,6 +1714,9 @@ function renderRideList() {
           ${r.pickup_label ? `<span class="chip">${escapeHtml(r.pickup_label)}</span>` : ""}
         </div>
         ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde la recogida)</div>` : ""}
+        ${fare.total != null
+          ? `<div class="req-big"><small>Cobras en efectivo</small><b>$${fare.total}</b>${r.extra ? `<span>Incluye +$${r.extra} extra del pasajero</span>` : ""}</div>`
+          : ""}
         <div class="meta fare">${fare.text}</div>
         ${r.ride_type === "taxi" && r.offer_price != null
           ? taxiOfferBlockHtml(r)
@@ -1658,7 +1728,7 @@ function renderRideList() {
           : ""}
         ${r.ride_type === "taxi" && r.offer_price != null
           ? ""
-          : `<button class="btn" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : acceptLabel}</button>`}
+          : `<button class="btn btn-accept" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : "Aceptar viaje"}</button>`}
       </div>`;
   }).join("");
   const moreCount = allPending.length - rides.length;
@@ -1755,7 +1825,8 @@ async function updateRouteLine() {
   }
   if (!currentRide) return; // el viaje pudo terminar mientras esperábamos la respuesta
   if (routeLine) map.removeLayer(routeLine);
-  routeLine = L.polyline(points, { color, weight: 4 }).addTo(map);
+  // Verde MotoVecino (se ve bien en el mapa claro y en el oscuro).
+  routeLine = L.polyline(points, { color: document.documentElement.dataset.theme === "dark" ? "#34d399" : "#047857", weight: 5, opacity: 0.95, lineCap: "round" }).addTo(map);
   updateEtaDisplay(duration);
 }
 
