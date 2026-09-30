@@ -1838,6 +1838,10 @@ function setPickStep(step) {
     document.getElementById("stepSub").textContent = STEP_TEXT[step][1];
   }
   if (step === "trip") {
+    // Si llegó aquí brincando con "3 Tu viaje" desde otro paso, su pin se había
+    // quitado del mapa: se vuelve a dibujar.
+    if (pickup && !pickupMarker) pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map);
+    if (dest && !destMarker) destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map);
     updateTripSummary();
     document.getElementById("pickHint").textContent = readyHint();
   }
@@ -1925,9 +1929,11 @@ function useMyLocation() {
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition((pos) => {
     hideLocationBanner();
-    const me = L.latLng(pos.coords.latitude, pos.coords.longitude);
-    map.setView(me, 17);
-    setPickupAt(me, "Tu ubicación");
+    // Solo centra el mapa: el GPS a veces se equivoca por unos metros, así que
+    // el pasajero revisa dónde quedó el pin y él confirma.
+    map.setView(L.latLng(pos.coords.latitude, pos.coords.longitude), 18);
+    // (Un aviso flotante taparía el botón de confirmar: se cambia el texto del paso.)
+    document.getElementById("stepSub").textContent = "📍 Listo, te ubicamos. Revisa que el pin esté en tu puerta y confirma.";
   }, () => showLocationBanner());
 }
 
