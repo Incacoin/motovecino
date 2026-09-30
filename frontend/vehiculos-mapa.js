@@ -104,21 +104,33 @@
     });
   }
 
-  // Mueve el marcador y lo gira hacia donde avanzó. Con movimientos de menos de
-  // ~6 m no cambia el giro (el GPS tiembla aunque el vehículo esté parado).
+  // Mueve el marcador y lo gira hacia donde avanza. El rumbo se mide desde el
+  // último punto donde giró (no desde el punto anterior): el GPS llega cada
+  // segundo y un mototaxi avanza ~5 m por segundo, así que comparando punto
+  // contra punto nunca pasaba del umbral y no giraba. Con menos de ~8 m desde
+  // ese punto no cambia (el GPS tiembla aunque el vehículo esté parado).
   function moveVeh(marker, lat, lng) {
-    const prev = marker.getLatLng();
-    const dy = lat - prev.lat;
-    const dx = (lng - prev.lng) * Math.cos((lat * Math.PI) / 180);
+    const anchor = marker._vehAnchor || marker.getLatLng();
+    const dy = lat - anchor.lat;
+    const dx = (lng - anchor.lng) * Math.cos((lat * Math.PI) / 180);
     const meters = Math.sqrt(dx * dx + dy * dy) * 111320;
-    if (meters > 6) {
+    if (!marker._vehAnchor) marker._vehAnchor = { lat: anchor.lat, lng: anchor.lng };
+    if (meters > 8) {
       const bearing = (Math.atan2(dx, dy) * 180) / Math.PI; // 0 = norte, 90 = este
-      marker._vehRot = bearing + 180; // el dibujo mira hacia el sur
-      const el = marker.getElement && marker.getElement();
-      const veh = el && el.querySelector(".veh");
-      if (veh) veh.style.transform = `rotate(${marker._vehRot}deg)`;
+      // El dibujo mira hacia el sur. Se gira por el lado más corto (sin dar la vuelta completa).
+      let rot = bearing + 180;
+      if (marker._vehRot != null) {
+        while (rot - marker._vehRot > 180) rot -= 360;
+        while (rot - marker._vehRot < -180) rot += 360;
+      }
+      marker._vehRot = rot;
+      marker._vehAnchor = { lat, lng };
     }
     marker.setLatLng([lat, lng]);
+    // Leaflet puede volver a crear el ícono: el giro se aplica siempre.
+    const el = marker.getElement && marker.getElement();
+    const veh = el && el.querySelector(".veh");
+    if (veh && marker._vehRot != null) veh.style.transform = `rotate(${marker._vehRot}deg)`;
   }
 
   window.MVVeh = { vehIcon, moveVeh, motoSide, taxiSide };
