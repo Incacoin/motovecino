@@ -544,6 +544,32 @@ function setDriverTheme(pref) {
   .pf-section-label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin: 6px 4px -4px; }
   #pfAccount .theme-picker { border-radius: 16px; }
   .pf-logout { width: 100%; padding: 15px; border-radius: 18px; font: inherit; font-size: 15.5px; font-weight: 800; cursor: pointer; color: #ef4444; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); margin-top: 4px; }
+
+  /* ===== Portada (30-sep): estilo Cristal premium ===== */
+  #login { background: radial-gradient(ellipse 420px 300px at 50% 120px, rgba(16,185,129,0.20), transparent 70%), var(--bg) !important; }
+  #login .brand { font-size: 30px !important; font-weight: 800; }
+  #login .brand .brand-icon { width: 46px !important; height: 46px !important; border-radius: 14px !important; box-shadow: 0 10px 24px rgba(16,185,129,0.25) !important; }
+  .entry-veh { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin: 2px 0 -2px; }
+  .entry-veh svg { display: block; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.18)); }
+  .entry-title { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); margin-top: 2px; }
+  .entry-sub { font-size: 14px; color: var(--text-dim); margin-top: -8px; }
+  .entry-card { width: min(340px, calc(100vw - 32px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 26px; background: rgba(255,255,255,0.75); border: 1px solid rgba(15,23,42,0.07); box-shadow: 0 18px 44px rgba(15,23,42,0.10); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  html[data-theme="dark"] .entry-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 18px 44px rgba(0,0,0,0.45); }
+  .entry-card .input-icon-row, .entry-card > input { width: 100% !important; box-sizing: border-box; border-radius: 16px !important; background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.08) !important; }
+  html[data-theme="dark"] .entry-card .input-icon-row, html[data-theme="dark"] .entry-card > input { background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.10) !important; }
+  .entry-card .input-icon-row:focus-within, .entry-card > input:focus { border-color: #10b981 !important; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
+  .entry-card > input { padding: 14px 16px; font-size: 16px; text-align: left; }
+  .entry-card .btn { width: 100% !important; margin: 4px 0 0 !important; background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-weight: 800; font-size: 17px; border-radius: 18px; border: 0 !important; box-shadow: 0 12px 26px rgba(16,185,129,0.30); }
+  .entry-card .entry-legal { font-size: 12px; color: var(--text-dim); text-align: center; }
+  .entry-card .entry-legal a { color: #059669 !important; font-weight: 700; }
+  html[data-theme="dark"] .entry-card .entry-legal a { color: #34d399 !important; }
+  #login .btn-sm { border-radius: 14px !important; }
+  #login .maya-motif { opacity: 0.55; }
+
+  #login .entry-card > input::placeholder { letter-spacing: 0; font-size: 17px; }
+  #login .entry-card > input { width: 100% !important; font-size: 20px !important; letter-spacing: 2px !important; text-align: center !important; }
+  #login .btn-sm { background: rgba(15,23,42,0.05) !important; border: 1px solid rgba(15,23,42,0.08) !important; }
+  html[data-theme="dark"] #login .btn-sm { background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.09) !important; }
 </style>
 </head>
 <body>
@@ -561,10 +587,15 @@ function setDriverTheme(pref) {
     <button class="installClose" onclick="dismissInstallBanner()">✕</button>
   </div>
   <div class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span id="cityLabel"></span></div>
-  <div style="color:var(--text-dim);">Ingresa tu teléfono y tu PIN de chofer</div>
+  <div class="entry-veh" id="entryVehDriver"></div>
+  <script>document.getElementById("entryVehDriver").innerHTML = MVVeh.motoSide(112) + MVVeh.taxiSide(124);</script>
+  <div class="entry-title">Modo chofer</div>
+  <div class="entry-sub">Ingresa tu teléfono y tu PIN de chofer</div>
+  <div class="entry-card">
   <input id="phoneLoginInput" inputmode="numeric" maxlength="10" placeholder="Tu teléfono" />
-  <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="••••" />
+  <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="Tu PIN  ••••" />
   <button class="btn" onclick="login()">Entrar</button>
+  </div>
   <div id="loginError"></div>
   <button class="btn-sm" id="forgotPinBtn" style="display:none;margin-top:4px;" onclick="forgotPin()">¿Olvidaste tu PIN?</button>
   <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">🆕 Quiero ser chofer</button>
