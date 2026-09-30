@@ -63,7 +63,7 @@ function toggleRiderTheme() {
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="vehiculos-mapa.js?v=2"></script>
+<script src="vehiculos-mapa.js?v=3"></script>
 <style>
   .screen { display: none; flex-direction: column; height: 100vh; overflow-y: auto; }
   .screen.active { display: flex; }
@@ -268,7 +268,7 @@ function toggleRiderTheme() {
   .eta-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
   .eta-txt b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
   .eta-txt span { display: block; font-size: 13px; color: var(--text-dim); margin-top: 3px; }
-  .eta-badge { width: 56px; height: 56px; flex-shrink: 0; border-radius: 16px; background: linear-gradient(160deg, #34d399, #047857); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 10px 22px rgba(5,150,105,0.3); }
+  .eta-badge { width: 56px; height: 56px; flex-shrink: 0; border-radius: 16px; background: linear-gradient(160deg, #4ade80, #15803d); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 10px 22px rgba(5,150,105,0.3); }
   .eta-badge b { font-size: 22px; font-weight: 800; line-height: 1; }
   .eta-badge small { font-size: 10.5px; font-weight: 700; opacity: 0.9; margin-top: 2px; }
   .driverVeh { flex-shrink: 0; display: flex; align-items: center; }
@@ -590,29 +590,29 @@ function toggleRiderTheme() {
   html[data-theme="dark"] #pickBar { background: rgba(16,19,25,0.78); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
   #accountBtn { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
   html[data-theme="dark"] #accountBtn { background: rgba(16,19,25,0.7); border: 1px solid rgba(255,255,255,0.1); }
-  .step-hello { font-size: 13px; font-weight: 700; color: #059669; margin-bottom: 2px; }
-  html[data-theme="dark"] .step-hello { color: #34d399; }
+  .step-hello { font-size: 13px; font-weight: 700; color: #16a34a; margin-bottom: 2px; }
+  html[data-theme="dark"] .step-hello { color: #4ade80; }
   #centerPin .cp-label { background: #0b0f14; border-radius: 14px; padding: 8px 14px; }
-  #centerPin .cp-dot { width: 32px; height: 32px; border: 0; background: #10b981; box-shadow: 0 0 0 7px rgba(16,185,129,0.2), 0 8px 18px rgba(5,150,105,0.4); font-size: 0; }
+  #centerPin .cp-dot { width: 32px; height: 32px; border: 0; background: #22c55e; box-shadow: 0 0 0 7px rgba(34,197,94,0.2), 0 8px 18px rgba(5,150,105,0.4); font-size: 0; }
   #centerPin .cp-dot::after { content: ""; width: 11px; height: 11px; border-radius: 50%; background: #fff; }
   #centerPin.dest .cp-dot { background: #0b0f14; box-shadow: 0 0 0 7px rgba(15,23,42,0.15), 0 8px 18px rgba(0,0,0,0.35); }
   html[data-theme="dark"] #centerPin.dest .cp-dot { background: #fff; }
   html[data-theme="dark"] #centerPin.dest .cp-dot::after { background: #0b0f14; }
-  #centerPin .cp-stick { width: 3px; height: 16px; background: #10b981; }
+  #centerPin .cp-stick { width: 3px; height: 16px; background: #22c55e; }
   #centerPin.dest .cp-stick { background: #0b0f14; }
   html[data-theme="dark"] #centerPin.dest .cp-stick { background: #fff; }
   #stepHead .steps button.on { background: #0b0f14; color: #fff; }
   html[data-theme="dark"] #stepHead .steps button.on { background: #fff; color: #000; }
-  #stepHead .steps button.done { color: #059669; }
-  html[data-theme="dark"] #stepHead .steps button.done { color: #34d399; }
+  #stepHead .steps button.done { color: #16a34a; }
+  html[data-theme="dark"] #stepHead .steps button.done { color: #4ade80; }
   #pickBar .btn:not(.btn-secondary) { border-radius: 18px; }
   #pickBar .btn-secondary { border-radius: 16px; }
   /* Tarjetas de vehículo */
   .veh-cards { display: flex; gap: 10px; }
   .veh-card { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px 12px; border-radius: 20px; border: 2px solid transparent; background: rgba(15,23,42,0.045); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .2s, background .2s; min-width: 0; }
   html[data-theme="dark"] .veh-card { background: rgba(255,255,255,0.06); }
-  .veh-card.active { border-color: #10b981; background: rgba(16,185,129,0.1); }
-  html[data-theme="dark"] .veh-card.active { border-color: #34d399; background: rgba(52,211,153,0.1); }
+  .veh-card.active { border-color: #22c55e; background: rgba(34,197,94,0.1); }
+  html[data-theme="dark"] .veh-card.active { border-color: #4ade80; background: rgba(74,222,128,0.1); }
   .veh-card.unavailable { opacity: 0.45; }
   .vc-img { flex-shrink: 0; height: 58px; display: flex; align-items: center; justify-content: center; }
   .vc-img svg { display: block; }
@@ -622,12 +622,12 @@ function toggleRiderTheme() {
   /* Radar mientras busca chofer */
   .radar-icon { background: none; border: 0; pointer-events: none; }
   .radar { position: relative; width: 180px; height: 180px; }
-  .radar i { position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid rgba(52,211,153,0.8); background: radial-gradient(circle, rgba(52,211,153,0.05) 40%, rgba(52,211,153,0.3) 70%, rgba(52,211,153,0) 72%); animation: radarPulse 2.4s ease-out infinite; opacity: 0; }
+  .radar i { position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid rgba(74,222,128,0.8); background: radial-gradient(circle, rgba(74,222,128,0.05) 40%, rgba(74,222,128,0.3) 70%, rgba(74,222,128,0) 72%); animation: radarPulse 2.4s ease-out infinite; opacity: 0; }
   .radar i:nth-child(2) { animation-delay: 0.8s; }
   .radar i:nth-child(3) { animation-delay: 1.6s; }
   @keyframes radarPulse { 0% { transform: scale(0.15); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .radar i { animation: none; opacity: 0.4; transform: scale(0.6); } }
-  .progress-fill { background: linear-gradient(90deg, #059669, #34d399) !important; }
+  .progress-fill { background: linear-gradient(90deg, #16a34a, #4ade80) !important; }
   #statusMap { border-radius: 26px; }
   #driverCard, .search-card, .status-header { border-radius: 24px; }
   html[data-theme="dark"] #driverCard, html[data-theme="dark"] .search-card, html[data-theme="dark"] .status-header { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
@@ -642,25 +642,25 @@ function toggleRiderTheme() {
   #serviceCategoryRow { background: transparent !important; border: 0 !important; padding: 0 !important; gap: 8px; }
   #serviceCategoryRow .service-tab { border-radius: 14px; padding: 11px 8px; font-size: 15px; font-weight: 700; background: rgba(15,23,42,0.05); color: var(--text); }
   html[data-theme="dark"] #serviceCategoryRow .service-tab { background: rgba(255,255,255,0.06); color: #d1d5db; }
-  #serviceCategoryRow .service-tab.active { background: #10b981 !important; color: #fff !important; }
+  #serviceCategoryRow .service-tab.active { background: #22c55e !important; color: #fff !important; }
   .pax-card { border-radius: 16px; padding: 8px 12px; background: rgba(15,23,42,0.045) !important; }
   html[data-theme="dark"] .pax-card { background: rgba(255,255,255,0.06) !important; }
   .pax-card .stepper .btn-sm { border-radius: 12px !important; background: transparent; }
   #pickBar #referenceInput { border-radius: 14px; }
-  #extraBox { border-radius: 16px; border-color: rgba(16,185,129,0.35) !important; padding: 6px 6px 6px 12px; }
+  #extraBox { border-radius: 16px; border-color: rgba(34,197,94,0.35) !important; padding: 6px 6px 6px 12px; }
   #extraBox .extra-chip { border-radius: 12px; }
-  #extraBox .extra-chip.on { background: #10b981 !important; border-color: #10b981 !important; color: #fff !important; }
-  #requestBtn:not(:disabled) { background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-weight: 800; border-radius: 18px; box-shadow: 0 12px 26px rgba(16,185,129,0.3); }
+  #extraBox .extra-chip.on { background: #22c55e !important; border-color: #22c55e !important; color: #fff !important; }
+  #requestBtn:not(:disabled) { background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800; border-radius: 18px; box-shadow: 0 12px 26px rgba(34,197,94,0.3); }
   #collapsedSum { font-size: 14px; color: var(--text-dim); }
   /* Menú lateral */
   .app-drawer { border-radius: 0 26px 26px 0; }
   html[data-theme="dark"] .app-drawer { background: #0f1115 !important; border-right: 1px solid rgba(255,255,255,0.07); }
   .drawer-header { border-bottom: 0 !important; padding-bottom: 8px; }
-  .drawer-city { color: #059669 !important; }
-  html[data-theme="dark"] .drawer-city { color: #34d399 !important; }
-  .drawer-me { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 12px; border-radius: 18px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); }
+  .drawer-city { color: #16a34a !important; }
+  html[data-theme="dark"] .drawer-city { color: #4ade80 !important; }
+  .drawer-me { display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 12px; border-radius: 18px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25); }
   .drawer-me:empty { display: none; }
-  .dm-av { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #1f2937, #0b1220); box-shadow: 0 0 0 2px #10b981; }
+  .dm-av { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 800; color: #fff; background: linear-gradient(135deg, #1f2937, #0b1220); box-shadow: 0 0 0 2px #22c55e; }
   .dm-av img { width: 100%; height: 100%; object-fit: cover; }
   .dm-txt b { display: block; font-size: 16px; font-weight: 800; color: var(--text); }
   .dm-txt span { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-dim); margin-top: 2px; }
@@ -676,19 +676,19 @@ function toggleRiderTheme() {
   .status-icon { width: 68px; display: flex; justify-content: center; }
   .status-icon svg { display: block; }
   .status-header-text .big { font-size: 19px !important; font-weight: 800; letter-spacing: -0.02em; }
-  .verified-badge { color: #059669 !important; }
-  .verified-badge svg { stroke: #059669 !important; }
-  html[data-theme="dark"] .verified-badge { color: #34d399 !important; }
-  html[data-theme="dark"] .verified-badge svg { stroke: #34d399 !important; }
+  .verified-badge { color: #16a34a !important; }
+  .verified-badge svg { stroke: #16a34a !important; }
+  html[data-theme="dark"] .verified-badge { color: #4ade80 !important; }
+  html[data-theme="dark"] .verified-badge svg { stroke: #4ade80 !important; }
   /* Mi cuenta */
-  #profileScreen { background: radial-gradient(circle at 50% -10%, rgba(16,185,129,0.14), transparent 55%); }
-  #profilePhoto { border: 3px solid #10b981 !important; box-shadow: 0 0 0 6px rgba(16,185,129,0.15); }
-  .profile-photo-fallback { border: 3px solid rgba(16,185,129,0.6) !important; }
+  #profileScreen { background: radial-gradient(circle at 50% -10%, rgba(34,197,94,0.14), transparent 55%); }
+  #profilePhoto { border: 3px solid #22c55e !important; box-shadow: 0 0 0 6px rgba(34,197,94,0.15); }
+  .profile-photo-fallback { border: 3px solid rgba(34,197,94,0.6) !important; }
   #profileScreen .btn-sm, #profileScreen .input-icon-row { border-radius: 14px !important; }
   .account-grid { width: min(340px, calc(100vw - 48px)) !important; gap: 10px !important; }
   .account-card { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; padding: 14px !important; border-radius: 20px !important; background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.07) !important; }
   html[data-theme="dark"] .account-card { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
-  .account-card.open { border-color: #10b981 !important; background: rgba(16,185,129,0.08) !important; }
+  .account-card.open { border-color: #22c55e !important; background: rgba(34,197,94,0.08) !important; }
   .account-card-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 19px !important; background: rgba(15,23,42,0.06); }
   html[data-theme="dark"] .account-card-icon { background: rgba(255,255,255,0.08); }
   .account-card-label { font-size: 15px !important; font-weight: 800 !important; color: var(--text) !important; }
@@ -702,20 +702,20 @@ function toggleRiderTheme() {
   .tc-body small em { font-style: normal; color: #ef4444; font-weight: 700; }
   .tc-body b { display: block; font-size: 15px; font-weight: 800; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tc-body span { display: block; font-size: 13px; color: var(--text-dim); margin-top: 2px; }
-  .tc-for { display: inline-block; margin-top: 6px; font-style: normal; font-size: 11.5px; font-weight: 700; color: #047857; background: rgba(16,185,129,0.12); padding: 3px 9px; border-radius: 99px; }
-  html[data-theme="dark"] .tc-for { color: #6ee7b7; }
-  .tc-price { font-size: 17px; font-weight: 800; color: #059669; white-space: nowrap; }
-  html[data-theme="dark"] .tc-price { color: #34d399; }
+  .tc-for { display: inline-block; margin-top: 6px; font-style: normal; font-size: 11.5px; font-weight: 700; color: #15803d; background: rgba(34,197,94,0.12); padding: 3px 9px; border-radius: 99px; }
+  html[data-theme="dark"] .tc-for { color: #86efac; }
+  .tc-price { font-size: 17px; font-weight: 800; color: #16a34a; white-space: nowrap; }
+  html[data-theme="dark"] .tc-price { color: #4ade80; }
   .load-more-btn { border-radius: 16px !important; }
-  #historyScreen { padding-top: 22px; background: radial-gradient(circle at 50% -10%, rgba(16,185,129,0.12), transparent 55%); }
+  #historyScreen { padding-top: 22px; background: radial-gradient(circle at 50% -10%, rgba(34,197,94,0.12), transparent 55%); }
   .hist-title { letter-spacing: -0.03em; }
-  .badge-card { border-radius: 22px !important; background: rgba(16,185,129,0.08) !important; border: 1px solid rgba(16,185,129,0.28) !important; }
-  .badge-card .progress-note { color: #059669 !important; }
-  html[data-theme="dark"] .badge-card .progress-note { color: #34d399 !important; }
+  .badge-card { border-radius: 22px !important; background: rgba(34,197,94,0.08) !important; border: 1px solid rgba(34,197,94,0.28) !important; }
+  .badge-card .progress-note { color: #16a34a !important; }
+  html[data-theme="dark"] .badge-card .progress-note { color: #4ade80 !important; }
   #historyScreen .btn-secondary { border-radius: 16px; }
 
   /* ===== Cuentas (30-sep): Mi cuenta y Mis viajes como el diseño ===== */
-  .acc-screen { align-items: stretch !important; text-align: left !important; padding: 14px 16px 36px !important; gap: 12px !important; background: radial-gradient(circle at 50% -10%, rgba(16,185,129,0.14), transparent 55%); }
+  .acc-screen { align-items: stretch !important; text-align: left !important; padding: 14px 16px 36px !important; gap: 12px !important; background: radial-gradient(circle at 50% -10%, rgba(34,197,94,0.14), transparent 55%); }
   .acc-screen > * { flex-shrink: 0; width: 100%; max-width: 420px; margin-left: auto !important; margin-right: auto !important; box-sizing: border-box; }
   .acc-top { display: flex; align-items: center; gap: 12px; padding-top: 6px; }
   .acc-top h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
@@ -724,31 +724,31 @@ function toggleRiderTheme() {
   .acc-hero, .acc-level, .acc-list, .trip-card { background: rgba(15,23,42,0.045); border: 1px solid rgba(15,23,42,0.07); }
   html[data-theme="dark"] .acc-hero, html[data-theme="dark"] .acc-level, html[data-theme="dark"] .acc-list, html[data-theme="dark"] .trip-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
   .acc-hero { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 24px; cursor: pointer; font: inherit; color: var(--text); text-align: left; position: relative; }
-  .acc-hero.open { border-color: #10b981 !important; }
+  .acc-hero.open { border-color: #22c55e !important; }
   .acc-av { position: relative; width: 70px; height: 70px; flex-shrink: 0; }
   .acc-av #profilePhotoSlot, .acc-av #profilePhoto, .acc-av .profile-photo-fallback { width: 70px !important; height: 70px !important; border-radius: 50%; margin: 0 !important; box-sizing: border-box; }
-  .acc-av #profilePhoto { object-fit: cover; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
+  .acc-av #profilePhoto { object-fit: cover; box-shadow: 0 0 0 4px rgba(34,197,94,0.15) !important; }
   .acc-av .profile-photo-fallback { display: flex; align-items: center; justify-content: center; }
   .acc-cam { position: absolute; right: -2px; bottom: -2px; width: 24px; height: 24px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
   .acc-hero-txt { flex: 1; min-width: 0; }
   .acc-hero-txt b { display: block; font-size: 19px; font-weight: 800; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .acc-hero-txt span { display: block; font-size: 13.5px; color: var(--text-dim); margin-top: 2px; }
-  .acc-hero-txt em { display: inline-block; margin-top: 7px; font-style: normal; font-size: 12px; font-weight: 700; color: #047857; background: rgba(16,185,129,0.13); padding: 4px 10px; border-radius: 99px; }
-  html[data-theme="dark"] .acc-hero-txt em { color: #6ee7b7; }
+  .acc-hero-txt em { display: inline-block; margin-top: 7px; font-style: normal; font-size: 12px; font-weight: 700; color: #15803d; background: rgba(34,197,94,0.13); padding: 4px 10px; border-radius: 99px; }
+  html[data-theme="dark"] .acc-hero-txt em { color: #86efac; }
   .acc-edit { position: absolute; top: 12px; right: 12px; font-size: 11.5px; font-weight: 700; color: var(--text-dim); }
   #accountSectionEdit input { width: 100%; box-sizing: border-box; }
-  #accountSectionEdit .acc-save { background: #10b981 !important; color: #fff !important; border-color: #10b981 !important; }
+  #accountSectionEdit .acc-save { background: #22c55e !important; color: #fff !important; border-color: #22c55e !important; }
   .acc-level { padding: 12px 14px; border-radius: 20px; }
   .acc-level-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-dim); font-weight: 600; }
   .acc-level-top b { color: var(--text); font-weight: 800; text-align: right; }
   .acc-level-bar { height: 7px; margin: 8px 0; border-radius: 99px; background: rgba(127,127,127,0.2); overflow: hidden; }
-  .acc-level-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #059669, #34d399); transition: width .5s ease; }
+  .acc-level-bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #16a34a, #4ade80); transition: width .5s ease; }
   .acc-level-note { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
   .acc-screen .account-grid { width: 100% !important; margin: 0 auto !important; }
   .acc-screen .account-card { min-height: 116px; justify-content: flex-start; }
   .acc-tile-sub { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-dim); margin-top: -6px; }
-  .acc-tile-sub.ok { color: #059669; }
-  html[data-theme="dark"] .acc-tile-sub.ok { color: #34d399; }
+  .acc-tile-sub.ok { color: #16a34a; }
+  html[data-theme="dark"] .acc-tile-sub.ok { color: #4ade80; }
   .acc-screen .account-detail { width: 100% !important; margin: 0 auto !important; box-sizing: border-box; }
   .acc-screen .account-detail > div[style*="width:260px"], .acc-screen .account-detail > .btn-sm, .acc-screen .account-detail > input { width: 100% !important; box-sizing: border-box; }
   .acc-list { border-radius: 22px; overflow: hidden; padding: 0; }
@@ -777,9 +777,9 @@ function toggleRiderTheme() {
   .acc-screen .load-more-btn { background: transparent !important; border: 0 !important; font-weight: 700; color: var(--text); width: 100%; padding: 12px; }
 
   /* ===== Portada (30-sep): estilo Cristal premium ===== */
-  #form { background: radial-gradient(ellipse 420px 300px at 50% 120px, rgba(16,185,129,0.20), transparent 70%), var(--bg) !important; }
+  #form { background: radial-gradient(ellipse 420px 300px at 50% 120px, rgba(34,197,94,0.20), transparent 70%), var(--bg) !important; }
   #form .brand { font-size: 30px !important; font-weight: 800; }
-  #form .brand .brand-icon { width: 46px !important; height: 46px !important; border-radius: 14px !important; box-shadow: 0 10px 24px rgba(16,185,129,0.25) !important; }
+  #form .brand .brand-icon { width: 46px !important; height: 46px !important; border-radius: 14px !important; box-shadow: 0 10px 24px rgba(34,197,94,0.25) !important; }
   .entry-veh { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin: 2px 0 -2px; }
   .entry-veh svg { display: block; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.18)); }
   .entry-title { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); margin-top: 2px; }
@@ -788,12 +788,12 @@ function toggleRiderTheme() {
   html[data-theme="dark"] .entry-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 18px 44px rgba(0,0,0,0.45); }
   .entry-card .input-icon-row, .entry-card > input { width: 100% !important; box-sizing: border-box; border-radius: 16px !important; background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.08) !important; }
   html[data-theme="dark"] .entry-card .input-icon-row, html[data-theme="dark"] .entry-card > input { background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.10) !important; }
-  .entry-card .input-icon-row:focus-within, .entry-card > input:focus { border-color: #10b981 !important; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
+  .entry-card .input-icon-row:focus-within, .entry-card > input:focus { border-color: #22c55e !important; box-shadow: 0 0 0 4px rgba(34,197,94,0.15) !important; }
   .entry-card > input { padding: 14px 16px; font-size: 16px; text-align: left; }
-  .entry-card .btn { width: 100% !important; margin: 4px 0 0 !important; background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-weight: 800; font-size: 17px; border-radius: 18px; border: 0 !important; box-shadow: 0 12px 26px rgba(16,185,129,0.30); }
+  .entry-card .btn { width: 100% !important; margin: 4px 0 0 !important; background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800; font-size: 17px; border-radius: 18px; border: 0 !important; box-shadow: 0 12px 26px rgba(34,197,94,0.30); }
   .entry-card .entry-legal { font-size: 12px; color: var(--text-dim); text-align: center; }
-  .entry-card .entry-legal a { color: #059669 !important; font-weight: 700; }
-  html[data-theme="dark"] .entry-card .entry-legal a { color: #34d399 !important; }
+  .entry-card .entry-legal a { color: #16a34a !important; font-weight: 700; }
+  html[data-theme="dark"] .entry-card .entry-legal a { color: #4ade80 !important; }
   #form .btn-sm { border-radius: 14px !important; }
   #form .maya-motif { opacity: 0.55; }
 
@@ -803,13 +803,18 @@ function toggleRiderTheme() {
   #themeQuickBtn { box-shadow: 0 6px 16px rgba(15,23,42,0.10); }
   /* Portada: el pueblo va abajo del nombre para que no lo tape el botón del sol (30-sep). */
   #form .brand { flex-wrap: wrap; row-gap: 8px; max-width: calc(100vw - 120px); margin-top: 18px !important; }
-  #form .brand #cityLabel { flex-basis: 100%; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #059669; }
-  html[data-theme="dark"] #form .brand #cityLabel { color: #34d399; }
+  #form .brand #cityLabel { flex-basis: 100%; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #16a34a; }
+  html[data-theme="dark"] #form .brand #cityLabel { color: #4ade80; }
   #form .brand #cityLabel:empty { display: none; }
   /* Portada: si no cabe en la pantalla, empieza arriba y se desliza (antes se cortaba el nombre) y el crédito va al final, sin encimarse (30-sep). */
   #form { justify-content: safe center !important; padding-bottom: 20px !important; }
   #form > .credit { position: static !important; margin-top: 4px; flex-shrink: 0; }
   #form > * { flex-shrink: 0; }
+
+  /* Iconos de línea (30-sep): el trazo va en el verde del logo dentro de su cuadro. */
+  .account-card-icon, .acc-row-ic, .drawer-row .row-icon { color: #16a34a; }
+  html[data-theme="dark"] .account-card-icon, .acc-row-ic, .drawer-row .row-icon { color: #4ade80; }
+  svg.li { display: block; }
 </style>
 </head>
 <body>
@@ -926,22 +931,22 @@ function toggleRiderTheme() {
 
   <div class="account-grid">
     <button class="account-card" onclick="toggleAccountSection('pin', this)">
-      <span class="account-card-icon">🔑</span>
+      <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg></span>
       <span class="account-card-label">Mi PIN</span>
       <small class="acc-tile-sub">•••• · Ver</small>
     </button>
     <button class="account-card" onclick="toggleAccountSection('home', this)">
-      <span class="account-card-icon">🏠</span>
+      <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg></span>
       <span class="account-card-label">Mi casa</span>
       <small class="acc-tile-sub" id="tileHome">Sin guardar</small>
     </button>
     <button class="account-card" onclick="toggleAccountSection('emergency', this)">
-      <span class="account-card-icon">🚨</span>
+      <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 1 6 6v7H6V9a6 6 0 0 1 6-6z"/><path d="M4 20h16"/><path d="M12 8v4"/></svg></span>
       <span class="account-card-label">Emergencia</span>
       <small class="acc-tile-sub" id="tileEmergency">Sin guardar</small>
     </button>
     <button class="account-card" onclick="openHistory()">
-      <span class="account-card-icon">🕓</span>
+      <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
       <span class="account-card-label">Mis viajes</span>
       <small class="acc-tile-sub" id="tileTrips">Ver mis viajes</small>
     </button>
@@ -977,7 +982,7 @@ function toggleRiderTheme() {
   </div>
 
   <div class="acc-list">
-    <button class="acc-row" onclick="toggleAccountSection('theme', this)"><span class="acc-row-ic">🎨</span><span class="acc-row-txt"><b>Apariencia</b><small id="accThemeSub"></small></span><svg class="acc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="acc-row" onclick="toggleAccountSection('theme', this)"><span class="acc-row-ic"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16" cy="10" r="1.2"/><path d="M12 21a3 3 0 0 1 0-6h2.5a2.5 2.5 0 0 0 2.5-2.5"/></svg></span><span class="acc-row-txt"><b>Apariencia</b><small id="accThemeSub"></small></span><svg class="acc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
     <div id="accountSectionTheme" class="account-detail acc-theme-detail">
       <div class="theme-block">
         <div class="theme-picker">
@@ -988,8 +993,8 @@ function toggleRiderTheme() {
         <div class="theme-note">Automático: claro de día (6 am a 7 pm) y oscuro de noche.</div>
       </div>
     </div>
-    <button class="acc-row" onclick="location.href='chofer.html'"><span class="acc-row-ic">🔁</span><span class="acc-row-txt"><b>Modo chofer</b><small>Cambiar a la app del chofer</small></span><svg class="acc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
-    <button class="acc-row" onclick="location.href='aviso-privacidad.html'"><span class="acc-row-ic">📄</span><span class="acc-row-txt"><b>Aviso de privacidad</b></span><svg class="acc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="acc-row" onclick="location.href='chofer.html'"><span class="acc-row-ic"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></span><span class="acc-row-txt"><b>Modo chofer</b><small>Cambiar a la app del chofer</small></span><svg class="acc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button class="acc-row" onclick="location.href='aviso-privacidad.html'"><span class="acc-row-ic"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg></span><span class="acc-row-txt"><b>Aviso de privacidad</b></span><svg class="acc-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
   </div>
 
   <button class="acc-logout" onclick="logoutRider()">Cerrar sesión</button>
@@ -1003,10 +1008,10 @@ function toggleRiderTheme() {
     <div class="drawer-me" id="drawerMe"></div>
   </div>
   <div class="drawer-nav">
-    <button class="drawer-row" onclick="openProfile()"><span class="row-icon">🧍</span>Mi cuenta</button>
-    <button class="drawer-row" onclick="openHistory()"><span class="row-icon">🕓</span>Mis viajes</button>
-    <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon">🔁</span>Modo chofer</button>
-    <button class="drawer-row danger" onclick="logoutRider()"><span class="row-icon">🚪</span>Cerrar sesión</button>
+    <button class="drawer-row" onclick="openProfile()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span>Mi cuenta</button>
+    <button class="drawer-row" onclick="openHistory()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Mis viajes</button>
+    <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></span>Modo chofer</button>
+    <button class="drawer-row danger" onclick="logoutRider()"><span class="row-icon" style="color:#ef4444"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>Cerrar sesión</button>
   </div>
 </div>
 
@@ -1425,7 +1430,7 @@ async function updateRouteLine() {
   if (["completado", "cancelado"].includes(currentRideStatus)) return;
   if (routeLine) statusMap.removeLayer(routeLine);
   // Verde MotoVecino: se ve igual de bien en el mapa claro y en el oscuro.
-  routeLine = L.polyline(points, { color: color === "#3498db" ? "#10b981" : (document.documentElement.dataset.theme === "dark" ? "#34d399" : "#047857"), weight: 5, opacity: 0.95, lineCap: "round" }).addTo(statusMap);
+  routeLine = L.polyline(points, { color: color === "#3498db" ? "#22c55e" : (document.documentElement.dataset.theme === "dark" ? "#4ade80" : "#15803d"), weight: 5, opacity: 0.95, lineCap: "round" }).addTo(statusMap);
   updateEtaDisplay(duration);
 }
 
@@ -3161,7 +3166,7 @@ function tripMiniMap(r) {
   const x1 = cx - (dx * k) / 2, y1 = cy + (dy * k) / 2, x2 = cx + (dx * k) / 2, y2 = cy - (dy * k) / 2;
   const mx = (x1 + x2) / 2 + (y2 - y1) * 0.18, my = (y1 + y2) / 2 - (x2 - x1) * 0.18;
   const f = (n) => n.toFixed(1);
-  return `<svg class="tc-map" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs><pattern id="tcg" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(12)"><path d="M14 0H0V14" fill="none" stroke="currentColor" stroke-opacity=".16" stroke-width="1.4"/></pattern></defs><rect width="${W}" height="${H}" fill="url(#tcg)"/><path d="M${f(x1)} ${f(y1)} Q${f(mx)} ${f(my)} ${f(x2)} ${f(y2)}" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round"/><circle cx="${f(x1)}" cy="${f(y1)}" r="3.6" fill="#10b981"/><rect x="${f(x2 - 3.6)}" y="${f(y2 - 3.6)}" width="7.2" height="7.2" rx="1.5" fill="#fff" stroke="#0b1220" stroke-width="1.4"/></svg>`;
+  return `<svg class="tc-map" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs><pattern id="tcg" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(12)"><path d="M14 0H0V14" fill="none" stroke="currentColor" stroke-opacity=".16" stroke-width="1.4"/></pattern></defs><rect width="${W}" height="${H}" fill="url(#tcg)"/><path d="M${f(x1)} ${f(y1)} Q${f(mx)} ${f(my)} ${f(x2)} ${f(y2)}" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><circle cx="${f(x1)}" cy="${f(y1)}" r="3.6" fill="#22c55e"/><rect x="${f(x2 - 3.6)}" y="${f(y2 - 3.6)}" width="7.2" height="7.2" rx="1.5" fill="#fff" stroke="#0b1220" stroke-width="1.4"/></svg>`;
 }
 
 function expandHistory() {

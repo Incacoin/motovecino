@@ -6,7 +6,7 @@
   let uid = 0;
   const dark = () => document.documentElement.dataset.theme === "dark";
   // Verde esmeralda de MotoVecino: más claro de noche, más oscuro de día (se lee al sol).
-  const motoColors = () => (dark() ? { body: "#34d399", bodyDark: "#047857" } : { body: "#10b981", bodyDark: "#047857" });
+  const motoColors = () => (dark() ? { body: "#4ade80", bodyDark: "#15803d" } : { body: "#22c55e", bodyDark: "#15803d" });
 
   // Motocarro desde arriba: toldo negro grande y la cabina pintada con nariz
   // redondeada, parabrisas, espejos y faro. El frente apunta hacia abajo (+y).
@@ -30,7 +30,7 @@
   }
 
   // Taxi desde arriba: parabrisas, vidrio trasero, letrero en el techo, faros y calaveras.
-  function taxiTop({ body = "#f8fafc", bodyDark = "#cbd0d6", sign = "#10b981", glass = "#111820" }) {
+  function taxiTop({ body = "#f8fafc", bodyDark = "#cbd0d6", sign = "#22c55e", glass = "#111820" }) {
     const u = "vt" + ++uid;
     return `<defs><linearGradient id="${u}b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${bodyDark}"/><stop offset=".5" stop-color="${body}"/><stop offset="1" stop-color="${bodyDark}"/></linearGradient>
 <filter id="${u}f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter></defs>
@@ -86,9 +86,9 @@
 <ellipse cx="122" cy="114" rx="108" ry="13" fill="url(#${u}sh)"/>
 <path d="M16 82 Q14 66 34 62 L64 58 Q84 36 108 34 L160 32 Q178 32 192 48 L206 58 Q224 62 226 76 L226 90 Q226 96 218 96 L24 104 Q16 104 16 96 Z" fill="url(#${u}s)"/>
 <path d="M80 58 Q94 44 110 42 L130 41 L130 58 Z" fill="url(#${u}gl)"/><path d="M136 41 L156 40 Q170 40 180 52 L136 57 Z" fill="url(#${u}gl)"/>
-<path d="M20 80 L224 72" stroke="#10b981" stroke-width="5"/>
+<path d="M20 80 L224 72" stroke="#22c55e" stroke-width="5"/>
 <path d="M18 76 Q20 70 30 68 L32 76 Z" fill="#fef3c7"/><path d="M220 70 L226 70 L226 78 L218 78 Z" fill="#ef4444"/>
-<path d="M112 26 L146 25 L148 34 L110 35 Z" fill="#10b981"/><text x="129" y="33" text-anchor="middle" style="font:800 8px Arial" fill="#fff">TAXI</text>
+<path d="M112 26 L146 25 L148 34 L110 35 Z" fill="#22c55e"/><text x="129" y="33" text-anchor="middle" style="font:800 8px Arial" fill="#fff">TAXI</text>
 <ellipse cx="58" cy="102" rx="15" ry="18" fill="url(#${u}w)"/><ellipse cx="190" cy="98" rx="15" ry="18" fill="url(#${u}w)"/></svg>`;
   }
 

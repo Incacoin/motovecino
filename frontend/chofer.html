@@ -55,7 +55,7 @@ function setDriverTheme(pref) {
 </script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="vehiculos-mapa.js?v=2"></script>
+<script src="vehiculos-mapa.js?v=3"></script>
 <style>
   #login {
     display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow-y: auto; gap: 16px; padding: 24px 24px 90px; text-align: center;
@@ -439,23 +439,23 @@ function setDriverTheme(pref) {
   #panel { margin: 0 10px 10px; border-radius: 28px; background: rgba(255,255,255,0.88) !important; backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 18px 50px rgba(15,23,42,0.2) !important; }
   html[data-theme="dark"] #panel { background: rgba(16,19,25,0.8) !important; border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 24px 60px rgba(0,0,0,0.55) !important; }
   #earnPill { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-  #earnPill .bar > div { background: linear-gradient(90deg, #059669, #34d399); }
+  #earnPill .bar > div { background: linear-gradient(90deg, #16a34a, #4ade80); }
   .ride-card { border-radius: 22px; }
   html[data-theme="dark"] .ride-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
-  .ride-card.pending { border-left: 0 !important; border: 2px solid #10b981 !important; box-shadow: 0 0 0 6px rgba(16,185,129,0.12); }
+  .ride-card.pending { border-left: 0 !important; border: 2px solid #22c55e !important; box-shadow: 0 0 0 6px rgba(34,197,94,0.12); }
   .ride-card.active { border-left: 0 !important; }
   .req-big { text-align: center; margin: 6px 0 4px; }
   .req-big small { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
   .req-big b { display: block; font-size: 46px; font-weight: 800; letter-spacing: -0.05em; line-height: 1.05; }
-  .req-big span { display: block; font-size: 12.5px; font-weight: 700; color: #059669; margin-top: 2px; }
-  html[data-theme="dark"] .req-big span { color: #34d399; }
-  .btn.btn-accept { background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-size: 18px; font-weight: 800; border-radius: 18px; padding: 16px; box-shadow: 0 12px 26px rgba(16,185,129,0.3); }
+  .req-big span { display: block; font-size: 12.5px; font-weight: 700; color: #16a34a; margin-top: 2px; }
+  html[data-theme="dark"] .req-big span { color: #4ade80; }
+  .btn.btn-accept { background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-size: 18px; font-weight: 800; border-radius: 18px; padding: 16px; box-shadow: 0 12px 26px rgba(34,197,94,0.3); }
   /* Botón deslizable */
-  .slide { position: relative; height: 60px; border-radius: 20px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.45); display: flex; align-items: center; justify-content: center; margin: 10px 0 8px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
-  .slide-lbl { font-size: 16px; font-weight: 800; color: #047857; padding-left: 40px; pointer-events: none; transition: opacity .15s; }
+  .slide { position: relative; height: 60px; border-radius: 20px; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.45); display: flex; align-items: center; justify-content: center; margin: 10px 0 8px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .slide-lbl { font-size: 16px; font-weight: 800; color: #15803d; padding-left: 40px; pointer-events: none; transition: opacity .15s; }
   html[data-theme="dark"] .slide-lbl { color: #a7f3d0; }
-  .slide-knob { position: absolute; left: 5px; top: 5px; width: 50px; height: 50px; border-radius: 16px; background: linear-gradient(180deg, #34d399, #059669); color: #04110b; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; cursor: grab; box-shadow: 0 6px 16px rgba(5,150,105,0.35); z-index: 2; touch-action: none; }
-  .slide.ready { box-shadow: 0 0 0 4px rgba(16,185,129,0.25); }
+  .slide-knob { position: absolute; left: 5px; top: 5px; width: 50px; height: 50px; border-radius: 16px; background: linear-gradient(180deg, #4ade80, #16a34a); color: #04110b; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; cursor: grab; box-shadow: 0 6px 16px rgba(5,150,105,0.35); z-index: 2; touch-action: none; }
+  .slide.ready { box-shadow: 0 0 0 4px rgba(34,197,94,0.25); }
   .slide::after { content: ""; position: absolute; top: 0; bottom: 0; width: 70px; left: -70px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: slideShine 2.2s ease-in-out infinite; pointer-events: none; }
   @keyframes slideShine { to { left: 110%; } }
   @media (prefers-reduced-motion: reduce) { .slide::after { animation: none; } }
@@ -464,29 +464,29 @@ function setDriverTheme(pref) {
   #topbar { margin: 8px 10px 0; border-radius: 22px; border: 1px solid rgba(15,23,42,0.07) !important; padding: 12px 14px; box-shadow: 0 10px 30px rgba(15,23,42,0.12); position: relative; z-index: 20; }
   html[data-theme="dark"] #topbar { border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: 0 14px 34px rgba(0,0,0,0.45); }
   #topbar .name { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
-  #tierBadge { display: inline-block !important; margin-top: 4px; font-size: 11.5px !important; font-weight: 700; color: #047857 !important; background: rgba(16,185,129,0.12); padding: 3px 9px; border-radius: 999px; }
-  html[data-theme="dark"] #tierBadge { color: #6ee7b7 !important; background: rgba(52,211,153,0.12); }
+  #tierBadge { display: inline-block !important; margin-top: 4px; font-size: 11.5px !important; font-weight: 700; color: #15803d !important; background: rgba(34,197,94,0.12); padding: 3px 9px; border-radius: 999px; }
+  html[data-theme="dark"] #tierBadge { color: #86efac !important; background: rgba(74,222,128,0.12); }
   #tierBadge[style*="display: none"], #tierBadge[style*="display:none"] { display: none !important; }
-  #switch.on { background: #10b981 !important; }
+  #switch.on { background: #22c55e !important; }
   .act-head { margin-bottom: 6px; }
   .act-head small { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
   .act-head b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; }
   .ride-card.active .chip { border-radius: 12px; }
-  .btn.btn-go { background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-weight: 800; border-radius: 18px; font-size: 17px; box-shadow: 0 12px 26px rgba(16,185,129,0.28); }
+  .btn.btn-go { background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800; border-radius: 18px; font-size: 17px; box-shadow: 0 12px 26px rgba(34,197,94,0.28); }
   .ride-card.active .btn-danger { background: transparent !important; border: 0 !important; color: #ef4444; font-weight: 700; font-size: 14.5px; text-decoration: underline; padding: 10px; }
   /* Viaje terminado */
   #tripDone { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 20px; animation: tdIn .25s ease-out; }
   .td-card { width: 100%; max-width: 360px; border-radius: 30px; padding: 26px 20px 20px; text-align: center; background: rgba(255,255,255,0.94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 30px 70px rgba(0,0,0,0.35); animation: tdPop .45s cubic-bezier(.2,1.4,.4,1); }
   html[data-theme="dark"] .td-card { background: rgba(16,19,25,0.92); border: 1px solid rgba(255,255,255,0.09); color: #fff; }
-  .td-check { width: 70px; height: 70px; margin: 0 auto 8px; border-radius: 50%; background: linear-gradient(160deg, #34d399, #059669); color: #04110b; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; box-shadow: 0 0 0 10px rgba(16,185,129,0.15); }
-  .td-plus { font-size: 52px; font-weight: 800; letter-spacing: -0.05em; color: #059669; line-height: 1.05; }
-  html[data-theme="dark"] .td-plus { color: #34d399; }
+  .td-check { width: 70px; height: 70px; margin: 0 auto 8px; border-radius: 50%; background: linear-gradient(160deg, #4ade80, #16a34a); color: #04110b; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; box-shadow: 0 0 0 10px rgba(34,197,94,0.15); }
+  .td-plus { font-size: 52px; font-weight: 800; letter-spacing: -0.05em; color: #16a34a; line-height: 1.05; }
+  html[data-theme="dark"] .td-plus { color: #4ade80; }
   .td-sub { font-size: 14px; font-weight: 600; color: var(--text-dim); margin-top: 4px; }
   .td-total { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
   .td-goal { margin: 14px 0 4px; text-align: left; }
   .td-gl { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
   .td-bar { height: 7px; border-radius: 99px; background: rgba(127,127,127,0.2); overflow: hidden; }
-  .td-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #059669, #34d399); }
+  .td-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #16a34a, #4ade80); }
   .td-trips { font-size: 13px; font-weight: 700; color: var(--text-dim); margin: 8px 0 12px; }
   .td-card .btn { width: 100%; margin: 6px 0 0; }
   @keyframes tdIn { from { opacity: 0; } to { opacity: 1; } }
@@ -494,7 +494,7 @@ function setDriverTheme(pref) {
   @media (prefers-reduced-motion: reduce) { #tripDone, .td-card { animation: none; } }
 
   /* ===== Cuentas (30-sep): "Mi perfil" y "Pagos y cuenta" como el diseño ===== */
-  #profileScreen { background: radial-gradient(circle at 50% -10%, rgba(16,185,129,0.14), transparent 55%), var(--bg); }
+  #profileScreen { background: radial-gradient(circle at 50% -10%, rgba(34,197,94,0.14), transparent 55%), var(--bg); }
   .pf-page { gap: 12px !important; }
   .pf-top { display: flex; align-items: center; gap: 12px; padding-top: 4px; }
   .pf-top h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
@@ -505,8 +505,8 @@ function setDriverTheme(pref) {
   .pf-hero { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 24px; }
   .pf-av { position: relative; width: 76px; height: 76px; flex-shrink: 0; }
   .pf-av #profilePhotoSlot, .pf-av #profilePhoto, .pf-av .profile-photo-fallback { width: 76px !important; height: 76px !important; border-radius: 50% !important; margin: 0 !important; box-sizing: border-box; }
-  .pf-av #profilePhoto { object-fit: cover; border: 3px solid #10b981 !important; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
-  .pf-av .profile-photo-fallback { display: flex; align-items: center; justify-content: center; border: 3px solid rgba(16,185,129,0.6) !important; }
+  .pf-av #profilePhoto { object-fit: cover; border: 3px solid #22c55e !important; box-shadow: 0 0 0 4px rgba(34,197,94,0.15) !important; }
+  .pf-av .profile-photo-fallback { display: flex; align-items: center; justify-content: center; border: 3px solid rgba(34,197,94,0.6) !important; }
   .pf-av.gold #profilePhoto, .pf-av.gold .profile-photo-fallback { border-color: #e0b04a !important; box-shadow: 0 0 0 4px rgba(224,176,74,0.18) !important; }
   .pf-cam { position: absolute; right: -2px; bottom: -2px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25); padding: 0; }
   .pf-hero-txt { flex: 1; min-width: 0; text-align: left; }
@@ -532,23 +532,23 @@ function setDriverTheme(pref) {
   .menu-label small { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-dim); margin-top: 2px; }
   .menu-label { flex: 1; font-weight: 800 !important; }
   .pf-pill { font-size: 11.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; background: rgba(127,127,127,0.15); color: var(--text-dim); white-space: nowrap; }
-  .pf-pill.on { color: #047857; background: rgba(16,185,129,0.14); }
-  html[data-theme="dark"] .pf-pill.on { color: #6ee7b7; }
+  .pf-pill.on { color: #15803d; background: rgba(34,197,94,0.14); }
+  html[data-theme="dark"] .pf-pill.on { color: #86efac; }
   #earningsCard { flex-direction: column; border-top: 1px solid var(--border); }
   .pf-list .section-body { padding: 4px 6px 12px; }
   #section-ganancias .earn-today, #section-ganancias .earn-grid { margin-top: 6px; }
   #inviteCard { border-radius: 22px !important; }
   #inviteCard .btn { background: #25d366 !important; color: #fff !important; font-weight: 800; border-radius: 16px; }
   .pf-next { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 12px; border-radius: 22px; font: inherit; font-size: 15px; color: var(--text); text-align: left; cursor: pointer; }
-  .pf-next > span:first-child { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: rgba(16,185,129,0.14); flex-shrink: 0; }
+  .pf-next > span:first-child { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: rgba(34,197,94,0.14); flex-shrink: 0; }
   .pf-section-label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin: 6px 4px -4px; }
   #pfAccount .theme-picker { border-radius: 16px; }
   .pf-logout { width: 100%; padding: 15px; border-radius: 18px; font: inherit; font-size: 15.5px; font-weight: 800; cursor: pointer; color: #ef4444; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); margin-top: 4px; }
 
   /* ===== Portada (30-sep): estilo Cristal premium ===== */
-  #login { background: radial-gradient(ellipse 420px 300px at 50% 120px, rgba(16,185,129,0.20), transparent 70%), var(--bg) !important; }
+  #login { background: radial-gradient(ellipse 420px 300px at 50% 120px, rgba(34,197,94,0.20), transparent 70%), var(--bg) !important; }
   #login .brand { font-size: 30px !important; font-weight: 800; }
-  #login .brand .brand-icon { width: 46px !important; height: 46px !important; border-radius: 14px !important; box-shadow: 0 10px 24px rgba(16,185,129,0.25) !important; }
+  #login .brand .brand-icon { width: 46px !important; height: 46px !important; border-radius: 14px !important; box-shadow: 0 10px 24px rgba(34,197,94,0.25) !important; }
   .entry-veh { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin: 2px 0 -2px; }
   .entry-veh svg { display: block; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.18)); }
   .entry-title { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; color: var(--text); margin-top: 2px; }
@@ -557,12 +557,12 @@ function setDriverTheme(pref) {
   html[data-theme="dark"] .entry-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 18px 44px rgba(0,0,0,0.45); }
   .entry-card .input-icon-row, .entry-card > input { width: 100% !important; box-sizing: border-box; border-radius: 16px !important; background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.08) !important; }
   html[data-theme="dark"] .entry-card .input-icon-row, html[data-theme="dark"] .entry-card > input { background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.10) !important; }
-  .entry-card .input-icon-row:focus-within, .entry-card > input:focus { border-color: #10b981 !important; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
+  .entry-card .input-icon-row:focus-within, .entry-card > input:focus { border-color: #22c55e !important; box-shadow: 0 0 0 4px rgba(34,197,94,0.15) !important; }
   .entry-card > input { padding: 14px 16px; font-size: 16px; text-align: left; }
-  .entry-card .btn { width: 100% !important; margin: 4px 0 0 !important; background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-weight: 800; font-size: 17px; border-radius: 18px; border: 0 !important; box-shadow: 0 12px 26px rgba(16,185,129,0.30); }
+  .entry-card .btn { width: 100% !important; margin: 4px 0 0 !important; background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800; font-size: 17px; border-radius: 18px; border: 0 !important; box-shadow: 0 12px 26px rgba(34,197,94,0.30); }
   .entry-card .entry-legal { font-size: 12px; color: var(--text-dim); text-align: center; }
-  .entry-card .entry-legal a { color: #059669 !important; font-weight: 700; }
-  html[data-theme="dark"] .entry-card .entry-legal a { color: #34d399 !important; }
+  .entry-card .entry-legal a { color: #16a34a !important; font-weight: 700; }
+  html[data-theme="dark"] .entry-card .entry-legal a { color: #4ade80 !important; }
   #login .btn-sm { border-radius: 14px !important; }
   #login .maya-motif { opacity: 0.55; }
 
@@ -572,13 +572,18 @@ function setDriverTheme(pref) {
   html[data-theme="dark"] #login .btn-sm { background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.09) !important; }
   /* Portada: el pueblo va abajo del nombre para que no lo tape el botón del sol (30-sep). */
   #login .brand { flex-wrap: wrap; row-gap: 8px; max-width: calc(100vw - 120px); margin-top: 18px !important; }
-  #login .brand #cityLabel { flex-basis: 100%; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #059669; }
-  html[data-theme="dark"] #login .brand #cityLabel { color: #34d399; }
+  #login .brand #cityLabel { flex-basis: 100%; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #16a34a; }
+  html[data-theme="dark"] #login .brand #cityLabel { color: #4ade80; }
   #login .brand #cityLabel:empty { display: none; }
   /* Portada: si no cabe en la pantalla, empieza arriba y se desliza (antes se cortaba el nombre) y el crédito va al final, sin encimarse (30-sep). */
   #login { justify-content: safe center !important; padding-bottom: 20px !important; }
   #login > .credit { position: static !important; margin-top: 4px; flex-shrink: 0; }
   #login > * { flex-shrink: 0; }
+
+  /* Iconos de línea (30-sep): el trazo va en el verde del logo dentro de su cuadro. */
+  .pf-list .menu-row > span:first-child, .pf-next > span:first-child { color: #16a34a; }
+  html[data-theme="dark"] .pf-list .menu-row > span:first-child, .pf-next > span:first-child { color: #4ade80; }
+  svg.li { display: block; }
 </style>
 </head>
 <body>
@@ -713,14 +718,14 @@ function setDriverTheme(pref) {
 
     <div class="card menu-card pf-list">
       <button class="menu-row" onclick="toggleSection('avisos')">
-        <span>🔔</span><span class="menu-label">Avisos de viajes<small>Te suena aunque cierres la app</small></span><span class="pf-pill" id="pfPushPill"></span><span class="menu-chev" id="chev-avisos">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="menu-label">Avisos de viajes<small>Te suena aunque cierres la app</small></span><span class="pf-pill" id="pfPushPill"></span><span class="menu-chev" id="chev-avisos">›</span>
       </button>
       <div id="section-avisos" class="section-body" style="display:none;">
         <div id="pushProfileStatus"></div>
         <div class="profile-note">💡 ¿Solo quieres descansar hoy? No hace falta desactivarlos: ponte «Desconectado» y no te llega nada. Cuando te pongas «Disponible», regresan solos.</div>
       </div>
       <button class="menu-row" onclick="toggleSection('meta')">
-        <span>🎯</span><span class="menu-label">Mi meta de hoy<small id="pfGoalSub">Sin meta</small></span><span class="menu-chev" id="chev-meta">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span><span class="menu-label">Mi meta de hoy<small id="pfGoalSub">Sin meta</small></span><span class="menu-chev" id="chev-meta">›</span>
       </button>
       <div id="section-meta" class="section-body" style="display:none;">
   <div class="goal-box">
@@ -735,7 +740,7 @@ function setDriverTheme(pref) {
       </div>
       <div id="earningsCard" style="display:none;">
       <button class="menu-row" onclick="toggleSection('ganancias')">
-        <span>📊</span><span class="menu-label">Mis ganancias<small id="pfEarnSub"></small></span><span class="menu-chev" id="chev-ganancias">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-9"/></svg></span><span class="menu-label">Mis ganancias<small id="pfEarnSub"></small></span><span class="menu-chev" id="chev-ganancias">›</span>
       </button>
         <div id="section-ganancias" class="section-body" style="display:none;">
     <div class="earn-today">
@@ -762,7 +767,7 @@ function setDriverTheme(pref) {
       <div class="invite-progress" id="inviteProgress" style="display:none;"></div>
     </div>
 
-    <button class="pf-next" onclick="showPfPage('cuenta')"><span>💳</span><span class="menu-label">Pagos y cuenta<small>Mis pagos, anticipos, mis datos, PIN y apariencia</small></span><span class="menu-chev">›</span></button>
+    <button class="pf-next" onclick="showPfPage('cuenta')"><span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span><span class="menu-label">Pagos y cuenta<small>Mis pagos, anticipos, mis datos, PIN y apariencia</small></span><span class="menu-chev">›</span></button>
     <div class="credit footer-credit" style="text-align:center;">⚡ Tecnología de <strong>Lealtad Digital</strong></div>
   </div>
 
@@ -771,7 +776,7 @@ function setDriverTheme(pref) {
 
     <div class="card menu-card pf-list">
       <button class="menu-row" onclick="toggleSection('pagos')">
-        <span>💳</span><span class="menu-label">Mis pagos<small>Lo que llevas de cuota de la app</small></span><span class="menu-chev" id="chev-pagos">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span><span class="menu-label">Mis pagos<small>Lo que llevas de cuota de la app</small></span><span class="menu-chev" id="chev-pagos">›</span>
       </button>
       <div id="section-pagos" class="section-body" style="display:none;">
         <div id="accountRows"></div>
@@ -779,7 +784,7 @@ function setDriverTheme(pref) {
       </div>
 
       <button class="menu-row taxi-only" onclick="toggleSection('anticipos')">
-        <span>💵</span><span class="menu-label">Anticipos recibidos<small>Depósitos de viajes foráneos</small></span><span class="menu-chev" id="chev-anticipos">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span><span class="menu-label">Anticipos recibidos<small>Depósitos de viajes foráneos</small></span><span class="menu-chev" id="chev-anticipos">›</span>
       </button>
       <div id="section-anticipos" class="section-body" style="display:none;">
         <div id="depositRows"></div>
@@ -788,7 +793,7 @@ function setDriverTheme(pref) {
       </div>
 
       <button class="menu-row taxi-only" onclick="toggleSection('cuenta')">
-        <span>🏦</span><span class="menu-label">Cuenta para anticipos<small>Donde te depositan el anticipo</small></span><span class="menu-chev" id="chev-cuenta">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 4l9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 21h18"/></svg></span><span class="menu-label">Cuenta para anticipos<small>Donde te depositan el anticipo</small></span><span class="menu-chev" id="chev-cuenta">›</span>
       </button>
       <div id="section-cuenta" class="section-body" style="display:none;">
         <div class="bank-form">
@@ -812,7 +817,7 @@ function setDriverTheme(pref) {
     <div class="pf-section-label">Mi cuenta</div>
     <div class="card menu-card pf-list">
       <button class="menu-row" onclick="toggleSection('datos')">
-        <span>🪪</span><span class="menu-label">Mis datos<small>Nombre, teléfono y unidad</small></span><span class="menu-chev" id="chev-datos">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M6 16a3 3 0 0 1 6 0"/><path d="M15 9h3M15 13h3"/></svg></span><span class="menu-label">Mis datos<small>Nombre, teléfono y unidad</small></span><span class="menu-chev" id="chev-datos">›</span>
       </button>
       <div id="section-datos" class="section-body" style="display:none;">
         <div id="dataRows"></div>
@@ -820,7 +825,7 @@ function setDriverTheme(pref) {
       </div>
 
       <button class="menu-row" onclick="toggleSection('pin')">
-        <span>🔑</span><span class="menu-label">Mi PIN de acceso<small>Tócalo para verlo</small></span><span class="menu-chev" id="chev-pin">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg></span><span class="menu-label">Mi PIN de acceso<small>Tócalo para verlo</small></span><span class="menu-chev" id="chev-pin">›</span>
       </button>
       <div id="section-pin" class="section-body" style="display:none;">
         <div class="pin-box" id="profilePin">••••</div>
@@ -838,10 +843,10 @@ function setDriverTheme(pref) {
 
     <div class="card menu-card pf-list">
       <a class="menu-row" href="aviso-legal.html">
-        <span>📄</span><span class="menu-label">Aviso legal</span><span class="menu-chev">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg></span><span class="menu-label">Aviso legal</span><span class="menu-chev">›</span>
       </a>
       <a class="menu-row" href="aviso-privacidad.html">
-        <span>🔒</span><span class="menu-label">Aviso de privacidad</span><span class="menu-chev">›</span>
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="menu-label">Aviso de privacidad</span><span class="menu-chev">›</span>
       </a>
     </div>
 
@@ -1968,7 +1973,7 @@ async function updateRouteLine() {
   if (!currentRide) return; // el viaje pudo terminar mientras esperábamos la respuesta
   if (routeLine) map.removeLayer(routeLine);
   // Verde MotoVecino (se ve bien en el mapa claro y en el oscuro).
-  routeLine = L.polyline(points, { color: document.documentElement.dataset.theme === "dark" ? "#34d399" : "#047857", weight: 5, opacity: 0.95, lineCap: "round" }).addTo(map);
+  routeLine = L.polyline(points, { color: document.documentElement.dataset.theme === "dark" ? "#4ade80" : "#15803d", weight: 5, opacity: 0.95, lineCap: "round" }).addTo(map);
   updateEtaDisplay(duration);
 }
 
