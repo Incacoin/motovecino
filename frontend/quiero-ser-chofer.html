@@ -20,7 +20,17 @@
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2" />
 <meta name="theme-color" content="#ffffff" />
+<script>
+(function () {
+  let pref = "auto";
+  try { pref = localStorage.getItem("motovecino_tema_chofer") || "auto"; } catch (e) {}
+  const h = new Date().getHours();
+  const t = pref === "auto" ? (h >= 6 && h < 19 ? "light" : "dark") : pref;
+  document.documentElement.dataset.theme = t;
+})();
+</script>
 <link rel="stylesheet" href="style.css" />
+<script src="vehiculos-mapa.js?v=3"></script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <style>
   body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
@@ -115,30 +125,81 @@
   /* "Te invitó Carlos M." — solo si llegó con el link de un chofer */
   #inviteBanner { display: none; margin: 4px 0 16px; padding: 12px 14px; border-radius: 12px; background: #eaf7ee; border: 1px solid #bfe5c9; color: #000; font-size: 14.5px; }
   #inviteBanner b { font-weight: 700; }
+
+  /* ===== Diseño Cristal premium (30-sep): igual que la app y las portadas ===== */
+  :root { --accent: #16a34a; --accent-light: #22c55e; --accent-dark: #15803d; --accent-ink: #04110b; }
+  html[data-theme="dark"] {
+    --bg: #07090c; --bg-panel: #0f1115; --bg-card: rgba(255,255,255,0.06); --bg-card-hover: rgba(255,255,255,0.09);
+    --border: rgba(255,255,255,0.10); --text: #ffffff; --text-dim: #a1a8b3; --text-faint: #6b7280; --accent: #4ade80;
+  }
+  body { background: radial-gradient(ellipse 460px 320px at 50% 60px, rgba(34,197,94,0.18), transparent 70%), var(--bg) !important; color: var(--text) !important; align-items: flex-start !important; padding: 20px 16px 32px !important; }
+  .wrap { max-width: 420px !important; }
+  .qs-hero { text-align: center; margin-bottom: 14px; }
+  .qs-hero .brand { font-size: 30px; font-weight: 800; flex-wrap: wrap; row-gap: 8px; margin: 10px 0 0; color: var(--text) !important; }
+  .qs-hero .brand .brand-icon { width: 46px; height: 46px; border-radius: 14px !important; box-shadow: 0 10px 24px rgba(34,197,94,0.25) !important; }
+  .qs-hero .brand #cityLabel { flex-basis: 100%; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #16a34a; }
+  html[data-theme="dark"] .qs-hero .brand #cityLabel { color: #4ade80; }
+  .qs-hero .brand #cityLabel:empty { display: none; }
+  .qs-veh { display: flex; align-items: flex-end; justify-content: center; gap: 4px; margin: 14px 0 4px; }
+  .qs-veh svg { display: block; filter: drop-shadow(0 10px 14px rgba(0,0,0,0.18)); }
+  .qs-title { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; margin: 8px 0 14px; color: var(--text); }
+  .qs-perks { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+  .qs-perks > div { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 18px; background: rgba(15,23,42,0.045); border: 1px solid rgba(15,23,42,0.07); }
+  html[data-theme="dark"] .qs-perks > div { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+  .qs-perks span, .qs-card-h span { width: 38px; height: 38px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #16a34a; background: rgba(34,197,94,0.12); }
+  html[data-theme="dark"] .qs-perks span, html[data-theme="dark"] .qs-card-h span { color: #4ade80; background: rgba(74,222,128,0.12); }
+  .qs-perks p { margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.35; }
+  .qs-perks b { display: block; font-size: 14.5px; color: var(--text); font-weight: 800; }
+  .lead { font-size: 13.5px !important; margin: 14px 0 16px !important; }
+  #inviteBanner { border-radius: 16px !important; }
+  html[data-theme="dark"] #inviteBanner { background: rgba(74,222,128,0.10) !important; border-color: rgba(74,222,128,0.3) !important; color: #fff !important; }
+  .qs-card { padding: 16px 16px 4px; margin-bottom: 12px; border-radius: 24px; background: rgba(255,255,255,0.8); border: 1px solid rgba(15,23,42,0.07); box-shadow: 0 14px 36px rgba(15,23,42,0.08); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  html[data-theme="dark"] .qs-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 14px 36px rgba(0,0,0,0.4); }
+  .qs-card-h { display: flex; align-items: center; gap: 10px; font-size: 16.5px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 14px; color: var(--text); }
+  input, select { border-radius: 14px !important; }
+  html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] .phoneRow .prefix { background: rgba(255,255,255,0.06) !important; border: 1.5px solid rgba(255,255,255,0.08) !important; color: #fff !important; }
+  html[data-theme="dark"] select option { background: #111; color: #fff; }
+  input:focus, select:focus { border-color: #22c55e !important; box-shadow: 0 0 0 4px rgba(34,197,94,0.15) !important; }
+  .phoneRow .prefix { border-radius: 14px !important; }
+  .field label { color: var(--text) !important; }
+  .field label.legalCheck { color: var(--text-dim) !important; }
+  .fieldHint a, .legalCheck a { color: #16a34a !important; }
+  html[data-theme="dark"] .fieldHint a, html[data-theme="dark"] .legalCheck a { color: #4ade80 !important; }
+  .legalCheck input { accent-color: #16a34a !important; }
+  .field .photoBtn { border-radius: 16px !important; background: rgba(34,197,94,0.10) !important; color: #15803d !important; border: 1.5px dashed rgba(34,197,94,0.5) !important; }
+  html[data-theme="dark"] .field .photoBtn { color: #4ade80 !important; }
+  .field .photoBtn.done { border-style: solid !important; background: transparent !important; }
+  #photoPreview, #photoPlacaPreview { border-radius: 16px !important; }
+  #signaturePad { border-radius: 16px !important; }
+  .btn-clear-sign { border-radius: 12px !important; color: var(--text) !important; border-color: var(--border) !important; }
+  button.btn, a.btn { background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800 !important; font-size: 17px; border-radius: 18px !important; padding: 16px !important; box-shadow: 0 12px 26px rgba(34,197,94,0.30) !important; margin-top: 4px; }
+  .card { border-radius: 24px !important; }
+  html[data-theme="dark"] .card { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.09) !important; }
+  #okScreen h2, #ticulSoonScreen h2, #comingSoonScreen h2 { color: var(--text) !important; }
+  .credit { text-align: center; color: var(--text-dim); }
+  html[data-theme="dark"] .credit strong { color: #fff !important; }
 </style>
 </head>
 <body>
 
 <div class="wrap">
   <div id="formScreen">
-    <svg width="152" height="106" viewBox="0 0 200 140" fill="none" style="display:block;margin:0 auto 6px;">
-      <rect x="20" y="110" width="160" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-      <rect x="35" y="90" width="130" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-      <rect x="50" y="70" width="100" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-      <rect x="65" y="50" width="70" height="20" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-      <rect x="82" y="28" width="36" height="22" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-      <rect x="95" y="36" width="10" height="14" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-      <line x1="92" y1="50" x2="92" y2="130" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-      <line x1="108" y1="50" x2="108" y2="130" stroke="var(--accent)" stroke-width="1.4" opacity="0.8"/>
-      <line x1="92" y1="65" x2="108" y2="65" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-      <line x1="92" y1="85" x2="108" y2="85" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-      <line x1="92" y1="105" x2="108" y2="105" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
-      <line x1="10" y1="130" x2="190" y2="130" stroke="var(--accent)" stroke-width="1.6" opacity="0.8"/>
-    </svg>
-    <p class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span id="cityLabel"></span></p>
+    <div class="qs-hero">
+      <p class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span id="cityLabel"></span></p>
+      <div class="qs-veh" id="qsVeh"></div>
+      <script>document.getElementById("qsVeh").innerHTML = MVVeh.motoSide(112) + MVVeh.taxiSide(124);</script>
+      <h1 class="qs-title">Maneja con MotoVecino</h1>
+      <div class="qs-perks">
+        <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><p><b>Te avisa de cada viaje nuevo</b>aunque tengas la app cerrada.</p></div>
+        <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-9"/></svg></span><p><b>Ves lo que llevas ganado</b>hoy, en la semana y en el mes.</p></div>
+        <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><p><b>El extra es para ti</b>en mototaxi el pasajero puede darte +$5 o +$10, completo para ti.</p></div>
+      </div>
+    </div>
     <div id="inviteBanner">🤝 Te invitó <b id="inviteName"></b></div>
     <p class="lead">Regístrate como conductor y empieza a recibir viajes en <span id="cityLabelInline">tu zona</span>. Déjanos tu nombre y teléfono — te contactamos por WhatsApp para completar tu alta y darte tu PIN.</p>
 
+    <div class="qs-card">
+    <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span>Tus datos</div>
     <div class="field">
       <label>Nombre completo</label>
       <input id="name" placeholder="Tu nombre" />
@@ -163,6 +224,9 @@
         <option value="taxi">🚕 Taxi o carro</option>
       </select>
     </div>
+    </div>
+    <div class="qs-card">
+    <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></span>Tus fotos</div>
     <div class="field">
       <label>Foto de tu rostro</label>
       <p class="fieldHint">Una selfie clara de tu cara. Esta es la foto que le va a aparecer al pasajero cuando le llegue su viaje, para que te reconozca.</p>
@@ -177,18 +241,24 @@
       <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn">📷 Tomar foto con tu mototaxi</label>
       <img id="photoPlacaPreview" />
     </div>
+    </div>
+    <div class="qs-card">
+    <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9z"/></svg></span>Contacto de emergencia</div>
     <div class="field">
-      <label>Contacto de emergencia — nombre</label>
+      <label>Nombre</label>
       <p class="fieldHint">A quién avisar si te pasa algo en la calle.</p>
       <input id="emergencyName" placeholder="Nombre de tu contacto" />
     </div>
     <div class="field">
-      <label>Contacto de emergencia — teléfono</label>
+      <label>Teléfono</label>
       <div class="phoneRow">
         <span class="prefix">+52</span>
         <input id="emergencyPhone" placeholder="10 dígitos" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '')" />
       </div>
     </div>
+    </div>
+    <div class="qs-card">
+    <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>Para terminar</div>
     <div class="field">
       <label>¿Quién te invitó a MotoVecino? (opcional)</label>
       <input id="referredBy" placeholder="Ej. el chofer que te invitó, o 'Facebook' si viste el anuncio" />
@@ -207,6 +277,7 @@
         <span id="sigStatus">Sin firmar</span>
         <button type="button" class="btn-clear-sign" onclick="clearSignature()">Borrar firma</button>
       </div>
+    </div>
     </div>
     <button class="btn" onclick="submitApplication()">Quiero ser chofer</button>
     <div id="err"></div>
