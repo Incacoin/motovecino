@@ -806,6 +806,10 @@ function toggleRiderTheme() {
   #form .brand #cityLabel { flex-basis: 100%; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #059669; }
   html[data-theme="dark"] #form .brand #cityLabel { color: #34d399; }
   #form .brand #cityLabel:empty { display: none; }
+  /* Portada: si no cabe en la pantalla, empieza arriba y se desliza (antes se cortaba el nombre) y el crédito va al final, sin encimarse (30-sep). */
+  #form { justify-content: safe center !important; padding-bottom: 20px !important; }
+  #form > .credit { position: static !important; margin-top: 4px; flex-shrink: 0; }
+  #form > * { flex-shrink: 0; }
 </style>
 </head>
 <body>
