@@ -459,6 +459,39 @@ function setDriverTheme(pref) {
   .slide::after { content: ""; position: absolute; top: 0; bottom: 0; width: 70px; left: -70px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: slideShine 2.2s ease-in-out infinite; pointer-events: none; }
   @keyframes slideShine { to { left: 110%; } }
   @media (prefers-reduced-motion: reduce) { .slide::after { animation: none; } }
+
+  /* ===== Diseño 3 · tanda 3 (chofer): encabezado, viaje en curso y viaje terminado ===== */
+  #topbar { margin: 8px 10px 0; border-radius: 22px; border: 1px solid rgba(15,23,42,0.07) !important; padding: 12px 14px; box-shadow: 0 10px 30px rgba(15,23,42,0.12); position: relative; z-index: 20; }
+  html[data-theme="dark"] #topbar { border: 1px solid rgba(255,255,255,0.08) !important; box-shadow: 0 14px 34px rgba(0,0,0,0.45); }
+  #topbar .name { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+  #tierBadge { display: inline-block !important; margin-top: 4px; font-size: 11.5px !important; font-weight: 700; color: #047857 !important; background: rgba(16,185,129,0.12); padding: 3px 9px; border-radius: 999px; }
+  html[data-theme="dark"] #tierBadge { color: #6ee7b7 !important; background: rgba(52,211,153,0.12); }
+  #tierBadge[style*="display: none"], #tierBadge[style*="display:none"] { display: none !important; }
+  #switch.on { background: #10b981 !important; }
+  .act-head { margin-bottom: 6px; }
+  .act-head small { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; }
+  .act-head b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; }
+  .ride-card.active .chip { border-radius: 12px; }
+  .btn.btn-go { background: linear-gradient(180deg, #34d399, #059669) !important; color: #04110b !important; font-weight: 800; border-radius: 18px; font-size: 17px; box-shadow: 0 12px 26px rgba(16,185,129,0.28); }
+  .ride-card.active .btn-danger { background: transparent !important; border: 0 !important; color: #ef4444; font-weight: 700; font-size: 14.5px; text-decoration: underline; padding: 10px; }
+  /* Viaje terminado */
+  #tripDone { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 20px; animation: tdIn .25s ease-out; }
+  .td-card { width: 100%; max-width: 360px; border-radius: 30px; padding: 26px 20px 20px; text-align: center; background: rgba(255,255,255,0.94); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 30px 70px rgba(0,0,0,0.35); animation: tdPop .45s cubic-bezier(.2,1.4,.4,1); }
+  html[data-theme="dark"] .td-card { background: rgba(16,19,25,0.92); border: 1px solid rgba(255,255,255,0.09); color: #fff; }
+  .td-check { width: 70px; height: 70px; margin: 0 auto 8px; border-radius: 50%; background: linear-gradient(160deg, #34d399, #059669); color: #04110b; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 800; box-shadow: 0 0 0 10px rgba(16,185,129,0.15); }
+  .td-plus { font-size: 52px; font-weight: 800; letter-spacing: -0.05em; color: #059669; line-height: 1.05; }
+  html[data-theme="dark"] .td-plus { color: #34d399; }
+  .td-sub { font-size: 14px; font-weight: 600; color: var(--text-dim); margin-top: 4px; }
+  .td-total { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
+  .td-goal { margin: 14px 0 4px; text-align: left; }
+  .td-gl { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
+  .td-bar { height: 7px; border-radius: 99px; background: rgba(127,127,127,0.2); overflow: hidden; }
+  .td-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #059669, #34d399); }
+  .td-trips { font-size: 13px; font-weight: 700; color: var(--text-dim); margin: 8px 0 12px; }
+  .td-card .btn { width: 100%; margin: 6px 0 0; }
+  @keyframes tdIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes tdPop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #tripDone, .td-card { animation: none; } }
 </style>
 </head>
 <body>
@@ -1615,7 +1648,7 @@ function renderRideList() {
       const dist = myPos ? haversine(myPos.lat, myPos.lng, currentRide.pickup_lat, currentRide.pickup_lng).toFixed(1) : "?";
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="label">Yendo a recoger</div>
+          <div class="act-head"><small>Yendo a recoger a</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
@@ -1631,7 +1664,7 @@ function renderRideList() {
     } else if (currentRide.status === "llegue") {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="label">Esperando al pasajero</div>
+          <div class="act-head"><small>Esperando a</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips"><span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"}</span></div>
@@ -1647,14 +1680,14 @@ function renderRideList() {
                </div>`
             : ""}
           ${depositBoxHtml(currentRide)}
-          <button class="btn" onclick="startTrip()">Iniciar viaje</button>
+          <button class="btn btn-go" onclick="startTrip()">Iniciar viaje</button>
           <button class="btn-danger" onclick="cancelCurrentRide()">Cancelar viaje</button>
         </div>`;
     } else if (currentRide.status === "en_curso") {
       const dist = myPos && currentRide.dest_lat ? haversine(myPos.lat, myPos.lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1) : null;
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="label">Viaje en curso</div>
+          <div class="act-head"><small>Llevando a</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
@@ -2324,7 +2357,7 @@ async function completeRide() {
   if (data.todayEarned != null) {
     const gained = data.todayEarned - todayEarned;
     setEarnPill(data.todayEarned);
-    if (gained > 0) showEarnPlus(gained);
+    if (gained > 0) { showEarnPlus(gained); showTripDone(gained, data.todayEarned, data.todayCount); }
   }
   localStorage.setItem("motoya_driver", JSON.stringify(driver));
   document.getElementById("todayCountText").textContent = `Viajes hoy: ${todayCount}`;
@@ -2642,6 +2675,26 @@ function setEarnPill(total) {
 
 // "+$20" que sube hacia la cajita al terminar un viaje: el premio se ve en
 // el momento, igual que el número que sube en Uber.
+// Tarjeta de "¡Viaje terminado!" (diseño 3): se quita sola o al tocarla.
+function showTripDone(gained, today, trips) {
+  document.getElementById("tripDone")?.remove();
+  const goal = getGoal();
+  const pct = goal ? Math.min(100, Math.round((today / goal) * 100)) : null;
+  const el = document.createElement("div");
+  el.id = "tripDone";
+  el.innerHTML = `<div class="td-card">
+    <div class="td-check">✓</div>
+    <div class="td-plus">+${fmtMoney(gained)}</div>
+    <div class="td-sub">¡Buen viaje! Ya llevas</div>
+    <div class="td-total">${fmtMoney(today)} hoy</div>
+    ${goal ? `<div class="td-goal"><div class="td-gl"><span>Meta del día</span><b>${pct}%</b></div><div class="td-bar"><i style="width:${pct}%"></i></div></div>` : ""}
+    ${trips != null ? `<div class="td-trips">${trips} viaje${trips === 1 ? "" : "s"} hoy</div>` : ""}
+    <button class="btn btn-go">Seguir trabajando</button></div>`;
+  el.onclick = () => el.remove();
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+
 function showEarnPlus(amount) {
   const el = document.createElement("div");
   el.className = "earn-plus";

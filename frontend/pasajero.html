@@ -669,6 +669,49 @@ function toggleRiderTheme() {
   html[data-theme="dark"] .drawer-row .row-icon { background: rgba(255,255,255,0.07); }
   .drawer-row:hover { background: rgba(15,23,42,0.04); }
   html[data-theme="dark"] .drawer-row:hover { background: rgba(255,255,255,0.05); }
+
+  /* ===== Diseño 3 · tanda 3 (pasajero): buscando, Mi cuenta y Mis viajes ===== */
+  .status-header { max-width: min(360px, calc(100vw - 32px)) !important; border-radius: 24px !important; padding: 14px 16px !important; }
+  .status-icon { width: 68px; display: flex; justify-content: center; }
+  .status-icon svg { display: block; }
+  .status-header-text .big { font-size: 19px !important; font-weight: 800; letter-spacing: -0.02em; }
+  .verified-badge { color: #059669 !important; }
+  .verified-badge svg { stroke: #059669 !important; }
+  html[data-theme="dark"] .verified-badge { color: #34d399 !important; }
+  html[data-theme="dark"] .verified-badge svg { stroke: #34d399 !important; }
+  /* Mi cuenta */
+  #profileScreen { background: radial-gradient(circle at 50% -10%, rgba(16,185,129,0.14), transparent 55%); }
+  #profilePhoto { border: 3px solid #10b981 !important; box-shadow: 0 0 0 6px rgba(16,185,129,0.15); }
+  .profile-photo-fallback { border: 3px solid rgba(16,185,129,0.6) !important; }
+  #profileScreen .btn-sm, #profileScreen .input-icon-row { border-radius: 14px !important; }
+  .account-grid { width: min(340px, calc(100vw - 48px)) !important; gap: 10px !important; }
+  .account-card { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; padding: 14px !important; border-radius: 20px !important; background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.07) !important; }
+  html[data-theme="dark"] .account-card { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+  .account-card.open { border-color: #10b981 !important; background: rgba(16,185,129,0.08) !important; }
+  .account-card-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 19px !important; background: rgba(15,23,42,0.06); }
+  html[data-theme="dark"] .account-card-icon { background: rgba(255,255,255,0.08); }
+  .account-card-label { font-size: 15px !important; font-weight: 800 !important; color: var(--text) !important; }
+  .account-detail { width: min(340px, calc(100vw - 48px)) !important; }
+  /* Mis viajes */
+  .trip-card { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 10px; border-radius: 20px; background: rgba(15,23,42,0.04); border: 1px solid rgba(15,23,42,0.07); text-align: left; }
+  html[data-theme="dark"] .trip-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+  .tc-veh { flex-shrink: 0; width: 66px; display: flex; justify-content: center; }
+  .tc-body { flex: 1; min-width: 0; }
+  .tc-body small { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); }
+  .tc-body small em { font-style: normal; color: #ef4444; font-weight: 700; }
+  .tc-body b { display: block; font-size: 15px; font-weight: 800; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tc-body span { display: block; font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+  .tc-for { display: inline-block; margin-top: 6px; font-style: normal; font-size: 11.5px; font-weight: 700; color: #047857; background: rgba(16,185,129,0.12); padding: 3px 9px; border-radius: 99px; }
+  html[data-theme="dark"] .tc-for { color: #6ee7b7; }
+  .tc-price { font-size: 17px; font-weight: 800; color: #059669; white-space: nowrap; }
+  html[data-theme="dark"] .tc-price { color: #34d399; }
+  .load-more-btn { border-radius: 16px !important; }
+  #historyScreen { padding-top: 22px; background: radial-gradient(circle at 50% -10%, rgba(16,185,129,0.12), transparent 55%); }
+  .hist-title { letter-spacing: -0.03em; }
+  .badge-card { border-radius: 22px !important; background: rgba(16,185,129,0.08) !important; border: 1px solid rgba(16,185,129,0.28) !important; }
+  .badge-card .progress-note { color: #059669 !important; }
+  html[data-theme="dark"] .badge-card .progress-note { color: #34d399 !important; }
+  #historyScreen .btn-secondary { border-radius: 16px; }
 </style>
 </head>
 <body>
@@ -742,8 +785,8 @@ function toggleRiderTheme() {
 </div>
 
 <div id="historyScreen" class="screen">
-  <div class="brand" style="font-size:20px;">📋 Mis viajes</div>
-  <div id="accountPhone" style="text-align:center;color:var(--text-dim);font-size:13px;margin-top:-8px;"></div>
+  <div class="brand hist-title" style="font-size:22px;">Mis viajes</div>
+  <div id="accountPhone" style="text-align:center;color:var(--text-dim);font-size:13px;margin-top:2px;"></div>
   <div id="historyBody" style="padding:16px;overflow-y:auto;flex:1;width:100%;box-sizing:border-box;max-width:420px;margin:0 auto;">
     <div id="historyBadge" style="display:none;"></div>
     <div id="historyList"></div>
@@ -2160,7 +2203,7 @@ async function requestRide() {
   if (dest) L.marker([dest.lat, dest.lng], { icon: numberedIcon(2, "#3498db") }).addTo(statusMap);
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
-  document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
+  document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
   if (serviceType === "taxi") setupTaxiSearch(ride.offer_price, []);
 
   connectWs();
@@ -2904,7 +2947,7 @@ function saveRideToLocalHistory(rideId, token) {
 function badgeCardHtml(count) {
   const tier = riderTierLabel(count);
   const next = nextTierProgress(count);
-  const medal = tier ? tier.split(" ")[0] : "🛵";
+  const medal = tier ? tier.split(" ")[0] : MVVeh.motoSide(70);
   const tierName = tier ? tier.slice(tier.indexOf(" ") + 1) : `Pasajero MotoVecino ${resolvedCityLabel}`;
   return `
     <div class="card badge-card">
@@ -2934,6 +2977,28 @@ let historyRidesCache = [];
 let historyExpanded = false;
 
 function historyCardHtml(r) {
+  const raw = (r.completed_at || r.updated_at || r.created_at || "").replace(" ", "T");
+  const d = raw ? new Date(raw + (raw.endsWith("Z") ? "" : "Z")) : null;
+  const fecha = d && !isNaN(d) ? d.toLocaleString("es-MX", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "";
+  const ok = r.status === "completado";
+  const desde = r.pickup_label ? escapeHtml(r.pickup_label) : "Punto marcado";
+  const hasta = r.dest_label ? escapeHtml(r.dest_label) : (r.dest_lat != null ? "Punto marcado" : "Sin destino");
+  const chofer = r.driver && r.driver.name ? escapeHtml(r.driver.name.split(" ")[0]) : "";
+  const precio = ok && r.agreed_price ? `$${r.agreed_price}` : "";
+  return `
+      <div class="trip-card">
+        <div class="tc-veh">${r.ride_type === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60)}</div>
+        <div class="tc-body">
+          <small>${fecha}${ok ? "" : " · <em>Cancelado</em>"}</small>
+          <b>${desde} → ${hasta}</b>
+          <span>${r.ride_type === "taxi" ? "Taxi" : "Mototaxi"}${chofer ? ` · ${chofer}` : ""}</span>
+          ${r.for_name ? `<i class="tc-for">👤 Viaje para ${escapeHtml(r.for_name)}</i>` : ""}
+        </div>
+        <div class="tc-price">${precio}</div>
+      </div>`;
+}
+
+function historyCardHtmlViejo(r) {
   const fecha = (r.updated_at || r.created_at || "").slice(0, 16).replace("T", " ");
   const estadoLabel = { completado: "Completado", cancelado: "Cancelado" }[r.status] || r.status;
   return `
@@ -3584,7 +3649,7 @@ async function restoreActiveRide() {
     serviceType = fetched.ride_type === "taxi" ? "taxi" : "moto";
     document.getElementById("form").classList.remove("active");
     document.getElementById("status").classList.add("active");
-    document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
+    document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
     showForOtherNote(fetched);
     onCompleted();
     return true;
@@ -3612,7 +3677,7 @@ async function restoreActiveRide() {
   if (dest) L.marker([dest.lat, dest.lng], { icon: numberedIcon(2, "#3498db") }).addTo(statusMap);
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
-  document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
+  document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
   if (fetched.status === "buscando" && fetched.ride_type === "taxi") setupTaxiSearch(fetched.offer_price, fetched.offers);
   loadAllyAd();
   showExtraNote(fetched.extra);
