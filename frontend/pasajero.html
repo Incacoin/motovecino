@@ -588,6 +588,53 @@ function toggleRiderTheme() {
   html[data-theme="dark"] .drawer-row:hover { background: #1a1a1a; }
   html[data-theme="dark"] .locationBanner, html[data-theme="dark"] .toast { background: #fff; color: #000; }
   html[data-theme="dark"] .spinner { border-color: rgba(255,255,255,0.15); border-top-color: #fff; }
+
+  /* ===== Diseño 3 · paso 2 (pasajero): vidrio, pin verde, tarjetas y radar ===== */
+  #pickBar { margin: 0 10px 10px; border-radius: 28px; background: rgba(255,255,255,0.84); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 18px 50px rgba(15,23,42,0.2); }
+  html[data-theme="dark"] #pickBar { background: rgba(16,19,25,0.78); border: 1px solid rgba(255,255,255,0.09); box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+  #accountBtn { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  html[data-theme="dark"] #accountBtn { background: rgba(16,19,25,0.7); border: 1px solid rgba(255,255,255,0.1); }
+  .step-hello { font-size: 13px; font-weight: 700; color: #059669; margin-bottom: 2px; }
+  html[data-theme="dark"] .step-hello { color: #34d399; }
+  #centerPin .cp-label { background: #0b0f14; border-radius: 14px; padding: 8px 14px; }
+  #centerPin .cp-dot { width: 32px; height: 32px; border: 0; background: #10b981; box-shadow: 0 0 0 7px rgba(16,185,129,0.2), 0 8px 18px rgba(5,150,105,0.4); font-size: 0; }
+  #centerPin .cp-dot::after { content: ""; width: 11px; height: 11px; border-radius: 50%; background: #fff; }
+  #centerPin.dest .cp-dot { background: #0b0f14; box-shadow: 0 0 0 7px rgba(15,23,42,0.15), 0 8px 18px rgba(0,0,0,0.35); }
+  html[data-theme="dark"] #centerPin.dest .cp-dot { background: #fff; }
+  html[data-theme="dark"] #centerPin.dest .cp-dot::after { background: #0b0f14; }
+  #centerPin .cp-stick { width: 3px; height: 16px; background: #10b981; }
+  #centerPin.dest .cp-stick { background: #0b0f14; }
+  html[data-theme="dark"] #centerPin.dest .cp-stick { background: #fff; }
+  #stepHead .steps button.on { background: #0b0f14; color: #fff; }
+  html[data-theme="dark"] #stepHead .steps button.on { background: #fff; color: #000; }
+  #stepHead .steps button.done { color: #059669; }
+  html[data-theme="dark"] #stepHead .steps button.done { color: #34d399; }
+  #pickBar .btn:not(.btn-secondary) { border-radius: 18px; }
+  #pickBar .btn-secondary { border-radius: 16px; }
+  /* Tarjetas de vehículo */
+  .veh-cards { display: flex; gap: 10px; }
+  .veh-card { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px 12px; border-radius: 20px; border: 2px solid transparent; background: rgba(15,23,42,0.045); color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: border-color .2s, background .2s; min-width: 0; }
+  html[data-theme="dark"] .veh-card { background: rgba(255,255,255,0.06); }
+  .veh-card.active { border-color: #10b981; background: rgba(16,185,129,0.1); }
+  html[data-theme="dark"] .veh-card.active { border-color: #34d399; background: rgba(52,211,153,0.1); }
+  .veh-card.unavailable { opacity: 0.45; }
+  .vc-img { flex-shrink: 0; height: 58px; display: flex; align-items: center; justify-content: center; }
+  .vc-img svg { display: block; }
+  .vc-txt { min-width: 0; text-align: center; }
+  .vc-txt b { display: block; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+  .vc-txt small { display: block; font-size: 11.5px; font-weight: 600; color: var(--text-dim); margin-top: 2px; line-height: 1.25; }
+  /* Radar mientras busca chofer */
+  .radar-icon { background: none; border: 0; pointer-events: none; }
+  .radar { position: relative; width: 180px; height: 180px; }
+  .radar i { position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid rgba(52,211,153,0.8); background: radial-gradient(circle, rgba(52,211,153,0.05) 40%, rgba(52,211,153,0.3) 70%, rgba(52,211,153,0) 72%); animation: radarPulse 2.4s ease-out infinite; opacity: 0; }
+  .radar i:nth-child(2) { animation-delay: 0.8s; }
+  .radar i:nth-child(3) { animation-delay: 1.6s; }
+  @keyframes radarPulse { 0% { transform: scale(0.15); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .radar i { animation: none; opacity: 0.4; transform: scale(0.6); } }
+  .progress-fill { background: linear-gradient(90deg, #059669, #34d399) !important; }
+  #statusMap { border-radius: 26px; }
+  #driverCard, .search-card, .status-header { border-radius: 24px; }
+  html[data-theme="dark"] #driverCard, html[data-theme="dark"] .search-card, html[data-theme="dark"] .status-header { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
 </style>
 </head>
 <body>
@@ -795,6 +842,7 @@ function toggleRiderTheme() {
         <button type="button" id="stepChip2" onclick="if (pickup) editDest()">2 Destino</button>
         <button type="button" id="stepChip3" onclick="if (pickup && destDecided) setPickStep('trip')">3 Tu viaje</button>
       </div>
+      <div class="step-hello" id="stepHello"></div>
       <div class="step-title" id="stepTitle">¿Dónde te recogemos?</div>
       <div class="step-sub" id="stepSub">Mueve el mapa hasta tu puerta. El pin se queda en el centro.</div>
     </div>
@@ -817,9 +865,9 @@ function toggleRiderTheme() {
       <button type="button" class="trip-pt" onclick="editDest()"><small>Destino</small><span id="sumDest">Sin destino</span></button>
       <button type="button" class="trip-edit" onclick="editPickup()">Cambiar</button>
     </div>
-    <div class="segmented trip-only" id="serviceTypeRow">
-      <button class="service-tab active" id="tabMoto" onclick="setServiceType('moto')">🛵 Mototaxi</button>
-      <button class="service-tab" id="tabTaxi" onclick="setServiceType('taxi')">🚕 Taxi</button>
+    <div class="veh-cards trip-only" id="serviceTypeRow">
+      <button class="veh-card active" id="tabMoto" onclick="setServiceType('moto')"></button>
+      <button class="veh-card" id="tabTaxi" onclick="setServiceType('taxi')"></button>
     </div>
     <div class="segmented trip-only" id="serviceCategoryRow">
       <button class="service-tab active" id="catPasaje" onclick="setServiceCategory('pasaje')">🧍 Pasaje</button>
@@ -1407,6 +1455,26 @@ let zoneCheckSeq = 0;
 // true si la app cambió sola a Taxi por estar fuera de zona (no lo eligió él).
 let zoneForcedTaxi = false;
 
+// --- Tarjetas de vehículo (diseño 3, paso 2) ---
+// Mismos botones de siempre (#tabMoto/#tabTaxi): solo cambia lo que llevan adentro.
+function vehCardHtml(kind, note) {
+  const img = kind === "taxi" ? MVVeh.taxiSide(84) : MVVeh.motoSide(80);
+  const name = kind === "taxi" ? "Taxi" : "Mototaxi";
+  const sub = note || (kind === "taxi" ? "Tú propones el precio" : "Dentro del pueblo");
+  return `<span class="vc-img">${img}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span>`;
+}
+function renderVehCards(motoNote) {
+  document.getElementById("tabMoto").innerHTML = vehCardHtml("moto", motoNote);
+  document.getElementById("tabTaxi").innerHTML = vehCardHtml("taxi");
+}
+function greetingText() {
+  const h = new Date().getHours();
+  const saludo = h >= 5 && h < 12 ? "Buenos días" : h >= 12 && h < 19 ? "Buenas tardes" : "Buenas noches";
+  let name = "";
+  try { name = ((JSON.parse(localStorage.getItem("motoya_rider") || "null") || {}).name || "").trim().split(/\s+/)[0]; } catch {}
+  return name ? `${saludo}, ${name}` : saludo;
+}
+
 function applyZone(zone, zoneLabel) {
   serviceZone = zone || "in";
   const notice = document.getElementById("zoneNotice");
@@ -1416,20 +1484,20 @@ function applyZone(zone, zoneLabel) {
   if (serviceZone === "in") {
     notice.style.display = "none";
     tabMoto.classList.remove("unavailable");
-    tabMoto.innerHTML = "🛵 Mototaxi";
+    renderVehCards();
     if (zoneForcedTaxi) { zoneForcedTaxi = false; setServiceType("moto"); }
   } else if (serviceZone === "taxi") {
     notice.innerHTML = `📍 <strong>Fuera de la zona de mototaxi de ${escapeHtml(town)}:</strong> aquí solo hay 🚕 Taxi.`;
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
-    tabMoto.innerHTML = `🛵 Mototaxi<small>Solo dentro de ${escapeHtml(town)}</small>`;
+    renderVehCards(`Solo dentro de ${escapeHtml(town)}`);
     if (serviceType !== "taxi") { zoneForcedTaxi = true; setServiceType("taxi"); }
   } else {
     notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más pueblos de Yucatán!";
     if (pickup) document.getElementById("pickHint").textContent = "Todavía no llegamos a este punto";
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
-    tabMoto.innerHTML = "🛵 Mototaxi";
+    renderVehCards();
   }
   updateFareEstimate();
 }
@@ -1680,8 +1748,24 @@ async function loadStatusAvailableDrivers() {
   }
 }
 
+// Radar que late en la recogida mientras busca chofer (diseño 3, paso 2).
+let searchRadar = null;
+function showSearchRadar() {
+  if (!statusMap || !pickup) return;
+  hideSearchRadar();
+  searchRadar = L.marker([pickup.lat, pickup.lng], {
+    icon: L.divIcon({ className: "radar-icon", html: '<div class="radar"><i></i><i></i><i></i></div>', iconSize: [180, 180], iconAnchor: [90, 90] }),
+    interactive: false, keyboard: false, zIndexOffset: -1000,
+  }).addTo(statusMap);
+}
+function hideSearchRadar() {
+  if (searchRadar && statusMap) statusMap.removeLayer(searchRadar);
+  searchRadar = null;
+}
+
 function startStatusAvailableDriversPolling() {
   loadStatusAvailableDrivers();
+  showSearchRadar();
   clearInterval(statusAvailableDriversPollTimer);
   statusAvailableDriversPollTimer = setInterval(loadStatusAvailableDrivers, 4000);
 
@@ -1705,6 +1789,7 @@ function stopStatusAvailableDriversPolling() {
     for (const marker of statusAvailableDriverMarkers.values()) statusMap.removeLayer(marker);
   }
   statusAvailableDriverMarkers.clear();
+  hideSearchRadar();
   const block = document.getElementById("searchingBlock");
   if (block) block.style.display = "none";
 }
@@ -1811,6 +1896,7 @@ function enterMap() {
     else document.getElementById("centerPin").classList.add("moving");
   });
   map.on("moveend", () => document.getElementById("centerPin").classList.remove("moving"));
+  renderVehCards();
   setPickStep("pickup");
 
   if (navigator.geolocation) {
@@ -1858,6 +1944,8 @@ function setPickStep(step) {
     chip.classList.toggle("done", done);
     chip.textContent = `${done ? "✓" : i} ${["Recogida", "Destino", "Tu viaje"][i - 1]}`;
   });
+  const hello = document.getElementById("stepHello");
+  if (hello) hello.textContent = step === "pickup" ? greetingText() : "";
   if (STEP_TEXT[step]) {
     document.getElementById("stepTitle").textContent = STEP_TEXT[step][0];
     document.getElementById("stepSub").textContent = STEP_TEXT[step][1];
