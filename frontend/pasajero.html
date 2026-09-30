@@ -801,6 +801,11 @@ function toggleRiderTheme() {
   #form .pill-row .btn-sm { background: rgba(15,23,42,0.05) !important; border: 1px solid rgba(15,23,42,0.08) !important; }
   html[data-theme="dark"] #form .pill-row .btn-sm { background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.09) !important; }
   #themeQuickBtn { box-shadow: 0 6px 16px rgba(15,23,42,0.10); }
+  /* Portada: el pueblo va abajo del nombre para que no lo tape el botón del sol (30-sep). */
+  #form .brand { flex-wrap: wrap; row-gap: 8px; max-width: calc(100vw - 120px); margin-top: 18px !important; }
+  #form .brand #cityLabel { flex-basis: 100%; text-align: center; font-size: 13px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #059669; }
+  html[data-theme="dark"] #form .brand #cityLabel { color: #34d399; }
+  #form .brand #cityLabel:empty { display: none; }
 </style>
 </head>
 <body>
