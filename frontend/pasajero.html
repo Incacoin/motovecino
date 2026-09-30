@@ -3405,6 +3405,21 @@ async function restoreActiveRide() {
     return; // sin conexión ahorita; se reintenta la próxima vez que abra la app
   }
 
+  // Terminó mientras tenía la app cerrada (p. ej. tocó el aviso "Llegaste a tu
+  // destino") y todavía no califica: se le enseña la pantalla de fin de viaje
+  // con "¿Tuviste buen servicio?". Solo si terminó hace poco (3 h).
+  const doneAtMs = fetched.completed_at ? Date.parse(fetched.completed_at.replace(" ", "T") + "Z") : NaN;
+  if (fetched.status === "completado" && fetched.rating == null && Date.now() - doneAtMs < 3 * 3600 * 1000) {
+    ride = fetched;
+    serviceType = fetched.ride_type === "taxi" ? "taxi" : "moto";
+    document.getElementById("form").classList.remove("active");
+    document.getElementById("status").classList.add("active");
+    document.getElementById("statusIcon").textContent = serviceType === "taxi" ? "🚕" : "🛵";
+    showForOtherNote(fetched);
+    onCompleted();
+    return true;
+  }
+
   if (["completado", "cancelado"].includes(fetched.status)) {
     localStorage.removeItem("motoya_active_ride");
     return;

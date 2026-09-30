@@ -245,6 +245,12 @@ function riderMessage(ride, type, payload) {
       body: `${driverName()} terminó el viaje.${deNoche ? " Ya puedes descansar." : ""} Gracias por confiar en MotoVecino.`,
     };
   }
+  // Viaje propio: al terminar se le invita a calificar (al abrir la app le sale
+  // "¿Tuviste buen servicio?", ver restoreActiveRide en pasajero.html).
+  if (type === "status_change" && payload.status === "completado") {
+    const chofer = driverName();
+    return { tag, title: "✅ Llegaste a tu destino", body: `¿Qué tal te fue con ${chofer}? Toca para calificarlo. Gracias por confiar en MotoVecino.` };
+  }
   if (type === "status_change" && payload.status === "cancelado" && ride.cancelled_by !== "rider") {
     return { tag, title: "Tu viaje se canceló", body: "Puedes pedir otro desde la app." };
   }
