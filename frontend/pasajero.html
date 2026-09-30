@@ -106,6 +106,39 @@ function toggleRiderTheme() {
   .account-footer { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }
   #mapScreen { position: relative; }
   #map { flex: 1; min-height: 0; }
+  /* ---- Pedir en 3 pasos (29-sep) ----
+     step-pickup / step-dest: el pin se queda fijo al centro y se mueve el mapa;
+     step-trip: salen todas las opciones del viaje. */
+  #mapWrap { flex: 1; min-height: 0; position: relative; }
+  #mapWrap #map { position: absolute; inset: 0; }
+  #centerPin { display: none; position: absolute; left: 50%; top: 50%; z-index: 500; pointer-events: none; flex-direction: column; align-items: center; transform: translate(-50%, -100%); transition: transform 0.15s ease; }
+  #mapScreen.step-pickup #centerPin, #mapScreen.step-dest #centerPin { display: flex; }
+  #centerPin.moving { transform: translate(-50%, calc(-100% - 10px)); }
+  #centerPin .cp-label { background: #000; color: #fff; font-size: 13.5px; font-weight: 700; padding: 7px 12px; border-radius: 10px; margin-bottom: 6px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.3); }
+  #centerPin .cp-dot { width: 38px; height: 38px; border-radius: 50%; border: 3px solid #000; background: #000; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+  #centerPin.dest .cp-dot { background: #fff; color: #000; }
+  #centerPin .cp-stick { width: 3px; height: 14px; background: #000; border-radius: 0 0 2px 2px; }
+  #mapScreen:not(.step-trip) .trip-only { display: none !important; }
+  #mapScreen.step-trip .step-only { display: none !important; }
+  #mapScreen.step-pickup #destStep, #mapScreen.step-dest #pickupStep { display: none !important; }
+  #mapScreen:not(.step-trip) #sheetGrip { display: none !important; }
+  /* El letrero de arriba ya no hace falta: cada paso dice qué hacer y el panel el precio. */
+  #mapScreen #pickHint { display: none !important; }
+  .step-block { display: flex; flex-direction: column; gap: 10px; }
+  #stepHead .steps { display: flex; gap: 6px; margin-bottom: 10px; }
+  #stepHead .steps button { flex: 1; padding: 6px 0; border: 0; border-radius: 999px; background: var(--bg-card); color: var(--text-faint); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+  #stepHead .steps button.on { background: var(--accent); color: var(--accent-ink); }
+  #stepHead .steps button.done { color: var(--success); }
+  .step-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: var(--text); }
+  .step-sub { font-size: 14px; line-height: 1.35; color: var(--text-dim); margin-top: 4px; }
+  #pickBar .row .btn-secondary.big { font-size: 15px; font-weight: 700; padding: 14px 8px; }
+  #tripSummary { display: flex; align-items: center; gap: 8px; background: var(--bg-card); border-radius: 12px; padding: 8px 10px; }
+  #tripSummary .trip-pt { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; padding: 2px 0; }
+  #tripSummary .trip-pt small { display: block; font-size: 11px; font-weight: 500; color: var(--text-dim); }
+  #tripSummary .trip-pt span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #tripSummary .trip-edit { border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; flex-shrink: 0; }
+  #collapsedSum { display: none; text-align: center; font-size: 14.5px; font-weight: 700; color: var(--text); }
+  #pickBar.collapsed #collapsedSum { display: block; }
   #accountBtn {
     position: absolute; top: 14px; right: 14px; z-index: 1000; width: 42px; height: 42px;
     border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, 0.85); cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -123,7 +156,7 @@ function toggleRiderTheme() {
   #sheetGrip { margin: -10px -14px -4px; padding: 10px 14px 8px; cursor: pointer; touch-action: none; }
   #sheetGripHint { display: none; font-size: 12px; color: var(--text-dim); text-align: center; margin-top: 6px; }
   #pickBar.collapsed > *:not(#sheetGrip):not(.request-block) { display: none !important; }
-  #pickBar.collapsed .request-block > *:not(#requestBtn) { display: none !important; }
+  #pickBar.collapsed .request-block > *:not(#requestBtn):not(#collapsedSum) { display: none !important; }
   #pickBar.collapsed #sheetGripHint { display: block; }
   #pickBar .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
   #pickBar .row .btn-secondary { flex: 1; font-size: 12.5px; padding: 9px 6px; white-space: nowrap; }
@@ -238,11 +271,9 @@ function toggleRiderTheme() {
   #extraBox .extra-chip { width: 64px; padding: 9px 0; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 800; border: 1.5px solid var(--border); background: var(--bg-panel); color: var(--text); cursor: pointer; }
   #extraBox .extra-chip.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   #extraNote { width: 280px; box-sizing: border-box; font-size: 13.5px; font-weight: 600; text-align: center; padding: 10px 12px; border-radius: 12px; background: var(--bg-card); color: var(--text); }
-  /* "Pedir para otra persona" */
-  #forOtherBox { margin: 0 0 10px; }
-  #forOtherBox .for-seg { display: flex; background: var(--bg-card); border-radius: 12px; padding: 4px; gap: 4px; }
-  #forOtherBox .for-seg button { flex: 1; font: inherit; font-size: 14px; font-weight: 700; padding: 10px 0; border: 0; border-radius: 9px; background: transparent; color: var(--text-dim); cursor: pointer; }
-  #forOtherBox .for-seg button.on { background: var(--accent); color: var(--accent-ink); }
+  /* "Pedir para otra persona": un renglón que abre los dos campos ahí mismo. */
+  #forOtherBox .for-row { width: 100%; display: flex; justify-content: space-between; align-items: center; text-align: left; font-size: 15px; font-weight: 700; padding: 13px 14px; }
+  #forOtherBox .for-arrow { color: var(--text-dim); font-size: 18px; line-height: 1; }
   #forOtherFields input { width: 100%; box-sizing: border-box; margin-top: 8px; }
   #forOtherFields .for-hint { font-size: 12.5px; color: var(--text-dim); margin-top: 6px; line-height: 1.35; }
   #forOtherNote { width: 280px; box-sizing: border-box; font-size: 14px; font-weight: 700; text-align: center; padding: 10px 12px; border-radius: 12px; background: var(--bg-card); color: var(--text); }
@@ -721,34 +752,62 @@ function toggleRiderTheme() {
   </div>
 </div>
 
-<div id="mapScreen" class="screen">
+<div id="mapScreen" class="screen step-pickup">
   <button id="accountBtn" onclick="openDrawer()" title="Menú">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#14110a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg>
   </button>
-  <div id="map"></div>
+  <!-- Pedir en 3 pasos (29-sep): en Recogida y Destino el pin se queda fijo al
+       centro y se mueve el mapa debajo (#centerPin); en "Tu viaje" salen todas las opciones. -->
+  <div id="mapWrap">
+    <div id="map"></div>
+    <div id="centerPin"><div class="cp-label">Aquí te recogemos</div><div class="cp-dot">1</div><div class="cp-stick"></div></div>
+  </div>
   <div id="pickHint">Toca el mapa para marcar dónde te recogemos</div>
   <div id="pickBar">
     <div id="sheetGrip" onclick="toggleSheet()" ontouchstart="gripTouchStart(event)" ontouchend="gripTouchEnd(event)">
       <div class="sheet-handle"></div>
-      <div id="sheetGripHint">Toca aquí para ver todas las opciones</div>
+      <div id="sheetGripHint">▲ Toca para ver las opciones</div>
     </div>
     <div id="zoneNotice"></div>
-    <div class="segmented" id="serviceTypeRow">
+    <div id="stepHead" class="step-only">
+      <div class="steps">
+        <button type="button" id="stepChip1" onclick="editPickup()">1 Recogida</button>
+        <button type="button" id="stepChip2" onclick="if (pickup) editDest()">2 Destino</button>
+        <button type="button" id="stepChip3" onclick="if (pickup && destDecided) setPickStep('trip')">3 Tu viaje</button>
+      </div>
+      <div class="step-title" id="stepTitle">¿Dónde te recogemos?</div>
+      <div class="step-sub" id="stepSub">Mueve el mapa hasta tu puerta. El pin se queda en el centro.</div>
+    </div>
+    <div id="pickupStep" class="step-only step-block">
+      <div class="row">
+        <button class="btn btn-secondary big" onclick="useMyLocation()">📍 Usar mi ubicación</button>
+        <button class="btn btn-secondary big" id="useHomeBtn" style="display:none;" onclick="useHomeLocation()">🏠 Mi casa</button>
+      </div>
+      <button class="btn" id="confirmPickupBtn" onclick="confirmPickup()">Confirmar recogida</button>
+    </div>
+    <div id="destStep" class="step-only step-block">
+      <div class="row">
+        <button class="btn btn-secondary big" id="destHomeBtn" style="display:none;" onclick="useHomeAsDest()">🏠 Mi casa</button>
+        <button class="btn btn-secondary big" onclick="skipDest()">Sin destino</button>
+      </div>
+      <button class="btn" id="confirmDestBtn" onclick="confirmDest()">Confirmar destino</button>
+    </div>
+    <div id="tripSummary" class="trip-only">
+      <button type="button" class="trip-pt" onclick="editPickup()"><small>Recogida</small><span id="sumPickup">✓ Marcada</span></button>
+      <button type="button" class="trip-pt" onclick="editDest()"><small>Destino</small><span id="sumDest">Sin destino</span></button>
+      <button type="button" class="trip-edit" onclick="editPickup()">Cambiar</button>
+    </div>
+    <div class="segmented trip-only" id="serviceTypeRow">
       <button class="service-tab active" id="tabMoto" onclick="setServiceType('moto')">🛵 Mototaxi</button>
       <button class="service-tab" id="tabTaxi" onclick="setServiceType('taxi')">🚕 Taxi</button>
     </div>
-    <div class="segmented" id="serviceCategoryRow">
+    <div class="segmented trip-only" id="serviceCategoryRow">
       <button class="service-tab active" id="catPasaje" onclick="setServiceCategory('pasaje')">🧍 Pasaje</button>
       <button class="service-tab" id="catDomicilio" onclick="setServiceCategory('domicilio')">🍲 Domicilio</button>
       <!-- Mandado escondido (26-sep): sin chat antes de aceptar no hay cómo pagarle al chofer la espera o el dinero que adelanta. Quitar el display:none para volver a prenderlo. -->
       <button class="service-tab" id="catMandado" style="display:none" onclick="setServiceCategory('mandado')">📦 Mandado</button>
     </div>
-    <div class="row">
-      <button class="btn btn-secondary" onclick="useMyLocation()">📍 Mi ubicación</button>
-      <button class="btn btn-secondary" id="useHomeBtn" style="display:none;" onclick="useHomeLocation()">🏠 Mi casa</button>
-      <button class="btn btn-secondary" onclick="resetPins()">Borrar pines</button>
-    </div>
-    <div class="pax-card" id="paxCard">
+    <div class="pax-card trip-only" id="paxCard">
       <div class="pax-col" id="passengerRow">
         <span class="pax-label">Adultos</span>
         <div class="stepper">
@@ -766,21 +825,19 @@ function toggleRiderTheme() {
         </div>
       </div>
     </div>
-    <input id="referenceInput" placeholder="Referencia (ej. casa azul, portón negro)" />
+    <input id="referenceInput" class="trip-only" placeholder="Referencia (ej. casa azul, portón negro)" />
     <!-- "Pedir para otra persona" (ver backend/routes/familyRides.js): solo
          sale si ya está prendido en el pueblo de la recogida. -->
-    <div id="forOtherBox" style="display:none;">
-      <div class="for-seg">
-        <button type="button" id="forMeBtn" class="on" onclick="setForOther(false)">Para mí</button>
-        <button type="button" id="forOtherBtn" onclick="setForOther(true)">Para otra persona</button>
-      </div>
+    <div id="forOtherBox" class="trip-only" style="display:none;">
+      <button type="button" class="btn btn-secondary for-row" id="forOtherBtn" onclick="setForOther(!forOther)"><span>👤 ¿Es para otra persona?</span><span class="for-arrow" id="forRowArrow">›</span></button>
       <div id="forOtherFields" style="display:none;">
         <input id="forNameInput" maxlength="40" placeholder="Nombre de quien se sube (ej. Juan)" />
         <input id="forNoteInput" maxlength="100" placeholder="Seña para reconocerlo (ej. camisa roja, afuera del salón)" />
         <div class="for-hint">El chofer te escribe a ti por el chat. Te avisamos cuando acepte y cuando llegue.</div>
       </div>
     </div>
-    <div class="request-block">
+    <div class="request-block trip-only">
+      <div id="collapsedSum"></div>
       <div id="fareEstimate" class="hint"></div>
       <div id="taxiOfferBox" style="display:none;">
         <div class="offer-stepper">
@@ -1216,8 +1273,7 @@ function updateTaxiOfferUi() {
   const box = document.getElementById("taxiOfferBox");
   if (!pickup) { el.textContent = ""; btn.textContent = "Pedir taxi"; return; }
   if (!dest) {
-    el.textContent = "Marca tu destino en el mapa para ver el precio sugerido";
-    document.getElementById("pickHint").textContent = "Toca el mapa para marcar tu destino";
+    el.textContent = "El taxi necesita destino: toca «Destino» arriba para marcarlo";
     btn.textContent = "Pedir taxi";
     btn.disabled = true;
     return;
@@ -1343,12 +1399,17 @@ let gripStartY = null;
 
 function setSheetCollapsed(collapsed) {
   document.getElementById("pickBar").classList.toggle("collapsed", collapsed);
+  const kind = { pasaje: "Pasaje", domicilio: "Domicilio", mandado: "Mandado" }[serviceCategory] || "";
+  const people = serviceCategory === "pasaje"
+    ? ` · ${passengers} adulto${passengers === 1 ? "" : "s"}${children ? ` + ${children} niño${children === 1 ? "" : "s"}` : ""}`
+    : "";
+  document.getElementById("collapsedSum").textContent = (serviceType === "taxi" ? "🚕 Taxi" : "🛵 Mototaxi") + " · " + kind + people;
   // El mapa cambia de alto: Leaflet necesita recalcular su tamaño, y de paso
   // se acomoda para que se vean la recogida y el destino.
   if (!map) return;
   setTimeout(() => {
     map.invalidateSize();
-    if (pickup && dest) map.fitBounds(L.latLngBounds([pickup, dest]), { padding: [50, 50], maxZoom: 16 });
+    if (pickup && dest) map.fitBounds(L.latLngBounds([pickup, dest]), { paddingTopLeft: [60, 90], paddingBottomRight: [50, 40], maxZoom: 16 });
     else if (pickup) map.panTo(pickup);
   }, 60);
 }
@@ -1426,9 +1487,8 @@ function updateForOtherBox() {
 }
 function setForOther(on) {
   forOther = !!on;
-  document.getElementById("forMeBtn").classList.toggle("on", !forOther);
-  document.getElementById("forOtherBtn").classList.toggle("on", forOther);
   document.getElementById("forOtherFields").style.display = forOther ? "block" : "none";
+  document.getElementById("forRowArrow").textContent = forOther ? "✕" : "›";
   if (forOther) document.getElementById("forNameInput").focus();
 }
 function showForOtherNote(r) {
@@ -1525,14 +1585,9 @@ async function loadAvailableDrivers() {
     }
   }
 
-  // Solo la primera vez que hay choferes: ajusta el mapa para que quepan
-  // todos. Después no, para no mover el mapa mientras el pasajero marca sus puntos.
-  if (!didFitAvailableDrivers && availableDriverMarkers.size > 0) {
-    didFitAvailableDrivers = true;
-    const points = [...availableDriverMarkers.values()].map((m) => m.getLatLng());
-    points.push(map.getCenter());
-    map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 15 });
-  }
+  // (Antes aquí se ajustaba el mapa para que cupieran los choferes. Con los 3
+  // pasos ya no: el mapa arranca donde está el pasajero —el pin del centro
+  // manda— y en "Tu viaje" enseña la ruta.)
 }
 
 function startAvailableDriversPolling() {
@@ -1722,7 +1777,16 @@ function enterMap() {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
 
-  map.on("click", (e) => placePoint(e.latlng));
+  map.on("click", (e) => {
+    if (pickStep === "trip") setSheetCollapsed(true);
+    else map.panTo(e.latlng); // tocar también sirve: lleva el pin a ese punto
+  });
+  map.on("dragstart", () => {
+    if (pickStep === "trip") { if (!document.getElementById("pickBar").classList.contains("collapsed")) setSheetCollapsed(true); }
+    else document.getElementById("centerPin").classList.add("moving");
+  });
+  map.on("moveend", () => document.getElementById("centerPin").classList.remove("moving"));
+  setPickStep("pickup");
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -1730,73 +1794,140 @@ function enterMap() {
       const me = L.latLng(pos.coords.latitude, pos.coords.longitude);
       geoPos = me;
       loadAvailableDrivers(); // ya sabemos dónde estás, refresca con el radio correcto
-      if (didFitAvailableDrivers && availableDriverMarkers.size > 0) {
-        const points = [...availableDriverMarkers.values()].map((m) => m.getLatLng());
-        points.push(me);
-        map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 15 });
-      } else {
-        map.setView(me, 15);
-      }
+      // El pin de recogida arranca en donde está el pasajero.
+      if (pickStep === "pickup" && !pickup) map.setView(me, 17);
     }, () => showLocationBanner());
   }
 
   startAvailableDriversPolling();
 }
 
-function pickupPopupHtml(label) {
-  return `${label} <button class="pin-remove-link" onclick="removePickup()">Quitar</button>`;
-}
+// --- Pedir en 3 pasos (29-sep) ---
+// 1) Recogida y 2) Destino: el pin se queda fijo al centro (#centerPin) y se
+// mueve el mapa debajo — más fácil que atinarle con el dedo. 3) Tu viaje: todas
+// las opciones grandes. Tocar un punto del resumen regresa a ese paso.
+let pickStep = "pickup";
+let destDecided = false; // ya marcó destino o eligió "Sin destino"
+let pickupLabel = null, destLabel = null;
 
-function destPopupHtml() {
-  return `Destino <button class="pin-remove-link" onclick="removeDest()">Quitar</button>`;
-}
+const STEP_TEXT = {
+  pickup: ["¿Dónde te recogemos?", "Mueve el mapa hasta tu puerta. El pin se queda en el centro."],
+  dest: ["¿A dónde vas?", "Mueve el mapa hasta tu destino."],
+};
 
-function removePickup() {
-  if (pickupMarker) map.removeLayer(pickupMarker);
-  pickup = null;
-  pickupMarker = null;
-  zoneCheckSeq++;
-  applyZone("in");
-  document.getElementById("pickHint").textContent = "Toca el mapa para marcar dónde te recogemos";
-  document.getElementById("requestBtn").disabled = true;
-  updateFareEstimate();
-}
-
-function removeDest() {
-  if (destMarker) map.removeLayer(destMarker);
-  dest = null;
-  destMarker = null;
-  document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
-  updateFareEstimate();
-}
-
-function placePoint(latlng) {
-  if (!pickup) {
-    pickup = latlng;
-    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida"), { closeButton: false }).openPopup();
-    document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
-    checkPickupZone();
-  } else if (!dest) {
-    dest = latlng;
-    destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map).bindPopup(destPopupHtml(), { closeButton: false }).openPopup();
+function setPickStep(step) {
+  pickStep = step;
+  const screen = document.getElementById("mapScreen");
+  screen.classList.remove("step-pickup", "step-dest", "step-trip");
+  screen.classList.add("step-" + step);
+  document.getElementById("pickBar").classList.remove("collapsed");
+  const pin = document.getElementById("centerPin");
+  pin.classList.toggle("dest", step === "dest");
+  pin.querySelector(".cp-dot").textContent = step === "dest" ? "2" : "1";
+  pin.querySelector(".cp-label").textContent = step === "dest" ? "Aquí vas" : "Aquí te recogemos";
+  const order = { pickup: 1, dest: 2, trip: 3 };
+  [1, 2, 3].forEach((i) => {
+    const chip = document.getElementById("stepChip" + i);
+    const done = i === 1 ? !!pickup && step !== "pickup" : i === 2 ? destDecided && step !== "dest" : false;
+    chip.classList.toggle("on", order[step] === i);
+    chip.classList.toggle("done", done);
+    chip.textContent = `${done ? "✓" : i} ${["Recogida", "Destino", "Tu viaje"][i - 1]}`;
+  });
+  if (STEP_TEXT[step]) {
+    document.getElementById("stepTitle").textContent = STEP_TEXT[step][0];
+    document.getElementById("stepSub").textContent = STEP_TEXT[step][1];
+  }
+  if (step === "trip") {
+    updateTripSummary();
     document.getElementById("pickHint").textContent = readyHint();
   }
-  document.getElementById("requestBtn").disabled = !pickup;
-  updateFareEstimate();
+  if (!map) return;
+  setTimeout(() => {
+    map.invalidateSize();
+    if (step === "trip") fitTrip();
+  }, 60);
 }
+
+function fitTrip() {
+  // Más margen arriba: ahí están los botones del zoom y del menú.
+  if (pickup && dest) map.fitBounds(L.latLngBounds([pickup, dest]), { paddingTopLeft: [60, 90], paddingBottomRight: [50, 40], maxZoom: 16 });
+  else if (pickup) map.setView(pickup, 16);
+}
+
+function updateTripSummary() {
+  const ref = document.getElementById("referenceInput").value.trim();
+  document.getElementById("sumPickup").textContent = pickupLabel || ref || "✓ Marcada";
+  document.getElementById("sumDest").textContent = dest ? destLabel || "✓ Marcado" : "Sin destino";
+}
+
+function setPickupAt(latlng, label) {
+  pickup = L.latLng(latlng.lat, latlng.lng);
+  pickupLabel = label || null;
+  if (pickupMarker) map.removeLayer(pickupMarker);
+  pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map);
+  checkPickupZone();
+  updateFareEstimate();
+  if (destDecided) {
+    if (dest && !destMarker) destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map);
+    setPickStep("trip");
+  } else {
+    setPickStep("dest");
+  }
+}
+
+function setDestAt(latlng, label) {
+  dest = L.latLng(latlng.lat, latlng.lng);
+  destLabel = label || null;
+  destDecided = true;
+  if (destMarker) map.removeLayer(destMarker);
+  destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map);
+  if (pickup && !pickupMarker) pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map);
+  updateFareEstimate();
+  setPickStep("trip");
+}
+
+function confirmPickup() { setPickupAt(map.getCenter()); }
+function confirmDest() { setDestAt(map.getCenter()); }
+
+function skipDest() {
+  if (destMarker) map.removeLayer(destMarker);
+  dest = null; destMarker = null; destLabel = null;
+  destDecided = true;
+  if (pickup && !pickupMarker) pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map);
+  updateFareEstimate();
+  setPickStep("trip");
+}
+
+// Regresar a un paso: se quita su pin del mapa y el mapa se centra en él para
+// moverlo desde ahí.
+function editPickup() {
+  if (pickupMarker) { map.removeLayer(pickupMarker); pickupMarker = null; }
+  if (pickup) map.setView(pickup, Math.max(map.getZoom(), 16));
+  setPickStep("pickup");
+}
+function editDest() {
+  if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+  if (dest) map.setView(dest, Math.max(map.getZoom(), 16));
+  else if (pickup) map.setView(pickup, Math.max(map.getZoom(), 15));
+  setPickStep("dest");
+}
+
+// Lo usan las pruebas y cualquier código viejo: marca el punto del paso actual.
+function placePoint(latlng) {
+  if (pickStep === "pickup") setPickupAt(latlng);
+  else if (pickStep === "dest") setDestAt(latlng);
+}
+
+function removePickup() { editPickup(); }
+function removeDest() { skipDest(); }
 
 function useMyLocation() {
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition((pos) => {
     hideLocationBanner();
-    pickup = L.latLng(pos.coords.latitude, pos.coords.longitude);
-    if (pickupMarker) map.removeLayer(pickupMarker);
-    pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (tu ubicación)"), { closeButton: false }).openPopup();
-    map.setView(pickup, 16);
-    document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
-    document.getElementById("requestBtn").disabled = false;
-    updateFareEstimate();
-    checkPickupZone();
+    const me = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    map.setView(me, 17);
+    setPickupAt(me, "Tu ubicación");
   }, () => showLocationBanner());
 }
 
@@ -1804,11 +1935,11 @@ function resetPins() {
   if (pickupMarker) map.removeLayer(pickupMarker);
   if (destMarker) map.removeLayer(destMarker);
   pickup = null; dest = null; pickupMarker = null; destMarker = null;
+  pickupLabel = null; destLabel = null; destDecided = false;
   zoneCheckSeq++;
   applyZone("in");
-  document.getElementById("pickHint").textContent = "Toca el mapa para marcar dónde te recogemos";
-  document.getElementById("requestBtn").disabled = true;
   updateFareEstimate();
+  setPickStep("pickup");
 }
 
 async function requestRide() {
@@ -2816,7 +2947,9 @@ function renderHomeStatus(rider) {
 function updateUseHomeBtn() {
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   const btn = document.getElementById("useHomeBtn");
-  btn.style.display = rider && rider.home_lat != null && rider.home_lng != null ? "block" : "none";
+  const hasHome = rider && rider.home_lat != null && rider.home_lng != null;
+  btn.style.display = hasHome ? "block" : "none";
+  document.getElementById("destHomeBtn").style.display = hasHome ? "block" : "none";
 }
 
 function saveHomeLocation() {
@@ -2884,15 +3017,15 @@ async function clearHomeLocation() {
 function useHomeLocation() {
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   if (!rider || rider.home_lat == null) return;
-  pickup = L.latLng(rider.home_lat, rider.home_lng);
-  if (pickupMarker) map.removeLayer(pickupMarker);
-  pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map).bindPopup(pickupPopupHtml("Recogida (mi casa)"), { closeButton: false }).openPopup();
-  map.setView(pickup, 16);
   if (rider.home_label) document.getElementById("referenceInput").value = rider.home_label;
-  document.getElementById("pickHint").textContent = "Toca el mapa para tu destino (opcional)";
-  document.getElementById("requestBtn").disabled = false;
-  updateFareEstimate();
-  checkPickupZone();
+  map.setView([rider.home_lat, rider.home_lng], 16);
+  setPickupAt({ lat: rider.home_lat, lng: rider.home_lng }, "Mi casa");
+}
+
+function useHomeAsDest() {
+  const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
+  if (!rider || rider.home_lat == null) return;
+  setDestAt({ lat: rider.home_lat, lng: rider.home_lng }, "Mi casa");
 }
 
 function togglePinVisibility() {
