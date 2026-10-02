@@ -82,6 +82,13 @@ function toggleRiderTheme() {
   .input-icon-row input:focus { box-shadow: none; }
   .input-icon-row:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(246, 166, 35, 0.35); }
   .input-icon-row svg { flex-shrink: 0; }
+  .input-icon-row select.country-select {
+    background: transparent; border: none; color: var(--text); font: inherit; font-size: 15px; padding: 13px 0; width: auto;
+    flex-shrink: 0; cursor: pointer; -webkit-appearance: none; appearance: none; outline: none;
+  }
+  .input-icon-row select.country-select option { color: #111; }
+  .otp-hint { color: var(--text-dim); font-size: 13px; width: 260px; line-height: 1.4; }
+  .otp-actions { gap: 8px; flex-wrap: wrap; justify-content: center; width: 260px; }
   .pill-row { display: flex; gap: 10px; width: 260px; margin-top: 6px; }
   .pill-row .btn-sm { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; }
   .installBanner { position: absolute; top: 14px; left: 14px; right: 66px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; text-align: left; font-size: 13.5px; }
@@ -868,6 +875,11 @@ function toggleRiderTheme() {
   </div>
   <div class="input-icon-row">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+    <select id="countrySelect" class="country-select" aria-label="País del teléfono" onchange="onCountryChange()">
+      <option value="MX">🇲🇽 +52</option>
+      <option value="PE">🇵🇪 +51</option>
+      <option value="US">🇺🇸 +1</option>
+    </select>
     <input id="phoneInput" placeholder="Tu teléfono" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '')" />
   </div>
   <div class="input-icon-row" id="riderPinRow" style="display:none;">
@@ -875,6 +887,15 @@ function toggleRiderTheme() {
     <input id="riderPinInput" placeholder="Tu PIN" inputmode="numeric" maxlength="6" oninput="this.value = this.value.replace(/\D/g, '')" />
   </div>
   <div id="riderPinHint" style="display:none;color:var(--text-dim);font-size:13px;">Ese teléfono ya tiene cuenta — escribe tu PIN y toca Continuar de nuevo.</div>
+  <div class="input-icon-row" id="otpRow" style="display:none;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+    <input id="otpInput" placeholder="Código de 6 dígitos" inputmode="numeric" autocomplete="one-time-code" maxlength="6" oninput="this.value = this.value.replace(/\D/g, '')" />
+  </div>
+  <div id="otpHint" class="otp-hint" style="display:none;"></div>
+  <div id="otpActions" class="otp-actions" style="display:none;">
+    <button class="btn-sm" id="otpResendBtn" onclick="resendOtp()" disabled>Reenviar código</button>
+    <button class="btn-sm" onclick="otpHelp()">¿No te llegó? Escríbenos</button>
+  </div>
   <button class="btn" onclick="goToMap()">Continuar</button>
   <div class="entry-legal">Al continuar aceptas nuestro <a href="aviso-privacidad.html">Aviso de privacidad</a>.</div>
   </div>
@@ -2035,17 +2056,42 @@ function stopStatusAvailableDriversPolling() {
 let pendingLoginPhone = null;
 let pendingNewRider = null;
 
+// País del teléfono (ver backend/phone.js). México se manda como siempre,
+// 10 dígitos sin "+52"; los demás con su código ("+51987654321").
+const PHONE_COUNTRIES = {
+  MX: { dial: "52", digits: 10 },
+  PE: { dial: "51", digits: 9 },
+  US: { dial: "1", digits: 10 },
+};
+
+function onCountryChange() {
+  const c = PHONE_COUNTRIES[document.getElementById("countrySelect").value];
+  const input = document.getElementById("phoneInput");
+  input.maxLength = c.digits;
+  input.value = input.value.slice(0, c.digits);
+}
+
+// Regresa el teléfono listo para el servidor, o null si le faltan dígitos
+// (y deja el mensaje de error puesto).
+function readRiderPhone() {
+  const country = document.getElementById("countrySelect").value;
+  const c = PHONE_COUNTRIES[country];
+  const digits = document.getElementById("phoneInput").value.trim();
+  if (digits.length !== c.digits) {
+    document.getElementById("formError").textContent = `Escribe tu teléfono (${c.digits} dígitos)`;
+    return null;
+  }
+  return country === "MX" ? digits : `+${c.dial}${digits}`;
+}
+
 async function goToMap() {
   const name = document.getElementById("nameInput").value.trim();
-  const phone = document.getElementById("phoneInput").value.trim();
   const pinInput = document.getElementById("riderPinInput");
   const err = document.getElementById("formError");
   err.textContent = "";
 
-  if (!phone || phone.length !== 10) {
-    err.textContent = "Escribe tu teléfono (10 dígitos)";
-    return;
-  }
+  const phone = readRiderPhone();
+  if (!phone) return;
 
   let rider;
   if (pendingLoginPhone === phone) {
@@ -2069,24 +2115,32 @@ async function goToMap() {
       err.textContent = "Escribe tu nombre";
       return;
     }
+    // Paso 1: pedir el código por WhatsApp (solo la primera vez para este
+    // teléfono). Si el servidor dice que no hace falta, se registra directo.
+    let code;
+    if (otpPhone !== phone) {
+      const sent = await requestOtp(phone);
+      if (sent === "login") return showPinLogin(phone);
+      if (sent !== "skip") return; // código mandado (o error): esperar a que lo escriba
+    } else {
+      code = document.getElementById("otpInput").value.trim();
+      if (code.length !== 6) {
+        err.textContent = "Escribe el código de 6 dígitos que te llegó por WhatsApp";
+        return;
+      }
+    }
     const res = await fetch(API + "/api/riders/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone }),
+      body: JSON.stringify({ name, phone, code }),
     });
-    if (res.status === 409) {
-      pendingLoginPhone = phone;
-      document.getElementById("riderPinRow").style.display = "flex";
-      document.getElementById("riderPinHint").style.display = "block";
-      if (SOPORTE_WHATSAPP_NUMBER) document.getElementById("forgotPinBtn").style.display = "inline-block";
-      err.textContent = "Ese teléfono ya tiene cuenta.";
-      return;
-    }
+    if (res.status === 409) return showPinLogin(phone);
     if (!res.ok) {
-      err.textContent = "No se pudo continuar, intenta de nuevo";
+      err.textContent = (await res.json().catch(() => ({}))).error || "No se pudo continuar, intenta de nuevo";
       return;
     }
     rider = await res.json();
+    hideOtp();
   }
 
   localStorage.setItem("motoya_rider", JSON.stringify({
@@ -2105,6 +2159,89 @@ async function goToMap() {
   }
 
   enterMap();
+}
+
+function showPinLogin(phone) {
+  hideOtp();
+  pendingLoginPhone = phone;
+  document.getElementById("riderPinRow").style.display = "flex";
+  document.getElementById("riderPinHint").style.display = "block";
+  if (SOPORTE_WHATSAPP_NUMBER) document.getElementById("forgotPinBtn").style.display = "inline-block";
+  document.getElementById("formError").textContent = "Ese teléfono ya tiene cuenta.";
+}
+
+// Código de verificación por WhatsApp (ver backend/whatsappOtp.js).
+let otpPhone = null; // a qué teléfono se le mandó el último código
+let otpResendTimer = null;
+
+// Regresa "sent" (se mandó, hay que escribirlo), "skip" (el servidor no pide
+// código), "login" (ese teléfono ya tiene cuenta) o "error".
+async function requestOtp(phone) {
+  const err = document.getElementById("formError");
+  const res = await fetch(API + "/api/riders/otp/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+  if (res.status === 409) return "login";
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    err.textContent = data.error || "No se pudo mandar el código, intenta de nuevo";
+    if (data.retryIn) startResendCountdown(data.retryIn);
+    return "error";
+  }
+  if (data.required === false) return "skip";
+
+  otpPhone = phone;
+  document.getElementById("otpRow").style.display = "flex";
+  document.getElementById("otpActions").style.display = "flex";
+  const hint = document.getElementById("otpHint");
+  hint.style.display = "block";
+  hint.textContent = `Te mandamos un código por WhatsApp al ${phone}. Escríbelo y toca Continuar.` +
+    (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
+  err.textContent = "";
+  document.getElementById("otpInput").value = "";
+  document.getElementById("otpInput").focus();
+  startResendCountdown(60);
+  return "sent";
+}
+
+function startResendCountdown(seconds) {
+  const btn = document.getElementById("otpResendBtn");
+  clearInterval(otpResendTimer);
+  let left = seconds;
+  btn.disabled = true;
+  btn.textContent = `Reenviar código (${left})`;
+  otpResendTimer = setInterval(() => {
+    left--;
+    if (left <= 0) {
+      clearInterval(otpResendTimer);
+      btn.disabled = false;
+      btn.textContent = "Reenviar código";
+    } else {
+      btn.textContent = `Reenviar código (${left})`;
+    }
+  }, 1000);
+}
+
+async function resendOtp() {
+  document.getElementById("formError").textContent = "";
+  const phone = readRiderPhone();
+  if (!phone) return;
+  const sent = await requestOtp(phone);
+  if (sent === "login") showPinLogin(phone);
+}
+
+function otpHelp() {
+  const phone = readRiderPhone() || document.getElementById("phoneInput").value.trim();
+  const msg = `Hola, me estoy registrando en MotoVecino con el número ${phone} y no me llegó el código de verificación.`;
+  window.open(waLink(SOPORTE_WHATSAPP_NUMBER, msg), "_blank");
+}
+
+function hideOtp() {
+  otpPhone = null;
+  clearInterval(otpResendTimer);
+  ["otpRow", "otpActions", "otpHint"].forEach((id) => (document.getElementById(id).style.display = "none"));
 }
 
 function dismissPinScreen() {
@@ -3882,12 +4019,14 @@ const QUEJAS_WHATSAPP_NUMBER = "";
 const SOPORTE_WHATSAPP_NUMBER = "9979739422";
 
 function waLink(phone, text) {
+  // Los números de otro país ya traen su código ("+51..."); los de México no.
   const digits = phone.replace(/\D/g, "");
-  return `https://api.whatsapp.com/send?phone=52${digits}&text=${encodeURIComponent(text)}`;
+  const full = String(phone).trim().startsWith("+") ? digits : "52" + digits;
+  return `https://api.whatsapp.com/send?phone=${full}&text=${encodeURIComponent(text)}`;
 }
 
 function forgotPin() {
-  const phone = document.getElementById("phoneInput").value.trim();
+  const phone = readRiderPhone() || document.getElementById("phoneInput").value.trim();
   const text = `Hola, olvidé mi PIN de pasajero en MotoVecino ${resolvedCityLabel}. Mi teléfono registrado es ${phone}.`;
   window.open(waLink(SOPORTE_WHATSAPP_NUMBER, text), "_blank");
 }

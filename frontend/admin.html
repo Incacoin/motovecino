@@ -838,8 +838,10 @@ function copyQrLink() {
 }
 
 function waLink(phone, text) {
+  // Los números de otro país ya traen su código ("+51..."); los de México no.
   const digits = phone.replace(/\D/g, "");
-  return `https://api.whatsapp.com/send?phone=52${digits}&text=${encodeURIComponent(text)}`;
+  const full = String(phone).trim().startsWith("+") ? digits : "52" + digits;
+  return `https://api.whatsapp.com/send?phone=${full}&text=${encodeURIComponent(text)}`;
 }
 
 // Muestra el PIN restablecido en una tarjeta con botón de WhatsApp. El botón

@@ -2,6 +2,8 @@ const express = require("express");
 const db = require("../db");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const { photoUrls, cleanThumb } = require("../photos");
+const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
+const { parseRiderPhone } = require("../phone");
 
 const router = express.Router();
 
@@ -12,6 +14,34 @@ function generateRiderPin() {
   } while (db.prepare("SELECT id FROM riders WHERE pin = ?").get(pin));
   return pin;
 }
+
+// Primer paso del registro: manda el código de verificación por WhatsApp.
+// Si el teléfono ya tiene cuenta responde 409 (igual que /riders/register)
+// para que el frontend pida el PIN en vez de mandar un código. Con OTP_MODE
+// en "off" responde required:false y el frontend registra directo.
+router.post("/riders/otp/send", async (req, res) => {
+  const parsed = parseRiderPhone(req.body.phone);
+  if (!parsed) {
+    return res.status(400).json({ error: "Revisa tu teléfono (le faltan o sobran números)" });
+  }
+  const { phone } = parsed;
+  const existing = db.prepare("SELECT pin FROM riders WHERE phone = ?").get(phone);
+  if (existing && existing.pin) {
+    return res.status(409).json({ error: "Ese teléfono ya tiene cuenta" });
+  }
+  if (!otpEnabled()) {
+    return res.json({ required: false });
+  }
+  if (isSubmissionRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const result = await sendOtp(phone, parsed.e164);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
+  }
+  recordSubmission(req.ip);
+  res.json({ required: true, ...(result.devCode ? { devCode: result.devCode } : {}) });
+});
 
 // Da de alta un teléfono nuevo (le genera PIN) o, si ese teléfono ya tiene
 // cuenta, lo rechaza con 409 — el frontend entonces le pide su PIN en vez de
@@ -25,8 +55,10 @@ router.post("/riders/register", (req, res) => {
   if (isSubmissionRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const { name, phone } = req.body;
-  if (typeof name !== "string" || typeof phone !== "string" || !name.trim() || phone.length !== 10) {
+  const { name } = req.body;
+  const parsed = parseRiderPhone(req.body.phone);
+  const phone = parsed && parsed.phone;
+  if (typeof name !== "string" || !name.trim() || !parsed) {
     return res.status(400).json({ error: "Falta nombre o teléfono válido" });
   }
 
@@ -36,9 +68,15 @@ router.post("/riders/register", (req, res) => {
     return res.status(409).json({ error: "Ese teléfono ya tiene cuenta" });
   }
 
-  const pin = generateRiderPin();
+  if (otpEnabled()) {
+    // El envío del código ya contó para el límite por IP (ver /riders/otp/send).
+    const check = verifyOtp(phone, req.body.code);
+    if (!check.ok) return res.status(check.status).json({ error: check.error });
+  } else {
+    recordSubmission(req.ip);
+  }
 
-  recordSubmission(req.ip);
+  const pin = generateRiderPin();
 
   if (existing) {
     // Rider de antes de que existiera el PIN (dato viejo) — se lo asignamos
