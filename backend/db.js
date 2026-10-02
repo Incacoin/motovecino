@@ -726,4 +726,38 @@ try {
 } catch {}
 db.exec("CREATE INDEX IF NOT EXISTS idx_rides_business ON rides(business_id, created_at)");
 
+// Comida y negocios (Paso A, 2-oct): perfil público del negocio y su menú. Las
+// fotos NO van en la base: son archivos en data/menu/ (ver menuImages.js) y
+// aquí solo se guarda su nombre. food_settings es el interruptor por ciudad de
+// la sección que ven los clientes; se construye apagado.
+for (const [col, type] of [
+  ["logo", "TEXT"], ["cover", "TEXT"], ["tagline", "TEXT"], ["category", "TEXT"],
+  ["hours", "TEXT"], ["whatsapp", "TEXT"], ["is_open", "INTEGER NOT NULL DEFAULT 0"],
+]) {
+  try {
+    db.exec(`ALTER TABLE businesses ADD COLUMN ${col} ${type}`);
+  } catch {}
+}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS menu_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_id INTEGER NOT NULL REFERENCES businesses(id),
+    category TEXT,
+    name TEXT NOT NULL,
+    description TEXT,
+    price INTEGER NOT NULL,
+    photo TEXT,
+    available INTEGER NOT NULL DEFAULT 1,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    deleted_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_menu_items_business ON menu_items(business_id);
+  CREATE TABLE IF NOT EXISTS food_settings (
+    city TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 0
+  );
+`);
+
 module.exports = db;

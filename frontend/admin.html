@@ -604,6 +604,10 @@
   <div class="section-card">
   <h1>🏪 Cuentas "Mi negocio"</h1>
   <p class="section-hint">El negocio pide chofer desde la app para entregar sus pedidos: recoge en el negocio y el chofer cobra solo el envío (la comida ya la pagó el cliente por transferencia). Primero el dueño se registra como pasajero en la app; aquí lo marcas como negocio y le aparece "Mi negocio" en su menú.</p>
+  <div class="ally-switch" id="foodSwitch">
+    <div><b id="foodSwitchTitle">Comida y negocios: apagada</b><span id="foodSwitchHint">Los clientes todavía no ven los menús. Los negocios sí pueden ir armando su menú desde "Mi negocio".</span></div>
+    <button class="btn" id="foodSwitchBtn" onclick="toggleFood()">Prender</button>
+  </div>
   <button class="btn" onclick="openBizForm()">＋ Dar de alta un negocio</button>
   <div class="ally-form" id="bizForm">
     <h2 style="margin:0 0 4px;font-size:18px;">Negocio</h2>
@@ -1770,7 +1774,33 @@ let bizCache = [];
 let bizMap = null;
 let bizFound = [];
 
+let foodEnabled = false;
+async function loadFoodSwitch() {
+  const res = await fetch(API + "/api/admin/food/status", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  if (!res.ok) return;
+  foodEnabled = (await res.json()).enabled;
+  renderFoodSwitch();
+}
+function renderFoodSwitch() {
+  document.getElementById("foodSwitch").classList.toggle("on", foodEnabled);
+  document.getElementById("foodSwitchTitle").textContent = foodEnabled ? "Comida y negocios: encendida" : "Comida y negocios: apagada";
+  document.getElementById("foodSwitchHint").textContent = foodEnabled
+    ? "Los clientes ya ven los menús (de los negocios con WhatsApp y al menos un producto) y les piden por WhatsApp."
+    : "Los clientes todavía no ven los menús. Los negocios sí pueden ir armando su menú desde \"Mi negocio\".";
+  document.getElementById("foodSwitchBtn").textContent = foodEnabled ? "Apagar" : "Prender";
+}
+async function toggleFood() {
+  const next = !foodEnabled;
+  if (next && !confirm("¿Prender Comida y negocios? Los clientes empezarán a ver los menús y a pedir por WhatsApp.")) return;
+  const res = await fetch(API + "/api/admin/food/enabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, enabled: next }) });
+  if (!res.ok) { showToast("No se pudo cambiar"); return; }
+  foodEnabled = (await res.json()).enabled;
+  renderFoodSwitch();
+  showToast(foodEnabled ? "Comida y negocios encendida" : "Comida y negocios apagada");
+}
+
 async function loadBusinesses() {
+  loadFoodSwitch();
   const res = await fetch(API + "/api/admin/businesses/list", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }),
   });

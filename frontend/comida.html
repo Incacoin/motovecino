@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Comida y negocios · MotoVecino</title>
+<meta name="description" content="Pide a los negocios de tu municipio: mira su menú con fotos y precios y pídeles por WhatsApp. El envío lo lleva un chofer de MotoVecino." />
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#ffffff" />
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>
+// Mismo tema que la app del pasajero.
+(function () {
+  let pref = "light";
+  try { pref = localStorage.getItem("motovecino_tema_pasajero") || "light"; } catch {}
+  const h = new Date().getHours();
+  const theme = pref === "dark" ? "dark" : pref === "auto" ? (h >= 6 && h < 19 ? "light" : "dark") : "light";
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", theme === "light" ? "#ffffff" : "#000000");
+})();
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
+<style>
+  :root {
+    --bg: #ffffff; --bg-card: #f6f6f6; --border: #e2e2e2; --text: #000; --dim: #545454; --faint: #8a8a8a;
+    --green: #16a34a; --green-bg: #dcfce7; --btn: #000; --btn-ink: #fff;
+  }
+  html[data-theme="dark"] {
+    --bg: #000; --bg-card: #1a1a1a; --border: #2a2a2a; --text: #fff; --dim: #a8a8a8; --faint: #6b6b6b;
+    --green: #4ade80; --green-bg: #14532d; --btn: #fff; --btn-ink: #000;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); letter-spacing: -0.005em; }
+  button { font-family: inherit; }
+  .screen { display: none; min-height: 100vh; padding-bottom: 110px; }
+  .screen.active { display: block; }
+  .top { padding: 18px 16px 6px; display: flex; align-items: center; gap: 12px; }
+  .back { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--bg-card); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 38px; }
+  .kick { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--green); }
+  .title { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; }
+  .hello { padding: 8px 16px 0; font-size: 25px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; }
+  .search { position: relative; margin: 14px 16px 0; }
+  .search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--faint); }
+  .search input { width: 100%; font-family: inherit; font-size: 16px; padding: 14px 14px 14px 42px; border-radius: 14px; border: 1.5px solid transparent; background: var(--bg-card); color: var(--text); outline: none; }
+  .search input:focus { border-color: var(--text); background: var(--bg); }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 14px 16px 2px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; padding: 9px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .chip.on { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
+  .sec { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); padding: 18px 16px 8px; }
+  .biz-list { padding: 0 16px; display: flex; flex-direction: column; gap: 14px; }
+  .biz { border: 1px solid var(--border); border-radius: 18px; overflow: hidden; cursor: pointer; background: var(--bg); }
+  .biz .cv { height: 130px; background: var(--bg-card) center/cover no-repeat; position: relative; }
+  .biz .cv .lg { position: absolute; left: 12px; bottom: -22px; width: 54px; height: 54px; border-radius: 14px; border: 3px solid var(--bg); background: var(--bg-card) center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .biz .st { position: absolute; right: 10px; top: 10px; }
+  .pill { font-size: 11.5px; font-weight: 800; padding: 5px 10px; border-radius: 20px; background: rgba(0,0,0,0.65); color: #fff; }
+  .pill.open { background: #22c55e; color: #04210f; }
+  .biz .bd { padding: 28px 14px 14px; }
+  .biz .nm { font-weight: 800; font-size: 16.5px; letter-spacing: -0.02em; }
+  .biz .tg { font-size: 13px; color: var(--dim); margin-top: 3px; }
+  .biz .mt { font-size: 12px; color: var(--faint); margin-top: 6px; }
+  .biz.closed .cv { filter: grayscale(0.8); opacity: 0.75; }
+  .empty { padding: 40px 24px; text-align: center; color: var(--dim); font-size: 14.5px; line-height: 1.55; }
+  .empty b { color: var(--text); }
+
+  /* Detalle del negocio */
+  .hero { height: 200px; background: var(--bg-card) center/cover no-repeat; position: relative; }
+  .hero .back { position: absolute; left: 14px; top: 14px; background: rgba(255,255,255,0.92); color: #000; }
+  .hero .lg { position: absolute; left: 16px; bottom: -34px; width: 78px; height: 78px; border-radius: 20px; border: 4px solid var(--bg); background: var(--bg-card) center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .head { padding: 44px 16px 4px; }
+  .head .nm { font-size: 24px; font-weight: 800; letter-spacing: -0.035em; }
+  .head .tg { font-size: 14px; color: var(--dim); margin-top: 4px; }
+  .head .mt { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; font-size: 12.5px; color: var(--dim); }
+  .head .pill { background: var(--bg-card); color: var(--dim); }
+  .head .pill.open { background: var(--green-bg); color: var(--green); }
+  .cat-h { font-size: 13px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); margin: 22px 16px 6px; }
+  .item { display: flex; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .item .info { flex: 1; min-width: 0; }
+  .item .nm { font-weight: 700; font-size: 15.5px; }
+  .item .ds { font-size: 13px; color: var(--dim); margin-top: 3px; line-height: 1.4; }
+  .item .pr { font-weight: 800; font-size: 15px; margin-top: 6px; }
+  .item .side { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .item .ph { width: 92px; height: 92px; border-radius: 14px; background: var(--bg-card) center/cover no-repeat; }
+  .qty { display: flex; align-items: center; gap: 0; border-radius: 20px; background: var(--btn); color: var(--btn-ink); overflow: hidden; }
+  .qty button { width: 32px; height: 32px; border: none; background: none; color: inherit; font-size: 18px; font-weight: 800; cursor: pointer; }
+  .qty span { min-width: 18px; text-align: center; font-weight: 800; font-size: 14px; }
+  .add { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--btn); color: var(--btn-ink); font-size: 20px; font-weight: 800; cursor: pointer; }
+  .note { margin: 18px 16px 0; border-radius: 14px; padding: 13px 14px; background: var(--bg-card); font-size: 13px; color: var(--dim); line-height: 1.5; }
+  .note b { color: var(--text); }
+  .bar { position: fixed; left: 14px; right: 14px; bottom: 18px; padding: 15px 16px; border-radius: 16px; border: none; background: #22c55e; color: #04210f; font-weight: 800; font-size: 15.5px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 10px 28px rgba(0,0,0,0.22); }
+  .bar:disabled { background: var(--bg-card); color: var(--faint); box-shadow: none; }
+  .preview-banner { position: sticky; top: 0; z-index: 10; background: #000; color: #fff; font-size: 13px; font-weight: 700; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  html[data-theme="dark"] .preview-banner { background: #fff; color: #000; }
+  .preview-banner button { border: none; background: #22c55e; color: #04210f; font-weight: 800; border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div id="listScreen" class="screen active">
+  <div class="top">
+    <button class="back" onclick="goBack()" aria-label="Regresar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div><div class="kick">MOTOVECINO</div><div class="title">Comida y negocios</div></div>
+  </div>
+  <div class="hello" id="hello">¿Qué se te antoja hoy?</div>
+  <div class="search">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    <input id="q" type="search" placeholder="Busca tacos, pizza, postres…" oninput="renderList()" autocomplete="off" />
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="sec" id="listTitle">Negocios</div>
+  <div class="biz-list" id="bizList"><div class="empty">Cargando…</div></div>
+</div>
+
+<div id="detailScreen" class="screen">
+  <div id="previewBanner" class="preview-banner" style="display:none"><span>👀 Vista previa: así te ven tus clientes</span><button onclick="location.href='negocio.html'">Volver</button></div>
+  <div class="hero" id="hero"><button class="back" onclick="closeDetail()" aria-label="Regresar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><div class="lg" id="heroLogo"></div></div>
+  <div class="head">
+    <div class="nm" id="dName"></div>
+    <div class="tg" id="dTagline"></div>
+    <div class="mt" id="dMeta"></div>
+  </div>
+  <div id="menu"></div>
+  <div class="note">🛵 Le pides directo al negocio por WhatsApp. <b>La comida la pagas al negocio</b> (te dice cómo) y <b>el envío se lo pagas al chofer</b> de MotoVecino al recibir.</div>
+  <button class="bar" id="orderBar" onclick="sendOrder()" disabled><span id="barLeft">Elige tus productos</span><span id="barRight"></span></button>
+</div>
+
+<script>
+const API = "";
+let me = null, businesses = [], current = null, menu = [], cart = {}, chip = "Todos", isPreview = false;
+try { me = JSON.parse(localStorage.getItem("motoya_rider") || "null"); } catch {}
+
+function escapeHtml(t) {
+  return String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function norm(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+function goBack() { if (history.length > 1) history.back(); else location.href = "pasajero.html"; }
+
+async function start() {
+  const params = new URLSearchParams(location.search);
+  const name = me && me.name ? me.name.trim().split(/\s+/)[0] : "";
+  if (name) document.getElementById("hello").textContent = `${name}, ¿qué se te antoja hoy?`;
+  // Vista previa del dueño: su propio negocio aunque la sección esté apagada.
+  if (params.get("vista") && me && me.pin) {
+    try {
+      const r = await fetch(API + "/api/business/profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: me.phone, pin: me.pin }) });
+      const d = await r.json();
+      if (r.ok) {
+        isPreview = true;
+        document.getElementById("previewBanner").style.display = "";
+        openDetail(d.business, d.menu.filter((i) => i.available));
+        return;
+      }
+    } catch {}
+  }
+  try {
+    const d = await (await fetch(API + "/api/food/businesses?city=tekax", { cache: "no-store" })).json();
+    if (!d.enabled) {
+      document.getElementById("bizList").innerHTML = `<div class="empty">🍽️ <b>Muy pronto</b><br>Aquí vas a poder ver el menú de los negocios de tu municipio y pedirles directo. El envío lo lleva un chofer de MotoVecino.</div>`;
+      document.getElementById("listTitle").style.display = "none";
+      return;
+    }
+    businesses = d.businesses;
+    renderChips();
+    renderList();
+    const id = Number(params.get("id"));
+    if (id) loadBusiness(id);
+  } catch {
+    document.getElementById("bizList").innerHTML = `<div class="empty">Sin conexión. Intenta de nuevo.</div>`;
+  }
+}
+
+function renderChips() {
+  const cats = ["Todos", ...new Set(businesses.map((b) => b.category).filter(Boolean))];
+  document.getElementById("chips").innerHTML = cats.map((c) => `<button class="chip ${c === chip ? "on" : ""}" onclick="setChip(${JSON.stringify(c).replace(/"/g, "&quot;")})">${escapeHtml(c)}</button>`).join("");
+  document.getElementById("chips").style.display = cats.length > 2 ? "" : "none";
+}
+function setChip(c) { chip = c; renderChips(); renderList(); }
+
+function renderList() {
+  const q = norm(document.getElementById("q").value.trim());
+  const list = businesses.filter((b) =>
+    (chip === "Todos" || b.category === chip) &&
+    (!q || q.split(/\s+/).every((w) => norm(`${b.name} ${b.tagline || ""} ${b.category || ""} ${b.search || ""}`).includes(w)))
+  );
+  const el = document.getElementById("bizList");
+  document.getElementById("listTitle").textContent = q ? `Resultados · ${list.length}` : "Negocios";
+  if (!list.length) {
+    el.innerHTML = `<div class="empty">${businesses.length ? "No encontramos eso. Prueba con otra palabra." : "Todavía no hay negocios con menú."}</div>`;
+    return;
+  }
+  el.innerHTML = list.map((b) => `
+    <div class="biz ${b.is_open ? "" : "closed"}" onclick="loadBusiness(${b.id})">
+      <div class="cv" style="${b.cover ? `background-image:url('${b.cover}')` : ""}">
+        <div class="st"><span class="pill ${b.is_open ? "open" : ""}">${b.is_open ? "● Abierto" : "Cerrado"}</span></div>
+        <div class="lg" style="${b.logo ? `background-image:url('${b.logo}')` : ""}">${b.logo ? "" : "🏪"}</div>
+      </div>
+      <div class="bd"><div class="nm">${escapeHtml(b.name)}</div>${b.tagline ? `<div class="tg">${escapeHtml(b.tagline)}</div>` : ""}
+        <div class="mt">${[b.category, b.hours].filter(Boolean).map(escapeHtml).join(" · ")}</div></div>
+    </div>`).join("");
+}
+
+async function loadBusiness(id) {
+  try {
+    const r = await fetch(API + "/api/food/business/" + id, { cache: "no-store" });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    openDetail(d.business, d.menu);
+  } catch { alertMsg("No se pudo abrir el negocio"); }
+}
+function alertMsg(m) { document.getElementById("barLeft").textContent = m; }
+
+function openDetail(b, items) {
+  current = b;
+  menu = items;
+  cart = {};
+  document.getElementById("hero").style.backgroundImage = b.cover ? `url("${b.cover}")` : "";
+  const lg = document.getElementById("heroLogo");
+  lg.style.backgroundImage = b.logo ? `url("${b.logo}")` : "";
+  lg.textContent = b.logo ? "" : "🏪";
+  document.getElementById("dName").textContent = b.name;
+  document.getElementById("dTagline").textContent = b.tagline || "";
+  document.getElementById("dMeta").innerHTML = `<span class="pill ${b.is_open ? "open" : ""}">${b.is_open ? "● Abierto" : "Cerrado ahora"}</span>` +
+    [b.category, b.hours, b.address].filter(Boolean).map((t) => `<span>${escapeHtml(t)}</span>`).join("<span>·</span>");
+  renderMenu();
+  document.getElementById("listScreen").classList.remove("active");
+  document.getElementById("detailScreen").classList.add("active");
+  window.scrollTo(0, 0);
+}
+function closeDetail() {
+  if (isPreview) { location.href = "negocio.html"; return; }
+  document.getElementById("detailScreen").classList.remove("active");
+  document.getElementById("listScreen").classList.add("active");
+}
+
+function renderMenu() {
+  const groups = {};
+  for (const i of menu) (groups[i.category || "Menú"] = groups[i.category || "Menú"] || []).push(i);
+  document.getElementById("menu").innerHTML = Object.entries(groups).map(([cat, items]) => `<div class="cat-h">${escapeHtml(cat)}</div>` + items.map((i) => {
+    const n = cart[i.id] || 0;
+    const ctl = n
+      ? `<div class="qty"><button onclick="setQty(${i.id}, -1)">−</button><span>${n}</span><button onclick="setQty(${i.id}, 1)">+</button></div>`
+      : `<button class="add" onclick="setQty(${i.id}, 1)" aria-label="Agregar">+</button>`;
+    return `<div class="item">
+      <div class="info"><div class="nm">${escapeHtml(i.name)}</div>${i.description ? `<div class="ds">${escapeHtml(i.description)}</div>` : ""}<div class="pr">$${i.price}</div></div>
+      <div class="side">${i.photo ? `<div class="ph" style="background-image:url('${i.photo}')"></div>` : ""}${current.is_open ? ctl : ""}</div>
+    </div>`;
+  }).join("")).join("");
+  renderBar();
+}
+function setQty(id, d) {
+  cart[id] = Math.max(0, Math.min(20, (cart[id] || 0) + d));
+  if (!cart[id]) delete cart[id];
+  renderMenu();
+}
+function cartLines() { return menu.filter((i) => cart[i.id]).map((i) => ({ ...i, n: cart[i.id] })); }
+function renderBar() {
+  const bar = document.getElementById("orderBar");
+  const lines = cartLines();
+  const count = lines.reduce((a, l) => a + l.n, 0);
+  const total = lines.reduce((a, l) => a + l.n * l.price, 0);
+  if (!current.is_open) {
+    bar.disabled = true;
+    document.getElementById("barLeft").textContent = "Cerrado ahora";
+    document.getElementById("barRight").textContent = current.hours || "";
+    return;
+  }
+  bar.disabled = !count;
+  document.getElementById("barLeft").textContent = count ? `Pedir por WhatsApp · ${count}` : "Elige tus productos";
+  document.getElementById("barRight").textContent = count ? `$${total}` : "";
+}
+
+// El pedido sale escrito al WhatsApp del negocio; el negocio confirma, cobra
+// la comida por transferencia y pide chofer desde "Mi negocio".
+function sendOrder() {
+  const lines = cartLines();
+  if (!lines.length || !current.whatsapp) return;
+  const total = lines.reduce((a, l) => a + l.n * l.price, 0);
+  const name = me && me.name ? me.name.trim() : "";
+  const text = [
+    `Hola ${current.name}, vi su menú en MotoVecino 🛵 Quiero pedir:`,
+    ...lines.map((l) => `• ${l.n} × ${l.name} — $${l.n * l.price}`),
+    `Total: $${total} (más el envío)`,
+    name ? `A nombre de: ${name}` : "",
+    `Entregar en: `,
+  ].filter(Boolean).join("\n");
+  if (isPreview) { alertMsg("Así le llegaría tu pedido a WhatsApp ✅"); return; }
+  window.open(`https://wa.me/52${current.whatsapp}?text=${encodeURIComponent(text)}`, "_blank");
+}
+
+start();
+</script>
+</body>
+</html>

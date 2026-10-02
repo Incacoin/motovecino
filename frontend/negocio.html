@@ -103,6 +103,40 @@
   .note { font-size: 12px; color: var(--faint); line-height: 1.4; }
   #toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #000; color: #fff; padding: 11px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; display: none; z-index: 2000; max-width: 90vw; text-align: center; }
   html[data-theme="dark"] #toast { background: #fff; color: #000; }
+  /* Pestañas, abierto/cerrado, menú y perfil (Comida y negocios, 2-oct) */
+  .top .grow { flex: 1; min-width: 0; }
+  .open-tg { border: none; border-radius: 20px; padding: 8px 12px; font-weight: 800; font-size: 12.5px; cursor: pointer; background: var(--bg-card); color: var(--dim); white-space: nowrap; }
+  .open-tg.on { background: #22c55e; color: #04210f; }
+  .tabs { display: flex; gap: 6px; padding: 12px 14px 0; }
+  .tab { flex: 1; padding: 10px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--dim); font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .tab.on { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
+  .panel { display: none; }
+  .panel.on { display: block; }
+  .cat-h { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); margin: 16px 4px 8px; }
+  .item { display: flex; gap: 12px; align-items: center; border: 1px solid var(--border); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
+  .item .ph { width: 62px; height: 62px; border-radius: 10px; background: var(--bg-card) center/cover no-repeat; flex: 0 0 62px; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 22px; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .nm { font-weight: 700; font-size: 14.5px; }
+  .item .ds { font-size: 12px; color: var(--dim); margin-top: 2px; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .item .pr { font-weight: 800; font-size: 14px; margin-top: 4px; }
+  .item.off { opacity: 0.55; }
+  .item .acts { display: flex; flex-direction: column; gap: 6px; }
+  .mini { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 8px; padding: 6px 9px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .mini.ok { background: var(--green-bg); color: var(--green); border-color: transparent; }
+  .mini.no { background: #fee2e2; color: #b91c1c; border-color: transparent; }
+  html[data-theme="dark"] .mini.no { background: #450a0a; color: #fca5a5; }
+  .pf { padding: 14px 16px 120px; display: flex; flex-direction: column; gap: 10px; }
+  .cover { position: relative; height: 150px; border-radius: 14px; background: var(--bg-card) center/cover no-repeat; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 13px; overflow: visible; margin-bottom: 34px; }
+  .cover .chg { position: absolute; right: 10px; top: 10px; }
+  .logo { position: absolute; left: 14px; bottom: -32px; width: 76px; height: 76px; border-radius: 18px; border: 3px solid var(--bg); background: var(--bg-card) center/cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 26px; cursor: pointer; }
+  .logo .chg-ico { position: absolute; right: -6px; bottom: -6px; width: 26px; height: 26px; border-radius: 50%; background: var(--btn); color: var(--btn-ink); font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  select { font-family: inherit; font-size: 16px; width: 100%; padding: 13px 14px; border-radius: 12px; border: 1.5px solid transparent; background: var(--bg-card); color: var(--text); }
+  textarea { font-family: inherit; font-size: 15px; width: 100%; padding: 12px 14px; border-radius: 12px; border: 1.5px solid transparent; background: var(--bg-card); color: var(--text); resize: none; outline: none; }
+  textarea:focus { border-color: var(--text); background: var(--bg); }
+  .tip { border-radius: 12px; padding: 12px 13px; background: var(--bg-card); font-size: 13px; color: var(--dim); line-height: 1.45; }
+  .tip b { color: var(--text); }
+  .photo-pick { height: 170px; border-radius: 14px; border: 1.5px dashed var(--border); background: var(--bg-card) center/cover no-repeat; display: flex; align-items: center; justify-content: center; color: var(--dim); font-weight: 700; cursor: pointer; }
+  .photo-pick.has { border-style: solid; color: transparent; }
 </style>
 </head>
 <body>
@@ -111,11 +145,65 @@
 <div id="homeScreen" class="screen active">
   <div class="top">
     <button class="back" onclick="location.href='pasajero.html'" aria-label="Regresar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <div><div class="kick">MOTOVECINO · MI NEGOCIO</div><div class="title" id="bizName">Mi negocio</div></div>
+    <div class="grow"><div class="kick">MOTOVECINO · MI NEGOCIO</div><div class="title" id="bizName">Mi negocio</div></div>
+    <button class="open-tg" id="openBtn" style="display:none" onclick="toggleOpen()">Cerrado</button>
   </div>
-  <div class="sec" id="activeTitle">Envíos de hoy</div>
-  <div class="list" id="list"><div class="empty">Cargando…</div></div>
-  <button class="bigbtn" id="newBtn" onclick="openNew()" disabled>＋ Pedir chofer</button>
+  <div class="tabs" id="tabs" style="display:none">
+    <button class="tab on" data-tab="envios" onclick="setTab('envios')">Envíos</button>
+    <button class="tab" data-tab="menu" onclick="setTab('menu')">Menú</button>
+    <button class="tab" data-tab="perfil" onclick="setTab('perfil')">Perfil</button>
+  </div>
+  <div class="panel on" id="panel-envios">
+    <div class="sec" id="activeTitle">Envíos de hoy</div>
+    <div class="list" id="list"><div class="empty">Cargando…</div></div>
+    <button class="bigbtn" id="newBtn" onclick="openNew()" disabled>＋ Pedir chofer</button>
+  </div>
+  <div class="panel" id="panel-menu">
+    <div class="list" id="menuList" style="padding-top:6px"></div>
+    <button class="bigbtn" onclick="openItem()">＋ Agregar producto</button>
+  </div>
+  <div class="panel" id="panel-perfil">
+    <div class="pf">
+      <div class="cover" id="coverBox"><span id="coverHint">Foto de portada (tu local o un platillo)</span>
+        <button class="mini chg" onclick="pickPhoto('cover')">📷 Cambiar portada</button>
+        <div class="logo" id="logoBox" onclick="pickPhoto('logo')"><span id="logoHint">🏪</span><span class="chg-ico">📷</span></div>
+      </div>
+      <div class="lab">Frase corta</div>
+      <input id="pfTagline" maxlength="70" placeholder="Ej. Cochinita, panuchos y salbutes" />
+      <div class="lab">Tipo de negocio</div>
+      <select id="pfCategory"><option value="">Elige uno</option></select>
+      <div class="lab">Horario</div>
+      <input id="pfHours" maxlength="60" placeholder="Ej. Lun a Sáb · 7 am a 2 pm" />
+      <div class="lab">WhatsApp del negocio (aquí te llegan los pedidos)</div>
+      <input id="pfWhatsapp" type="tel" inputmode="numeric" maxlength="10" placeholder="10 dígitos" />
+      <div class="tip" id="pfStatus"></div>
+      <button class="b" onclick="previewPublic()">👀 Ver cómo lo ven mis clientes</button>
+    </div>
+    <button class="bigbtn" id="pfSaveBtn" onclick="saveProfile()">Guardar perfil</button>
+  </div>
+  <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoPicked(event)" />
+</div>
+
+<!-- Agregar / editar producto -->
+<div id="itemScreen" class="screen">
+  <div class="top">
+    <button class="back" onclick="closeItem()" aria-label="Regresar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="grow"><div class="kick">MOTOVECINO · MI MENÚ</div><div class="title" id="itemTitle">Nuevo producto</div></div>
+  </div>
+  <div class="form">
+    <div class="photo-pick" id="itemPhoto" onclick="pickPhoto('item')">📷 Tomar o elegir foto</div>
+    <div class="lab">Nombre</div>
+    <input id="itemName" maxlength="50" placeholder="Ej. Panuchos de cochinita (3)" />
+    <div class="lab">Precio</div>
+    <input id="itemPrice" type="number" inputmode="numeric" min="1" placeholder="Ej. 45" />
+    <div class="lab">Descripción (opcional)</div>
+    <textarea id="itemDesc" rows="2" maxlength="140" placeholder="Ej. Con cebolla morada y chile habanero"></textarea>
+    <div class="lab">Categoría</div>
+    <input id="itemCat" maxlength="30" list="catList" placeholder="Ej. Antojitos, Bebidas, Postres" />
+    <datalist id="catList"></datalist>
+    <button class="b red" id="itemDelBtn" style="display:none" onclick="deleteItem()">Borrar producto</button>
+  </div>
+  <button class="bigbtn" id="itemSaveBtn" onclick="saveItem()">Guardar producto</button>
 </div>
 
 <!-- Pedir chofer -->
@@ -198,8 +286,12 @@ async function start() {
     biz = d.business;
     document.getElementById("bizName").textContent = biz.name;
     document.getElementById("newBtn").disabled = false;
+    document.getElementById("tabs").style.display = "";
+    document.getElementById("openBtn").style.display = "";
+    renderOpen();
+    loadProfile();
     await loadRides();
-    pollTimer = setInterval(() => { if (document.getElementById("homeScreen").classList.contains("active")) loadRides(); }, 8000);
+    pollTimer = setInterval(() => { if (document.getElementById("homeScreen").classList.contains("active") && document.getElementById("panel-envios").classList.contains("on")) loadRides(); }, 8000);
   } catch (e) {
     document.getElementById("list").innerHTML = `<div class="empty">${escapeHtml(e.message)}</div>`;
   }
@@ -353,6 +445,215 @@ async function sendRide() {
     btn.disabled = false;
     btn.textContent = "Buscar chofer";
   }
+}
+
+// --- Pestañas ---
+function setTab(tab) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
+  document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("on", p.id === "panel-" + tab));
+  if (tab === "envios") loadRides();
+  window.scrollTo(0, 0);
+}
+
+// --- Abierto / cerrado ---
+function renderOpen() {
+  const b = document.getElementById("openBtn");
+  b.classList.toggle("on", !!biz.is_open);
+  b.textContent = biz.is_open ? "● Abierto" : "Cerrado";
+}
+async function toggleOpen() {
+  try {
+    const d = await post("/business/open", { open: !biz.is_open });
+    biz.is_open = d.is_open;
+    renderOpen();
+    toast(biz.is_open ? "Abierto: tus clientes ya pueden pedirte" : "Cerrado: tus clientes ven que no estás atendiendo");
+  } catch (e) { toast(e.message); }
+}
+
+// --- Fotos: se recortan y comprimen en el celular antes de subirlas ---
+let photoTarget = null;
+let pending = { logo: null, cover: null, item: null };
+function pickPhoto(target) {
+  photoTarget = target;
+  const input = document.getElementById("photoInput");
+  input.value = "";
+  input.click();
+}
+function compressImage(file, maxW, maxH, square) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let sx = 0, sy = 0, sw = img.width, sh = img.height;
+      if (square) { const m = Math.min(sw, sh); sx = (sw - m) / 2; sy = (sh - m) / 2; sw = sh = m; }
+      const scale = Math.min(1, maxW / sw, maxH / sh);
+      const c = document.createElement("canvas");
+      c.width = Math.round(sw * scale);
+      c.height = Math.round(sh * scale);
+      c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => reject(new Error("No se pudo leer la foto"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function onPhotoPicked(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try {
+    const sizes = { logo: [400, 400, true], cover: [1200, 700, false], item: [900, 900, false] }[photoTarget];
+    const url = await compressImage(file, ...sizes);
+    pending[photoTarget] = url;
+    if (photoTarget === "item") showItemPhoto(url);
+    else renderProfilePhotos();
+  } catch (err) { toast(err.message); }
+}
+
+// --- Perfil ---
+let menu = [];
+let categories = [];
+async function loadProfile() {
+  try {
+    const d = await post("/business/profile", {});
+    Object.assign(biz, d.business);
+    menu = d.menu;
+    categories = d.categories;
+    const sel = document.getElementById("pfCategory");
+    sel.innerHTML = '<option value="">Elige uno</option>' + categories.map((c) => `<option>${escapeHtml(c)}</option>`).join("");
+    fillProfile();
+    renderMenu();
+  } catch {}
+}
+function fillProfile() {
+  document.getElementById("pfTagline").value = biz.tagline || "";
+  document.getElementById("pfCategory").value = biz.category || "";
+  document.getElementById("pfHours").value = biz.hours || "";
+  document.getElementById("pfWhatsapp").value = biz.whatsapp || "";
+  pending.logo = pending.cover = null;
+  renderProfilePhotos();
+  renderProfileStatus();
+}
+function renderProfilePhotos() {
+  const cover = pending.cover || biz.cover;
+  const logo = pending.logo || biz.logo;
+  document.getElementById("coverBox").style.backgroundImage = cover ? `url("${cover}")` : "";
+  document.getElementById("coverHint").style.display = cover ? "none" : "";
+  document.getElementById("logoBox").style.backgroundImage = logo ? `url("${logo}")` : "";
+  document.getElementById("logoHint").style.display = logo ? "none" : "";
+}
+function renderProfileStatus() {
+  const items = menu.filter((i) => i.available).length;
+  const missing = [];
+  if (!biz.whatsapp) missing.push("tu WhatsApp");
+  if (!items) missing.push("al menos un producto en tu menú");
+  document.getElementById("pfStatus").innerHTML = missing.length
+    ? `Para aparecer en <b>Comida y negocios</b> te falta: ${missing.join(" y ")}.`
+    : `✅ Tu negocio está listo para aparecer en <b>Comida y negocios</b> con ${items} producto${items === 1 ? "" : "s"}.`;
+}
+async function saveProfile() {
+  const btn = document.getElementById("pfSaveBtn");
+  const wa = document.getElementById("pfWhatsapp").value.replace(/\D/g, "");
+  if (wa && wa.length !== 10) { toast("El WhatsApp debe tener 10 dígitos"); return; }
+  btn.disabled = true; btn.textContent = "Guardando…";
+  try {
+    const d = await post("/business/profile/save", {
+      tagline: document.getElementById("pfTagline").value.trim(),
+      category: document.getElementById("pfCategory").value,
+      hours: document.getElementById("pfHours").value.trim(),
+      whatsapp: wa,
+      logo: pending.logo || undefined,
+      cover: pending.cover || undefined,
+    });
+    Object.assign(biz, d.business);
+    fillProfile();
+    toast("Perfil guardado ✅");
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Guardar perfil"; }
+}
+function previewPublic() { location.href = "comida.html?vista=" + biz.id; }
+
+// --- Menú ---
+function renderMenu() {
+  const el = document.getElementById("menuList");
+  document.getElementById("catList").innerHTML = [...new Set(menu.map((i) => i.category).filter(Boolean))].map((c) => `<option value="${escapeHtml(c)}">`).join("");
+  if (!menu.length) {
+    el.innerHTML = `<div class="empty">Tu menú está vacío.<br>Agrega tus productos con <b>foto, nombre y precio</b>.<br>Así tus clientes ven todo lo que vendes.</div>`;
+    renderProfileStatus();
+    return;
+  }
+  const groups = {};
+  for (const i of menu) (groups[i.category || "Otros"] = groups[i.category || "Otros"] || []).push(i);
+  el.innerHTML = Object.entries(groups).map(([cat, items]) => `<div class="cat-h">${escapeHtml(cat)}</div>` + items.map((i) => `
+    <div class="item ${i.available ? "" : "off"}">
+      <div class="ph" style="${i.photo ? `background-image:url('${i.photo}')` : ""}">${i.photo ? "" : "🍽️"}</div>
+      <div class="info"><div class="nm">${escapeHtml(i.name)}</div>${i.description ? `<div class="ds">${escapeHtml(i.description)}</div>` : ""}<div class="pr">$${i.price}</div></div>
+      <div class="acts">
+        <button class="mini ${i.available ? "ok" : "no"}" onclick="toggleItem(${i.id}, ${i.available ? 0 : 1})">${i.available ? "Disponible" : "Agotado"}</button>
+        <button class="mini" onclick="openItem(${i.id})">Editar</button>
+      </div>
+    </div>`).join("")).join("");
+  renderProfileStatus();
+}
+let editingItem = null;
+function openItem(id) {
+  editingItem = menu.find((i) => i.id === id) || null;
+  pending.item = null;
+  document.getElementById("itemTitle").textContent = editingItem ? "Editar producto" : "Nuevo producto";
+  document.getElementById("itemName").value = editingItem ? editingItem.name : "";
+  document.getElementById("itemPrice").value = editingItem ? editingItem.price : "";
+  document.getElementById("itemDesc").value = editingItem ? editingItem.description || "" : "";
+  document.getElementById("itemCat").value = editingItem ? editingItem.category || "" : (menu.length ? menu[menu.length - 1].category || "" : "");
+  document.getElementById("itemDelBtn").style.display = editingItem ? "" : "none";
+  showItemPhoto(editingItem && editingItem.photo);
+  document.getElementById("homeScreen").classList.remove("active");
+  document.getElementById("itemScreen").classList.add("active");
+  window.scrollTo(0, 0);
+}
+function showItemPhoto(url) {
+  const el = document.getElementById("itemPhoto");
+  el.style.backgroundImage = url ? `url("${url}")` : "";
+  el.classList.toggle("has", !!url);
+}
+function closeItem() {
+  document.getElementById("itemScreen").classList.remove("active");
+  document.getElementById("homeScreen").classList.add("active");
+}
+async function saveItem() {
+  const name = document.getElementById("itemName").value.trim();
+  const price = Number(document.getElementById("itemPrice").value);
+  if (!name) { toast("Escribe el nombre del producto"); return; }
+  if (!(price >= 1)) { toast("Escribe el precio"); return; }
+  const btn = document.getElementById("itemSaveBtn");
+  btn.disabled = true; btn.textContent = "Guardando…";
+  try {
+    const d = await post("/business/menu/save", {
+      id: editingItem ? editingItem.id : undefined,
+      name, price,
+      description: document.getElementById("itemDesc").value.trim(),
+      category: document.getElementById("itemCat").value.trim(),
+      photo: pending.item || undefined,
+    });
+    menu = d.menu;
+    renderMenu();
+    closeItem();
+    toast("Producto guardado ✅");
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Guardar producto"; }
+}
+async function toggleItem(id, available) {
+  try {
+    menu = (await post(`/business/menu/${id}/available`, { available })).menu;
+    renderMenu();
+  } catch (e) { toast(e.message); }
+}
+async function deleteItem() {
+  if (!editingItem || !confirm(`¿Borrar "${editingItem.name}" de tu menú?`)) return;
+  try {
+    menu = (await post(`/business/menu/${editingItem.id}/delete`, {})).menu;
+    renderMenu();
+    closeItem();
+    toast("Producto borrado");
+  } catch (e) { toast(e.message); }
 }
 
 start();

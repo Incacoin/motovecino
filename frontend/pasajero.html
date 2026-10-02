@@ -136,6 +136,12 @@ function toggleRiderTheme() {
   .step-sub { font-size: 14px; line-height: 1.35; color: var(--text-dim); margin-top: 4px; }
   /* Buscador de calles y lugares (2-oct): "50 x 47", "50 x 47 y 49", "mercado". */
   #placeSearch { margin-top: 10px; }
+  /* Entrada a Comida y negocios (2-oct): solo si el admin ya la prendió. */
+  #foodChip { display: none; width: 100%; margin-top: 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-weight: 700; font-size: 14px; text-align: left; cursor: pointer; align-items: center; gap: 10px; }
+  #foodChip.show { display: flex; }
+  #foodChip .fc-ic { width: 30px; height: 30px; border-radius: 9px; background: #22c55e; color: #04210f; display: flex; align-items: center; justify-content: center; flex: 0 0 30px; }
+  #foodChip small { display: block; font-weight: 500; font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+  #foodChip .fc-go { margin-left: auto; color: var(--text-faint); font-size: 18px; }
   #placeSearch .ps-field { position: relative; }
   #placeSearch .ps-ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-faint); pointer-events: none; }
   #placeInput { width: 100%; padding: 13px 38px 13px 38px; border-radius: 12px; font-size: 15px; }
@@ -1026,6 +1032,7 @@ function toggleRiderTheme() {
   </div>
   <div class="drawer-nav">
     <button class="drawer-row" onclick="openProfile()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span>Mi cuenta</button>
+    <button class="drawer-row" id="foodRow" style="display:none" onclick="location.href='comida.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span>Comida y negocios</button>
     <button class="drawer-row" id="bizRow" style="display:none" onclick="location.href='negocio.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span>Mi negocio</button>
     <button class="drawer-row" onclick="openHistory()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Mis viajes</button>
     <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></span>Modo chofer</button>
@@ -1066,6 +1073,7 @@ function toggleRiderTheme() {
         </div>
         <div id="placeResults"></div>
       </div>
+      <button type="button" id="foodChip" onclick="location.href='comida.html'"><span class="fc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span><span>Comida y negocios<small>Pide a los negocios de tu municipio</small></span><span class="fc-go">›</span></button>
     </div>
     <div id="pickupStep" class="step-only step-block">
       <div class="row">
@@ -2140,6 +2148,20 @@ function enterMap() {
 
   startAvailableDriversPolling();
   checkMyBusiness();
+  checkFoodSection();
+}
+
+// "Comida y negocios": se muestra solo cuando el admin la prende en la ciudad.
+var foodOn = false; // var: setPickStep la lee y puede correr antes de llegar aquí
+function checkFoodSection() {
+  fetch(API + "/api/food/businesses?city=" + (resolvedCityId || "tekax"))
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      foodOn = !!(d && d.enabled && d.businesses.length);
+      document.getElementById("foodRow").style.display = foodOn ? "" : "none";
+      document.getElementById("foodChip").classList.toggle("show", foodOn && pickStep === "pickup");
+    })
+    .catch(() => {});
 }
 
 // Si esta cuenta es de un negocio (lo da de alta el admin), el menú muestra
@@ -2186,6 +2208,8 @@ function setPickStep(step) {
     chip.textContent = `${done ? "✓" : i} ${["Recogida", "Destino", "Tu viaje"][i - 1]}`;
   });
   clearPlaceSearch(false);
+  const foodChip = document.getElementById("foodChip");
+  if (foodChip) foodChip.classList.toggle("show", foodOn && step === "pickup");
   const placeInput = document.getElementById("placeInput");
   if (placeInput) placeInput.placeholder = step === "dest" ? 'Busca a dónde vas · ej. "50 x 47"' : 'Busca calle o lugar · ej. "50 x 47"';
   const hello = document.getElementById("stepHello");
@@ -2256,13 +2280,13 @@ function confirmDest() { setDestAt(map.getCenter(), searchedLabelHere()); }
 // OpenStreetMap a un archivo por pueblo (backend/tools/gen-lugares.js), sin
 // costo ni servicios de pago. Elegir un resultado solo mueve el mapa: el pasajero
 // revisa el pin y confirma, igual que siempre.
-let searchedPlace = null; // { label, p: L.latLng } del último resultado elegido
+var searchedPlace = null; // { label, p: L.latLng } del último resultado elegido
 // La búsqueda en sí vive en buscador.js (la comparte "Mi negocio").
 function loadPlaceData() { return MVBuscador.load(resolvedCityId || "tekax"); }
 const PS_ICONS = MVBuscador.ICONS;
 const placeMatches = MVBuscador.matches;
 
-let placeResultsList = [];
+var placeResultsList = [];
 function onPlaceInput() {
   const input = document.getElementById("placeInput");
   const box = document.getElementById("placeResults");

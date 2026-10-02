@@ -54,6 +54,23 @@ async function putFile(relPath, content, weekday) {
   }
 }
 
+// Sube un archivo solo si no está ya en el respaldo (fotos del menú).
+async function putOnce(relPath) {
+  const target = `${APP_NAME}/${relPath}`;
+  const apiUrl = `https://api.github.com/repos/${BACKUP_REPO}/contents/${target}`;
+  const headers = { Authorization: `Bearer ${BACKUP_TOKEN}`, "User-Agent": "motoya-backup" };
+  if ((await fetch(apiUrl, { headers })).ok) return;
+  const res = await fetch(apiUrl, {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: `Foto del menú ${APP_NAME}`,
+      content: fs.readFileSync(path.join(DATA_DIR, relPath)).toString("base64"),
+    }),
+  });
+  if (!res.ok) throw new Error(`${target}: ${res.status} ${await res.text()}`);
+}
+
 async function backupOnce() {
   if (!BACKUP_REPO || !BACKUP_TOKEN) {
     console.warn("[backup] BACKUP_GITHUB_REPO/BACKUP_GITHUB_TOKEN no configurados — respaldo desactivado");
@@ -72,6 +89,14 @@ async function backupOnce() {
   let firstError = null;
   for (const relPath of files) {
     try {
+      // Fotos del menú (data/menu/): su nombre sale de su contenido y nunca
+      // cambian, así que se respaldan UNA vez en una carpeta fija en vez de
+      // volver a subir cada foto 4 veces al día en cada copia por día.
+      if (relPath.startsWith("menu/")) {
+        await putOnce(relPath);
+        ok++;
+        continue;
+      }
       const content = fs.readFileSync(path.join(DATA_DIR, relPath)).toString("base64");
       await putFile(relPath, content, weekday);
       ok++;

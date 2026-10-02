@@ -14,6 +14,7 @@ const rideRoutes = require("./routes/rides");
 const adminRoutes = require("./routes/admin");
 const allyAdRoutes = require("./routes/allyAds");
 const businessRoutes = require("./routes/business");
+const menuImages = require("./menuImages");
 const familyRides = require("./routes/familyRides");
 const { router: photoRoutes } = require("./photos");
 const realtime = require("./realtime");
@@ -168,6 +169,7 @@ app.use("/api", rideRoutes);
 app.use("/api", adminRoutes);
 app.use("/api", allyAdRoutes);
 app.use("/api", businessRoutes);
+app.use("/api", menuImages.router);
 app.use("/api", familyRides.router);
 app.use("/api", photoRoutes);
 

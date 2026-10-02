@@ -11,6 +11,7 @@ const realtime = require("../realtime");
 const { isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { checkAdminPin } = require("./admin");
+const { saveImage, imageUrl } = require("../menuImages");
 
 const router = express.Router();
 
@@ -37,7 +38,28 @@ function authBusiness(req, res) {
 }
 
 function publicBusiness(b) {
-  return b ? { id: b.id, name: b.name, lat: b.lat, lng: b.lng, address: b.address, city: b.city } : null;
+  return b
+    ? {
+        id: b.id, name: b.name, lat: b.lat, lng: b.lng, address: b.address, city: b.city,
+        tagline: b.tagline, category: b.category, hours: b.hours, whatsapp: b.whatsapp, is_open: !!b.is_open,
+        logo: imageUrl(b.logo), cover: imageUrl(b.cover),
+      }
+    : null;
+}
+
+const BUSINESS_CATEGORIES = ["Antojitos", "Comida", "Tacos", "Pizzas", "Hamburguesas", "Mariscos", "Pollos", "Panadería", "Postres", "Bebidas", "Tienda", "Otro"];
+
+function menuItem(i) {
+  return {
+    id: i.id, category: i.category, name: i.name, description: i.description,
+    price: i.price, available: !!i.available, photo: imageUrl(i.photo),
+  };
+}
+function menuOf(businessId, onlyAvailable) {
+  return db
+    .prepare(`SELECT * FROM menu_items WHERE business_id = ? AND deleted_at IS NULL ${onlyAvailable ? "AND available = 1" : ""} ORDER BY position, id`)
+    .all(businessId)
+    .map(menuItem);
 }
 
 // ¿Esta cuenta es de un negocio? La app del pasajero lo pregunta al entrar
@@ -124,6 +146,150 @@ router.post("/business/rides/list", (req, res) => {
     )
     .all(auth.business.id);
   res.json({ business: publicBusiness(auth.business), rides: rows.map(listItem) });
+});
+
+// --- Perfil y menú del negocio (Comida y negocios, Paso A, 2-oct) ---
+// Lo edita el dueño desde "Mi negocio". Las fotos llegan ya comprimidas por el
+// navegador y se guardan como archivo (menuImages.js).
+
+function needBusiness(req, res) {
+  const auth = authBusiness(req, res);
+  if (!auth) return null;
+  if (!auth.business) {
+    res.status(403).json({ error: "Esta cuenta no es de un negocio" });
+    return null;
+  }
+  return auth.business;
+}
+
+router.post("/business/profile", (req, res) => {
+  const b = needBusiness(req, res);
+  if (!b) return;
+  res.json({ business: publicBusiness(b), menu: menuOf(b.id, false), categories: BUSINESS_CATEGORIES });
+});
+
+router.post("/business/profile/save", (req, res) => {
+  const b = needBusiness(req, res);
+  if (!b) return;
+  const whatsapp = String(req.body.whatsapp || "").replace(/\D/g, "");
+  if (whatsapp && whatsapp.length !== 10) return res.status(400).json({ error: "El WhatsApp debe tener 10 dígitos" });
+  const category = BUSINESS_CATEGORIES.includes(req.body.category) ? req.body.category : null;
+  let logo = b.logo, cover = b.cover;
+  if (req.body.logo) {
+    logo = saveImage(req.body.logo);
+    if (!logo) return res.status(400).json({ error: "No se pudo guardar el logo. Prueba con otra foto." });
+  }
+  if (req.body.cover) {
+    cover = saveImage(req.body.cover);
+    if (!cover) return res.status(400).json({ error: "No se pudo guardar la portada. Prueba con otra foto." });
+  }
+  db.prepare(
+    "UPDATE businesses SET tagline = ?, category = ?, hours = ?, whatsapp = ?, logo = ?, cover = ?, updated_at = datetime('now') WHERE id = ?"
+  ).run(clean(req.body.tagline, 70) || null, category, clean(req.body.hours, 60) || null, whatsapp || null, logo, cover, b.id);
+  res.json({ business: publicBusiness(db.prepare("SELECT * FROM businesses WHERE id = ?").get(b.id)) });
+});
+
+// Abierto / cerrado: los clientes solo pueden pedir cuando está abierto.
+router.post("/business/open", (req, res) => {
+  const b = needBusiness(req, res);
+  if (!b) return;
+  db.prepare("UPDATE businesses SET is_open = ?, updated_at = datetime('now') WHERE id = ?").run(req.body.open ? 1 : 0, b.id);
+  res.json({ is_open: !!req.body.open });
+});
+
+const MAX_MENU_ITEMS = 150;
+
+router.post("/business/menu/save", (req, res) => {
+  const b = needBusiness(req, res);
+  if (!b) return;
+  const name = clean(req.body.name, 50);
+  const price = Math.round(Number(req.body.price));
+  if (!name) return res.status(400).json({ error: "Escribe el nombre del producto" });
+  if (!(price >= 1 && price <= 20000)) return res.status(400).json({ error: "Revisa el precio" });
+  const id = Number(req.body.id) || null;
+  const current = id ? db.prepare("SELECT * FROM menu_items WHERE id = ? AND business_id = ? AND deleted_at IS NULL").get(id, b.id) : null;
+  if (id && !current) return res.status(404).json({ error: "Producto no encontrado" });
+  let photo = current ? current.photo : null;
+  if (req.body.removePhoto) photo = null;
+  if (req.body.photo) {
+    photo = saveImage(req.body.photo);
+    if (!photo) return res.status(400).json({ error: "No se pudo guardar la foto. Prueba con otra." });
+  }
+  const fields = [clean(req.body.category, 30) || null, name, clean(req.body.description, 140) || null, price, photo];
+  if (current) {
+    db.prepare("UPDATE menu_items SET category = ?, name = ?, description = ?, price = ?, photo = ?, updated_at = datetime('now') WHERE id = ?")
+      .run(...fields, current.id);
+  } else {
+    const { n } = db.prepare("SELECT COUNT(*) AS n FROM menu_items WHERE business_id = ? AND deleted_at IS NULL").get(b.id);
+    if (n >= MAX_MENU_ITEMS) return res.status(400).json({ error: `Máximo ${MAX_MENU_ITEMS} productos` });
+    db.prepare("INSERT INTO menu_items (business_id, category, name, description, price, photo, position) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(b.id, ...fields, n);
+  }
+  res.json({ menu: menuOf(b.id, false) });
+});
+
+router.post("/business/menu/:id/available", (req, res) => {
+  const b = needBusiness(req, res);
+  if (!b) return;
+  db.prepare("UPDATE menu_items SET available = ?, updated_at = datetime('now') WHERE id = ? AND business_id = ?")
+    .run(req.body.available ? 1 : 0, Number(req.params.id), b.id);
+  res.json({ menu: menuOf(b.id, false) });
+});
+
+router.post("/business/menu/:id/delete", (req, res) => {
+  const b = needBusiness(req, res);
+  if (!b) return;
+  db.prepare("UPDATE menu_items SET deleted_at = datetime('now') WHERE id = ? AND business_id = ?").run(Number(req.params.id), b.id);
+  res.json({ menu: menuOf(b.id, false) });
+});
+
+// --- Comida y negocios: lo que ven los clientes (público) ---
+// Solo si el admin ya prendió la sección en esa ciudad, y solo negocios activos
+// con WhatsApp y al menos un producto disponible. El pedido se manda directo
+// al WhatsApp del negocio (la app no toca el dinero de la comida).
+
+function foodEnabled(city) {
+  const row = db.prepare("SELECT enabled FROM food_settings WHERE city = ?").get(city);
+  return !!(row && row.enabled);
+}
+
+const LISTED = `b.active = 1 AND b.whatsapp IS NOT NULL AND EXISTS (SELECT 1 FROM menu_items m WHERE m.business_id = b.id AND m.deleted_at IS NULL AND m.available = 1)`;
+
+// Abierto/cerrado y "agotado" cambian a cada rato: que el navegador nunca los guarde.
+router.use("/food", (req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
+router.get("/food/businesses", (req, res) => {
+  const city = String(req.query.city || "tekax");
+  if (!foodEnabled(city)) return res.json({ enabled: false, businesses: [] });
+  const rows = db.prepare(`SELECT b.* FROM businesses b WHERE b.city = ? AND ${LISTED} ORDER BY b.is_open DESC, b.name`).all(city);
+  // Nombres de productos, para que el buscador encuentre "pizza" aunque no esté en el nombre del negocio.
+  const items = db.prepare("SELECT business_id, name, category FROM menu_items WHERE deleted_at IS NULL AND available = 1").all();
+  res.json({
+    enabled: true,
+    businesses: rows.map((b) => ({
+      ...publicBusiness(b),
+      search: items.filter((i) => i.business_id === b.id).map((i) => `${i.name} ${i.category || ""}`).join(" ").slice(0, 2000),
+    })),
+  });
+});
+
+router.get("/food/business/:id", (req, res) => {
+  const b = db.prepare("SELECT * FROM businesses b WHERE b.id = ? AND " + LISTED).get(Number(req.params.id));
+  if (!b || !foodEnabled(b.city)) return res.status(404).json({ error: "Negocio no encontrado" });
+  res.json({ business: publicBusiness(b), menu: menuOf(b.id, true) });
+});
+
+router.post("/admin/food/status", checkAdminPin, (req, res) => {
+  res.json({ enabled: foodEnabled(req.adminCity) });
+});
+
+router.post("/admin/food/enabled", checkAdminPin, (req, res) => {
+  db.prepare("INSERT INTO food_settings (city, enabled) VALUES (?, ?) ON CONFLICT(city) DO UPDATE SET enabled = excluded.enabled")
+    .run(req.adminCity, req.body.enabled ? 1 : 0);
+  res.json({ enabled: foodEnabled(req.adminCity) });
 });
 
 // --- Admin: dar de alta negocios (solo los de su ciudad) ---
