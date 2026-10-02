@@ -5,7 +5,7 @@
 const COUNTRIES = [
   { code: "MX", dial: "52", digits: 10, name: "México" },
   { code: "PE", dial: "51", digits: 9, name: "Perú" },
-  { code: "US", dial: "1", digits: 10, name: "Estados Unidos" },
+  { code: "US", dial: "1", digits: 10, name: "Estados Unidos y Canadá" }, // mismo +1
 ];
 
 // Regresa { phone, e164, country } o null si no es válido.
