@@ -110,9 +110,21 @@ const STATUS_LABEL = {
   cancelado: "Viaje cancelado",
 };
 
+// Envío de un negocio (Mi negocio, 2-oct): quien lo sigue es el cliente que
+// espera su pedido, no un pasajero.
+const ORDER_STATUS_LABEL = {
+  buscando: "Tu pedido está listo, buscando chofer...",
+  aceptado: "El chofer va por tu pedido",
+  llegue: "El chofer está recogiendo tu pedido",
+  en_curso: "¡Tu pedido va en camino!",
+  completado: "Pedido entregado",
+  cancelado: "Envío cancelado",
+};
+let isOrder = false;
+
 function applyStatus(status) {
   currentStatus = status;
-  document.getElementById("statusText").textContent = STATUS_LABEL[status] || status;
+  document.getElementById("statusText").textContent = (isOrder ? ORDER_STATUS_LABEL : STATUS_LABEL)[status] || status;
   if (["completado", "cancelado"].includes(status)) {
     stopRouteTracking();
     document.getElementById("connWarning").style.display = "none";
@@ -274,7 +286,8 @@ async function init() {
   pickup = { lat: ride.pickup_lat, lng: ride.pickup_lng };
   dest = ride.dest_lat != null ? { lat: ride.dest_lat, lng: ride.dest_lng } : null;
 
-  document.getElementById("riderName").textContent = `Viaje de ${ride.rider_name}`;
+  isOrder = !!ride.business_id;
+  document.getElementById("riderName").textContent = isOrder ? `Tu pedido de ${ride.rider_name}` : `Viaje de ${ride.rider_name}`;
   applyStatus(ride.status);
 
   map = L.map("map").setView([pickup.lat, pickup.lng], 15);

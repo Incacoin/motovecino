@@ -11,6 +11,9 @@
 <link rel="apple-touch-icon" href="icons/icon-512.png?v=2" />
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="buscador.js?v=1"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
 <style>
@@ -254,6 +257,13 @@
   .ally-stats b { display: block; font-size: 20px; }
   .ally-stats span { font-size: 12px; color: var(--text-dim); }
   .ally-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* ---- Mi negocio: cuentas de negocio (2-oct) ---- */
+  #bizMapWrap { position: relative; margin-top: 6px; }
+  #bizMap { height: 220px; border-radius: 12px; }
+  #bizMapWrap .biz-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); z-index: 500; pointer-events: none; font-size: 28px; line-height: 1; }
+  #bizResults { border: 1px solid #e2e2e2; border-radius: 10px; margin-top: 6px; overflow: hidden; display: none; }
+  #bizResults.open { display: block; }
+  #bizResults button { display: block; width: 100%; text-align: left; padding: 9px 11px; border: none; border-bottom: 1px solid #eee; background: #fff; font-size: 14px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -591,6 +601,29 @@
 
   <div class="ally-list" id="allyList"></div>
   </div>
+  <div class="section-card">
+  <h1>🏪 Cuentas "Mi negocio"</h1>
+  <p class="section-hint">El negocio pide chofer desde la app para entregar sus pedidos: recoge en el negocio y el chofer cobra solo el envío (la comida ya la pagó el cliente por transferencia). Primero el dueño se registra como pasajero en la app; aquí lo marcas como negocio y le aparece "Mi negocio" en su menú.</p>
+  <button class="btn" onclick="openBizForm()">＋ Dar de alta un negocio</button>
+  <div class="ally-form" id="bizForm">
+    <h2 style="margin:0 0 4px;font-size:18px;">Negocio</h2>
+    <label for="bizPhone">Teléfono del dueño (con el que se registró en la app)</label>
+    <input id="bizPhone" inputmode="numeric" maxlength="10" placeholder="10 dígitos" oninput="this.value=this.value.replace(/\D/g,'')" />
+    <label for="bizNameInput">Nombre del negocio</label>
+    <input id="bizNameInput" maxlength="50" placeholder="Ej. Cocina La Esquina" />
+    <label for="bizAddress">Dirección corta</label>
+    <input id="bizAddress" maxlength="80" placeholder="Ej. Calle 51 x 50, Centro" oninput="bizSearch()" />
+    <div id="bizResults"></div>
+    <label>Ubicación: mueve el mapa hasta la puerta del negocio</label>
+    <div id="bizMapWrap"><div id="bizMap"></div><div class="biz-pin">📍</div></div>
+    <div id="bizFormErr" style="color:var(--danger);font-size:13px;min-height:16px;margin-top:8px;"></div>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button class="btn" style="flex:1" onclick="saveBiz()">Guardar</button>
+      <button class="btn-sm" onclick="closeBizForm()">Cancelar</button>
+    </div>
+  </div>
+  <div class="ally-list" id="bizList"></div>
+  </div>
   </div>
 </div>
 
@@ -922,6 +955,7 @@ async function login() {
   loadApplications();
   loadAlertas();
   loadAllyAds();
+  loadBusinesses();
   loadFamilySwitch();
   updateQrLink();
   clearInterval(ridesPollTimer);
@@ -1729,6 +1763,87 @@ async function toggleFamilyEnabled() {
   familyEnabled = (await res.json()).enabled;
   renderFamilySwitch();
   showToast(familyEnabled ? "Pedir para otra persona: prendido" : "Pedir para otra persona: apagado");
+}
+
+// ================= Mi negocio: cuentas de negocio (2-oct) =================
+let bizCache = [];
+let bizMap = null;
+let bizFound = [];
+
+async function loadBusinesses() {
+  const res = await fetch(API + "/api/admin/businesses/list", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }),
+  });
+  if (!res.ok) return;
+  bizCache = await res.json();
+  const el = document.getElementById("bizList");
+  el.innerHTML = bizCache.length ? bizCache.map((b) => `<div class="ally-item">
+      <div class="ally-item-top"><div class="noimg" style="display:flex;align-items:center;justify-content:center;font-size:24px;">🏪</div>
+        <div><b>${escapeHtml(b.name)}</b><div class="sub">${escapeHtml(b.address || "")} · Dueño: ${escapeHtml(b.owner_name || "")} (${escapeHtml(b.phone)})</div>
+        <div class="ally-chips"><span class="${b.active ? "on" : "off"}">${b.active ? "Activo" : "Pausado"}</span><span>${b.deliveries} entregas</span></div></div></div>
+      <div class="ally-actions" style="margin-top:10px;">
+        <button class="btn-sm" onclick="openBizForm(${b.id})">Editar</button>
+        <button class="btn-sm" onclick="toggleBiz(${b.id}, ${b.active ? 0 : 1})">${b.active ? "Pausar" : "Activar"}</button>
+      </div></div>`).join("")
+    : `<div class="section-hint">Todavía no hay negocios dados de alta.</div>`;
+}
+
+function openBizForm(id) {
+  const b = bizCache.find((x) => x.id === id);
+  document.getElementById("bizForm").classList.add("open");
+  document.getElementById("bizPhone").value = b ? b.phone : "";
+  document.getElementById("bizPhone").disabled = !!b;
+  document.getElementById("bizNameInput").value = b ? b.name : "";
+  document.getElementById("bizAddress").value = b ? b.address || "" : "";
+  document.getElementById("bizFormErr").textContent = "";
+  const center = b ? [b.lat, b.lng] : [20.2052, -89.2859];
+  if (!bizMap) {
+    bizMap = L.map("bizMap").setView(center, 17);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(bizMap);
+  } else bizMap.setView(center, 17, { animate: false });
+  setTimeout(() => bizMap.invalidateSize(), 60);
+}
+function closeBizForm() { document.getElementById("bizForm").classList.remove("open"); }
+
+// La dirección corta también sirve para ubicar el pin ("51 x 50").
+function bizSearch() {
+  const q = document.getElementById("bizAddress").value;
+  const box = document.getElementById("bizResults");
+  if (!q.trim()) { box.classList.remove("open"); return; }
+  MVBuscador.load("tekax").then((data) => {
+    bizFound = MVBuscador.matches(q, data).slice(0, 5);
+    box.innerHTML = bizFound.map((r, i) => `<button type="button" onclick="bizPick(${i})">📍 ${escapeHtml(r.label)}</button>`).join("");
+    box.classList.toggle("open", bizFound.length > 0);
+  });
+}
+function bizPick(i) {
+  const r = bizFound[i];
+  if (!r) return;
+  bizMap.setView(r.p, 18, { animate: false });
+  document.getElementById("bizResults").classList.remove("open");
+}
+
+async function saveBiz() {
+  const c = bizMap.getCenter();
+  const body = {
+    adminPin,
+    phone: document.getElementById("bizPhone").value,
+    name: document.getElementById("bizNameInput").value.trim(),
+    address: document.getElementById("bizAddress").value.trim(),
+    lat: c.lat, lng: c.lng,
+  };
+  const res = await fetch(API + "/api/admin/businesses/save", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { document.getElementById("bizFormErr").textContent = data.error || "No se pudo guardar"; return; }
+  closeBizForm();
+  showToast("Negocio guardado");
+  loadBusinesses();
+}
+
+async function toggleBiz(id, active) {
+  const res = await fetch(API + `/api/admin/businesses/${id}/active`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, active }) });
+  if (!res.ok) { showToast("No se pudo cambiar"); return; }
+  loadBusinesses();
 }
 
 // ================= Negocios aliados =================

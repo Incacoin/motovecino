@@ -702,4 +702,28 @@ db.exec(`
   );
 `);
 
+// Mi negocio (2-oct): un negocio es la cuenta de pasajero de su dueño,
+// marcada por el admin con nombre y ubicación. Desde "Mi negocio" pide chofer
+// para entregar pedidos: recoge en el negocio, entrega al cliente y el chofer
+// cobra solo el envío (la comida ya la pagó el cliente al negocio por
+// transferencia). rides.business_id marca esos envíos.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS businesses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rider_id INTEGER NOT NULL UNIQUE REFERENCES riders(id),
+    city TEXT NOT NULL DEFAULT 'tekax',
+    name TEXT NOT NULL,
+    lat REAL NOT NULL,
+    lng REAL NOT NULL,
+    address TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+`);
+try {
+  db.exec("ALTER TABLE rides ADD COLUMN business_id INTEGER");
+} catch {}
+db.exec("CREATE INDEX IF NOT EXISTS idx_rides_business ON rides(business_id, created_at)");
+
 module.exports = db;

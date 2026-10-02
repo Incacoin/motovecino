@@ -64,6 +64,7 @@ function toggleRiderTheme() {
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="vehiculos-mapa.js?v=3"></script>
+<script src="buscador.js?v=1"></script>
 <style>
   .screen { display: none; flex-direction: column; height: 100vh; overflow-y: auto; }
   .screen.active { display: flex; }
@@ -133,6 +134,22 @@ function toggleRiderTheme() {
   #stepHead .steps button.done { color: var(--success); }
   .step-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; color: var(--text); }
   .step-sub { font-size: 14px; line-height: 1.35; color: var(--text-dim); margin-top: 4px; }
+  /* Buscador de calles y lugares (2-oct): "50 x 47", "50 x 47 y 49", "mercado". */
+  #placeSearch { margin-top: 10px; }
+  #placeSearch .ps-field { position: relative; }
+  #placeSearch .ps-ico { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--text-faint); pointer-events: none; }
+  #placeInput { width: 100%; padding: 13px 38px 13px 38px; border-radius: 12px; font-size: 15px; }
+  #placeClear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: none; background: none; color: var(--text-faint); font-size: 18px; width: 32px; height: 32px; display: none; cursor: pointer; }
+  #placeSearch.has-text #placeClear { display: block; }
+  #placeResults { display: none; margin-top: 6px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; max-height: 230px; overflow-y: auto; background: var(--bg-panel); }
+  #placeResults.open { display: block; }
+  .ps-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; border: none; border-bottom: 1px solid var(--border); background: none; color: var(--text); text-align: left; font-size: 14.5px; cursor: pointer; }
+  .ps-row:last-child { border-bottom: none; }
+  .ps-row:active { background: var(--bg-card-hover); }
+  .ps-row .ps-k { flex: 0 0 30px; height: 30px; border-radius: 8px; background: var(--bg-card); display: flex; align-items: center; justify-content: center; color: var(--text-dim); }
+  .ps-row b { display: block; font-weight: 600; }
+  .ps-row small { display: block; font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+  .ps-empty { padding: 12px; font-size: 13.5px; color: var(--text-dim); line-height: 1.4; }
   #pickBar .row .btn-secondary.big { font-size: 15px; font-weight: 700; padding: 14px 8px; }
   #tripSummary { display: flex; align-items: center; gap: 8px; background: var(--bg-card); border-radius: 12px; padding: 8px 10px; }
   #tripSummary .trip-pt { flex: 1; min-width: 0; text-align: left; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; padding: 2px 0; }
@@ -1009,6 +1026,7 @@ function toggleRiderTheme() {
   </div>
   <div class="drawer-nav">
     <button class="drawer-row" onclick="openProfile()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span>Mi cuenta</button>
+    <button class="drawer-row" id="bizRow" style="display:none" onclick="location.href='negocio.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span>Mi negocio</button>
     <button class="drawer-row" onclick="openHistory()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Mis viajes</button>
     <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></span>Modo chofer</button>
     <button class="drawer-row danger" onclick="logoutRider()"><span class="row-icon" style="color:#ef4444"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>Cerrar sesión</button>
@@ -1041,6 +1059,13 @@ function toggleRiderTheme() {
       <div class="step-hello" id="stepHello"></div>
       <div class="step-title" id="stepTitle">¿Dónde te recogemos?</div>
       <div class="step-sub" id="stepSub">Mueve el mapa hasta tu puerta. El pin se queda en el centro.</div>
+      <div id="placeSearch"><div class="ps-field">
+        <svg class="ps-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="placeInput" type="search" enterkeyhint="search" autocomplete="off" placeholder='Busca calle o lugar · ej. "50 x 47"' oninput="onPlaceInput()" onfocus="onPlaceInput()" onkeydown="if (event.key === 'Enter') { event.preventDefault(); pickFirstPlace(); }" />
+        <button type="button" id="placeClear" onclick="clearPlaceSearch(true)" aria-label="Borrar">✕</button>
+        </div>
+        <div id="placeResults"></div>
+      </div>
     </div>
     <div id="pickupStep" class="step-only step-block">
       <div class="row">
@@ -1662,7 +1687,7 @@ let zoneForcedTaxi = false;
 function vehCardHtml(kind, note) {
   const img = kind === "taxi" ? MVVeh.taxiSide(70) : MVVeh.motoSide(66);
   const name = kind === "taxi" ? "Taxi" : "Mototaxi";
-  const sub = note || (kind === "taxi" ? "Tú propones el precio" : "Dentro del pueblo");
+  const sub = note || (kind === "taxi" ? "Tú propones el precio" : "Viajes cortos");
   return `<span class="vc-img">${img}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${kind === "taxi" ? "Taxi" : "Moto"}"></span>`;
 }
 function renderVehCards(motoNote) {
@@ -1753,7 +1778,7 @@ function checkPickupZone() {
 function setServiceType(type) {
   if (type === "moto" && serviceZone !== "in") {
     showToast(serviceZone === "taxi"
-      ? "El mototaxi solo recoge dentro del pueblo. Desde aquí pide 🚕 Taxi."
+      ? "El mototaxi solo recoge en la zona urbana. Desde aquí pide 🚕 Taxi."
       : "MotoVecino todavía no llega a tu zona.");
     return;
   }
@@ -2113,6 +2138,19 @@ function enterMap() {
   }
 
   startAvailableDriversPolling();
+  checkMyBusiness();
+}
+
+// Si esta cuenta es de un negocio (lo da de alta el admin), el menú muestra
+// "Mi negocio": desde ahí pide chofer para sus pedidos (negocio.html).
+function checkMyBusiness() {
+  let me = null;
+  try { me = JSON.parse(localStorage.getItem("motoya_rider") || "null"); } catch {}
+  if (!me || !me.phone || !me.pin) return;
+  fetch(API + "/api/business/me", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: me.phone, pin: me.pin }) })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => { if (d && d.business) document.getElementById("bizRow").style.display = ""; })
+    .catch(() => {});
 }
 
 // --- Pedir en 3 pasos (29-sep) ---
@@ -2146,6 +2184,9 @@ function setPickStep(step) {
     chip.classList.toggle("done", done);
     chip.textContent = `${done ? "✓" : i} ${["Recogida", "Destino", "Tu viaje"][i - 1]}`;
   });
+  clearPlaceSearch(false);
+  const placeInput = document.getElementById("placeInput");
+  if (placeInput) placeInput.placeholder = step === "dest" ? 'Busca a dónde vas · ej. "50 x 47"' : 'Busca calle o lugar · ej. "50 x 47"';
   const hello = document.getElementById("stepHello");
   if (hello) hello.textContent = step === "pickup" ? greetingText() : "";
   if (STEP_TEXT[step]) {
@@ -2205,8 +2246,71 @@ function setDestAt(latlng, label) {
   setPickStep("trip");
 }
 
-function confirmPickup() { setPickupAt(map.getCenter()); }
-function confirmDest() { setDestAt(map.getCenter()); }
+function confirmPickup() { setPickupAt(map.getCenter(), searchedLabelHere()); }
+function confirmDest() { setDestAt(map.getCenter(), searchedLabelHere()); }
+
+// --- Buscador de calles y lugares (2-oct) ---
+// Aquí la gente da direcciones como "50 x 47" (cruce) o "50 x 47 y 49" (la 50
+// entre la 47 y la 49), o por lugar ("mercado", "IMSS"). Los datos salen de
+// OpenStreetMap a un archivo por pueblo (backend/tools/gen-lugares.js), sin
+// costo ni servicios de pago. Elegir un resultado solo mueve el mapa: el pasajero
+// revisa el pin y confirma, igual que siempre.
+let searchedPlace = null; // { label, p: L.latLng } del último resultado elegido
+// La búsqueda en sí vive en buscador.js (la comparte "Mi negocio").
+function loadPlaceData() { return MVBuscador.load(resolvedCityId || "tekax"); }
+const PS_ICONS = MVBuscador.ICONS;
+const placeMatches = MVBuscador.matches;
+
+let placeResultsList = [];
+function onPlaceInput() {
+  const input = document.getElementById("placeInput");
+  const box = document.getElementById("placeResults");
+  const text = input.value;
+  document.getElementById("placeSearch").classList.toggle("has-text", !!text);
+  if (!text.trim()) { box.classList.remove("open"); box.innerHTML = ""; placeResultsList = []; return; }
+  loadPlaceData().then((data) => {
+    if (input.value !== text) return; // ya escribió otra cosa
+    placeResultsList = placeMatches(text, data);
+    box.innerHTML = placeResultsList.length
+      ? placeResultsList.map((r, i) => `<button type="button" class="ps-row" onclick="choosePlace(${i})"><span class="ps-k">${PS_ICONS[r.t]}</span><span><b>${escapeHtml(r.label)}</b><small>${r.sub}</small></span></button>`).join("")
+      : `<div class="ps-empty">No lo encontramos. Prueba con el cruce de calles (ej. <b>50 x 47</b>) o mueve el mapa hasta el lugar exacto.</div>`;
+    box.classList.add("open");
+  });
+}
+
+function choosePlace(i) {
+  const r = placeResultsList[i];
+  if (!r) return;
+  searchedPlace = { label: r.label, p: L.latLng(r.p[0], r.p[1]) };
+  const input = document.getElementById("placeInput");
+  input.value = r.label;
+  input.blur();
+  document.getElementById("placeResults").classList.remove("open");
+  map.setView(searchedPlace.p, r.t === "pueblo" ? 16 : 18, { animate: false });
+  document.getElementById("stepSub").textContent = "Revisa que el pin quede en el lugar exacto y confirma.";
+}
+
+function pickFirstPlace() { if (placeResultsList.length) choosePlace(0); }
+
+function clearPlaceSearch(focus) {
+  const input = document.getElementById("placeInput");
+  if (!input) return;
+  input.value = "";
+  searchedPlace = null;
+  placeResultsList = [];
+  document.getElementById("placeSearch").classList.remove("has-text");
+  const box = document.getElementById("placeResults");
+  box.classList.remove("open");
+  box.innerHTML = "";
+  if (focus) input.focus();
+}
+
+// Si el pasajero confirma sin mover mucho el pin desde lo que buscó, el viaje
+// lleva ese nombre ("Calle 50 x 47") en el resumen; si lo movió, ya es otro punto.
+function searchedLabelHere() {
+  if (!searchedPlace || !map) return undefined;
+  return map.getCenter().distanceTo(searchedPlace.p) <= 40 ? searchedPlace.label : undefined;
+}
 
 function skipDest() {
   if (destMarker) map.removeLayer(destMarker);
@@ -2269,7 +2373,14 @@ async function requestRide() {
     showToast("Marca tu destino para pedir taxi");
     return;
   }
-  const rider = JSON.parse(localStorage.getItem("motoya_rider"));
+  const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
+  // Sin sesión guardada (se borró el navegador, etc.) el pedido no puede salir:
+  // se avisa y se regresa a la pantalla de entrada en vez de quedarse sin hacer nada.
+  if (!rider || !rider.phone) {
+    showToast("Tu sesión se cerró. Vuelve a entrar con tu teléfono y PIN.");
+    setTimeout(() => location.reload(), 1800);
+    return;
+  }
   const pickupLabel = document.getElementById("referenceInput").value.trim();
   const askingForOther = forOther && familyAvailable && serviceCategory === "pasaje";
   const forName = document.getElementById("forNameInput").value.trim();

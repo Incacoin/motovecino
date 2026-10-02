@@ -1704,10 +1704,23 @@ function serviceKindPrefix(r) {
 // Viaje pedido para otra persona (la mamá para su hijo): a quién recoger y su
 // seña. Se habla con quien lo pidió por el chat, como en cualquier viaje.
 function forOtherHtml(r, accepted) {
+  // Envío de un negocio (Mi negocio, 2-oct): recoge en el negocio y entrega al
+  // cliente. La comida ya está pagada: el chofer solo cobra el envío.
+  if (r.business_id) {
+    return `<div class="for-other">🏪 Envío de <b>${escapeHtml(r.rider_name)}</b>
+      <div>Entregar a <b>${escapeHtml(r.for_name || "cliente")}</b>${r.for_note ? ` · ${escapeHtml(r.for_note)}` : ""}</div>
+      <div class="for-other-by">✅ Comida ya pagada · Cobra solo el envío</div></div>`;
+  }
   if (!r.for_name) return "";
   return `<div class="for-other">👤 Recoger a <b>${escapeHtml(r.for_name)}</b>
     ${r.for_note ? `<div>Seña: ${escapeHtml(r.for_note)}</div>` : ""}
     <div class="for-other-by">Lo pidió ${escapeHtml(r.rider_name)}${accepted ? " · escríbele por el chat" : ""}</div></div>`;
+}
+
+// A quién se recoge: en un envío de negocio es el negocio (el cliente es a
+// quien se le entrega); si no, la persona del viaje.
+function pickupWho(r) {
+  return r.business_id ? r.rider_name : r.for_name || r.rider_name;
 }
 
 // --- Botón que se desliza (diseño 3, paso 3) ---
@@ -1767,7 +1780,7 @@ function renderRideList() {
       const dist = myPos ? haversine(myPos.lat, myPos.lng, currentRide.pickup_lat, currentRide.pickup_lng).toFixed(1) : "?";
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head"><small>Yendo a recoger a</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
+          <div class="act-head"><small>Yendo a recoger a</small><b>${escapeHtml(pickupWho(currentRide))}</b></div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
@@ -1783,7 +1796,7 @@ function renderRideList() {
     } else if (currentRide.status === "llegue") {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head"><small>Esperando a</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
+          <div class="act-head"><small>Esperando a</small><b>${escapeHtml(pickupWho(currentRide))}</b></div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips"><span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"}</span></div>
