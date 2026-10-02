@@ -2019,10 +2019,12 @@ function onTaxiPriceInput(id) {
 
 // Contraofertas rápidas sobre el precio del pasajero.
 const COUNTER_STEPS = [20, 50, 100];
+// Viaje corto en el pueblo (oferta de $50-$90): contraofertas de a $10.
+const COUNTER_STEPS_SHORT = [10, 20, 30];
 
 function taxiOfferBlockHtml(r) {
   const mine = myOffers[r.id];
-  const counters = COUNTER_STEPS.map((step) => {
+  const counters = (r.offer_price < 100 ? COUNTER_STEPS_SHORT : COUNTER_STEPS).map((step) => {
     const price = r.offer_price + step;
     return `<button class="btn-sm" onclick="sendTaxiOffer(${r.id}, ${price})" ${mine && mine.price === price ? "disabled" : ""}>$${price}</button>`;
   }).join("");

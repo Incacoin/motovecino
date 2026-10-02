@@ -1596,7 +1596,8 @@ function updateTaxiOfferUi() {
     btn.disabled = true;
     fetch(API + `/api/taxi/suggest?plat=${pickup.lat}&plng=${pickup.lng}&dlat=${dest.lat}&dlng=${dest.lng}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .catch(() => ({ price: 150, place: null, km: null }))
+      // Sin conexión: corto (~6 km por carretera) como dentro del pueblo, si no el mínimo foráneo.
+      .catch(() => ({ price: haversine(pickup.lat, pickup.lng, dest.lat, dest.lng) <= 4.5 ? 50 : 150, place: null, km: null }))
       .then((sug) => {
         if (taxiSuggestKey !== key) return;
         taxiSuggestion = sug;

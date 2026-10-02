@@ -22,6 +22,10 @@ const TAXI_FARE_TABLE = [
 // Qué tan cerca del centro de ese pueblo cuenta como "ir a ese pueblo".
 const TABLE_MATCH_KM = 2.5;
 
+// Taxi de carro dentro del mismo Tekax (recogida y destino en el pueblo):
+// precio sugerido del dueño (2-oct). El pasajero lo puede subir con +$10.
+const TOWN_PRICE = 50;
+
 const FORMULA_MIN_PRICE = 150; // cubre hasta FORMULA_MIN_KM
 const FORMULA_MIN_KM = 10;
 const FORMULA_PER_KM = 8;
@@ -50,9 +54,14 @@ function inHomeTown(lat, lng) {
   return !!city && haversineKm(lat, lng, city.lat, city.lng) <= (city.serviceRadiusKm || 4.5);
 }
 
-// -> { price, km, source: "tabla" | "formula", place }
+// -> { price, km, source: "pueblo" | "tabla" | "formula", place }
 function suggestTaxiFare(pickupLat, pickupLng, destLat, destLng) {
   const km = haversineKm(pickupLat, pickupLng, destLat, destLng) * ROAD_FACTOR;
+
+  // Los dos puntos dentro de Tekax: viaje corto en el pueblo.
+  if (inHomeTown(pickupLat, pickupLng) && inHomeTown(destLat, destLng)) {
+    return { price: TOWN_PRICE, km: Math.round(km * 10) / 10, source: "pueblo", place: null };
+  }
 
   // Tekax -> pueblo de la tabla, o de regreso (pueblo -> Tekax): mismo precio.
   const destPlace = nearestTablePlace(destLat, destLng);
