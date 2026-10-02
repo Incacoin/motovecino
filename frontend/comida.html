@@ -90,6 +90,24 @@
   .note b { color: var(--text); }
   .bar { position: fixed; left: 14px; right: 14px; bottom: 18px; padding: 15px 16px; border-radius: 16px; border: none; background: #22c55e; color: #04210f; font-weight: 800; font-size: 15.5px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 10px 28px rgba(0,0,0,0.22); }
   .bar:disabled { background: var(--bg-card); color: var(--faint); box-shadow: none; }
+  /* Confirmar pedido: dirección + cómo pagar (2-oct) */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; display: none; }
+  .sheet-bg.open { display: block; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; background: var(--bg); border-radius: 22px 22px 0 0; padding: 18px 16px 22px; max-height: 90vh; overflow-y: auto; transform: translateY(105%); transition: transform 0.25s; }
+  .sheet.open { transform: none; }
+  .sheet h3 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
+  .sheet .lines { margin: 12px 0; font-size: 14px; }
+  .sheet .ln { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .sheet .tot { display: flex; justify-content: space-between; font-weight: 800; font-size: 16px; padding-top: 10px; }
+  .sheet .lab { font-size: 12.5px; font-weight: 700; color: var(--dim); margin: 14px 0 6px; }
+  .sheet input { width: 100%; font-family: inherit; font-size: 16px; padding: 13px 14px; border-radius: 12px; border: 1.5px solid transparent; background: var(--bg-card); color: var(--text); outline: none; }
+  .sheet input:focus { border-color: var(--text); background: var(--bg); }
+  .pay { margin-top: 14px; border-radius: 14px; padding: 13px 14px; background: var(--green-bg); color: var(--text); font-size: 13.5px; line-height: 1.5; }
+  .pay b { font-weight: 800; }
+  .pay .acct { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 16px; font-weight: 800; letter-spacing: 0.02em; }
+  .pay button { border: none; background: var(--btn); color: var(--btn-ink); border-radius: 9px; padding: 7px 11px; font-weight: 800; font-size: 12.5px; cursor: pointer; }
+  .sheet .go { width: 100%; margin-top: 16px; padding: 15px; border: none; border-radius: 14px; background: #22c55e; color: #04210f; font-weight: 800; font-size: 16px; cursor: pointer; }
+  .sheet .cancel { width: 100%; margin-top: 8px; padding: 12px; border: none; background: none; color: var(--dim); font-weight: 700; font-size: 14px; cursor: pointer; }
   .preview-banner { position: sticky; top: 0; z-index: 10; background: #000; color: #fff; font-size: 13px; font-weight: 700; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   html[data-theme="dark"] .preview-banner { background: #fff; color: #000; }
   .preview-banner button { border: none; background: #22c55e; color: #04210f; font-weight: 800; border-radius: 10px; padding: 7px 10px; cursor: pointer; }
@@ -122,7 +140,18 @@
   </div>
   <div id="menu"></div>
   <div class="note">🛵 Le pides directo al negocio por WhatsApp. <b>La comida la pagas al negocio</b> (te dice cómo) y <b>el envío se lo pagas al chofer</b> de MotoVecino al recibir.</div>
-  <button class="bar" id="orderBar" onclick="sendOrder()" disabled><span id="barLeft">Elige tus productos</span><span id="barRight"></span></button>
+  <button class="bar" id="orderBar" onclick="openCheckout()" disabled><span id="barLeft">Elige tus productos</span><span id="barRight"></span></button>
+</div>
+
+<div class="sheet-bg" id="sheetBg" onclick="closeCheckout()"></div>
+<div class="sheet" id="sheet">
+  <h3>Tu pedido</h3>
+  <div class="lines" id="sLines"></div>
+  <div class="lab">¿Dónde te lo llevamos?</div>
+  <input id="sAddress" maxlength="120" placeholder='Ej. Calle 50 x 47 y 49, casa azul' autocomplete="street-address" />
+  <div class="pay" id="sPay"></div>
+  <button class="go" onclick="sendOrder()">Enviar pedido por WhatsApp</button>
+  <button class="cancel" onclick="closeCheckout()">Seguir eligiendo</button>
 </div>
 
 <script>
@@ -270,21 +299,61 @@ function renderBar() {
   document.getElementById("barRight").textContent = count ? `$${total}` : "";
 }
 
-// El pedido sale escrito al WhatsApp del negocio; el negocio confirma, cobra
-// la comida por transferencia y pide chofer desde "Mi negocio".
+// Antes de mandar: resumen, dirección y cómo pagarle al negocio. La cuenta
+// solo se muestra aquí, cuando el cliente ya está pidiendo.
+function payText() {
+  if (!current.pay_account) return "";
+  const kind = current.pay_account.length === 18 ? "CLABE" : "Tarjeta";
+  return `${current.pay_bank ? current.pay_bank + " · " : ""}${kind} ${current.pay_account}${current.pay_holder ? " · " + current.pay_holder : ""}`;
+}
+function openCheckout() {
+  const lines = cartLines();
+  if (!lines.length) return;
+  const total = lines.reduce((a, l) => a + l.n * l.price, 0);
+  document.getElementById("sLines").innerHTML = lines.map((l) => `<div class="ln"><span>${l.n} × ${escapeHtml(l.name)}</span><span>$${l.n * l.price}</span></div>`).join("") +
+    `<div class="tot"><span>Total de la comida</span><span>$${total}</span></div>`;
+  const addr = document.getElementById("sAddress");
+  if (!addr.value && me && me.home_label) addr.value = me.home_label;
+  const kind = current.pay_account && current.pay_account.length === 18 ? "CLABE" : "Tarjeta";
+  document.getElementById("sPay").innerHTML = current.pay_account
+    ? `💳 <b>Transfiere $${total}</b> a ${escapeHtml(current.name)}:
+       <div class="acct"><span>${escapeHtml(current.pay_bank || "")} · ${kind}<br>${escapeHtml(current.pay_account.replace(/(\d{4})(?=\d)/g, "$1 "))}</span><button onclick="copyAccount()" id="copyBtn">Copiar</button></div>
+       ${current.pay_holder ? `<div>Titular: <b>${escapeHtml(current.pay_holder)}</b></div>` : ""}
+       <div style="margin-top:6px">📎 Manda tu comprobante en el mismo chat de WhatsApp. El envío se lo pagas al chofer al recibir.</div>`
+    : `💳 El negocio te dirá por WhatsApp cómo pagarle la comida. El envío se lo pagas al chofer al recibir.`;
+  document.getElementById("sheetBg").classList.add("open");
+  document.getElementById("sheet").classList.add("open");
+}
+function closeCheckout() {
+  document.getElementById("sheetBg").classList.remove("open");
+  document.getElementById("sheet").classList.remove("open");
+}
+function copyAccount() {
+  const done = () => { const b = document.getElementById("copyBtn"); if (b) b.textContent = "¡Copiada!"; };
+  if (navigator.clipboard) navigator.clipboard.writeText(current.pay_account).then(done, done);
+  else done();
+}
+
+// El pedido sale escrito al WhatsApp del negocio; ahí mismo el cliente manda su
+// comprobante. El negocio confirma el pago y pide chofer desde "Mi negocio".
 function sendOrder() {
   const lines = cartLines();
   if (!lines.length || !current.whatsapp) return;
   const total = lines.reduce((a, l) => a + l.n * l.price, 0);
   const name = me && me.name ? me.name.trim() : "";
+  const address = document.getElementById("sAddress").value.trim();
+  const pay = payText();
   const text = [
     `Hola ${current.name}, vi su menú en MotoVecino 🛵 Quiero pedir:`,
     ...lines.map((l) => `• ${l.n} × ${l.name} — $${l.n * l.price}`),
     `Total: $${total} (más el envío)`,
     name ? `A nombre de: ${name}` : "",
-    `Entregar en: `,
+    `Entregar en: ${address}`,
+    pay ? `💳 Le transfiero a: ${pay}` : "",
+    pay ? `📎 Ahorita le mando mi comprobante por aquí.` : "",
   ].filter(Boolean).join("\n");
-  if (isPreview) { alertMsg("Así le llegaría tu pedido a WhatsApp ✅"); return; }
+  if (isPreview) { closeCheckout(); alertMsg("Así le llegaría tu pedido a WhatsApp ✅"); return; }
+  closeCheckout();
   window.open(`https://wa.me/52${current.whatsapp}?text=${encodeURIComponent(text)}`, "_blank");
 }
 

@@ -176,6 +176,15 @@
       <input id="pfHours" maxlength="60" placeholder="Ej. Lun a Sáb · 7 am a 2 pm" />
       <div class="lab">WhatsApp del negocio (aquí te llegan los pedidos)</div>
       <input id="pfWhatsapp" type="tel" inputmode="numeric" maxlength="10" placeholder="10 dígitos" />
+      <div class="cat-h" style="margin:14px 0 0">Datos para que te paguen</div>
+      <div class="note" style="margin-top:-4px">Tus clientes los ven al pedir, para transferirte la comida y mandarte su comprobante por WhatsApp.</div>
+      <div class="lab">Banco</div>
+      <input id="pfBank" maxlength="40" list="bankList" placeholder="Ej. BBVA, Banorte, Azteca, Nu" />
+      <datalist id="bankList"><option value="BBVA"><option value="Banorte"><option value="Banamex"><option value="Santander"><option value="HSBC"><option value="Banco Azteca"><option value="BanCoppel"><option value="Nu"><option value="Mercado Pago"><option value="Spin by OXXO"></datalist>
+      <div class="lab">CLABE (18 dígitos) o número de tarjeta (16)</div>
+      <input id="pfAccount" inputmode="numeric" maxlength="22" placeholder="Solo números" />
+      <div class="lab">Nombre del titular</div>
+      <input id="pfHolder" maxlength="60" placeholder="Como aparece en el banco" />
       <div class="tip" id="pfStatus"></div>
       <button class="b" onclick="previewPublic()">👀 Ver cómo lo ven mis clientes</button>
     </div>
@@ -529,6 +538,9 @@ function fillProfile() {
   document.getElementById("pfCategory").value = biz.category || "";
   document.getElementById("pfHours").value = biz.hours || "";
   document.getElementById("pfWhatsapp").value = biz.whatsapp || "";
+  document.getElementById("pfBank").value = biz.pay_bank || "";
+  document.getElementById("pfAccount").value = biz.pay_account || "";
+  document.getElementById("pfHolder").value = biz.pay_holder || "";
   pending.logo = pending.cover = null;
   renderProfilePhotos();
   renderProfileStatus();
@@ -546,14 +558,17 @@ function renderProfileStatus() {
   const missing = [];
   if (!biz.whatsapp) missing.push("tu WhatsApp");
   if (!items) missing.push("al menos un producto en tu menú");
-  document.getElementById("pfStatus").innerHTML = missing.length
+  const noPay = biz.pay_account ? "" : "<br>💳 Te recomendamos poner tus datos para que te paguen: así el cliente transfiere sin tener que preguntarte.";
+  document.getElementById("pfStatus").innerHTML = (missing.length
     ? `Para aparecer en <b>Comida y negocios</b> te falta: ${missing.join(" y ")}.`
-    : `✅ Tu negocio está listo para aparecer en <b>Comida y negocios</b> con ${items} producto${items === 1 ? "" : "s"}.`;
+    : `✅ Tu negocio está listo para aparecer en <b>Comida y negocios</b> con ${items} producto${items === 1 ? "" : "s"}.`) + noPay;
 }
 async function saveProfile() {
   const btn = document.getElementById("pfSaveBtn");
   const wa = document.getElementById("pfWhatsapp").value.replace(/\D/g, "");
   if (wa && wa.length !== 10) { toast("El WhatsApp debe tener 10 dígitos"); return; }
+  const acct = document.getElementById("pfAccount").value.replace(/\D/g, "");
+  if (acct && acct.length !== 16 && acct.length !== 18) { toast("La CLABE debe tener 18 dígitos (o la tarjeta 16)"); return; }
   btn.disabled = true; btn.textContent = "Guardando…";
   try {
     const d = await post("/business/profile/save", {
@@ -561,6 +576,9 @@ async function saveProfile() {
       category: document.getElementById("pfCategory").value,
       hours: document.getElementById("pfHours").value.trim(),
       whatsapp: wa,
+      pay_bank: document.getElementById("pfBank").value.trim(),
+      pay_account: acct,
+      pay_holder: document.getElementById("pfHolder").value.trim(),
       logo: pending.logo || undefined,
       cover: pending.cover || undefined,
     });

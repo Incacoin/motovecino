@@ -733,6 +733,8 @@ db.exec("CREATE INDEX IF NOT EXISTS idx_rides_business ON rides(business_id, cre
 for (const [col, type] of [
   ["logo", "TEXT"], ["cover", "TEXT"], ["tagline", "TEXT"], ["category", "TEXT"],
   ["hours", "TEXT"], ["whatsapp", "TEXT"], ["is_open", "INTEGER NOT NULL DEFAULT 0"],
+  // Datos para que el cliente le transfiera la comida al negocio (2-oct).
+  ["pay_bank", "TEXT"], ["pay_account", "TEXT"], ["pay_holder", "TEXT"],
 ]) {
   try {
     db.exec(`ALTER TABLE businesses ADD COLUMN ${col} ${type}`);

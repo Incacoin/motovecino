@@ -47,6 +47,12 @@ function publicBusiness(b) {
     : null;
 }
 
+// Cuenta donde el cliente le transfiere la comida al negocio. No va en la
+// lista de negocios: solo sale cuando el cliente abre el negocio para pedir.
+function payInfo(b) {
+  return { pay_bank: b.pay_bank || null, pay_account: b.pay_account || null, pay_holder: b.pay_holder || null };
+}
+
 const BUSINESS_CATEGORIES = ["Antojitos", "Comida", "Tacos", "Pizzas", "Hamburguesas", "Mariscos", "Pollos", "Panadería", "Postres", "Bebidas", "Tienda", "Otro"];
 
 function menuItem(i) {
@@ -165,7 +171,7 @@ function needBusiness(req, res) {
 router.post("/business/profile", (req, res) => {
   const b = needBusiness(req, res);
   if (!b) return;
-  res.json({ business: publicBusiness(b), menu: menuOf(b.id, false), categories: BUSINESS_CATEGORIES });
+  res.json({ business: { ...publicBusiness(b), ...payInfo(b) }, menu: menuOf(b.id, false), categories: BUSINESS_CATEGORIES });
 });
 
 router.post("/business/profile/save", (req, res) => {
@@ -183,10 +189,20 @@ router.post("/business/profile/save", (req, res) => {
     cover = saveImage(req.body.cover);
     if (!cover) return res.status(400).json({ error: "No se pudo guardar la portada. Prueba con otra foto." });
   }
+  // CLABE (18 dígitos) o tarjeta (16); se guarda solo con números.
+  const account = String(req.body.pay_account || "").replace(/\D/g, "");
+  if (account && ![16, 18].includes(account.length)) {
+    return res.status(400).json({ error: "La CLABE debe tener 18 dígitos (o la tarjeta 16)" });
+  }
   db.prepare(
-    "UPDATE businesses SET tagline = ?, category = ?, hours = ?, whatsapp = ?, logo = ?, cover = ?, updated_at = datetime('now') WHERE id = ?"
-  ).run(clean(req.body.tagline, 70) || null, category, clean(req.body.hours, 60) || null, whatsapp || null, logo, cover, b.id);
-  res.json({ business: publicBusiness(db.prepare("SELECT * FROM businesses WHERE id = ?").get(b.id)) });
+    `UPDATE businesses SET tagline = ?, category = ?, hours = ?, whatsapp = ?, logo = ?, cover = ?,
+       pay_bank = ?, pay_account = ?, pay_holder = ?, updated_at = datetime('now') WHERE id = ?`
+  ).run(
+    clean(req.body.tagline, 70) || null, category, clean(req.body.hours, 60) || null, whatsapp || null, logo, cover,
+    clean(req.body.pay_bank, 40) || null, account || null, clean(req.body.pay_holder, 60) || null, b.id
+  );
+  const saved = db.prepare("SELECT * FROM businesses WHERE id = ?").get(b.id);
+  res.json({ business: { ...publicBusiness(saved), ...payInfo(saved) } });
 });
 
 // Abierto / cerrado: los clientes solo pueden pedir cuando está abierto.
@@ -279,7 +295,7 @@ router.get("/food/businesses", (req, res) => {
 router.get("/food/business/:id", (req, res) => {
   const b = db.prepare("SELECT * FROM businesses b WHERE b.id = ? AND " + LISTED).get(Number(req.params.id));
   if (!b || !foodEnabled(b.city)) return res.status(404).json({ error: "Negocio no encontrado" });
-  res.json({ business: publicBusiness(b), menu: menuOf(b.id, true) });
+  res.json({ business: { ...publicBusiness(b), ...payInfo(b) }, menu: menuOf(b.id, true) });
 });
 
 router.post("/admin/food/status", checkAdminPin, (req, res) => {
