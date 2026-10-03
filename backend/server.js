@@ -147,7 +147,9 @@ app.get("/api/cities/resolve", (req, res) => {
   // dentro del radio real donde sí dejamos pedir/registrarse" — el frontend
   // lo usa para no anunciar una ciudad a la que luego el backend le va a
   // negar el registro o el viaje.
-  const inService = city ? isWithinServiceRadius(city.id, lat, lng) : false;
+  // testOnly (Mérida de prueba): sí deja pedir viaje, pero no abre el
+  // registro de choferes ahí (quiero-ser-chofer usa inService).
+  const inService = city && !city.testOnly ? isWithinServiceRadius(city.id, lat, lng) : false;
   // zone: qué se puede pedir en este punto, con la misma regla que POST
   // /rides (sin pueblo cercano cae en DEFAULT_CITY_ID): "in" = mototaxi y
   // taxi, "taxi" = solo taxi (comisarías, pueblos vecinos), "out" = nada.

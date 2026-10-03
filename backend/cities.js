@@ -16,6 +16,11 @@ const CITIES = [
   // radio normal de arriba, sin cambios.
   { id: "tekax", label: "Tekax", lat: 20.2071, lng: -89.2809, serviceRadiusKm: 4.5, serviceRadiusKmTaxi: 50 },
   { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389 },
+  // TEMPORAL (3-oct-2026): Mérida solo como zona de prueba para enseñar la
+  // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
+  // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
+  // testOnly: no abre el registro de choferes aquí. Quitar esta línea al terminar.
+  { id: "merida", label: "Mérida", lat: 20.9674, lng: -89.5926, serviceRadiusKm: 12, testOnly: true },
 ];
 
 const DEFAULT_CITY_ID = "tekax";
