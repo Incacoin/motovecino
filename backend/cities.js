@@ -20,7 +20,12 @@ const CITIES = [
   // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
   // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
   // testOnly: no abre el registro de choferes aquí. Quitar esta línea al terminar.
-  { id: "merida", label: "Mérida", lat: 20.9674, lng: -89.5926, serviceRadiusKm: 12, testOnly: true },
+  // labelRadiusKm: radio propio para la etiqueta (si no, CITY_RADIUS_KM).
+  // 22km: llega hasta la salida a Progreso.
+  { id: "merida", label: "Mérida", lat: 20.9674, lng: -89.5926, serviceRadiusKm: 22, labelRadiusKm: 22, testOnly: true },
+  // TEMPORAL (3-oct-2026): costa de Progreso de prueba — Chuburná, Chelem,
+  // Progreso, Flamboyanes, Chicxulub. Quitar junto con Mérida.
+  { id: "progreso", label: "Progreso", lat: 21.27, lng: -89.71, serviceRadiusKm: 14, labelRadiusKm: 14, testOnly: true },
 ];
 
 const DEFAULT_CITY_ID = "tekax";
@@ -35,12 +40,13 @@ function resolveCity(lat, lng) {
   let closestDist = Infinity;
   for (const city of CITIES) {
     const d = haversineKm(lat, lng, city.lat, city.lng);
+    if (d > (city.labelRadiusKm ?? CITY_RADIUS_KM)) continue;
     if (d < closestDist) {
       closestDist = d;
       closest = city;
     }
   }
-  if (!closest || closestDist > CITY_RADIUS_KM) return null;
+  if (!closest) return null;
   return closest;
 }
 
