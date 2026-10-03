@@ -147,10 +147,10 @@ async function sendOtp(phone, e164) {
     await sendViaTwilio(e164, code);
     return { ok: true, channel: "whatsapp" };
   } catch (e) {
-    console.error("No se pudo mandar el código por WhatsApp:", e.message);
+    console.error("No se pudo mandar el código:", e.message);
     // No cuenta como envío: que pueda reintentar sin esperar.
     db.prepare("UPDATE phone_otps SET last_sent_at = 0, sends_in_window = sends_in_window - 1 WHERE phone = ?").run(phone);
-    return { status: 502, error: "No pudimos mandarte el código por WhatsApp. Revisa tu número o escríbenos." };
+    return { status: 502, error: "No pudimos mandarte el código. Revisa tu número o escríbenos." };
   }
 }
 
