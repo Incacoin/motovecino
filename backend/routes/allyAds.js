@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const { checkAdminPin } = require("./admin");
+const { getCityById, DEFAULT_CITY_ID } = require("../cities");
 
 const router = express.Router();
 
@@ -32,7 +33,10 @@ function rideFromToken(req) {
   const id = Number(req.query.ride || req.body?.ride);
   const t = req.query.t || req.body?.t;
   const ride = id ? db.prepare("SELECT id, city, status, share_token FROM rides WHERE id = ?").get(id) : null;
-  return ride && t && ride.share_token === t ? ride : null;
+  if (!ride || !t || ride.share_token !== t) return null;
+  // Zona de prueba (Mérida, testOnly): enseña los anuncios de Tekax.
+  if (getCityById(ride.city)?.testOnly) ride.city = DEFAULT_CITY_ID;
+  return ride;
 }
 
 // El anuncio del viaje: el mismo si ya se le mostró uno (reabrir la app no
