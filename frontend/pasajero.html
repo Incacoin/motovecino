@@ -2197,7 +2197,8 @@ async function requestOtp(phone) {
   document.getElementById("otpActions").style.display = "flex";
   const hint = document.getElementById("otpHint");
   hint.style.display = "block";
-  hint.textContent = `Te mandamos un código por WhatsApp al ${phone}. Escríbelo y toca Continuar.` +
+  const via = data.channel === "sms" ? "mensaje de texto (SMS)" : "WhatsApp";
+  hint.textContent = `Te mandamos un código por ${via} al ${phone}. Escríbelo y toca Continuar.` +
     (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
   err.textContent = "";
   document.getElementById("otpInput").value = "";

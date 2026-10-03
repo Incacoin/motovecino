@@ -14,6 +14,9 @@ const db = require("./db");
 //                (en Render se ignora y queda como "off").
 //   "twilio"   → manda el código por WhatsApp con Twilio, usando la
 //                plantilla de autenticación aprobada por Meta.
+//   "verify"   → Twilio Verify genera, manda y revisa el código. Canal en
+//                OTP_CHANNEL: "sms" (default, no depende de Meta) o
+//                "whatsapp" (cuando Meta apruebe el número propio).
 const CODE_TTL_MS = 10 * 60 * 1000; // el código vale 10 minutos
 const RESEND_COOLDOWN_MS = 60 * 1000; // un reenvío por minuto
 const MAX_SENDS_PER_HOUR = 5; // por teléfono — cada envío cuesta dinero
@@ -37,11 +40,36 @@ function otpMode() {
     console.warn("OTP_MODE=simulado ignorado en Render: se trata como 'off'");
     return "off";
   }
-  return ["simulado", "twilio"].includes(mode) ? mode : "off";
+  return ["simulado", "twilio", "verify"].includes(mode) ? mode : "off";
 }
 
 function otpEnabled() {
   return otpMode() !== "off";
+}
+
+function otpChannel() {
+  return (process.env.OTP_CHANNEL || "sms").toLowerCase() === "whatsapp" ? "whatsapp" : "sms";
+}
+
+// Con TWILIO_API_KEY/TWILIO_API_SECRET (SK...) se puede cambiar el Auth Token
+// de la cuenta sin tumbar la app; si no están, usa SID + Auth Token.
+function twilioAuth() {
+  const user = process.env.TWILIO_API_KEY || process.env.TWILIO_ACCOUNT_SID;
+  const pass = process.env.TWILIO_API_KEY ? process.env.TWILIO_API_SECRET : process.env.TWILIO_AUTH_TOKEN;
+  if (!user || !pass) throw new Error("Faltan variables de Twilio");
+  return "Basic " + Buffer.from(`${user}:${pass}`).toString("base64");
+}
+
+async function verifyRequest(path, params) {
+  const service = process.env.TWILIO_VERIFY_SID; // VA...
+  if (!service) throw new Error("Falta TWILIO_VERIFY_SID");
+  const res = await fetch(`https://verify.twilio.com/v2/Services/${service}/${path}`, {
+    method: "POST",
+    headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams(params),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
 }
 
 function hashCode(phone, code) {
@@ -50,10 +78,9 @@ function hashCode(phone, code) {
 
 async function sendViaTwilio(e164, code) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM; // ej. +529991234567
   const contentSid = process.env.TWILIO_OTP_CONTENT_SID; // plantilla aprobada (HX...)
-  if (!sid || !token || !from || !contentSid) {
+  if (!sid || !from || !contentSid) {
     throw new Error("Faltan variables de Twilio");
   }
   const body = new URLSearchParams({
@@ -65,7 +92,7 @@ async function sendViaTwilio(e164, code) {
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
     headers: {
-      Authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"),
+      Authorization: twilioAuth(),
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body,
@@ -107,11 +134,18 @@ async function sendOtp(phone, e164) {
 
   if (otpMode() === "simulado") {
     console.log(`[OTP simulado] ${phone} → ${code}`);
-    return { ok: true, devCode: code };
+    return { ok: true, devCode: code, channel: "whatsapp" };
   }
   try {
+    if (otpMode() === "verify") {
+      // Twilio genera su propio código; el nuestro (guardado arriba) nunca se
+      // manda y solo sirve para llevar el límite de envíos e intentos.
+      const r = await verifyRequest("Verifications", { To: e164, Channel: otpChannel() });
+      if (!r.ok) throw new Error(`Verify ${r.status}: ${JSON.stringify(r.data)}`);
+      return { ok: true, channel: otpChannel() };
+    }
     await sendViaTwilio(e164, code);
-    return { ok: true };
+    return { ok: true, channel: "whatsapp" };
   } catch (e) {
     console.error("No se pudo mandar el código por WhatsApp:", e.message);
     // No cuenta como envío: que pueda reintentar sin esperar.
@@ -121,10 +155,11 @@ async function sendOtp(phone, e164) {
 }
 
 // Revisa el código. Si es correcto lo borra (solo sirve una vez).
-function verifyOtp(phone, code) {
+// `e164` solo hace falta en modo "verify" (Twilio revisa por número completo).
+async function verifyOtp(phone, code, e164) {
   const row = db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
   if (!row) {
-    return { status: 400, error: "Primero pide tu código por WhatsApp." };
+    return { status: 400, error: "Primero pide tu código." };
   }
   if (row.expires_at < Date.now()) {
     return { status: 400, error: "Tu código venció. Pide uno nuevo." };
@@ -133,8 +168,23 @@ function verifyOtp(phone, code) {
     return { status: 429, error: "Demasiados intentos con este código. Pide uno nuevo." };
   }
   const given = typeof code === "string" ? code.trim() : "";
-  const ok = /^\d{6}$/.test(given) &&
-    crypto.timingSafeEqual(Buffer.from(hashCode(phone, given)), Buffer.from(row.code_hash));
+  let ok;
+  if (otpMode() === "verify") {
+    if (!/^\d{4,10}$/.test(given)) {
+      ok = false;
+    } else {
+      try {
+        const r = await verifyRequest("VerificationCheck", { To: e164, Code: given });
+        ok = r.ok && r.data.status === "approved";
+      } catch (e) {
+        console.error("No se pudo revisar el código con Twilio Verify:", e.message);
+        return { status: 502, error: "No pudimos revisar tu código. Intenta de nuevo." };
+      }
+    }
+  } else {
+    ok = /^\d{6}$/.test(given) &&
+      crypto.timingSafeEqual(Buffer.from(hashCode(phone, given)), Buffer.from(row.code_hash));
+  }
   if (!ok) {
     db.prepare("UPDATE phone_otps SET attempts = attempts + 1 WHERE phone = ?").run(phone);
     return { status: 400, error: "Código incorrecto" };
@@ -143,4 +193,4 @@ function verifyOtp(phone, code) {
   return { ok: true };
 }
 
-module.exports = { otpEnabled, otpMode, sendOtp, verifyOtp };
+module.exports = { otpEnabled, otpMode, otpChannel, sendOtp, verifyOtp };

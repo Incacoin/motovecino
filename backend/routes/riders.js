@@ -40,7 +40,7 @@ router.post("/riders/otp/send", async (req, res) => {
     return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
   }
   recordSubmission(req.ip);
-  res.json({ required: true, ...(result.devCode ? { devCode: result.devCode } : {}) });
+  res.json({ required: true, channel: result.channel, ...(result.devCode ? { devCode: result.devCode } : {}) });
 });
 
 // Da de alta un teléfono nuevo (le genera PIN) o, si ese teléfono ya tiene
@@ -48,7 +48,7 @@ router.post("/riders/otp/send", async (req, res) => {
 // dejarlo re-registrarse con un nombre distinto. Así deja de ser "cualquiera
 // escribe cualquier teléfono": una vez que un número tiene PIN, hace falta
 // para volver a usarlo.
-router.post("/riders/register", (req, res) => {
+router.post("/riders/register", async (req, res) => {
   // A diferencia de las demás rutas de este archivo, esta es pública (nadie
   // ha probado PIN todavía) — sin este límite, un script podía crear cuentas
   // sin parar. Mismo contador que ya usa /chofer-solicitudes.
@@ -70,7 +70,7 @@ router.post("/riders/register", (req, res) => {
 
   if (otpEnabled()) {
     // El envío del código ya contó para el límite por IP (ver /riders/otp/send).
-    const check = verifyOtp(phone, req.body.code);
+    const check = await verifyOtp(phone, req.body.code, parsed.e164);
     if (!check.ok) return res.status(check.status).json({ error: check.error });
   } else {
     recordSubmission(req.ip);
