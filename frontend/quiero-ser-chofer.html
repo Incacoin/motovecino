@@ -299,7 +299,7 @@
     <div class="big">🗺️</div>
     <h2>¡Pronto en más municipios de Yucatán!</h2>
     <p>Por ahora solo registramos choferes de Tekax. MotoVecino sigue creciendo por el estado.</p>
-    <p><strong>¿Eres chofer de Akil u otro pueblo cercano?</strong> Escríbenos y te avisamos en cuanto lleguemos a tu pueblo.</p>
+    <p><strong>¿Eres chofer de Akil u otro municipio cercano?</strong> Escríbenos y te avisamos en cuanto lleguemos a tu municipio.</p>
     <a class="btn" id="interestWaBtn" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none;">💬 Escribir por WhatsApp</a>
   </div>
 
@@ -396,7 +396,7 @@ const SOPORTE_WHATSAPP_NUMBER = "9979739422";
 function showComingSoon() {
   // Cada chofer de otro pueblo que escribe aquí es una señal real de demanda
   // para decidir a qué pueblo abrir después (p. ej. Akil).
-  const text = "Hola, soy chofer y me interesa MotoVecino. Soy del pueblo de: ";
+  const text = "Hola, soy chofer y me interesa MotoVecino. Soy de: ";
   document.getElementById("interestWaBtn").href =
     `https://api.whatsapp.com/send?phone=52${SOPORTE_WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`;
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));

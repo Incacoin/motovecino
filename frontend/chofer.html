@@ -2719,7 +2719,7 @@ function fmtPromoEnd(ymd) {
 function shareInvite() {
   if (!inviteInfo) return;
   const link = `https://motovecinoapp.com/quiero-ser-chofer?inv=${encodeURIComponent(inviteInfo.code)}`;
-  const place = inviteInfo.cityLabel ? `aquí en ${inviteInfo.cityLabel}` : "aquí en el pueblo";
+  const place = inviteInfo.cityLabel ? `aquí en ${inviteInfo.cityLabel}` : "aquí en tu municipio";
   const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   const text = `¡Hola! Yo ya manejo con MotoVecino, la app para pedir mototaxi y taxi ${place}. ` +
     `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación` +

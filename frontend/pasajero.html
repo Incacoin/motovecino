@@ -4,12 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>MotoVecino</title>
-<meta name="description" content="Pide mototaxi o taxi desde tu celular en Tekax, Yucatán. Viajes dentro del pueblo y a las comisarías, con choferes de tu mismo pueblo." />
+<meta name="description" content="Pide mototaxi o taxi desde tu celular en Tekax, Yucatán. Viajes dentro de Tekax y a las comisarías, con choferes locales." />
 <link rel="canonical" href="https://motovecinoapp.com/pasajero.html" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="MotoVecino" />
 <meta property="og:title" content="MotoVecino" />
-<meta property="og:description" content="Pide mototaxi o taxi desde tu celular en Tekax, Yucatán. Viajes dentro del pueblo y a las comisarías, con choferes de tu mismo pueblo." />
+<meta property="og:description" content="Pide mototaxi o taxi desde tu celular en Tekax, Yucatán. Viajes dentro de Tekax y a las comisarías, con choferes locales." />
 <meta property="og:url" content="https://motovecinoapp.com/pasajero.html" />
 <meta property="og:image" content="https://motovecinoapp.com/og-motovecino-v2.jpg" />
 <meta property="og:image:width" content="1200" />
@@ -1752,7 +1752,7 @@ function applyZone(zone, zoneLabel) {
     renderVehCards(`Solo dentro de ${escapeHtml(town)}`);
     if (serviceType !== "taxi") { zoneForcedTaxi = true; setServiceType("taxi"); }
   } else {
-    notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más pueblos de Yucatán!";
+    notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más municipios de Yucatán!";
     if (pickup) document.getElementById("pickHint").textContent = "Todavía no llegamos a este punto";
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
