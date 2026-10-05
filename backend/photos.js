@@ -7,15 +7,20 @@
 // privacidad de choferes (la lista pública "disponibles" sigue sin fotos).
 // El código también cambia cuando la persona sube otra foto, por eso la URL
 // se puede guardar en caché "para siempre".
+//
+// Desde el 5-oct la foto vive en data/img/ (imageStore.js) y la columna solo
+// trae "img:<archivo>"; el código de la URL sale igual que antes.
 const crypto = require("node:crypto");
 const express = require("express");
 const db = require("./db");
+const { isRef, refHash, readImage } = require("./imageStore");
 
 const TABLES = { d: "drivers", r: "riders" };
 const MAX_THUMB_LENGTH = 100000;
 const DATA_URL_RE = /^data:(image\/(?:jpeg|png|webp));base64,/;
 
 function hashOf(photo) {
+  if (isRef(photo)) return refHash(photo);
   return crypto.createHash("sha256").update(photo).digest("hex").slice(0, 16);
 }
 
@@ -44,15 +49,14 @@ router.get("/photo/:kind/:id/:hash/:size", (req, res) => {
   const row = db.prepare(`SELECT photo, photo_thumb FROM ${table} WHERE id = ?`).get(Number(req.params.id));
   if (!row || !row.photo || hashOf(row.photo) !== hash) return res.status(404).end();
 
-  const dataUrl = size === "t" && row.photo_thumb ? row.photo_thumb : row.photo;
-  const match = DATA_URL_RE.exec(dataUrl);
-  if (!match) return res.status(404).end();
+  const img = (size === "t" && readImage(row.photo_thumb)) || readImage(row.photo);
+  if (!img) return res.status(404).end();
 
   res.set({
-    "Content-Type": match[1],
+    "Content-Type": img.type,
     "Cache-Control": "private, max-age=31536000, immutable",
   });
-  res.send(Buffer.from(dataUrl.slice(match[0].length), "base64"));
+  res.send(img.buffer);
 });
 
 module.exports = { router, photoUrls, cleanThumb };

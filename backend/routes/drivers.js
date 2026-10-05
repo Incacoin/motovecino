@@ -9,6 +9,7 @@ const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius } = require("../citi
 const { rideFee } = require("../fees");
 const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
 const { photoUrls, cleanThumb } = require("../photos");
+const { toStored } = require("../imageStore");
 const { ensureInviteCode, findInviter, shortName } = require("../invites");
 const { checkReferralReward, creditBalance, referralStatus } = require("../referrals");
 
@@ -333,7 +334,7 @@ router.post("/drivers/photo", (req, res) => {
 
   // Si el cliente (una versión vieja en caché) no manda miniatura, se limpia la
   // anterior: si no, quedaría la miniatura de la foto vieja junto a la nueva.
-  db.prepare("UPDATE drivers SET photo = ?, photo_thumb = ? WHERE id = ?").run(photo, cleanThumb(thumb), driver.id);
+  db.prepare("UPDATE drivers SET photo = ?, photo_thumb = ? WHERE id = ?").run(toStored(photo), toStored(cleanThumb(thumb)), driver.id);
   res.json({ ok: true });
 });
 
@@ -411,7 +412,7 @@ router.post("/chofer-solicitudes", (req, res) => {
   db.prepare(
     "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
-    name, phone, photo, photoPlaca || null, AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, signature, cityId,
+    name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, toStored(signature), cityId,
     emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
     inviterId

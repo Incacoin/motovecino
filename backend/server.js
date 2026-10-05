@@ -20,6 +20,7 @@ const { router: photoRoutes } = require("./photos");
 const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
+const { migrateImagesToFiles } = require("./imageStore");
 const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID } = require("./cities");
 
 const app = express();
@@ -186,6 +187,15 @@ app.use((err, req, res, next) => {
   console.error("[error]", err);
   res.status(500).json({ error: "Algo salió mal, intenta de nuevo" });
 });
+
+// Antes del primer respaldo: pasa a data/img/ las fotos que sigan dentro de
+// la base (solo hace algo la primera vez). Si falla, la app sigue igual: las
+// fotos viejas en la base se siguen sirviendo.
+try {
+  migrateImagesToFiles(db);
+} catch (err) {
+  console.error("[img] error al pasar fotos a archivos:", err);
+}
 
 startBackupSchedule(6);
 startRetentionSchedule();

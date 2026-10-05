@@ -2,6 +2,7 @@ const express = require("express");
 const db = require("../db");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const { photoUrls, cleanThumb } = require("../photos");
+const { toStored } = require("../imageStore");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
 const { parseRiderPhone } = require("../phone");
 
@@ -175,7 +176,7 @@ router.post("/riders/:id/photo", (req, res) => {
     return res.status(413).json({ error: "La foto pesa demasiado, intenta con otra" });
   }
 
-  db.prepare("UPDATE riders SET photo = ?, photo_thumb = ? WHERE id = ?").run(photo, cleanThumb(thumb), rider.id);
+  db.prepare("UPDATE riders SET photo = ?, photo_thumb = ? WHERE id = ?").run(toStored(photo), toStored(cleanThumb(thumb)), rider.id);
   res.json({ ok: true });
 });
 

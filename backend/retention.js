@@ -1,4 +1,5 @@
 const db = require("./db");
+const { pruneUnusedImages } = require("./imageStore");
 
 // El Aviso de Privacidad (frontend/aviso-privacidad.html, sección 6) promete
 // que el detalle de los viajes no se guarda más de 1 año. Este barrido es lo
@@ -51,6 +52,10 @@ function purgeOldPersonalData() {
         "UPDATE rides SET deposit_receipt = NULL WHERE deposit_receipt IS NOT NULL AND julianday('now') - julianday(created_at) > ?"
       )
       .run(RECEIPT_RETENTION_DAYS);
+
+    // Fotos de perfil que ya nadie usa (cambiaron su foto o se borró la
+    // cuenta): fuera del disco, y el respaldo las quita también de GitHub.
+    pruneUnusedImages(db);
 
     if (rides.changes || activity.changes || receipts.changes) {
       console.log(`[retention] ${rides.changes} viajes anonimizados, ${activity.changes} registros de conexión borrados, ${receipts.changes} comprobantes borrados`);

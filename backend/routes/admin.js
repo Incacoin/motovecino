@@ -8,6 +8,11 @@ const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
+const { toStored, inflateRow } = require("../imageStore");
+
+// El admin siempre recibió las fotos completas (data URL); ahora viven en
+// data/img/ y se arman al responder.
+const DRIVER_IMG_COLS = ["photo", "photo_placa", "signature"];
 
 const router = express.Router();
 
@@ -112,7 +117,7 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
       "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
-      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, photo || null, photoPlaca || null, signature || null, vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId,
+      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId,
       emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0
     );
   ensureInviteCode(db, result.lastInsertRowid);
@@ -124,7 +129,7 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
     .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
 
-  res.status(201).json(driver);
+  res.status(201).json(inflateRow(driver, DRIVER_IMG_COLS));
 });
 
 router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
@@ -149,7 +154,7 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
        ORDER BY d.created_at DESC`
     )
     .all(TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, SERVICE_FEE, req.adminCity);
-  res.json(drivers);
+  res.json(drivers.map((d) => inflateRow(d, DRIVER_IMG_COLS)));
 });
 
 router.post("/admin/drivers/:id/paid-until", checkAdminPin, (req, res) => {
@@ -374,7 +379,7 @@ router.post("/admin/chofer-solicitudes/list", checkAdminPin, (req, res) => {
       "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
-  res.json(apps);
+  res.json(apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));
 });
 
 router.post("/admin/chofer-solicitudes/:id/dismiss", checkAdminPin, (req, res) => {
