@@ -22,10 +22,12 @@ const CITIES = [
   // testOnly: no abre el registro de choferes aquí. Quitar esta línea al terminar.
   // labelRadiusKm: radio propio para la etiqueta (si no, CITY_RADIUS_KM).
   // 22km: llega hasta la salida a Progreso.
-  { id: "merida", label: "Mérida", lat: 20.9674, lng: -89.5926, serviceRadiusKm: 22, labelRadiusKm: 22, testOnly: true },
+  // APAGADO (5-oct-2026): para volver a prender Mérida y Progreso, quitar
+  // los // de las dos líneas de abajo.
+  // { id: "merida", label: "Mérida", lat: 20.9674, lng: -89.5926, serviceRadiusKm: 22, labelRadiusKm: 22, testOnly: true },
   // TEMPORAL (3-oct-2026): costa de Progreso de prueba — Chuburná, Chelem,
   // Progreso, Flamboyanes, Chicxulub. Quitar junto con Mérida.
-  { id: "progreso", label: "Progreso", lat: 21.27, lng: -89.71, serviceRadiusKm: 14, labelRadiusKm: 14, testOnly: true },
+  // { id: "progreso", label: "Progreso", lat: 21.27, lng: -89.71, serviceRadiusKm: 14, labelRadiusKm: 14, testOnly: true },
 ];
 
 const DEFAULT_CITY_ID = "tekax";
