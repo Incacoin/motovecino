@@ -17,6 +17,9 @@ const db = require("./db");
 //   "verify"   → Twilio Verify genera, manda y revisa el código. Canal en
 //                OTP_CHANNEL: "sms" (default, no depende de Meta) o
 //                "whatsapp" (cuando Meta apruebe el número propio).
+//                Con "verify" la persona también puede pedir el código por
+//                llamada ("¿No te llegó? Recibir llamada"), por si el SMS se
+//                le fue a spam o su compañía no se lo pasó.
 const CODE_TTL_MS = 10 * 60 * 1000; // el código vale 10 minutos
 const RESEND_COOLDOWN_MS = 60 * 1000; // un reenvío por minuto
 const MAX_SENDS_PER_HOUR = 5; // por teléfono — cada envío cuesta dinero
@@ -104,8 +107,10 @@ async function sendViaTwilio(e164, code) {
 
 // Genera y "manda" un código nuevo. `phone` es como se guarda en riders (la
 // llave del límite) y `e164` el número completo con "+" al que se manda.
-// Regresa { ok, devCode? } o { status, error }.
-async function sendOtp(phone, e164) {
+// `wantCall`: la persona pidió el código por llamada (solo en modo verify o
+// simulado; usa el mismo límite de reenvíos que el SMS).
+// Regresa { ok, channel, devCode? } o { status, error }.
+async function sendOtp(phone, e164, wantCall = false) {
   const now = Date.now();
   const row = db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
 
@@ -132,17 +137,20 @@ async function sendOtp(phone, e164) {
   // para el límite por hora.
   db.prepare("DELETE FROM phone_otps WHERE expires_at < ?").run(now - 24 * 60 * 60 * 1000);
 
+  const call = wantCall && ["verify", "simulado"].includes(otpMode());
   if (otpMode() === "simulado") {
-    console.log(`[OTP simulado] ${phone} → ${code}`);
-    return { ok: true, devCode: code, channel: "whatsapp" };
+    console.log(`[OTP simulado${call ? " llamada" : ""}] ${phone} → ${code}`);
+    return { ok: true, devCode: code, channel: call ? "call" : "whatsapp" };
   }
   try {
     if (otpMode() === "verify") {
       // Twilio genera su propio código; el nuestro (guardado arriba) nunca se
       // manda y solo sirve para llevar el límite de envíos e intentos.
-      const r = await verifyRequest("Verifications", { To: e164, Channel: otpChannel() });
+      const channel = call ? "call" : otpChannel();
+      // Locale "es": la voz de la llamada dicta el código en español.
+      const r = await verifyRequest("Verifications", { To: e164, Channel: channel, Locale: "es" });
       if (!r.ok) throw new Error(`Verify ${r.status}: ${JSON.stringify(r.data)}`);
-      return { ok: true, channel: otpChannel() };
+      return { ok: true, channel };
     }
     await sendViaTwilio(e164, code);
     return { ok: true, channel: "whatsapp" };

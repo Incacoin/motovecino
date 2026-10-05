@@ -726,6 +726,13 @@ try {
 } catch {}
 db.exec("CREATE INDEX IF NOT EXISTS idx_rides_business ON rides(business_id, created_at)");
 
+// "Pedido desde lejos" (5-oct): a cuántos km del punto de encuentro estaba el
+// celular de quien pidió, solo si fue lejos (ver FAR_REQUEST_KM en
+// routes/rides.js). Se guarda la distancia, nunca dónde estaba la persona.
+try {
+  db.exec("ALTER TABLE rides ADD COLUMN requested_from_km INTEGER");
+} catch {}
+
 // Comida y negocios (Paso A, 2-oct): perfil público del negocio y su menú. Las
 // fotos NO van en la base: son archivos en data/menu/ (ver menuImages.js) y
 // aquí solo se guarda su nombre. food_settings es el interruptor por ciudad de

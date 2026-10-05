@@ -3,6 +3,12 @@ const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius } = require("../cities");
+const { haversineKm } = require("../geo");
+
+// Si el celular de quien pide está a más de esto del punto de encuentro, al
+// chofer le sale "Pedido desde lejos" para que confirme por el chat antes de
+// ir. No bloquea: pedir para la familia desde otro lado es un uso real.
+const FAR_REQUEST_KM = 10;
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { photoUrls } = require("../photos");
 const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC } = require("../constants");
@@ -79,6 +85,8 @@ router.post("/rides", (req, res) => {
     extra,
     for_name,
     for_note,
+    rider_lat,
+    rider_lng,
   } = req.body;
   // Extra voluntario del pasajero en mototaxi (+$5 o +$10), todo para el
   // chofer: no cambia la tarifa de servicio. El taxi negocia con ofertas.
@@ -170,6 +178,15 @@ router.post("/rides", (req, res) => {
       forOther ? forOther.name : null,
       forOther ? forOther.note : null
     );
+
+  // Sin GPS del celular no se sabe: no se marca nada.
+  const rLat = Number(rider_lat), rLng = Number(rider_lng);
+  if (rider_lat != null && rider_lng != null && Number.isFinite(rLat) && Number.isFinite(rLng)) {
+    const km = haversineKm(rLat, rLng, Number(pickup_lat), Number(pickup_lng));
+    if (km >= FAR_REQUEST_KM) {
+      db.prepare("UPDATE rides SET requested_from_km = ? WHERE id = ?").run(Math.round(km), result.lastInsertRowid);
+    }
+  }
 
   const ride = db
     .prepare("SELECT * FROM rides WHERE id = ?")

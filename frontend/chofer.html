@@ -119,6 +119,7 @@ function setDriverTheme(pref) {
   .for-other { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.45); color: var(--text); font-size: 14.5px; line-height: 1.4; }
   .for-other b { font-weight: 800; }
   .for-other-by { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+  .far-req { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.55); color: var(--text); font-size: 14px; line-height: 1.4; }
   .ride-card .label { font-weight: 700; font-size: 15px; }
   .ride-card .meta { color: var(--text-dim); font-size: 13.5px; margin: 4px 0; }
   .ride-card .meta.fare { color: var(--accent); font-weight: 700; font-size: 14px; }
@@ -1703,7 +1704,20 @@ function serviceKindPrefix(r) {
 
 // Viaje pedido para otra persona (la mamá para su hijo): a quién recoger y su
 // seña. Se habla con quien lo pidió por el chat, como en cualquier viaje.
+// "Pedido desde lejos": el celular de quien pidió estaba lejos del punto de
+// encuentro. Puede ser real (alguien pide para su familia) o una broma: que
+// confirme por el chat antes de ir. Va arriba de los datos de a quién recoger.
+function farRequestHtml(r, accepted) {
+  if (!r.requested_from_km || r.business_id) return "";
+  return `<div class="far-req">⚠️ <b>Pedido desde lejos</b> (a unos ${r.requested_from_km} km del punto de encuentro).
+    <div class="for-other-by">${accepted ? "Escríbele por el chat y confirma antes de salir." : "Si lo aceptas, confirma por el chat antes de salir."}</div></div>`;
+}
+
 function forOtherHtml(r, accepted) {
+  return farRequestHtml(r, accepted) + forOtherBody(r, accepted);
+}
+
+function forOtherBody(r, accepted) {
   // Envío de un negocio (Mi negocio, 2-oct): recoge en el negocio y entrega al
   // cliente. La comida ya está pagada: el chofer solo cobra el envío.
   if (r.business_id) {

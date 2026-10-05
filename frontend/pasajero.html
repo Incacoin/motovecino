@@ -89,6 +89,7 @@ function toggleRiderTheme() {
   .input-icon-row select.country-select option { color: #111; }
   .otp-hint { color: var(--text-dim); font-size: 13px; width: 260px; line-height: 1.4; }
   .otp-actions { gap: 8px; flex-wrap: wrap; justify-content: center; width: 260px; }
+  .otp-actions .btn-sm:disabled { opacity: 0.45; cursor: default; }
   .pill-row { display: flex; gap: 10px; width: 260px; margin-top: 6px; }
   .pill-row .btn-sm { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; }
   .installBanner { position: absolute; top: 14px; left: 14px; right: 66px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; text-align: left; font-size: 13.5px; }
@@ -896,6 +897,7 @@ function toggleRiderTheme() {
   <div id="otpHint" class="otp-hint" style="display:none;"></div>
   <div id="otpActions" class="otp-actions" style="display:none;">
     <button class="btn-sm" id="otpResendBtn" onclick="resendOtp()" disabled>Reenviar código</button>
+    <button class="btn-sm" id="otpCallBtn" onclick="resendOtp(true)" disabled>📞 Recibir llamada</button>
     <button class="btn-sm" onclick="otpHelp()">¿No te llegó? Escríbenos</button>
   </div>
   <button class="btn" onclick="goToMap()">Continuar</button>
@@ -2178,12 +2180,13 @@ let otpResendTimer = null;
 
 // Regresa "sent" (se mandó, hay que escribirlo), "skip" (el servidor no pide
 // código), "login" (ese teléfono ya tiene cuenta) o "error".
-async function requestOtp(phone) {
+// call=true: pide el código por llamada (si el SMS no le llegó).
+async function requestOtp(phone, call = false) {
   const err = document.getElementById("formError");
   const res = await fetch(API + "/api/riders/otp/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify(call ? { phone, channel: "call" } : { phone }),
   });
   if (res.status === 409) return "login";
   const data = await res.json().catch(() => ({}));
@@ -2200,7 +2203,9 @@ async function requestOtp(phone) {
   const hint = document.getElementById("otpHint");
   hint.style.display = "block";
   const via = data.channel === "sms" ? "mensaje de texto (SMS)" : "WhatsApp";
-  hint.textContent = `Te mandamos un código por ${via} al ${phone}. Escríbelo y toca Continuar.` +
+  hint.textContent = (data.channel === "call"
+    ? `Te estamos llamando al ${phone}. Contesta y una voz te dirá tu código. Escríbelo y toca Continuar.`
+    : `Te mandamos un código por ${via} al ${phone}. Escríbelo y toca Continuar.`) +
     (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
   err.textContent = "";
   document.getElementById("otpInput").value = "";
@@ -2209,17 +2214,21 @@ async function requestOtp(phone) {
   return "sent";
 }
 
+// La llamada usa el mismo límite que el reenvío (1 por minuto en el servidor).
 function startResendCountdown(seconds) {
   const btn = document.getElementById("otpResendBtn");
+  const callBtn = document.getElementById("otpCallBtn");
   clearInterval(otpResendTimer);
   let left = seconds;
   btn.disabled = true;
+  callBtn.disabled = true;
   btn.textContent = `Reenviar código (${left})`;
   otpResendTimer = setInterval(() => {
     left--;
     if (left <= 0) {
       clearInterval(otpResendTimer);
       btn.disabled = false;
+      callBtn.disabled = false;
       btn.textContent = "Reenviar código";
     } else {
       btn.textContent = `Reenviar código (${left})`;
@@ -2227,11 +2236,11 @@ function startResendCountdown(seconds) {
   }, 1000);
 }
 
-async function resendOtp() {
+async function resendOtp(call = false) {
   document.getElementById("formError").textContent = "";
   const phone = readRiderPhone();
   if (!phone) return;
-  const sent = await requestOtp(phone);
+  const sent = await requestOtp(phone, call);
   if (sent === "login") showPinLogin(phone);
 }
 
@@ -2573,6 +2582,10 @@ async function requestRide() {
       extra: serviceType === "taxi" ? 0 : tripExtra,
       for_name: askingForOther ? forName : undefined,
       for_note: askingForOther ? document.getElementById("forNoteInput").value.trim() : undefined,
+      // Dónde está el celular (si dio permiso): solo para avisarle al chofer
+      // si el viaje se pidió desde lejos. No bloquea nada.
+      rider_lat: geoPos ? geoPos.lat : undefined,
+      rider_lng: geoPos ? geoPos.lng : undefined,
     }),
   });
   if (!res.ok) {
