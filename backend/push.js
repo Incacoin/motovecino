@@ -221,7 +221,7 @@ function riderMessage(ride, type, payload) {
   if (type === "ride_accepted") {
     const vehiculo = ride.ride_type === "taxi" ? "El taxi" : "El mototaxi";
     return para
-      ? { tag, title: `✅ ${firstName(payload.name)} va por ${para}`, body: `${vehiculo} ya va en camino a recoger a ${para}.` }
+      ? { tag, title: `✅ ${firstName(payload.name)} va por ${para}`, body: `${vehiculo} ya va en camino por ${para}.` }
       : { tag, title: `✅ ${firstName(payload.name)} aceptó tu viaje`, body: `${vehiculo.replace("El", "Tu")} ya va en camino por ti.` };
   }
   if (type === "offer_new") {

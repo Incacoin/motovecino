@@ -1071,9 +1071,9 @@ function toggleRiderTheme() {
        centro y se mueve el mapa debajo (#centerPin); en "Tu viaje" salen todas las opciones. -->
   <div id="mapWrap">
     <div id="map"></div>
-    <div id="centerPin"><div class="cp-label">Aquí te recogemos</div><div class="cp-dot">1</div><div class="cp-stick"></div></div>
+    <div id="centerPin"><div class="cp-label">Punto de encuentro</div><div class="cp-dot">1</div><div class="cp-stick"></div></div>
   </div>
-  <div id="pickHint">Toca el mapa para marcar dónde te recogemos</div>
+  <div id="pickHint">Toca el mapa para marcar tu punto de encuentro</div>
   <div id="pickBar">
     <div id="sheetGrip" onclick="toggleSheet()" ontouchstart="gripTouchStart(event)" ontouchend="gripTouchEnd(event)">
       <div class="sheet-handle"></div>
@@ -1082,12 +1082,12 @@ function toggleRiderTheme() {
     <div id="zoneNotice"></div>
     <div id="stepHead" class="step-only">
       <div class="steps">
-        <button type="button" id="stepChip1" onclick="editPickup()">1 Recogida</button>
+        <button type="button" id="stepChip1" onclick="editPickup()">1 Partida</button>
         <button type="button" id="stepChip2" onclick="if (pickup) editDest()">2 Destino</button>
         <button type="button" id="stepChip3" onclick="if (pickup && destDecided) setPickStep('trip')">3 Tu viaje</button>
       </div>
       <div class="step-hello" id="stepHello"></div>
-      <div class="step-title" id="stepTitle">¿Dónde te recogemos?</div>
+      <div class="step-title" id="stepTitle">¿Dónde te encontramos?</div>
       <div class="step-sub" id="stepSub">Mueve el mapa hasta tu puerta. El pin se queda en el centro.</div>
       <div id="placeSearch"><div class="ps-field">
         <svg class="ps-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -1103,7 +1103,7 @@ function toggleRiderTheme() {
         <button class="btn btn-secondary big" onclick="useMyLocation()">📍 Usar mi ubicación</button>
         <button class="btn btn-secondary big" id="useHomeBtn" style="display:none;" onclick="useHomeLocation()">🏠 Mi casa</button>
       </div>
-      <button class="btn" id="confirmPickupBtn" onclick="confirmPickup()">Confirmar recogida</button>
+      <button class="btn" id="confirmPickupBtn" onclick="confirmPickup()">Confirmar punto de encuentro</button>
     </div>
     <div id="destStep" class="step-only step-block">
       <div class="row">
@@ -1113,7 +1113,7 @@ function toggleRiderTheme() {
       <button class="btn" id="confirmDestBtn" onclick="confirmDest()">Confirmar destino</button>
     </div>
     <div id="tripSummary" class="trip-only">
-      <button type="button" class="trip-pt" onclick="editPickup()"><small>Recogida</small><span id="sumPickup">✓ Marcada</span></button>
+      <button type="button" class="trip-pt" onclick="editPickup()"><small>Partida</small><span id="sumPickup">✓ Marcada</span></button>
       <button type="button" class="trip-pt" onclick="editDest()"><small>Destino</small><span id="sumDest">Sin destino</span></button>
       <button type="button" class="trip-edit" onclick="editPickup()">Cambiar</button>
     </div>
@@ -1668,7 +1668,7 @@ function updateFareEstimate() {
   const night = isNightFare();
   const result = resolvedCityId === "ticul" ? estimateFareTicul(night) : estimateFareTekax(night);
   if (result.longTrip) {
-    el.textContent = `Viaje largo: acuerda el precio directo con el chofer + $${SERVICE_FEE} de servicio de la app`;
+    el.textContent = `Viaje largo: acuerda el precio directo con el chofer`;
     btn.textContent = baseLabel;
     return;
   }
@@ -1677,7 +1677,7 @@ function updateFareEstimate() {
   const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE + tripExtra;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
   const extraNote = tripExtra ? ` + $${tripExtra} extra para el chofer` : "";
-  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}, incluye $${SERVICE_FEE} de servicio${extraNote}${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
+  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${extraNote}${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
   btn.textContent = `${baseLabel} · $${total} MXN`;
   document.getElementById("extraBox").style.display = "flex";
   setVehPrice("Moto", `$${total}`);
@@ -2325,7 +2325,7 @@ let destDecided = false; // ya marcó destino o eligió "Sin destino"
 let pickupLabel = null, destLabel = null;
 
 const STEP_TEXT = {
-  pickup: ["¿Dónde te recogemos?", "Mueve el mapa hasta tu puerta. El pin se queda en el centro."],
+  pickup: ["¿Dónde te encontramos?", "Mueve el mapa hasta tu puerta. El pin se queda en el centro."],
   dest: ["¿A dónde vas?", "Mueve el mapa hasta tu destino."],
 };
 
@@ -2338,14 +2338,14 @@ function setPickStep(step) {
   const pin = document.getElementById("centerPin");
   pin.classList.toggle("dest", step === "dest");
   pin.querySelector(".cp-dot").textContent = step === "dest" ? "2" : "1";
-  pin.querySelector(".cp-label").textContent = step === "dest" ? "Aquí vas" : "Aquí te recogemos";
+  pin.querySelector(".cp-label").textContent = step === "dest" ? "Aquí vas" : "Punto de encuentro";
   const order = { pickup: 1, dest: 2, trip: 3 };
   [1, 2, 3].forEach((i) => {
     const chip = document.getElementById("stepChip" + i);
     const done = i === 1 ? !!pickup && step !== "pickup" : i === 2 ? destDecided && step !== "dest" : false;
     chip.classList.toggle("on", order[step] === i);
     chip.classList.toggle("done", done);
-    chip.textContent = `${done ? "✓" : i} ${["Recogida", "Destino", "Tu viaje"][i - 1]}`;
+    chip.textContent = `${done ? "✓" : i} ${["Partida", "Destino", "Tu viaje"][i - 1]}`;
   });
   clearPlaceSearch(false);
   const foodChip = document.getElementById("foodChip");
@@ -3009,7 +3009,7 @@ function renderPickupWaitBox() {
   const charge = pickupWaitCharge(ms);
   if (pickupStartedAt) {
     box.innerHTML = charge > 0
-      ? `<div class="agreed-box"><div class="lbl">Espera en la recogida</div><div style="font-weight:700;">+$${charge} · se suma al precio acordado</div></div>`
+      ? `<div class="agreed-box"><div class="lbl">Espera en el punto de encuentro</div><div style="font-weight:700;">+$${charge} · se suma al precio acordado</div></div>`
       : "";
     return;
   }

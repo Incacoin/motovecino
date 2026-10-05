@@ -1712,7 +1712,7 @@ function forOtherHtml(r, accepted) {
       <div class="for-other-by">✅ Comida ya pagada · Cobra solo el envío</div></div>`;
   }
   if (!r.for_name) return "";
-  return `<div class="for-other">👤 Recoger a <b>${escapeHtml(r.for_name)}</b>
+  return `<div class="for-other">👤 Vas por <b>${escapeHtml(r.for_name)}</b>
     ${r.for_note ? `<div>Seña: ${escapeHtml(r.for_note)}</div>` : ""}
     <div class="for-other-by">Lo pidió ${escapeHtml(r.rider_name)}${accepted ? " · escríbele por el chat" : ""}</div></div>`;
 }
@@ -1772,7 +1772,7 @@ function renderRideList() {
     renderedShape = shape;
 
     const destLine = currentRide.dest_lat
-      ? `<div class="ride-chips"><span class="chip">🏁 ${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · ${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde la recogida</span></div>`
+      ? `<div class="ride-chips"><span class="chip">🏁 ${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · ${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde el punto de encuentro</span></div>`
       : "";
     const fareLine = `<div class="meta fare">${estimateFare(currentRide).text}</div>`;
 
@@ -1780,7 +1780,7 @@ function renderRideList() {
       const dist = myPos ? haversine(myPos.lat, myPos.lng, currentRide.pickup_lat, currentRide.pickup_lng).toFixed(1) : "?";
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head"><small>Yendo a recoger a</small><b>${escapeHtml(pickupWho(currentRide))}</b></div>
+          <div class="act-head"><small>Vas por</small><b>${escapeHtml(pickupWho(currentRide))}</b></div>
           <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
@@ -1807,7 +1807,7 @@ function renderRideList() {
             : ""}
           ${currentRide.ride_type === "taxi"
             ? `<div style="margin:8px 0;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
-                 <div style="font-size:13px;color:var(--text-dim);">⏱️ Espera en la recogida: ${TAXI_PICKUP_GRACE_MIN} min gratis, después $${TAXI_WAIT_RATE_PER_MIN}/min. Corre sola hasta que toques "Iniciar viaje".</div>
+                 <div style="font-size:13px;color:var(--text-dim);">⏱️ Espera en el punto de encuentro: ${TAXI_PICKUP_GRACE_MIN} min gratis, después $${TAXI_WAIT_RATE_PER_MIN}/min. Corre sola hasta que toques "Iniciar viaje".</div>
                  <div id="pickupWaitDisplay" style="margin-top:6px;font-weight:700;"></div>
                </div>`
             : ""}
@@ -1873,7 +1873,7 @@ function renderRideList() {
           ${extraChipHtml(r)}
           ${r.pickup_label ? `<span class="chip">${escapeHtml(r.pickup_label)}</span>` : ""}
         </div>
-        ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde la recogida)</div>` : ""}
+        ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde el punto de encuentro)</div>` : ""}
         ${fare.total != null
           ? `<div class="req-big"><small>Cobras en efectivo</small><b>$${fare.total}</b>${r.extra ? `<span>Incluye +$${r.extra} extra del pasajero</span>` : ""}</div>`
           : ""}
@@ -2310,7 +2310,7 @@ function renderPickupWait() {
       ? `${fmtMmSs(ms)} esperando · +$${charge} de espera`
       : `${fmtMmSs(ms)} esperando · gratis (quedan ${fmtMmSs(Math.max(0, graceLeft))})`;
   } else {
-    el.textContent = charge > 0 ? `Espera en la recogida: +$${charge} (se suma solo al precio final)` : "";
+    el.textContent = charge > 0 ? `Espera en el punto de encuentro: +$${charge} (se suma solo al precio final)` : "";
   }
 }
 setInterval(renderPickupWait, 1000);
