@@ -15,7 +15,12 @@ const CITIES = [
   // la redonda) porque no tiene tarifa fija — el mototaxi se queda con el
   // radio normal de arriba, sin cambios.
   { id: "tekax", label: "Tekax", lat: 20.2071, lng: -89.2809, serviceRadiusKm: 4.5, serviceRadiusKmTaxi: 50 },
-  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389 },
+  // TEMPORAL (5-oct-2026): Ticul y Oxkutzcab como zonas de prueba para
+  // enseñar la app. Al terminar: Ticul regresa a su línea original
+  // `{ id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389 },` y se
+  // borra la de Oxkutzcab.
+  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, testOnly: true },
+  { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, testOnly: true },
   // TEMPORAL (3-oct-2026): Mérida solo como zona de prueba para enseñar la
   // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
   // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
