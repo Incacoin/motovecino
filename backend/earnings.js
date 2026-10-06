@@ -1,5 +1,5 @@
 const { haversineKm } = require("./geo");
-const { TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP } = require("./constants");
+const { TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, SERVICE_FEE } = require("./constants");
 const { getCityById, zoneAt } = require("./cities");
 
 // Yucatán está fijo en UTC-6 (México quitó el horario de verano en 2022).
@@ -41,15 +41,16 @@ function driverEarnings(ride) {
     const commission = Math.min(price * TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP);
     return Math.round((price - commission) * 100) / 100;
   }
-  // Ciudad por comisarías (Progreso, ver cities.js). Con "Propón tu precio" el
-  // pasajero paga lo acordado y de ahí sale la cuota de la app; con Moto
-  // Exprés, la tarifa fija de la comisaría por persona (niños igual, de
-  // momento) + extra — la cuota va aparte, como en Tekax.
+  // Mototaxi con "Propón tu precio" (cualquier zona): el pasajero paga lo
+  // acordado y de ahí sale la cuota de la app.
+  if (ride.agreed_price != null) {
+    return Math.max(0, Math.round((Number(ride.agreed_price) - SERVICE_FEE) * 100) / 100);
+  }
+  // Ciudad por comisarías (Progreso, ver cities.js), Moto Exprés: la tarifa
+  // fija de la comisaría por persona (niños igual, de momento). La cuota va
+  // aparte, como en Tekax.
   const cfg = getCityById(ride.city);
   if (cfg?.zones) {
-    if (ride.agreed_price != null) {
-      return Math.max(0, Math.round((Number(ride.agreed_price) - cfg.serviceFee) * 100) / 100);
-    }
     const z = zoneAt(ride.city, ride.pickup_lat, ride.pickup_lng);
     if (!z) return null;
     return z.fare * ((ride.passengers || 1) + (ride.children || 0)) + (ride.extra || 0);

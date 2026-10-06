@@ -1121,6 +1121,7 @@ function toggleRiderTheme() {
     </div>
     <div class="veh-cards trip-only" id="serviceTypeRow">
       <button class="veh-card active" id="tabMoto" onclick="setServiceType('moto')"></button>
+      <button class="veh-card" id="tabOferta" onclick="setServiceType('oferta')"></button>
       <button class="veh-card" id="tabTaxi" onclick="setServiceType('taxi')"></button>
     </div>
     <div class="segmented trip-only" id="serviceCategoryRow">
@@ -1162,12 +1163,12 @@ function toggleRiderTheme() {
       <div id="collapsedSum"></div>
       <div id="fareEstimate" class="hint"></div>
       <div id="taxiOfferBox" style="display:none;">
+        <label class="offer-note" for="taxiOfferInput" style="display:block;margin-bottom:6px;">¿Cuánto ofreces por el taxi?</label>
         <div class="offer-stepper">
-          <button class="btn-sm" id="offerMinusBtn" onclick="changeTaxiOffer(-10)">− $10</button>
-          <span class="offer-value" id="taxiOfferValue">$0</span>
-          <button class="btn-sm" onclick="changeTaxiOffer(10)">+ $10</button>
+          <span class="offer-value">$</span>
+          <input id="taxiOfferInput" type="number" inputmode="numeric" min="10" step="1" style="width:120px;font-size:22px;font-weight:700;text-align:center;" oninput="onTaxiOfferInput()" />
         </div>
-        <div class="offer-note">Tú propones el precio. El taxista lo acepta o te manda otra oferta.</div>
+        <div class="offer-note" id="taxiOfferNote"></div>
       </div>
       <div id="motoOfferBox" style="display:none;">
         <label class="offer-note" for="motoOfferInput" style="display:block;margin-bottom:6px;">¿Cuánto ofreces por el viaje?</label>
@@ -1176,13 +1177,6 @@ function toggleRiderTheme() {
           <input id="motoOfferInput" type="number" inputmode="numeric" min="5" max="2000" step="1" style="width:110px;font-size:22px;font-weight:700;text-align:center;" oninput="onMotoOfferInput()" />
         </div>
         <div class="offer-note" id="motoOfferNote"></div>
-      </div>
-      <div id="extraBox" style="display:none;">
-        <div class="extra-t">¿Lejos o con prisa? <span>Súmale al chofer:</span></div>
-        <div class="extra-chips">
-          <button type="button" class="extra-chip" id="extraChip5" onclick="setTripExtra(5)">+ $5</button>
-          <button type="button" class="extra-chip" id="extraChip10" onclick="setTripExtra(10)">+ $10</button>
-        </div>
       </div>
       <button class="btn" id="requestBtn" disabled onclick="requestRide()">Pedir mototaxi</button>
     </div>
@@ -1282,6 +1276,8 @@ let deferredInstallPrompt = null;
 let resolvedCityLabel = "";
 fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
   SERVICE_FEE = cfg.serviceFee;
+  if (cfg.motoOfferMaxUp) MOTO_OFFER_MAX_UP = cfg.motoOfferMaxUp;
+  if (cfg.taxiOfferMaxUp) TAXI_OFFER_MAX_UP = cfg.taxiOfferMaxUp;
   if (cfg.taxiWaitRatePerMin != null) TAXI_WAIT_RATE_PER_MIN = cfg.taxiWaitRatePerMin;
   if (cfg.taxiPickupGraceMin != null) TAXI_PICKUP_GRACE_MIN = cfg.taxiPickupGraceMin;
 }).catch(() => {});
@@ -1435,8 +1431,12 @@ let serviceType = "moto";
 // la recogida, o null en cualquier otro lugar. Ahí las tarjetas son "Moto
 // Exprés" (precio fijo) y "Propón tu precio" (motocarro con oferta).
 let comisaria = null;
-let priceMode = "fijo"; // "fijo" | "oferta" (solo con comisaria)
+// Mototaxi: "fijo" (Exprés) u "oferta" (Propón tu precio), en cualquier zona.
+let priceMode = "fijo";
 let motoOffer = null;
+// Cuánto más puede pedir el chofer en su contraoferta (de /api/config).
+let MOTO_OFFER_MAX_UP = 40;
+let TAXI_OFFER_MAX_UP = 100;
 let serviceCategory = "pasaje";
 
 async function fetchRoute(from, to) {
@@ -1617,9 +1617,9 @@ function roundTo10(n) { return Math.max(10, Math.round(n / 10) * 10); }
 function taxiOfferMin() { return Math.max(50, roundTo10((taxiSuggestion?.price || 0) * 0.7)); }
 function taxiOfferMax() { return Math.max(taxiOfferMin(), (taxiSuggestion?.price || 0) * 3); }
 
-function changeTaxiOffer(delta) {
-  if (taxiOffer == null) return;
-  taxiOffer = Math.min(taxiOfferMax(), Math.max(taxiOfferMin(), taxiOffer + delta));
+function onTaxiOfferInput() {
+  const v = Math.round(Number(document.getElementById("taxiOfferInput").value));
+  taxiOffer = Number.isFinite(v) && v > 0 ? v : null;
   updateFareEstimate();
 }
 
@@ -1657,12 +1657,16 @@ function updateTaxiOfferUi() {
   el.textContent = taxiSuggestion.place
     ? `Precio sugerido a ${taxiSuggestion.place}: $${taxiSuggestion.price}`
     : `Precio sugerido${taxiSuggestion.km ? ` (~${taxiSuggestion.km} km)` : ""}: $${taxiSuggestion.price}`;
-  document.getElementById("taxiOfferValue").textContent = `$${taxiOffer}`;
-  document.getElementById("offerMinusBtn").disabled = taxiOffer <= taxiOfferMin();
+  const input = document.getElementById("taxiOfferInput");
+  if (document.activeElement !== input) input.value = taxiOffer ?? "";
+  document.getElementById("taxiOfferNote").textContent =
+    `Tú propones el precio. El taxista lo acepta o te pide hasta $${TAXI_OFFER_MAX_UP} más; tú decides.`;
   box.style.display = "block";
-  btn.disabled = false;
-  btn.textContent = `Pedir taxi por $${taxiOffer}`;
-  setVehPrice("Taxi", `$${taxiOffer}`);
+  const min = taxiOfferMin(), max = taxiOfferMax();
+  const ok = taxiOffer != null && taxiOffer >= min && taxiOffer <= max;
+  btn.disabled = !ok;
+  btn.textContent = ok ? `Pedir taxi por $${taxiOffer}` : taxiOffer != null && taxiOffer < min ? `Mínimo $${min}` : taxiOffer != null ? `Máximo $${max}` : "Escribe tu precio";
+  setVehPrice("Taxi", ok ? `$${taxiOffer}` : "");
 }
 
 function updateFareEstimate() {
@@ -1670,8 +1674,7 @@ function updateFareEstimate() {
   const btn = document.getElementById("requestBtn");
   const baseLabel = serviceType === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
   document.getElementById("taxiOfferBox").style.display = "none";
-  // Se vuelve a mostrar solo en mototaxi con precio (al final de esta función).
-  document.getElementById("extraBox").style.display = "none";
+  document.getElementById("motoOfferBox").style.display = "none";
   if (serviceZone === "out" && pickup) {
     el.textContent = "";
     btn.textContent = baseLabel;
@@ -1691,13 +1694,39 @@ function updateFareEstimate() {
   }
   const { pricePerPerson, childRate, approx, nightNote } = result;
   const totalPeople = passengers + children;
-  const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE + tripExtra;
-  const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
-  const extraNote = tripExtra ? ` + $${tripExtra} extra para el chofer` : "";
-  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${extraNote}${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
-  btn.textContent = `${baseLabel} · $${total} MXN`;
-  document.getElementById("extraBox").style.display = "flex";
+  const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE;
   setVehPrice("Moto", `$${total}`);
+  if (priceMode === "oferta") { showMotoOfferUi(total, "", MOTO_OFFER_MAX_UP); return; }
+  setVehPrice("Oferta", "");
+  const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
+  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${nightNote}${approx ? " · aprox., marca destino para afinar" : ""}`;
+  btn.textContent = `${baseLabel} · $${total} MXN`;
+}
+
+// "Propón tu precio" del mototaxi (Tekax y comisarías): el pasajero escribe
+// su precio (parte del precio normal) y el chofer acepta o pide hasta maxUp más.
+function showMotoOfferUi(fixed, where, maxUp) {
+  const el = document.getElementById("fareEstimate");
+  const btn = document.getElementById("requestBtn");
+  if (!dest) {
+    el.textContent = "Marca tu destino para proponer tu precio";
+    btn.textContent = "Propón tu precio";
+    btn.disabled = true;
+    setVehPrice("Oferta", "");
+    return;
+  }
+  if (motoOffer == null) motoOffer = fixed;
+  const input = document.getElementById("motoOfferInput");
+  if (document.activeElement !== input) input.value = motoOffer;
+  document.getElementById("motoOfferBox").style.display = "block";
+  document.getElementById("motoOfferNote").textContent =
+    `Precio normal: $${fixed}. El chofer acepta tu precio o te pide hasta $${maxUp} más; tú decides.`;
+  const totalPeople = passengers + children;
+  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${where ? ` · ${where}` : ""}`;
+  const ok = motoOffer >= 5 && motoOffer <= 2000;
+  btn.disabled = !ok;
+  btn.textContent = ok ? `Pedir por $${motoOffer}` : "Escribe tu precio";
+  setVehPrice("Oferta", ok ? `$${motoOffer}` : "");
 }
 // Progreso: Moto Exprés = tarifa fija de la comisaría por persona (+ la cuota
 // de la app, que no se muestra aparte, igual que en Tekax). Propón tu precio =
@@ -1708,10 +1737,8 @@ function comisariaFixedTotal() {
 function updateComisariaFare() {
   const el = document.getElementById("fareEstimate");
   const btn = document.getElementById("requestBtn");
-  document.getElementById("motoOfferBox").style.display = "none";
   const fixed = comisariaFixedTotal();
   setVehPrice("Moto", `$${fixed}`);
-  setVehPrice("Taxi", motoOffer ? `$${motoOffer}` : "");
   if (!pickup) { el.textContent = ""; btn.textContent = "Pedir motocarro"; btn.disabled = true; return; }
   if (!dest) {
     el.textContent = `Marca a dónde vas (dentro de ${comisaria.label})`;
@@ -1726,21 +1753,8 @@ function updateComisariaFare() {
     return;
   }
   const totalPeople = passengers + children;
-  if (priceMode === "oferta") {
-    if (motoOffer == null) motoOffer = fixed;
-    const input = document.getElementById("motoOfferInput");
-    if (document.activeElement !== input) input.value = motoOffer;
-    document.getElementById("motoOfferBox").style.display = "block";
-    document.getElementById("motoOfferNote").textContent =
-      `Precio normal: $${fixed}. El chofer acepta tu precio o te pide hasta $${comisaria.offerMaxUp} más; tú decides.`;
-    el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""} · ${comisaria.label}`;
-    const ok = motoOffer >= 5 && motoOffer <= 2000;
-    btn.disabled = !ok;
-    btn.textContent = ok ? `Pedir por $${motoOffer}` : "Escribe tu precio";
-    setVehPrice("Taxi", ok ? `$${motoOffer}` : "");
-    return;
-  }
-  // Sin "+$5 / +$10" en Progreso: quien quiera pagar más usa Propón tu precio.
+  if (priceMode === "oferta") { showMotoOfferUi(fixed, comisaria.label, comisaria.offerMaxUp); return; }
+  setVehPrice("Oferta", "");
   el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""} · ${comisaria.label}`;
   btn.disabled = false;
   btn.textContent = `Pedir Moto Exprés · $${fixed}`;
@@ -1748,7 +1762,7 @@ function updateComisariaFare() {
 function onMotoOfferInput() {
   const v = Math.round(Number(document.getElementById("motoOfferInput").value));
   motoOffer = Number.isFinite(v) && v > 0 ? v : null;
-  updateComisariaFare();
+  updateFareEstimate();
 }
 
 function setVehPrice(which, text) {
@@ -1756,18 +1770,8 @@ function setVehPrice(which, text) {
   if (el) el.textContent = text || "";
 }
 
-// --- Extra voluntario al chofer (solo mototaxi) ---
-// +$5 o +$10 para que un chofer acepte más rápido o llegue hasta la puerta.
-// Todo es para el chofer; tocar el mismo botón otra vez lo quita.
-let tripExtra = 0;
-
-function setTripExtra(amount) {
-  tripExtra = tripExtra === amount ? 0 : amount;
-  document.getElementById("extraChip5").classList.toggle("on", tripExtra === 5);
-  document.getElementById("extraChip10").classList.toggle("on", tripExtra === 10);
-  updateFareEstimate();
-}
-
+// El extra voluntario (+$5 / +$10) se quitó el 5-oct-2026: para pagar más
+// está "Propón tu precio". showExtraNote queda para viajes viejos que lo traían.
 function showExtraNote(extra) {
   const note = document.getElementById("extraNote");
   if (!note) return;
@@ -1783,38 +1787,38 @@ let zoneCheckSeq = 0;
 // true si la app cambió sola a Taxi por estar fuera de zona (no lo eligió él).
 let zoneForcedTaxi = false;
 
-// --- Tarjetas de vehículo (diseño 3, paso 2) ---
-// Mismos botones de siempre (#tabMoto/#tabTaxi): solo cambia lo que llevan adentro.
+// --- Tarjetas de vehículo ---
+// #tabMoto = Exprés (precio fijo), #tabOferta = Propón tu precio (mototaxi /
+// motocarro con oferta), #tabTaxi = Taxi (no hay en las comisarías).
 function vehCardHtml(kind, note) {
   const img = kind === "taxi" ? MVVeh.taxiSide(70) : MVVeh.motoSide(66);
   const name = kind === "taxi" ? "Taxi" : "Mototaxi";
   const sub = note || (kind === "taxi" ? "Tú propones el precio" : "Viajes cortos");
   return `<span class="vc-img">${img}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${kind === "taxi" ? "Taxi" : "Moto"}"></span>`;
 }
-// Progreso: las dos tarjetas son motocarro (mismos botones de siempre).
-function comisariaCardHtml(which) {
-  const name = which === "oferta" ? "Propón tu precio" : "Moto Exprés";
-  const sub = which === "oferta" ? "Tú pones el precio" : "Precio fijo, sin regatear";
-  return `<span class="vc-img">${MVVeh.motoSide(66)}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${which === "oferta" ? "Taxi" : "Moto"}"></span>`;
+function motoCardHtml(which, note) {
+  const name = which === "oferta" ? "Propón tu precio" : comisaria ? "Moto Exprés" : "Mototaxi Exprés";
+  const sub = note || (which === "oferta" ? `${comisaria ? "Motocarro" : "Mototaxi"} · tú pones el precio` : "Precio fijo, sin regatear");
+  return `<span class="vc-img">${MVVeh.motoSide(66)}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${which === "oferta" ? "Oferta" : "Moto"}"></span>`;
 }
 function renderVehCards(motoNote) {
-  if (comisaria) {
-    document.getElementById("tabMoto").innerHTML = comisariaCardHtml("fijo");
-    document.getElementById("tabTaxi").innerHTML = comisariaCardHtml("oferta");
-    return;
-  }
-  document.getElementById("tabMoto").innerHTML = vehCardHtml("moto", motoNote);
+  document.getElementById("tabMoto").innerHTML = motoCardHtml("fijo", motoNote);
+  document.getElementById("tabOferta").innerHTML = motoCardHtml("oferta", motoNote);
   document.getElementById("tabTaxi").innerHTML = vehCardHtml("taxi");
+  document.getElementById("tabTaxi").style.display = comisaria ? "none" : "";
+}
+function markActiveCard() {
+  document.getElementById("tabMoto").classList.toggle("active", serviceType === "moto" && priceMode === "fijo");
+  document.getElementById("tabOferta").classList.toggle("active", serviceType === "moto" && priceMode === "oferta");
+  document.getElementById("tabTaxi").classList.toggle("active", serviceType === "taxi");
 }
 function setComisaria(c) {
   const before = comisaria && comisaria.id;
   comisaria = c || null;
   if ((comisaria && comisaria.id) === before) return;
-  priceMode = "fijo";
   motoOffer = null;
-  if (comisaria) serviceType = "moto";
-  document.getElementById("tabMoto").classList.toggle("active", serviceType === "moto");
-  document.getElementById("tabTaxi").classList.toggle("active", serviceType === "taxi");
+  if (comisaria && serviceType === "taxi") { serviceType = "moto"; priceMode = "fijo"; }
+  markActiveCard();
 }
 // ¿El destino cae dentro de la comisaría de la recogida?
 function destInComisaria() {
@@ -1833,8 +1837,10 @@ function applyZone(zone, zoneLabel, com) {
   serviceZone = zone || "in";
   const notice = document.getElementById("zoneNotice");
   const tabMoto = document.getElementById("tabMoto");
+  const tabOferta = document.getElementById("tabOferta");
   const town = zoneLabel || "Tekax";
   notice.classList.toggle("out", serviceZone === "out");
+  tabOferta.classList.toggle("unavailable", serviceZone !== "in");
   if (serviceZone === "in") {
     notice.style.display = "none";
     tabMoto.classList.remove("unavailable");
@@ -1902,28 +1908,28 @@ function checkPickupZone() {
     .catch(() => {});
 }
 
+// type: "moto" (Exprés), "oferta" (Propón tu precio, mototaxi) o "taxi".
 function setServiceType(type) {
-  if (comisaria) {
-    const mode = type === "taxi" ? "oferta" : "fijo";
-    if (priceMode === mode) return;
-    priceMode = mode;
-    serviceType = "moto";
-    document.getElementById("tabMoto").classList.toggle("active", mode === "fijo");
-    document.getElementById("tabTaxi").classList.toggle("active", mode === "oferta");
-    if (pickup && dest) document.getElementById("pickHint").textContent = readyHint();
-    updateFareEstimate();
-    return;
-  }
-  if (type === "moto" && serviceZone !== "in") {
+  const wantMoto = type === "moto" || type === "oferta";
+  if (wantMoto && serviceZone !== "in") {
     showToast(serviceZone === "taxi"
       ? "El mototaxi solo recoge en la zona urbana. Desde aquí pide 🚕 Taxi."
       : "MotoVecino todavía no llega a tu zona.");
     return;
   }
-  if (serviceType === type) return;
-  serviceType = type;
-  document.getElementById("tabMoto").classList.toggle("active", type === "moto");
-  document.getElementById("tabTaxi").classList.toggle("active", type === "taxi");
+  if (type === "taxi" && comisaria) return;
+  const newType = wantMoto ? "moto" : "taxi";
+  const newMode = type === "oferta" ? "oferta" : "fijo";
+  if (serviceType === newType && (newType === "taxi" || priceMode === newMode)) return;
+  const vehicleChanged = serviceType !== newType;
+  serviceType = newType;
+  if (wantMoto) priceMode = newMode;
+  markActiveCard();
+  if (!vehicleChanged) {
+    if (pickup && dest) document.getElementById("pickHint").textContent = readyHint();
+    updateFareEstimate();
+    return;
+  }
   // Si ya marcó recogida y destino, el aviso "Listo..." tiene que decir el
   // servicio que quedó elegido, no el que estaba cuando marcó el destino.
   if (pickup && dest) document.getElementById("pickHint").textContent = readyHint();
@@ -2652,7 +2658,11 @@ async function requestRide() {
     showToast("Marca tu destino para pedir taxi");
     return;
   }
-  const offerMode = !!(comisaria && priceMode === "oferta");
+  const offerMode = serviceType === "moto" && priceMode === "oferta";
+  if (offerMode && !dest) {
+    showToast("Marca tu destino para proponer tu precio");
+    return;
+  }
   if (comisaria && (!dest || !destInComisaria())) {
     showToast(`El motocarro solo hace viajes dentro de ${comisaria.label}`);
     return;
@@ -2693,7 +2703,7 @@ async function requestRide() {
       ride_type: serviceType,
       service_kind: serviceCategory,
       offer_price: serviceType === "taxi" ? taxiOffer : offerMode ? motoOffer : undefined,
-      extra: serviceType === "taxi" || comisaria ? 0 : tripExtra,
+      extra: 0,
       for_name: askingForOther ? forName : undefined,
       for_note: askingForOther ? document.getElementById("forNoteInput").value.trim() : undefined,
       // Dónde está el celular (si dio permiso): solo para avisarle al chofer

@@ -1,5 +1,5 @@
 const { haversineKm } = require("./geo");
-const { SERVICE_FEE } = require("./constants");
+const { SERVICE_FEE, MOTO_OFFER_MAX_UP } = require("./constants");
 
 // Cada ciudad de la red. lat/lng es el centro aproximado del pueblo, usado
 // solo para saber en qué ciudad está alguien según su GPS — el emparejamiento
@@ -70,7 +70,7 @@ const ADMIN_ZONES = [
 ];
 
 // Cuánto más puede pedir un chofer sobre la oferta del pasajero.
-const OFFER_MAX_UP = 40;
+const OFFER_MAX_UP = MOTO_OFFER_MAX_UP;
 
 // Apagada hasta que se abra de verdad (con choferes de Daniel registrados):
 // ENABLE_PROGRESO=1 en Render la prende. Apagada, la app se porta igual que

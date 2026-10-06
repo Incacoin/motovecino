@@ -891,6 +891,8 @@ fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
   TAXI_WAIT_RATE_PER_MIN = cfg.taxiWaitRatePerMin;
   if (cfg.taxiPickupGraceMin != null) TAXI_PICKUP_GRACE_MIN = cfg.taxiPickupGraceMin;
   if (cfg.depositSuggestedRate != null) DEPOSIT_SUGGESTED_RATE = cfg.depositSuggestedRate;
+  if (cfg.motoOfferMaxUp) MOTO_COUNTER_MAX_UP = cfg.motoOfferMaxUp;
+  if (cfg.taxiOfferMaxUp) TAXI_COUNTER_MAX_UP = cfg.taxiOfferMaxUp;
 }).catch(() => {});
 
 // Centros y radios de cada pueblo — para saber si una recogida de taxi es
@@ -1155,8 +1157,10 @@ let resolvedCityId = "tekax";
 // Progreso (por comisarías, ver backend/cities.js): la comisaría donde está el
 // chofer, con su tarifa de Moto Exprés. null en cualquier otro lugar.
 let driverComisaria = null;
-// Cuánto más puede pedir en una contraoferta de motocarro (igual que OFFER_MAX_UP del servidor).
-const MOTO_COUNTER_MAX_UP = 40;
+// Cuánto más puede pedir en una contraoferta (los da /api/config; estos son
+// los de respaldo).
+let MOTO_COUNTER_MAX_UP = 40;
+let TAXI_COUNTER_MAX_UP = 100;
 
 function isNightFare() {
   const h = new Date().getHours();
@@ -1172,7 +1176,7 @@ function estimateFare(ride) {
   if (ride.ride_type !== "taxi" && (ride.agreed_price || ride.offer_price != null)) {
     const people = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
     if (ride.agreed_price) return { total: ride.agreed_price, text: `🛵 Precio acordado $${ride.agreed_price} · ${people}` };
-    return { total: null, text: `🛵 Motocarro · ${people}` };
+    return { total: null, text: `🛵 ${driverComisaria ? "Motocarro" : "Mototaxi"} · ${people}` };
   }
   // Moto Exprés (Progreso): tarifa fija de la comisaría por persona.
   if (ride.ride_type !== "taxi" && ride.city === "progreso" && driverComisaria) {
@@ -2055,42 +2059,26 @@ function onTaxiPriceInput(id) {
   depEl.value = suggestedDeposit(Number(priceEl.value));
 }
 
-// Contraofertas rápidas sobre el precio del pasajero.
-const COUNTER_STEPS = [20, 50, 100];
-// Viaje corto en el pueblo (oferta de $50-$90): contraofertas de a $10.
-const COUNTER_STEPS_SHORT = [10, 20, 30];
-
+// "Propón tu precio": el chofer acepta la oferta del pasajero o escribe la
+// suya, máximo MOTO_COUNTER_MAX_UP más en mototaxi y TAXI_COUNTER_MAX_UP más en
+// taxi (el servidor también lo revisa). El anticipo es solo del taxi.
 function taxiOfferBlockHtml(r) {
   const mine = myOffers[r.id];
-  if (r.ride_type !== "taxi") {
-    const max = r.offer_price + MOTO_COUNTER_MAX_UP;
-    const waitingMoto = mine
-      ? `<div class="my-offer">⏳ Le mandaste <strong>$${mine.price}</strong> · esperando al pasajero (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>)</div>`
-      : "";
-    return `
-    <div class="offer-in"><span class="lbl">El pasajero ofrece</span><span class="amt">$${r.offer_price}</span></div>
-    <button class="btn" onclick="acceptRide(${r.id})">Aceptar por $${r.offer_price}</button>
-    ${waitingMoto}
-    <div class="counter-label">¿Otro precio? Escribe cuánto pides (máximo $${max}):</div>
-    <div class="counter-row">
-      <input type="number" id="motoCounter-${r.id}" inputmode="numeric" min="${r.offer_price + 1}" max="${max}" placeholder="Ej. ${r.offer_price + 10}" style="flex:2;padding:9px;font-size:16px;text-align:center;">
-      <button class="btn-sm" onclick="sendMotoCounter(${r.id})">Mandar</button>
-    </div>`;
-  }
-  const counters = (r.offer_price < 100 ? COUNTER_STEPS_SHORT : COUNTER_STEPS).map((step) => {
-    const price = r.offer_price + step;
-    return `<button class="btn-sm" onclick="sendTaxiOffer(${r.id}, ${price})" ${mine && mine.price === price ? "disabled" : ""}>$${price}</button>`;
-  }).join("");
+  const isTaxi = r.ride_type === "taxi";
+  const max = r.offer_price + (isTaxi ? TAXI_COUNTER_MAX_UP : MOTO_COUNTER_MAX_UP);
   const waiting = mine
     ? `<div class="my-offer">⏳ Le mandaste <strong>$${mine.price}</strong> · esperando al pasajero (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>)</div>`
     : "";
   return `
     <div class="offer-in"><span class="lbl">El pasajero ofrece</span><span class="amt">$${r.offer_price}</span></div>
-    ${depositRequestHtml(r)}
+    ${isTaxi ? depositRequestHtml(r) : ""}
     <button class="btn" onclick="acceptRide(${r.id})">Aceptar por $${r.offer_price}</button>
     ${waiting}
-    <div class="counter-label">¿Otro precio? Mándale una contraoferta:</div>
-    <div class="counter-row">${counters}</div>`;
+    <div class="counter-label">¿Otro precio? Escribe cuánto pides (máximo $${max}):</div>
+    <div class="counter-row">
+      <input type="number" id="counterInput-${r.id}" inputmode="numeric" min="${r.offer_price + 1}" max="${max}" placeholder="Ej. ${r.offer_price + (isTaxi ? 20 : 10)}" style="flex:2;padding:9px;font-size:16px;text-align:center;">
+      <button class="btn-sm" onclick="sendCounter(${r.id})">Mandar</button>
+    </div>`;
 }
 
 function fmtCountdown(ms) {
@@ -2098,13 +2086,12 @@ function fmtCountdown(ms) {
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }
 
-// Contraoferta del motocarro: la escribe el chofer, más que la oferta del
-// pasajero y máximo MOTO_COUNTER_MAX_UP más (el servidor también lo revisa).
-function sendMotoCounter(id) {
+// Contraoferta escrita por el chofer (ver taxiOfferBlockHtml).
+function sendCounter(id) {
   const r = pendingRides[id];
   if (!r) return;
-  const price = Math.round(Number(document.getElementById(`motoCounter-${id}`)?.value));
-  const max = r.offer_price + MOTO_COUNTER_MAX_UP;
+  const price = Math.round(Number(document.getElementById(`counterInput-${id}`)?.value));
+  const max = r.offer_price + (r.ride_type === "taxi" ? TAXI_COUNTER_MAX_UP : MOTO_COUNTER_MAX_UP);
   if (!(price > r.offer_price) || price > max) {
     showToast(`Escribe un precio de $${r.offer_price + 1} a $${max}`);
     return;

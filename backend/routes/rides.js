@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
-const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, OFFER_MAX_UP } = require("../cities");
+const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt } = require("../cities");
 const { haversineKm } = require("../geo");
 
 // Si el celular de quien pide está a más de esto del punto de encuentro, al
@@ -11,7 +11,7 @@ const { haversineKm } = require("../geo");
 const FAR_REQUEST_KM = 10;
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { photoUrls } = require("../photos");
-const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC } = require("../constants");
+const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC, MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
 const { suggestTaxiFare } = require("../taxiFares");
 const { driverEarnings, LOCAL_DONE_DATE, LOCAL_TODAY } = require("../earnings");
 const { checkReferralReward } = require("../referrals");
@@ -94,9 +94,8 @@ router.post("/rides", async (req, res) => {
     rider_lat,
     rider_lng,
   } = req.body;
-  // Extra voluntario del pasajero en mototaxi (+$5 o +$10), todo para el
-  // chofer: no cambia la tarifa de servicio. El taxi negocia con ofertas.
-  const cleanExtra = ride_type !== "taxi" && [5, 10].includes(Number(extra)) ? Number(extra) : 0;
+  // El extra voluntario (+$5 / +$10) se quitó el 5-oct-2026: quien quiera
+  // pagar más usa "Propón tu precio". Una app vieja que lo mande se ignora.
   const VALID_SERVICE_KINDS = ["pasaje", "domicilio", "mandado"];
   const cleanServiceKind = VALID_SERVICE_KINDS.includes(service_kind) ? service_kind : "pasaje";
 
@@ -170,6 +169,17 @@ router.post("/rides", async (req, res) => {
       }
       motoOffer = true;
     }
+  } else if (ride_type !== "taxi" && offer_price != null) {
+    // "Propón tu precio" en mototaxi (Tekax y demás): necesita destino, igual
+    // que el taxi, para que el chofer sepa qué está aceptando.
+    if (dest_lat == null || dest_lng == null) {
+      return res.status(400).json({ error: "Marca tu destino para proponer tu precio" });
+    }
+    offerPrice = Math.round(Number(offer_price));
+    if (!(offerPrice >= 5) || offerPrice > 2000) {
+      return res.status(400).json({ error: "Revisa el precio que ofreces" });
+    }
+    motoOffer = true;
   }
 
   // El registro de pasajero nunca pregunta ubicación, así que su `city` se
@@ -204,7 +214,7 @@ router.post("/rides", async (req, res) => {
       cleanServiceKind,
       generateShareToken(),
       offerPrice,
-      cityCfg?.zones ? 0 : cleanExtra, // en Progreso no hay extra: para pagar más está Propón tu precio
+      0, // extra: ya no existe (ver arriba)
       forOther ? forOther.name : null,
       forOther ? forOther.note : null
     );
@@ -527,9 +537,9 @@ async function validateDeposit(driverId, price, depositAmount) {
 }
 
 // El chofer manda una contraoferta (un precio distinto al que ofreció el
-// pasajero). No toma el viaje: el pasajero tiene que aceptarla. Taxi, o
-// motocarro con "Propón tu precio" (Progreso: máximo OFFER_MAX_UP más que la
-// oferta del pasajero, y solo choferes de esa misma comisaría).
+// pasajero). No toma el viaje: el pasajero tiene que aceptarla. Taxi o
+// mototaxi con "Propón tu precio" (en Progreso, solo choferes de esa misma
+// comisaría).
 router.post("/rides/:id/offer", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, price, depositAmount } = req.body || {};
@@ -557,13 +567,12 @@ router.post("/rides/:id/offer", async (req, res) => {
     .get(driverId);
   if (active) return res.status(409).json({ error: "Ya tienes otro viaje activo" });
 
+  // Contraoferta: más que la oferta del pasajero y máximo $40 más en mototaxi
+  // ($100 en taxi, que hace viajes foráneos de cientos de pesos).
   const offerPrice = Math.round(Number(price));
-  if (isMoto) {
-    if (!(offerPrice > ride.offer_price) || offerPrice > ride.offer_price + OFFER_MAX_UP) {
-      return res.status(400).json({ error: `Tu precio debe ser más que $${ride.offer_price} y máximo $${ride.offer_price + OFFER_MAX_UP}` });
-    }
-  } else if (!(offerPrice >= 10) || offerPrice > 20000) {
-    return res.status(400).json({ error: "Revisa el precio" });
+  const maxUp = isMoto ? MOTO_OFFER_MAX_UP : TAXI_OFFER_MAX_UP;
+  if (!(offerPrice > ride.offer_price) || offerPrice > ride.offer_price + maxUp) {
+    return res.status(400).json({ error: `Tu precio debe ser más que $${ride.offer_price} y máximo $${ride.offer_price + maxUp}` });
   }
   // El anticipo es solo del taxi foráneo.
   const dep = isMoto ? { deposit: 0 } : await validateDeposit(driverId, offerPrice, depositAmount);

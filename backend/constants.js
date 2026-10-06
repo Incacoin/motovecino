@@ -60,6 +60,10 @@ module.exports = {
   // Una contraoferta sin respuesta del pasajero se vence sola, para que el
   // chofer no se quede esperando y pueda tomar otro viaje.
   TAXI_OFFER_TTL_SEC: 120,
+  // "Propón tu precio": cuánto más puede pedir el chofer en su contraoferta,
+  // sobre lo que ofreció el pasajero (5-oct-2026, lo decidió el usuario).
+  MOTO_OFFER_MAX_UP: 40,
+  TAXI_OFFER_MAX_UP: 100,
   // Si un chofer no manda su ubicación en este tiempo probablemente cerró la
   // app o se quedó sin señal — no debería seguir apareciendo como disponible.
   DRIVER_STALE_SECONDS: 90,
