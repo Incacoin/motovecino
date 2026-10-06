@@ -15,7 +15,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="buscador.js?v=1"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
 <style>
   .screen { display: none; flex-direction: column; min-height: 100vh; }
   .screen.active { display: flex; }
@@ -455,14 +455,94 @@
   .passkey-row .pk-name { font-weight: 600; }
   .passkey-row .pk-when { font-size: 12px; opacity: .7; }
   .pk-this { font-size: 11px; color: #34d399; margin-left: 6px; font-weight: 600; }
+
+  /* ===== TEMA TECNOLÓGICO (6-oct-2026): letras finas, cuadrícula, vidrio ===== */
+  :root { --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace; --glass: rgba(17, 25, 48, 0.62); --line: rgba(148, 163, 184, 0.12); }
+  .lx-live { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  .lx-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: lxPulse 2s infinite; }
+  @keyframes lxPulse { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,.55); } 70% { box-shadow: 0 0 0 8px rgba(52,211,153,0); } 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+
+  /* Entrada */
+  #login { position: relative; overflow: hidden; flex-direction: column;
+    background:
+      radial-gradient(700px 420px at 50% 38%, rgba(52, 211, 153, 0.13), transparent 70%),
+      radial-gradient(900px 500px at 100% 100%, rgba(56, 120, 255, 0.10), transparent 70%),
+      #060a16; }
+  .lx-grid { position: absolute; inset: -40px; pointer-events: none;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 0, transparent 70%); mask-image: radial-gradient(circle at 50% 42%, #000 0, transparent 70%);
+    animation: lxDrift 30s linear infinite; }
+  @keyframes lxDrift { to { transform: translate(44px, 44px); } }
+  .lx-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 18px 22px; z-index: 1; }
+  .lx-clock { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; color: var(--text-dim); }
+  #login .login-card { position: relative; z-index: 1; width: min(360px, calc(100vw - 32px)); padding: 38px 30px 26px; gap: 16px; border-radius: 22px;
+    background: var(--glass); border: 1px solid rgba(148, 163, 184, 0.16);
+    backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow: 0 30px 80px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05); }
+  /* Sin recuadro: logo, PIN y huella van directo sobre el fondo. */
+  #login .login-card.card { background: none; border: none; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  #login .login-card::before { display: none; }
+  .lx-logo { width: 62px; height: 62px; border-radius: 18px; display: grid; place-items: center; background: linear-gradient(160deg, #111a33, #0a1020); border: 1px solid rgba(52,211,153,.35); box-shadow: 0 0 34px rgba(52,211,153,.22); }
+  .lx-logo img { width: 38px; height: 38px; }
+  .lx-title { font-size: 30px; font-weight: 200; letter-spacing: -0.01em; color: var(--text); margin-top: 4px; }
+  .lx-kicker, .rx-kicker { font-family: var(--mono); font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase; color: var(--text-dim); }
+  .lx-kicker { margin-top: -10px; }
+  .lx-line { width: 40px; height: 1px; background: var(--accent); opacity: .7; margin: 2px 0 4px; }
+  #login input { font-family: var(--mono); font-weight: 400; font-size: 18px; letter-spacing: .5em; background: rgba(6, 10, 22, .6); border: 1px solid rgba(148,163,184,.18); border-radius: 12px; padding: 14px; }
+  #login input::placeholder { letter-spacing: .18em; font-size: 13px; text-transform: uppercase; }
+  #login .btn { width: 100%; font-weight: 600; letter-spacing: .04em; border-radius: 12px; padding: 14px; }
+  .login-or { font-family: var(--mono); font-size: 10.5px; letter-spacing: .2em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; margin: 6px 0 12px; }
+  .login-or::before, .login-or::after { content: ""; flex: 1; height: 1px; background: rgba(148,163,184,.18); }
+  .btn-passkey { font-weight: 500 !important; background: rgba(52,211,153,.06) !important; border-color: rgba(52,211,153,.45) !important; }
+  .lx-secure { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--text-faint); margin-top: 2px; }
+  .lx-foot { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--text-faint); z-index: 1; }
+
+  /* Resumen */
+  /* Sin recuadro: el saludo y los números van directo sobre el fondo. */
+  .section-card.rx-hero { background: none; border: none; box-shadow: none; padding: 4px 2px 8px; }
+  .rx-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
+  #app h1.rx-hello { font-size: 26px; font-weight: 300; letter-spacing: -0.02em; margin: 6px 0 8px; }
+  .rx-sub { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-dim); }
+  .rx-clock { font-family: var(--mono); font-weight: 400; font-size: 22px; letter-spacing: .02em; color: var(--text); opacity: .9; font-variant-numeric: tabular-nums; }
+  .stat-tile { background: linear-gradient(180deg, rgba(255,255,255,.025), transparent), var(--bg-card-2); border-radius: 16px; position: relative; overflow: hidden; }
+  .stat-tile .label { font-family: var(--mono); font-weight: 400; font-size: 10px; letter-spacing: .14em; }
+  .stat-tile .value { font-weight: 200; font-size: 40px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin-top: 8px; }
+  .stat-tile::after { width: 100%; height: 1px; margin-top: 14px; opacity: .5; background: linear-gradient(90deg, var(--accent), transparent); }
+  .stat-tile.danger::after { background: linear-gradient(90deg, var(--danger), transparent); }
+  #app h1 { font-weight: 600; }
+  .rx-chart-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; }
+  .rx-chart-head h1 { margin-top: 6px !important; }
+  .rx-chart-total { text-align: right; font-weight: 200; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .rx-chart-total small { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); margin-top: 6px; }
+  .rx-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .stat-sub { display: block; font-family: var(--mono); font-size: 10.5px; font-weight: 400; letter-spacing: .08em; color: var(--text-dim); margin-top: 4px; }
+  @media (max-width: 1023px) { .stats-grid > .stat-tile:last-child:nth-child(odd) { grid-column: 1 / -1; } }
+  .rx-chart .ax { font-family: var(--mono); font-size: 10px; fill: var(--text-dim); letter-spacing: .06em; }
+  .rx-chart .val { font-family: var(--mono); font-size: 11px; fill: var(--text); }
+  .top-driver-row .count { font-family: var(--mono); font-weight: 400; }
+  .app-topbar-title { font-weight: 500; letter-spacing: 0; }
+  @media (min-width: 1024px) {
+    #app h1.rx-hello { font-size: 34px; }
+    .rx-clock { font-size: 30px; }
+    .stat-tile .value { font-size: 46px; }
+    #tabPanel-resumen.active > .rx-chart-card { grid-column: 1 / -1; }
+  }
 </style>
 </head>
 <body>
 
 <div id="login" class="screen active">
+  <div class="lx-grid" aria-hidden="true"></div>
+  <div class="lx-top">
+    <span class="lx-live"><i></i>Sistema en línea</span>
+    <span class="lx-clock" id="lxClock"></span>
+  </div>
   <div class="card login-card">
-    <div class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino Admin</div>
-    <div class="login-sub">Panel de administración</div>
+    <div class="lx-logo"><img src="icons/logo-mark.svg" alt="" /></div>
+    <div class="lx-title">MotoVecino</div>
+    <div class="lx-kicker">Centro de control</div>
+    <div class="lx-line"></div>
     <input id="adminPin" inputmode="numeric" placeholder="PIN de admin" />
     <button class="btn" onclick="login()">Entrar</button>
     <div id="passkeyLoginWrap" style="display:none;">
@@ -470,7 +550,9 @@
       <button class="btn btn-passkey" onclick="loginWithPasskey()">👆 Entrar con huella</button>
     </div>
     <div id="err"></div>
+    <div class="lx-secure">🔒 Conexión cifrada · acceso registrado</div>
   </div>
+  <div class="lx-foot">MotoVecino · Yucatán, México</div>
 </div>
 
 <div id="drawerOverlay" class="drawer-overlay" onclick="closeDrawer()"></div>
@@ -502,9 +584,15 @@
   </div>
 
   <div id="tabPanel-resumen" class="tab-panel active">
-  <div class="section-card">
-  <h1>Resumen</h1>
-  <p class="section-hint">Últimos 7 días.</p>
+  <div class="section-card rx-hero">
+  <div class="rx-head">
+    <div>
+      <div class="rx-kicker" id="rxDate"></div>
+      <h1 class="rx-hello" id="rxHello">Resumen</h1>
+      <div class="rx-sub"><span class="lx-live"><i></i>En vivo</span><span id="rxZone"></span></div>
+    </div>
+    <div class="rx-clock" id="rxClock"></div>
+  </div>
   <div class="stats-grid">
     <div class="card stat-tile accent">
       <span class="icon">🚗</span>
@@ -523,12 +611,12 @@
     </div>
     <div class="card stat-tile">
       <span class="icon">🟢</span>
-      <div class="label">Choferes conectados ahora</div>
+      <div class="label">Choferes en línea</div>
       <div class="value" id="statDriversOnline">—</div>
     </div>
     <div class="card stat-tile accent">
       <span class="icon">⭐</span>
-      <div class="label">Satisfacción (viajes calificados)</div>
+      <div class="label">Satisfacción</div>
       <div class="value" id="statSatisfaction">—</div>
     </div>
     <div class="card stat-tile accent">
@@ -542,6 +630,17 @@
       <div class="value" id="statCollectedMonth">—</div>
     </div>
   </div>
+  </div>
+
+  <div class="section-card rx-chart-card">
+    <div class="rx-chart-head">
+      <div>
+        <div class="rx-kicker">Últimos 7 días</div>
+        <h1 style="font-size:17px;">Viajes completados</h1>
+      </div>
+      <div class="rx-chart-total"><span id="rxChartTotal">—</span><small>viajes</small></div>
+    </div>
+    <div id="rxChart" class="rx-chart"></div>
   </div>
 
   <div class="section-card" id="onlineDriversWrap">
@@ -1491,7 +1590,9 @@ async function login(withSavedToken) {
   const sess = document.getElementById("sessionInfo");
   if (sess) sess.innerHTML = `Sesión segura · <b>${escapeHtml(ROLE_LABELS[loginData.role] || "Admin")}</b><br>Se cierra sola tras 12 h sin usar`;
   adminZones = loginData.zones || [];
+  adminRoleNow = loginData.role || null;
   applyAdminZone(loginData.city || "tekax", loginData.cityLabel || "Tekax");
+  tickClocks();
   document.getElementById("login").classList.remove("active");
   document.getElementById("app").classList.add("active");
   let savedTab = "resumen";
@@ -1521,6 +1622,7 @@ function applyAdminZone(id, label) {
     if (wrap) wrap.innerHTML = "";
     if (cityBadge) cityBadge.textContent = "📍 " + label;
   }
+  if (typeof tickClocks === "function") tickClocks();
 }
 
 // El dueño cambia de zona: todo el admin pasa a mostrar la otra.
@@ -1670,6 +1772,72 @@ async function dismissApplication(id, silent) {
   loadApplications();
 }
 
+// ---- Encabezado del Resumen y reloj de la entrada (hora de Yucatán) ----
+let adminRoleNow = null;
+function tickClocks() {
+  const now = new Date();
+  const hm = now.toLocaleTimeString("es-MX", { timeZone: "America/Merida", hour: "2-digit", minute: "2-digit", hour12: false });
+  const lx = document.getElementById("lxClock");
+  if (lx) lx.textContent = now.toLocaleDateString("es-MX", { timeZone: "America/Merida", day: "2-digit", month: "short" }).replace(".", "").toUpperCase() + " · " + hm;
+  const rc = document.getElementById("rxClock");
+  if (rc) rc.textContent = hm;
+  const rd = document.getElementById("rxDate");
+  if (rd) rd.textContent = now.toLocaleDateString("es-MX", { timeZone: "America/Merida", weekday: "long", day: "numeric", month: "long" });
+  const h = Number(now.toLocaleString("en-US", { timeZone: "America/Merida", hour: "numeric", hour12: false })) % 24;
+  const hello = h < 12 ? "Buenos días" : h < 19 ? "Buenas tardes" : "Buenas noches";
+  const who = adminRoleNow === "progreso" ? ", Daniel" : "";
+  const el = document.getElementById("rxHello");
+  if (el) el.textContent = hello + who;
+  const rz = document.getElementById("rxZone");
+  if (rz) rz.textContent = "Zona " + adminCityLabel;
+}
+tickClocks();
+setInterval(tickClocks, 15000);
+
+// Gráfica de área de los viajes por día (SVG hecho a mano, sin librerías).
+let rxLastByDay = null;
+window.addEventListener("resize", () => { if (rxLastByDay) renderRidesChart(rxLastByDay); });
+function renderRidesChart(byDay) {
+  rxLastByDay = byDay || [];
+  const box = document.getElementById("rxChart");
+  if (!box) return;
+  const counts = new Map((byDay || []).map((r) => [r.dia, Number(r.n) || 0]));
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = d.toLocaleDateString("en-CA", { timeZone: "America/Merida" });
+    const lbl = d.toLocaleDateString("es-MX", { timeZone: "America/Merida", weekday: "short" }).replace(".", "").slice(0, 3).toUpperCase();
+    days.push({ key, lbl, n: counts.get(key) || 0 });
+  }
+  const total = days.reduce((a, d) => a + d.n, 0);
+  document.getElementById("rxChartTotal").textContent = total;
+  // Del ancho real de la tarjeta: así las letras salen a su tamaño en celular y en computadora.
+  const W = Math.max(300, Math.round(box.clientWidth || 640)), H = W < 600 ? 180 : 230, padX = 16, top = 24, bottom = 30;
+  const max = Math.max(1, ...days.map((d) => d.n));
+  const x = (i) => padX + (i * (W - padX * 2)) / 6;
+  const y = (n) => top + (H - top - bottom) * (1 - n / max);
+  const pts = days.map((d, i) => [x(i), y(d.n)]);
+  // Curva suave entre puntos.
+  let path = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], cx = (x0 + x1) / 2;
+    path += ` C${cx},${y0} ${cx},${y1} ${x1},${y1}`;
+  }
+  const base = H - bottom;
+  const grid = [0.25, 0.5, 0.75, 1].map((f) => `<line x1="${padX}" x2="${W - padX}" y1="${top + (base - top) * (1 - f)}" y2="${top + (base - top) * (1 - f)}" stroke="rgba(148,163,184,.10)" stroke-dasharray="3 5"/>`).join("");
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Viajes completados por día, últimos 7 días">
+    <defs>
+      <linearGradient id="rxFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#34d399" stop-opacity=".32"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient>
+    </defs>
+    ${grid}
+    <line x1="${padX}" x2="${W - padX}" y1="${base}" y2="${base}" stroke="rgba(148,163,184,.22)"/>
+    <path d="${path} L${pts[6][0]},${base} L${pts[0][0]},${base} Z" fill="url(#rxFill)"/>
+    <path d="${path}" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
+    ${pts.map(([px, py], i) => `<circle cx="${px}" cy="${py}" r="${i === 6 ? 5 : 3.2}" fill="${i === 6 ? "#34d399" : "#0a1020"}" stroke="#34d399" stroke-width="1.8"/>${days[i].n ? `<text class="val" x="${px}" y="${py - 11}" text-anchor="middle">${days[i].n}</text>` : ""}`).join("")}
+    ${days.map((d, i) => `<text class="ax" x="${x(i)}" y="${H - 8}" text-anchor="middle"${i === 6 ? ' style="fill:#34d399"' : ""}>${i === 6 ? "HOY" : d.lbl}</text>`).join("")}
+  </svg>`;
+}
+
 async function loadStats() {
   const res = await fetch(API + "/api/admin/stats", {
     method: "POST",
@@ -1682,10 +1850,11 @@ async function loadStats() {
   document.getElementById("statRidesWeek").textContent = s.ridesWeek;
   document.getElementById("statCancelledToday").textContent = s.cancelledToday;
   document.getElementById("statDriversOnline").textContent = s.driversOnline;
-  document.getElementById("statSatisfaction").textContent =
-    s.satisfactionPct === null ? "—" : `${s.satisfactionPct}% (${s.ratedCount})`;
+  document.getElementById("statSatisfaction").innerHTML =
+    s.satisfactionPct === null ? "—" : `${s.satisfactionPct}%<small class="stat-sub">${s.ratedCount} calificados</small>`;
   document.getElementById("statCollectedWeek").textContent = `$${s.collectedWeek}`;
   document.getElementById("statCollectedMonth").textContent = `$${s.collectedMonth}`;
+  renderRidesChart(s.ridesByDay);
 
   launchRankingCache = s.launchRanking || [];
   const medals = ["🥇", "🥈", "🥉", "4.", "5."];

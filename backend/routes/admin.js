@@ -650,6 +650,15 @@ router.post("/admin/stats", checkAdminPin, async (req, res) => {
     )
     .get(city);
   const satisfactionPct = ratings.total > 0 ? Math.round((ratings.good / ratings.total) * 100) : null;
+  // Viajes completados por día (hora de Yucatán), para la gráfica del Resumen.
+  const ridesByDay = await db
+    .prepare(
+      `SELECT date(r.updated_at, '-6 hours') AS dia, COUNT(*) AS n
+       FROM rides r
+       WHERE r.status = 'completado' AND date(r.updated_at, '-6 hours') >= date('now', '-6 hours', '-6 days') AND r.city = ? AND ${REAL_RIDE}
+       GROUP BY dia`
+    )
+    .all(city);
   const collectedWeek = (await db
     .prepare(
       `SELECT COALESCE(SUM(p.amount), 0) AS total FROM driver_payments p
@@ -677,7 +686,7 @@ router.post("/admin/stats", checkAdminPin, async (req, res) => {
 
   res.json({
     ridesToday, ridesWeek, cancelledToday, driversOnline, topDrivers, satisfactionPct, ratedCount: ratings.total,
-    collectedWeek, collectedMonth, launchRanking, trialEndDate: TRIAL_END_DATE,
+    collectedWeek, collectedMonth, launchRanking, ridesByDay, trialEndDate: TRIAL_END_DATE,
   });
 });
 
