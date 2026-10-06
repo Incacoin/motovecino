@@ -151,7 +151,8 @@ app.get("/api/cities/resolve", async (req, res) => {
   // negar el registro o el viaje.
   // testOnly (Mérida de prueba): sí deja pedir viaje, pero no abre el
   // registro de choferes ahí (quiero-ser-chofer usa inService).
-  const inService = city && !city.testOnly ? isWithinServiceRadius(city.id, lat, lng) : false;
+  // signupClosed (Oxkutzcab, Ticul): igual, su cajón existe pero sin registro.
+  const inService = city && !city.testOnly && !city.signupClosed ? isWithinServiceRadius(city.id, lat, lng) : false;
   // zone: qué se puede pedir en este punto, con la misma regla que POST
   // /rides (sin pueblo cercano cae en DEFAULT_CITY_ID): "in" = mototaxi y
   // taxi, "taxi" = solo taxi (comisarías, pueblos vecinos), "out" = nada.

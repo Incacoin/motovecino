@@ -16,15 +16,15 @@ const CITIES = [
   // la redonda) porque no tiene tarifa fija — el mototaxi se queda con el
   // radio normal de arriba, sin cambios.
   { id: "tekax", label: "Tekax", lat: 20.2071, lng: -89.2809, serviceRadiusKm: 4.5, serviceRadiusKmTaxi: 50 },
-  // TEMPORAL (5-oct-2026): Ticul y Oxkutzcab como zonas de prueba para
-  // enseñar la app. Al terminar: Ticul regresa a su línea original
-  // `{ id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389 },` y se
-  // borra la de Oxkutzcab.
+  // Ticul y Oxkutzcab (6-oct-2026): cada uno con su cajón (sus viajes salen
+  // en su propio selector del admin), pero signupClosed: todavía no se
+  // registran choferes ahí. Ticul además sigue en espera por el gremio
+  // (no abrir su registro sin que el usuario lo diga).
   // motoSoon (6-oct-2026): ya llegamos (la portada dice "MotoVecino Akil"),
   // pero sin choferes de ahí: el mototaxi sale como "Muy pronto" y solo se
   // pide taxi. Quitar motoSoon cuando haya mototaxis registrados en el lugar.
-  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, testOnly: true, motoSoon: true },
-  { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, testOnly: true, motoSoon: true },
+  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, signupClosed: true, motoSoon: true },
+  { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, signupClosed: true, motoSoon: true },
   // Akil (6-oct-2026): municipio con cajón propio (sus choferes, su
   // selector en el admin). Registro de choferes abierto; el mototaxi sigue
   // "Muy pronto" hasta que haya mototaxistas de Akil registrados.
@@ -77,6 +77,8 @@ const ADMIN_ZONES = [
   { id: "tekax", label: "Tekax", enabled: true },
   { id: PROGRESO.id, label: PROGRESO.label, enabled: process.env.ENABLE_PROGRESO === "1" },
   { id: "akil", label: "Akil", enabled: true },
+  { id: "oxkutzcab", label: "Oxkutzcab", enabled: true },
+  { id: "ticul", label: "Ticul", enabled: true },
 ];
 
 // Cuánto más puede pedir un chofer sobre la oferta del pasajero.
@@ -138,9 +140,9 @@ function sameComisaria(cityId, pLat, pLng, dLat, dLng) {
   return !!(a && b && a.id === b.id);
 }
 
-// Cajón (ciudad) al que pertenece un viaje que recoge en este punto. Los
-// lugares de solo acceso (testOnly: Oxkutzcab, Ticul) no tienen choferes ni
-// admin propios, así que sus viajes son de la red de Tekax.
+// Cajón (ciudad) al que pertenece un viaje que recoge en este punto. Las
+// zonas de prueba (testOnly, ej. Mérida) no tienen choferes ni admin
+// propios, así que sus viajes son de la red de Tekax.
 function rideCityAt(lat, lng) {
   const city = resolveCity(lat, lng);
   return city && !city.testOnly ? city.id : DEFAULT_CITY_ID;
@@ -177,7 +179,7 @@ function isWithinServiceRadius(cityId, lat, lng, rideType) {
     : city.serviceRadiusKm;
   // Mototaxi "Muy pronto" (motoSoon): no se pide aquí aunque esté en radio.
   // Solo con rideType "moto" explícito — el registro de choferes llama sin
-  // rideType y se maneja aparte (testOnly).
+  // rideType y se maneja aparte (testOnly / signupClosed).
   if (rideType === "moto" && city.motoSoon) return false;
   if (radius == null) return true;
   if (lat == null || lng == null) return true;

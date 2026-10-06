@@ -146,8 +146,8 @@ router.post("/rides", async (req, res) => {
   if (!isWithinServiceRadius(pickupCity, pickup_lat, pickup_lng, ride_type === "taxi" ? "taxi" : "moto")) {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
-  // Lugares de solo acceso (Oxkutzcab, Ticul): el viaje es de la red de
-  // Tekax (ver rideCityAt). Si no, el admin no lo vería.
+  // Zonas de prueba (testOnly): el viaje es de la red de Tekax (ver
+  // rideCityAt). Los demás lugares van a su propio cajón.
   const city = rideCityAt(pickup_lat, pickup_lng);
 
   // Progreso (por comisarías, ver cities.js): solo motocarro, y el viaje
