@@ -25,10 +25,12 @@ const CITIES = [
   // pide taxi. Quitar motoSoon cuando haya mototaxis registrados en el lugar.
   { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, testOnly: true, motoSoon: true },
   { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, testOnly: true, motoSoon: true },
-  // Akil (6-oct-2026): acceso sin registro de choferes, igual que Oxkutzcab.
+  // Akil (6-oct-2026): municipio con cajón propio (sus choferes, su
+  // selector en el admin). Registro de choferes abierto; el mototaxi sigue
+  // "Muy pronto" hasta que haya mototaxistas de Akil registrados.
   // labelRadiusKm = serviceRadiusKm a propósito: fuera de los 4km el punto
   // vuelve a ser de Tekax y sigue teniendo taxi foráneo (radio de 50km).
-  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, testOnly: true, motoSoon: true },
+  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, motoSoon: true },
   // TEMPORAL (3-oct-2026): Mérida solo como zona de prueba para enseñar la
   // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
   // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
@@ -74,6 +76,7 @@ const PROGRESO = {
 const ADMIN_ZONES = [
   { id: "tekax", label: "Tekax", enabled: true },
   { id: PROGRESO.id, label: PROGRESO.label, enabled: process.env.ENABLE_PROGRESO === "1" },
+  { id: "akil", label: "Akil", enabled: true },
 ];
 
 // Cuánto más puede pedir un chofer sobre la oferta del pasajero.
@@ -135,6 +138,22 @@ function sameComisaria(cityId, pLat, pLng, dLat, dLng) {
   return !!(a && b && a.id === b.id);
 }
 
+// Cajón (ciudad) al que pertenece un viaje que recoge en este punto. Los
+// lugares de solo acceso (testOnly: Oxkutzcab, Ticul) no tienen choferes ni
+// admin propios, así que sus viajes son de la red de Tekax.
+function rideCityAt(lat, lng) {
+  const city = resolveCity(lat, lng);
+  return city && !city.testOnly ? city.id : DEFAULT_CITY_ID;
+}
+
+// Mototaxi: cada municipio tiene su sitio y sus reglas, así que un mototaxi
+// solo levanta viajes de su propio cajón. El taxi es de toda la región
+// (viajes foráneos), así que a él no se le aplica.
+function sameCityForRide(rideType, rideCity, driverCity) {
+  if (rideType === "taxi") return true;
+  return (driverCity || DEFAULT_CITY_ID) === (rideCity || DEFAULT_CITY_ID);
+}
+
 function getCityById(id) {
   return CITIES.find((c) => c.id === id) || null;
 }
@@ -172,6 +191,8 @@ module.exports = {
   resolveCity,
   getCityById,
   isWithinServiceRadius,
+  rideCityAt,
+  sameCityForRide,
   zoneAt,
   sameComisaria,
   OFFER_MAX_UP,

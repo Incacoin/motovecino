@@ -6,7 +6,7 @@ const { normalizeAccount } = require("../bankAccount");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
-const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria } = require("../cities");
+const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide } = require("../cities");
 const { rideFee } = require("../fees");
 const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
 const { photoUrls, cleanThumb } = require("../photos");
@@ -37,7 +37,7 @@ router.get("/drivers/available", async (req, res) => {
 
   const drivers = await db
     .prepare(
-      `SELECT id, lat, lng, vehicle_type FROM drivers
+      `SELECT id, lat, lng, vehicle_type, city FROM drivers
        WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL
          AND vehicle_type = ?
          AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))
@@ -47,11 +47,14 @@ router.get("/drivers/available", async (req, res) => {
 
   const maxDistance = type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   // En Progreso solo se ven los motocarros de la misma comisaría.
+  // Mototaxi: solo los de su municipio (los mismos a los que les llegaría el viaje).
   const refCity = hasRef ? resolveCity(refLat, refLng) : null;
+  const rideCity = hasRef ? rideCityAt(refLat, refLng) : DEFAULT_CITY_ID;
   const nearby = drivers.filter(
     (d) => haversineKm(ref.lat, ref.lng, d.lat, d.lng) <= maxDistance &&
+      sameCityForRide(type, rideCity, d.city) &&
       (!refCity || sameComisaria(refCity.id, ref.lat, ref.lng, d.lat, d.lng))
-  );
+  ).map(({ city, ...d }) => d);
   res.json(nearby);
 });
 

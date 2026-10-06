@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
-const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt } = require("../cities");
+const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide } = require("../cities");
 const { haversineKm } = require("../geo");
 
 // Si el celular de quien pide está a más de esto del punto de encuentro, al
@@ -146,11 +146,9 @@ router.post("/rides", async (req, res) => {
   if (!isWithinServiceRadius(pickupCity, pickup_lat, pickup_lng, ride_type === "taxi" ? "taxi" : "moto")) {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
-  // Lugares de solo acceso (Akil, Oxkutzcab, Ticul — testOnly en cities.js):
-  // no tienen choferes ni admin propios, así que el viaje es de la red de
-  // Tekax. Si no, los avisos a choferes (push.js filtra por ciudad) y el
-  // admin no lo verían.
-  const city = getCityById(pickupCity)?.testOnly ? DEFAULT_CITY_ID : pickupCity;
+  // Lugares de solo acceso (Oxkutzcab, Ticul): el viaje es de la red de
+  // Tekax (ver rideCityAt). Si no, el admin no lo vería.
+  const city = rideCityAt(pickup_lat, pickup_lng);
 
   // Progreso (por comisarías, ver cities.js): solo motocarro, y el viaje
   // empieza y termina en la misma comisaría. "Propón tu precio" es un viaje
@@ -394,7 +392,7 @@ router.post("/rides/:id/accept", async (req, res) => {
     return res.status(400).json({ error: "Para cobrar otro precio, manda una contraoferta" });
   }
   if (pendingRide && !(await driverInRideZone(driverId, pendingRide))) {
-    return res.status(409).json({ error: "Este viaje es de otra comisaría" });
+    return res.status(409).json({ error: "Este viaje es de otra zona" });
   }
   if (isTaxi && !(Number(agreedPrice) > 0)) {
     return res.status(400).json({ error: "Captura el precio que acordaste con el pasajero" });
@@ -517,14 +515,15 @@ async function closeDriverOtherOffers(driverId) {
   }
 }
 
-// Ciudad por comisarías (Progreso): el chofer tiene que estar en la misma
-// comisaría que la recogida (su última ubicación). En las demás ciudades no
-// aplica.
+// Mototaxi: solo viajes de su propio municipio (ver sameCityForRide).
+// Ciudad por comisarías (Progreso): además el chofer tiene que estar en la
+// misma comisaría que la recogida (su última ubicación).
 async function driverInRideZone(driverId, ride) {
+  const d = await db.prepare("SELECT lat, lng, city FROM drivers WHERE id = ?").get(driverId);
+  if (d && !sameCityForRide(ride.ride_type, ride.city, d.city)) return false;
   const cfg = getCityById(ride.city);
   if (!cfg?.zones) return true;
   const zRide = zoneAt(ride.city, ride.pickup_lat, ride.pickup_lng);
-  const d = await db.prepare("SELECT lat, lng FROM drivers WHERE id = ?").get(driverId);
   const zDriver = d ? zoneAt(ride.city, d.lat, d.lng) : null;
   return !!(zRide && zDriver && zRide.id === zDriver.id);
 }
@@ -566,7 +565,7 @@ router.post("/rides/:id/offer", async (req, res) => {
   if (driverRow?.vehicle_type !== ride.ride_type) {
     return res.status(403).json({ error: isMoto ? "Solo choferes de motocarro" : "Solo choferes de taxi" });
   }
-  if (!(await driverInRideZone(driverId, ride))) return res.status(409).json({ error: "Este viaje es de otra comisaría" });
+  if (!(await driverInRideZone(driverId, ride))) return res.status(409).json({ error: "Este viaje es de otra zona" });
   const active = await db
     .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
     .get(driverId);

@@ -3,7 +3,7 @@ const url = require("node:url");
 const db = require("./db");
 const { photoUrls } = require("./photos");
 const push = require("./push");
-const { sameComisaria } = require("./cities");
+const { sameComisaria, sameCityForRide } = require("./cities");
 const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC } = require("./constants");
 
 // driverId -> WebSocket
@@ -442,7 +442,7 @@ async function broadcastNewRide(ride) {
   const maxDistance = rideType === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   const available = await db
     .prepare(
-      "SELECT id, lat, lng FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
+      "SELECT id, lat, lng, city FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .all(rideType);
   const payload = omitRiderPhone(ride);
@@ -450,6 +450,7 @@ async function broadcastNewRide(ride) {
     if (driver.lat == null || driver.lng == null) continue;
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > maxDistance) continue;
+    if (!sameCityForRide(ride.ride_type, ride.city, driver.city)) continue;
     if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng)) continue;
     const ws = driverSockets.get(driver.id);
     if (ws) send(ws, "new_ride", payload);
@@ -468,7 +469,7 @@ async function broadcastNewRide(ride) {
 async function notifyPendingRides(driverId) {
   const driver = await db
     .prepare(
-      "SELECT id, lat, lng, vehicle_type FROM drivers WHERE id = ? AND status = 'disponible' AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
+      "SELECT id, lat, lng, vehicle_type, city FROM drivers WHERE id = ? AND status = 'disponible' AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .get(driverId);
   if (!driver || driver.lat == null || driver.lng == null) return;
@@ -484,6 +485,7 @@ async function notifyPendingRides(driverId) {
   for (const ride of pending) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > maxDistance) continue;
+    if (!sameCityForRide(ride.ride_type, ride.city, driver.city)) continue;
     if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng)) continue;
     const riderRow = await db.prepare("SELECT id, photo FROM riders WHERE phone = ?").get(ride.rider_phone);
     const { trips } = await db

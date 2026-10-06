@@ -89,16 +89,19 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // aviso si la app del chofer está en pantalla.
 async function notifyNewRide(ride) {
   const type = ride.ride_type === "taxi" ? "taxi" : "moto";
+  // Mototaxi: solo choferes de su municipio. Taxi: de toda la región
+  // (foráneo), así que no se filtra por ciudad (ver sameCityForRide).
+  const cityFilter = type === "taxi" ? "" : "AND d.city = ?";
   const drivers = await db
     .prepare(
       `SELECT d.id, d.lat, d.lng FROM drivers d
        WHERE d.wants_rides = 1 AND d.wants_rides_at >= datetime('now', ?)
-         AND d.vehicle_type = ? AND d.city = ? AND d.deleted_at IS NULL
+         AND d.vehicle_type = ? ${cityFilter} AND d.deleted_at IS NULL
          AND (d.cooldown_until IS NULL OR d.cooldown_until <= datetime('now'))
          AND NOT EXISTS (SELECT 1 FROM rides r WHERE r.driver_id = d.id AND r.status IN ('aceptado', 'llegue', 'en_curso'))
          AND EXISTS (SELECT 1 FROM driver_push_subs s WHERE s.driver_id = d.id)`
     )
-    .all(`-${WANTS_RIDES_HOURS} hours`, type, ride.city || "tekax");
+    .all(`-${WANTS_RIDES_HOURS} hours`, type, ...(type === "taxi" ? [] : [ride.city || "tekax"]));
   const subsFor = db.prepare("SELECT id, driver_id, endpoint FROM driver_push_subs WHERE driver_id = ?");
   for (const d of drivers) {
     if (d.lat != null && d.lng != null && haversineKm(ride.pickup_lat, ride.pickup_lng, d.lat, d.lng) > PUSH_RADIUS_KM[type]) continue;
