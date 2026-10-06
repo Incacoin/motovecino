@@ -1413,10 +1413,11 @@ function initCityBrand(attempt) {
         .then((data) => {
           // Dentro del pueblo: "MotoVecino Tekax". En un pueblo vecino o más
           // lejos: "MotoVecino Yucatán" — no ponerle a Akil el nombre de Tekax.
-          applyCityLabel(data.zone === "in" ? data.label : "Yucatán");
+          // Akil/Oxkutzcab/Ticul (motoSoon): ya llegamos aunque solo haya taxi.
+          applyCityLabel(data.zone === "in" || data.motoSoon ? data.label : "Yucatán");
           if (data.city) { resolvedCityId = data.city; updateFareEstimate(); }
           // Mientras no marque recogida, el aviso se basa en dónde está el celular.
-          if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria);
+          if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon);
         })
         .catch(() => {});
     },
@@ -1817,6 +1818,7 @@ function showExtraNote(extra) {
 // Lo que decide es el punto de RECOGIDA (no dónde está el celular): desde
 // Akil se le puede pedir un mototaxi a alguien dentro de Tekax.
 let serviceZone = "in";
+let motoSoon = false; // Akil/Oxkutzcab/Ticul: mototaxi "Muy pronto" (ver applyZone)
 let zoneCheckSeq = 0;
 // true si la app cambió sola a Taxi por estar fuera de zona (no lo eligió él).
 let zoneForcedTaxi = false;
@@ -1866,9 +1868,10 @@ function greetingText() {
   return name ? `${saludo}, ${name}` : saludo;
 }
 
-function applyZone(zone, zoneLabel, com) {
+function applyZone(zone, zoneLabel, com, soon) {
   setComisaria(com);
   serviceZone = zone || "in";
+  motoSoon = !!soon;
   const notice = document.getElementById("zoneNotice");
   const tabMoto = document.getElementById("tabMoto");
   const tabOferta = document.getElementById("tabOferta");
@@ -1881,10 +1884,12 @@ function applyZone(zone, zoneLabel, com) {
     renderVehCards();
     if (zoneForcedTaxi) { zoneForcedTaxi = false; setServiceType("moto"); }
   } else if (serviceZone === "taxi") {
-    notice.innerHTML = `📍 <strong>Fuera de la zona de mototaxi de ${escapeHtml(town)}:</strong> aquí solo hay 🚕 Taxi.`;
+    notice.innerHTML = motoSoon
+      ? `🛵 <strong>Mototaxi en ${escapeHtml(town)}: muy pronto.</strong> Por ahora pide 🚕 Taxi.`
+      : `📍 <strong>Fuera de la zona de mototaxi de ${escapeHtml(town)}:</strong> aquí solo hay 🚕 Taxi.`;
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
-    renderVehCards(`Solo dentro de ${escapeHtml(town)}`);
+    renderVehCards(motoSoon ? "Muy pronto" : `Solo dentro de ${escapeHtml(town)}`);
     if (serviceType !== "taxi") { zoneForcedTaxi = true; setServiceType("taxi"); }
   } else {
     notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más municipios de Yucatán!";
@@ -1938,7 +1943,7 @@ function checkPickupZone() {
   const seq = ++zoneCheckSeq;
   fetch(API + `/api/cities/resolve?lat=${pickup.lat}&lng=${pickup.lng}`)
     .then((r) => r.json())
-    .then((data) => { if (seq === zoneCheckSeq && pickup) { applyZone(data.zone, data.zoneLabel, data.comisaria); setFamilyAvailable(data.familyRides); } })
+    .then((data) => { if (seq === zoneCheckSeq && pickup) { applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon); setFamilyAvailable(data.familyRides); } })
     .catch(() => {});
 }
 
@@ -1946,7 +1951,9 @@ function checkPickupZone() {
 function setServiceType(type) {
   const wantMoto = type === "moto" || type === "oferta";
   if (wantMoto && serviceZone !== "in") {
-    showToast(serviceZone === "taxi"
+    showToast(motoSoon
+      ? "El mototaxi llega muy pronto aquí. Por ahora pide 🚕 Taxi."
+      : serviceZone === "taxi"
       ? "El mototaxi solo recoge en la zona urbana. Desde aquí pide 🚕 Taxi."
       : "MotoVecino todavía no llega a tu zona.");
     return;

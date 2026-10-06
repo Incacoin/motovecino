@@ -173,9 +173,12 @@ app.get("/api/cities/resolve", async (req, res) => {
   }
   // Si en este pueblo ya está prendido "Pedir para otra persona" (ver familyRides.js).
   const familyOn = await familyRides.isFamilyEnabled(zoneCityId);
+  // motoSoon: llegamos al lugar pero el mototaxi todavía no (ver cities.js);
+  // zone ya viene como "taxi" y la app enseña el mototaxi como "Muy pronto".
+  const motoSoon = !!(city && city.motoSoon);
   res.json(city
-    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria }
-    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null });
+    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon }
+    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false });
 });
 
 app.use("/api", driverRoutes);

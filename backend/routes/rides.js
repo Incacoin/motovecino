@@ -138,14 +138,19 @@ router.post("/rides", async (req, res) => {
 
   // La ciudad del viaje es la de la recogida (no la de quien lo pide desde su
   // celular) — es lo que decide a qué admin/red le toca ese viaje.
-  const city = resolveCity(pickup_lat, pickup_lng)?.id || DEFAULT_CITY_ID;
+  const pickupCity = resolveCity(pickup_lat, pickup_lng)?.id || DEFAULT_CITY_ID;
 
   // Fuera del radio real de servicio de esa ciudad (ej. alguien pidiendo
   // desde otro país) — antes esto caía en DEFAULT_CITY_ID sin más, dejando
   // pedir un viaje que ningún chofer real podría atender.
-  if (!isWithinServiceRadius(city, pickup_lat, pickup_lng, ride_type === "taxi" ? "taxi" : "moto")) {
+  if (!isWithinServiceRadius(pickupCity, pickup_lat, pickup_lng, ride_type === "taxi" ? "taxi" : "moto")) {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
+  // Lugares de solo acceso (Akil, Oxkutzcab, Ticul — testOnly en cities.js):
+  // no tienen choferes ni admin propios, así que el viaje es de la red de
+  // Tekax. Si no, los avisos a choferes (push.js filtra por ciudad) y el
+  // admin no lo verían.
+  const city = getCityById(pickupCity)?.testOnly ? DEFAULT_CITY_ID : pickupCity;
 
   // Progreso (por comisarías, ver cities.js): solo motocarro, y el viaje
   // empieza y termina en la misma comisaría. "Propón tu precio" es un viaje

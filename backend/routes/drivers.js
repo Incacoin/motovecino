@@ -370,8 +370,10 @@ router.post("/chofer-solicitudes", async (req, res) => {
   const cityId = getCityById(city) ? city : DEFAULT_CITY_ID;
   // Ticul aun corre en su propio servidor aparte de este backend unificado;
   // una solicitud etiquetada "ticul" aqui no le llegaria a ningun admin.
-  if (cityId === "ticul") {
-    return res.status(400).json({ error: "Ticul todavía no está disponible en este formulario" });
+  // Lugares de solo acceso (Oxkutzcab, Akil): la app ya no enseña el
+  // formulario ahí, pero el formulario es público y la ciudad la manda él.
+  if (cityId === "ticul" || getCityById(cityId)?.testOnly) {
+    return res.status(400).json({ error: `${getCityById(cityId)?.label || "Ese lugar"} todavía no está disponible en este formulario` });
   }
   // Si el navegador sí entregó GPS (aunque haya caído en el selector manual
   // de ciudad, ej. porque el GPS no resolvió a ninguna ciudad conocida), lo

@@ -20,8 +20,15 @@ const CITIES = [
   // enseñar la app. Al terminar: Ticul regresa a su línea original
   // `{ id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389 },` y se
   // borra la de Oxkutzcab.
-  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, testOnly: true },
-  { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, testOnly: true },
+  // motoSoon (6-oct-2026): ya llegamos (la portada dice "MotoVecino Akil"),
+  // pero sin choferes de ahí: el mototaxi sale como "Muy pronto" y solo se
+  // pide taxi. Quitar motoSoon cuando haya mototaxis registrados en el lugar.
+  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, testOnly: true, motoSoon: true },
+  { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, testOnly: true, motoSoon: true },
+  // Akil (6-oct-2026): acceso sin registro de choferes, igual que Oxkutzcab.
+  // labelRadiusKm = serviceRadiusKm a propósito: fuera de los 4km el punto
+  // vuelve a ser de Tekax y sigue teniendo taxi foráneo (radio de 50km).
+  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, testOnly: true, motoSoon: true },
   // TEMPORAL (3-oct-2026): Mérida solo como zona de prueba para enseñar la
   // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
   // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
@@ -149,6 +156,10 @@ function isWithinServiceRadius(cityId, lat, lng, rideType) {
   const radius = rideType === "taxi" && city.serviceRadiusKmTaxi != null
     ? city.serviceRadiusKmTaxi
     : city.serviceRadiusKm;
+  // Mototaxi "Muy pronto" (motoSoon): no se pide aquí aunque esté en radio.
+  // Solo con rideType "moto" explícito — el registro de choferes llama sin
+  // rideType y se maneja aparte (testOnly).
+  if (rideType === "moto" && city.motoSoon) return false;
   if (radius == null) return true;
   if (lat == null || lng == null) return true;
   return haversineKm(lat, lng, city.lat, city.lng) <= radius;
