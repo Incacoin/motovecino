@@ -1740,10 +1740,10 @@ function updateComisariaFare() {
     setVehPrice("Taxi", ok ? `$${motoOffer}` : "");
     return;
   }
-  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""} · ${comisaria.label}${tripExtra ? ` + $${tripExtra} extra para el chofer` : ""}`;
+  // Sin "+$5 / +$10" en Progreso: quien quiera pagar más usa Propón tu precio.
+  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""} · ${comisaria.label}`;
   btn.disabled = false;
-  btn.textContent = `Pedir Moto Exprés · $${fixed + tripExtra}`;
-  document.getElementById("extraBox").style.display = "flex";
+  btn.textContent = `Pedir Moto Exprés · $${fixed}`;
 }
 function onMotoOfferInput() {
   const v = Math.round(Number(document.getElementById("motoOfferInput").value));
@@ -2693,7 +2693,7 @@ async function requestRide() {
       ride_type: serviceType,
       service_kind: serviceCategory,
       offer_price: serviceType === "taxi" ? taxiOffer : offerMode ? motoOffer : undefined,
-      extra: serviceType === "taxi" || offerMode ? 0 : tripExtra,
+      extra: serviceType === "taxi" || comisaria ? 0 : tripExtra,
       for_name: askingForOther ? forName : undefined,
       for_note: askingForOther ? document.getElementById("forNoteInput").value.trim() : undefined,
       // Dónde está el celular (si dio permiso): solo para avisarle al chofer

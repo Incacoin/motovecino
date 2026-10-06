@@ -114,8 +114,9 @@ async function main() {
   check("no se pide desde Progreso centro", fromCentro.status === 400, fromCentro);
 
   // ---------- Moto Exprés en Chelem ----------
-  const exp = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: Z.chelem.lat, pickup_lng: Z.chelem.lng, dest_lat: Z.chelem.lat + 0.006, dest_lng: Z.chelem.lng, passengers: 2, ride_type: "moto" });
+  const exp = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: Z.chelem.lat, pickup_lng: Z.chelem.lng, dest_lat: Z.chelem.lat + 0.006, dest_lng: Z.chelem.lng, passengers: 2, ride_type: "moto", extra: 10 });
   check("Moto Exprés pedido", exp.status === 201 && exp.data.city === "progreso" && exp.data.offer_price === null, exp);
+  check("Moto Exprés en Progreso sin extra (aunque lo manden)", exp.data.extra === 0, exp.data.extra);
   check("le llega al chofer de Chelem", !!(await waitFor(ws1, "new_ride")));
   check("NO le llega al de Chicxulub", !(await waitFor(ws3, "new_ride", 800)));
   const wrongZone = await post(`/rides/${exp.data.id}/accept`, { driverId: dChix.id, pin: dChix.pin });

@@ -204,7 +204,7 @@ router.post("/rides", async (req, res) => {
       cleanServiceKind,
       generateShareToken(),
       offerPrice,
-      motoOffer ? 0 : cleanExtra,
+      cityCfg?.zones ? 0 : cleanExtra, // en Progreso no hay extra: para pagar más está Propón tu precio
       forOther ? forOther.name : null,
       forOther ? forOther.note : null
     );
