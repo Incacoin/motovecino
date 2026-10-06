@@ -25,17 +25,7 @@ const RESEND_COOLDOWN_MS = 60 * 1000; // un reenvío por minuto
 const MAX_SENDS_PER_HOUR = 5; // por teléfono — cada envío cuesta dinero
 const MAX_WRONG_ATTEMPTS = 5; // por código; después hay que pedir otro
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS phone_otps (
-    phone TEXT PRIMARY KEY,
-    code_hash TEXT NOT NULL,
-    expires_at INTEGER NOT NULL,
-    attempts INTEGER NOT NULL DEFAULT 0,
-    last_sent_at INTEGER NOT NULL,
-    window_start INTEGER NOT NULL,
-    sends_in_window INTEGER NOT NULL DEFAULT 0
-  );
-`);
+// Tabla phone_otps: ver schema.sql.
 
 function otpMode() {
   const mode = (process.env.OTP_MODE || "off").toLowerCase();
@@ -112,7 +102,7 @@ async function sendViaTwilio(e164, code) {
 // Regresa { ok, channel, devCode? } o { status, error }.
 async function sendOtp(phone, e164, wantCall = false) {
   const now = Date.now();
-  const row = db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
+  const row = await db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
 
   if (row && now - row.last_sent_at < RESEND_COOLDOWN_MS) {
     const wait = Math.ceil((RESEND_COOLDOWN_MS - (now - row.last_sent_at)) / 1000);
@@ -125,17 +115,24 @@ async function sendOtp(phone, e164, wantCall = false) {
   }
 
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
-  db.prepare(`
+  // Solo se guarda si nadie más mandó un código a este teléfono desde que lo
+  // leímos arriba (last_sent_at sigue igual): dos toques al mismo tiempo en
+  // "Mandar código" ya no mandan (ni cobran) dos mensajes.
+  const saved = await db.prepare(`
     INSERT INTO phone_otps (phone, code_hash, expires_at, attempts, last_sent_at, window_start, sends_in_window)
     VALUES (?, ?, ?, 0, ?, ?, ?)
     ON CONFLICT(phone) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at,
       attempts = 0, last_sent_at = excluded.last_sent_at, window_start = excluded.window_start,
       sends_in_window = excluded.sends_in_window
-  `).run(phone, hashCode(phone, code), now + CODE_TTL_MS, now, windowFresh ? now : row.window_start, sends + 1);
+    WHERE phone_otps.last_sent_at = ?
+  `).run(phone, hashCode(phone, code), now + CODE_TTL_MS, now, windowFresh ? now : row.window_start, sends + 1, row ? row.last_sent_at : -1);
+  if (saved.changes === 0) {
+    return { status: 429, error: "Espera unos segundos para pedir otro código", retryIn: 60 };
+  }
 
   // Limpieza de paso: códigos vencidos hace más de un día ya no sirven ni
   // para el límite por hora.
-  db.prepare("DELETE FROM phone_otps WHERE expires_at < ?").run(now - 24 * 60 * 60 * 1000);
+  await db.prepare("DELETE FROM phone_otps WHERE expires_at < ?").run(now - 24 * 60 * 60 * 1000);
 
   const call = wantCall && ["verify", "simulado"].includes(otpMode());
   if (otpMode() === "simulado") {
@@ -157,7 +154,7 @@ async function sendOtp(phone, e164, wantCall = false) {
   } catch (e) {
     console.error("No se pudo mandar el código:", e.message);
     // No cuenta como envío: que pueda reintentar sin esperar.
-    db.prepare("UPDATE phone_otps SET last_sent_at = 0, sends_in_window = sends_in_window - 1 WHERE phone = ?").run(phone);
+    await db.prepare("UPDATE phone_otps SET last_sent_at = 0, sends_in_window = sends_in_window - 1 WHERE phone = ?").run(phone);
     return { status: 502, error: "No pudimos mandarte el código. Revisa tu número o escríbenos." };
   }
 }
@@ -165,7 +162,7 @@ async function sendOtp(phone, e164, wantCall = false) {
 // Revisa el código. Si es correcto lo borra (solo sirve una vez).
 // `e164` solo hace falta en modo "verify" (Twilio revisa por número completo).
 async function verifyOtp(phone, code, e164) {
-  const row = db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
+  const row = await db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
   if (!row) {
     return { status: 400, error: "Primero pide tu código." };
   }
@@ -194,10 +191,10 @@ async function verifyOtp(phone, code, e164) {
       crypto.timingSafeEqual(Buffer.from(hashCode(phone, given)), Buffer.from(row.code_hash));
   }
   if (!ok) {
-    db.prepare("UPDATE phone_otps SET attempts = attempts + 1 WHERE phone = ?").run(phone);
+    await db.prepare("UPDATE phone_otps SET attempts = attempts + 1 WHERE phone = ?").run(phone);
     return { status: 400, error: "Código incorrecto" };
   }
-  db.prepare("DELETE FROM phone_otps WHERE phone = ?").run(phone);
+  await db.prepare("DELETE FROM phone_otps WHERE phone = ?").run(phone);
   return { ok: true };
 }
 

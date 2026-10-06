@@ -41,12 +41,12 @@ function cleanThumb(thumb) {
 
 const router = express.Router();
 
-router.get("/photo/:kind/:id/:hash/:size", (req, res) => {
+router.get("/photo/:kind/:id/:hash/:size", async (req, res) => {
   const table = TABLES[req.params.kind];
   const { size, hash } = req.params;
   if (!table || (size !== "t" && size !== "f")) return res.status(404).end();
 
-  const row = db.prepare(`SELECT photo, photo_thumb FROM ${table} WHERE id = ?`).get(Number(req.params.id));
+  const row = await db.prepare(`SELECT photo, photo_thumb FROM ${table} WHERE id = ?`).get(Number(req.params.id));
   if (!row || !row.photo || hashOf(row.photo) !== hash) return res.status(404).end();
 
   const img = (size === "t" && readImage(row.photo_thumb)) || readImage(row.photo);

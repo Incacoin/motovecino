@@ -16,15 +16,15 @@ function randomCode() {
 }
 
 // Devuelve el código del chofer, creándolo si todavía no tiene.
-function ensureInviteCode(db, driverId) {
-  const row = db.prepare("SELECT invite_code FROM drivers WHERE id = ?").get(driverId);
+async function ensureInviteCode(db, driverId) {
+  const row = await db.prepare("SELECT invite_code FROM drivers WHERE id = ?").get(driverId);
   if (!row) return null;
   if (row.invite_code) return row.invite_code;
   for (let i = 0; i < 10; i++) {
     const code = randomCode();
     try {
-      db.prepare("UPDATE drivers SET invite_code = ? WHERE id = ? AND invite_code IS NULL").run(code, driverId);
-      return db.prepare("SELECT invite_code FROM drivers WHERE id = ?").get(driverId).invite_code;
+      await db.prepare("UPDATE drivers SET invite_code = ? WHERE id = ? AND invite_code IS NULL").run(code, driverId);
+      return (await db.prepare("SELECT invite_code FROM drivers WHERE id = ?").get(driverId)).invite_code;
     } catch {
       // choque con el índice único (casi imposible) — se intenta otro
     }
@@ -38,12 +38,12 @@ function normalizeCode(code) {
   return /^[A-Z0-9]{4,12}$/.test(clean) ? clean : null;
 }
 
-function findInviter(db, code) {
+async function findInviter(db, code) {
   const clean = normalizeCode(code);
   if (!clean) return null;
-  return db
+  return (await db
     .prepare("SELECT id, name, phone, city FROM drivers WHERE invite_code = ? AND deleted_at IS NULL")
-    .get(clean) || null;
+    .get(clean)) || null;
 }
 
 // "Carlos Méndez Pérez" → "Carlos M." — lo que ve cualquiera que abra el

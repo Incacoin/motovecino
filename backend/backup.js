@@ -1,12 +1,20 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const db = require("./db");
+const { dumpAll, gzipJson } = require("./pgData");
 
 const DATA_DIR = path.join(__dirname, "data");
 const BACKUP_REPO = process.env.BACKUP_GITHUB_REPO;
 const BACKUP_TOKEN = process.env.BACKUP_GITHUB_TOKEN;
 const APP_NAME = process.env.BACKUP_APP_NAME || "motoyatekax";
 
-const SKIP_SUFFIXES = [".db-journal", ".db-wal", ".db-shm"];
+// motoya.db* es la base SQLite de antes de Postgres: si sigue en el disco ya
+// no cambia, no hace falta volver a subirla.
+const SKIP_SUFFIXES = [".db", ".db-journal", ".db-wal", ".db-shm"];
+// La base completa (todas las tablas de Postgres) va en este archivo, dentro
+// de la carpeta del día igual que antes iba motoya.db. Se regresa con
+// tools/restore-backup.js.
+const DB_DUMP_NAME = "motovecino-db.json.gz";
 
 let lastSuccessAt = null;
 let lastAttemptAt = null;
@@ -150,6 +158,15 @@ async function backupOnce() {
   let ok = 0;
   let firstError = null;
   let imgFailed = 0;
+  let dbOk = false;
+  try {
+    const dump = await dumpAll(db);
+    await putFile(DB_DUMP_NAME, gzipJson(dump).toString("base64"), weekday);
+    dbOk = true;
+  } catch (err) {
+    firstError = "base de datos";
+    console.error("[backup] fallo al respaldar la base:", err.message);
+  }
   try {
     imgFailed = await syncImages();
   } catch (err) {
@@ -175,9 +192,9 @@ async function backupOnce() {
       console.error(`[backup] fallo en ${relPath}:`, err.message);
     }
   }
-  console.log(`[backup] respaldo "${weekday}" completado (${ok}/${files.length} archivo(s))`);
+  console.log(`[backup] respaldo "${weekday}" completado (base ${dbOk ? "ok" : "FALLÓ"}, ${ok}/${files.length} archivo(s))`);
 
-  if (files.length > 0 && ok === files.length && !imgFailed) {
+  if (dbOk && ok === files.length && !imgFailed) {
     lastSuccessAt = new Date().toISOString();
     lastError = null;
   } else {

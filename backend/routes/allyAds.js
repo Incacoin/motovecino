@@ -9,6 +9,11 @@ const { getCityById, DEFAULT_CITY_ID } = require("../cities");
 
 const router = express.Router();
 
+// Los ids son números: algo como /x/abc/... se contesta "no encontrado" (como
+// antes con SQLite) en vez de un error de Postgres por el tipo de dato.
+const numericParam = (req, res, next, value) => (/^\d{1,9}$/.test(value) ? next() : res.status(404).json({ error: "No encontrado" }));
+router.param("id", numericParam);
+
 const IMAGE_RE = /^data:(image\/(?:jpeg|png|webp));base64,/;
 const MAX_IMAGE_LENGTH = 400000;
 const AD_STATUSES = ["buscando", "aceptado", "llegue"];
@@ -19,8 +24,8 @@ function imageHash(image) {
 function imageUrl(ad) {
   return ad.image ? `/api/ally-ads/${ad.id}/img/${imageHash(ad.image)}` : null;
 }
-function isEnabled(city) {
-  const row = db.prepare("SELECT enabled FROM ally_settings WHERE city = ?").get(city);
+async function isEnabled(city) {
+  const row = await db.prepare("SELECT enabled FROM ally_settings WHERE city = ?").get(city);
   return !!(row && row.enabled);
 }
 // Anuncios vigentes hoy (fecha local de Yucatán, UTC-6), sobre el alias "a".
@@ -29,10 +34,10 @@ const LIVE_WHERE = `a.city = ? AND a.deleted_at IS NULL AND a.active = 1
   AND (a.ends_on IS NULL OR a.ends_on >= date('now', '-6 hours'))`;
 
 // Solo quien tiene el token del viaje puede pedir su anuncio.
-function rideFromToken(req) {
+async function rideFromToken(req) {
   const id = Number(req.query.ride || req.body?.ride);
   const t = req.query.t || req.body?.t;
-  const ride = id ? db.prepare("SELECT id, city, status, share_token FROM rides WHERE id = ?").get(id) : null;
+  const ride = id ? await db.prepare("SELECT id, city, status, share_token FROM rides WHERE id = ?").get(id) : null;
   if (!ride || !t || ride.share_token !== t) return null;
   // Zona de prueba (Mérida, testOnly): enseña los anuncios de Tekax.
   if (getCityById(ride.city)?.testOnly) ride.city = DEFAULT_CITY_ID;
@@ -42,39 +47,39 @@ function rideFromToken(req) {
 // El anuncio del viaje: el mismo si ya se le mostró uno (reabrir la app no
 // cambia de negocio ni cuenta doble); si no, el que menos vistas lleva en la
 // semana, para que todos los aliados salgan parejo.
-router.get("/ally-ad", (req, res) => {
-  const ride = rideFromToken(req);
+router.get("/ally-ad", async (req, res) => {
+  const ride = await rideFromToken(req);
   if (!ride) return res.status(404).json({ error: "Viaje no encontrado" });
-  if (!AD_STATUSES.includes(ride.status) || !isEnabled(ride.city)) return res.json({ ad: null });
+  if (!AD_STATUSES.includes(ride.status) || !await isEnabled(ride.city)) return res.json({ ad: null });
 
-  let ad = db
+  let ad = await db
     .prepare(`SELECT a.* FROM ally_ad_events e JOIN ally_ads a ON a.id = e.ad_id
               WHERE e.ride_id = ? AND e.kind = 'view' AND ${LIVE_WHERE}`)
     .get(ride.id, ride.city);
   if (!ad) {
-    ad = db
+    ad = await db
       .prepare(`SELECT a.*, (SELECT COUNT(*) FROM ally_ad_events e WHERE e.ad_id = a.id AND e.kind = 'view'
                   AND e.created_at >= datetime('now', '-7 days')) AS views7
                 FROM ally_ads a WHERE ${LIVE_WHERE} ORDER BY views7 ASC, RANDOM() LIMIT 1`)
       .get(ride.city);
     if (!ad) return res.json({ ad: null });
-    db.prepare("INSERT OR IGNORE INTO ally_ad_events (ad_id, ride_id, kind) VALUES (?, ?, 'view')").run(ad.id, ride.id);
+    await db.prepare("INSERT OR IGNORE INTO ally_ad_events (ad_id, ride_id, kind) VALUES (?, ?, 'view')").run(ad.id, ride.id);
   }
   res.json({ ad: { id: ad.id, name: ad.name, tagline: ad.tagline, whatsapp: ad.whatsapp, image: imageUrl(ad) } });
 });
 
 // Toque en "Escribir por WhatsApp": se cuenta una vez por viaje.
-router.post("/ally-ads/:id/tap", (req, res) => {
-  const ride = rideFromToken(req);
-  const ad = db.prepare("SELECT id, city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(req.params.id));
+router.post("/ally-ads/:id/tap", async (req, res) => {
+  const ride = await rideFromToken(req);
+  const ad = await db.prepare("SELECT id, city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(req.params.id));
   if (!ride || !ad || ad.city !== ride.city) return res.status(404).json({ error: "No encontrado" });
-  db.prepare("INSERT OR IGNORE INTO ally_ad_events (ad_id, ride_id, kind) VALUES (?, ?, 'tap')").run(ad.id, ride.id);
+  await db.prepare("INSERT OR IGNORE INTO ally_ad_events (ad_id, ride_id, kind) VALUES (?, ?, 'tap')").run(ad.id, ride.id);
   res.json({ ok: true });
 });
 
 // Logo del negocio (la URL lleva un código del contenido: caché larga).
-router.get("/ally-ads/:id/img/:hash", (req, res) => {
-  const ad = db.prepare("SELECT image FROM ally_ads WHERE id = ?").get(Number(req.params.id));
+router.get("/ally-ads/:id/img/:hash", async (req, res) => {
+  const ad = await db.prepare("SELECT image FROM ally_ads WHERE id = ?").get(Number(req.params.id));
   if (!ad || !ad.image || imageHash(ad.image) !== req.params.hash) return res.status(404).end();
   const m = IMAGE_RE.exec(ad.image);
   if (!m) return res.status(404).end();
@@ -84,28 +89,28 @@ router.get("/ally-ads/:id/img/:hash", (req, res) => {
 
 // ---------------- Admin ----------------
 
-router.post("/admin/ally-ads/list", checkAdminPin, (req, res) => {
-  const ads = db
+router.post("/admin/ally-ads/list", checkAdminPin, async (req, res) => {
+  const ads = (await db
     .prepare(`SELECT a.id, a.name, a.tagline, a.whatsapp, a.image, a.tier, a.active, a.starts_on, a.ends_on, a.created_at,
                 (SELECT COUNT(*) FROM ally_ad_events e WHERE e.ad_id = a.id AND e.kind = 'view') AS views,
                 (SELECT COUNT(*) FROM ally_ad_events e WHERE e.ad_id = a.id AND e.kind = 'view' AND e.created_at >= datetime('now', '-7 days')) AS views7,
                 (SELECT COUNT(*) FROM ally_ad_events e WHERE e.ad_id = a.id AND e.kind = 'tap') AS taps,
                 (SELECT COUNT(*) FROM ally_ad_events e WHERE e.ad_id = a.id AND e.kind = 'tap' AND e.created_at >= datetime('now', '-7 days')) AS taps7
               FROM ally_ads a WHERE a.city = ? AND a.deleted_at IS NULL ORDER BY a.created_at DESC`)
-    .all(req.adminCity)
+    .all(req.adminCity))
     .map((a) => ({ ...a, image: imageUrl(a), active: !!a.active }));
-  res.json({ enabled: isEnabled(req.adminCity), ads });
+  res.json({ enabled: await isEnabled(req.adminCity), ads });
 });
 
-router.post("/admin/ally-ads/enabled", checkAdminPin, (req, res) => {
+router.post("/admin/ally-ads/enabled", checkAdminPin, async (req, res) => {
   const enabled = req.body.enabled ? 1 : 0;
-  db.prepare("INSERT INTO ally_settings (city, enabled) VALUES (?, ?) ON CONFLICT(city) DO UPDATE SET enabled = excluded.enabled")
+  await db.prepare("INSERT INTO ally_settings (city, enabled) VALUES (?, ?) ON CONFLICT(city) DO UPDATE SET enabled = excluded.enabled")
     .run(req.adminCity, enabled);
   res.json({ enabled: !!enabled });
 });
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-router.post("/admin/ally-ads/save", checkAdminPin, (req, res) => {
+router.post("/admin/ally-ads/save", checkAdminPin, async (req, res) => {
   const { id, name, tagline, whatsapp, image, tier, active, startsOn, endsOn } = req.body;
   const cleanName = String(name || "").trim().slice(0, 40);
   const cleanTag = String(tagline || "").trim().slice(0, 60);
@@ -120,30 +125,30 @@ router.post("/admin/ally-ads/save", checkAdminPin, (req, res) => {
   const cleanTier = tier === "pagado" ? "pagado" : "aliado";
 
   if (id) {
-    const row = db.prepare("SELECT city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(id));
+    const row = await db.prepare("SELECT city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(id));
     if (!row || row.city !== req.adminCity) return res.status(404).json({ error: "No encontrado" });
-    db.prepare(`UPDATE ally_ads SET name = ?, tagline = ?, whatsapp = ?, tier = ?, active = ?, starts_on = ?, ends_on = ?,
+    await db.prepare(`UPDATE ally_ads SET name = ?, tagline = ?, whatsapp = ?, tier = ?, active = ?, starts_on = ?, ends_on = ?,
                   image = COALESCE(?, image), updated_at = datetime('now') WHERE id = ?`)
       .run(cleanName, cleanTag, phone, cleanTier, active === false ? 0 : 1, startsOn || null, endsOn || null, image || null, Number(id));
     return res.json({ ok: true, id: Number(id) });
   }
-  const info = db
+  const info = await db
     .prepare("INSERT INTO ally_ads (city, name, tagline, whatsapp, image, tier, active, starts_on, ends_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
     .run(req.adminCity, cleanName, cleanTag, phone, image || null, cleanTier, active === false ? 0 : 1, startsOn || null, endsOn || null);
   res.json({ ok: true, id: Number(info.lastInsertRowid) });
 });
 
-router.post("/admin/ally-ads/:id/active", checkAdminPin, (req, res) => {
-  const row = db.prepare("SELECT city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(req.params.id));
+router.post("/admin/ally-ads/:id/active", checkAdminPin, async (req, res) => {
+  const row = await db.prepare("SELECT city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(req.params.id));
   if (!row || row.city !== req.adminCity) return res.status(404).json({ error: "No encontrado" });
-  db.prepare("UPDATE ally_ads SET active = ?, updated_at = datetime('now') WHERE id = ?").run(req.body.active ? 1 : 0, Number(req.params.id));
+  await db.prepare("UPDATE ally_ads SET active = ?, updated_at = datetime('now') WHERE id = ?").run(req.body.active ? 1 : 0, Number(req.params.id));
   res.json({ ok: true });
 });
 
-router.post("/admin/ally-ads/:id/delete", checkAdminPin, (req, res) => {
-  const row = db.prepare("SELECT city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(req.params.id));
+router.post("/admin/ally-ads/:id/delete", checkAdminPin, async (req, res) => {
+  const row = await db.prepare("SELECT city FROM ally_ads WHERE id = ? AND deleted_at IS NULL").get(Number(req.params.id));
   if (!row || row.city !== req.adminCity) return res.status(404).json({ error: "No encontrado" });
-  db.prepare("UPDATE ally_ads SET deleted_at = datetime('now'), active = 0 WHERE id = ?").run(Number(req.params.id));
+  await db.prepare("UPDATE ally_ads SET deleted_at = datetime('now'), active = 0 WHERE id = ?").run(Number(req.params.id));
   res.json({ ok: true });
 });
 

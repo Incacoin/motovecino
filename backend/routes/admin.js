@@ -16,6 +16,11 @@ const DRIVER_IMG_COLS = ["photo", "photo_placa", "signature"];
 
 const router = express.Router();
 
+// Los ids son números: algo como /x/abc/... se contesta "no encontrado" (como
+// antes con SQLite) en vez de un error de Postgres por el tipo de dato.
+const numericParam = (req, res, next, value) => (/^\d{1,9}$/.test(value) ? next() : res.status(404).json({ error: "No encontrado" }));
+router.param("id", numericParam);
+
 // Un PIN de admin por ciudad — cada quien solo entra a la suya. Es la misma
 // separación que ya existía al tener Tekax y Ticul como apps y bases de datos
 // totalmente aparte; ahora que comparten base de datos, esto es lo que
@@ -45,8 +50,8 @@ function checkAdminPin(req, res, next) {
 // Confirma que el chofer/solicitud sobre el que se va a actuar es de la
 // ciudad de este admin — sin esto, un admin de Tekax podría tocar a un
 // chofer de Ticul con solo adivinar/probar su id.
-function assertOwnCity(table, req, res) {
-  const row = db.prepare(`SELECT city FROM ${table} WHERE id = ?`).get(req.params.id);
+async function assertOwnCity(table, req, res) {
+  const row = await db.prepare(`SELECT city FROM ${table} WHERE id = ?`).get(req.params.id);
   if (!row || row.city !== req.adminCity) {
     res.status(404).json({ error: "No encontrado" });
     return false;
@@ -54,19 +59,19 @@ function assertOwnCity(table, req, res) {
   return true;
 }
 
-function generateDriverPin() {
+async function generateDriverPin() {
   let pin;
   do {
     pin = String(Math.floor(1000 + Math.random() * 9000));
-  } while (db.prepare("SELECT id FROM drivers WHERE pin = ?").get(pin));
+  } while (await db.prepare("SELECT id FROM drivers WHERE pin = ?").get(pin));
   return pin;
 }
 
-router.post("/admin/login", checkAdminPin, (req, res) => {
+router.post("/admin/login", checkAdminPin, async (req, res) => {
   res.json({ ok: true, city: req.adminCity, cityLabel: getCityById(req.adminCity)?.label });
 });
 
-router.post("/admin/drivers", checkAdminPin, (req, res) => {
+router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   const {
     name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, grupo,
     emergencyContactName, emergencyContactPhone, referredBy, referredByDriverId,
@@ -86,7 +91,7 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
     return res.status(400).json({ error: "Confirma que el chofer aceptó el aviso legal" });
   }
 
-  const existingPhone = db
+  const existingPhone = await db
     .prepare("SELECT id, name FROM drivers WHERE phone = ? AND deleted_at IS NULL")
     .get(phone);
   if (existingPhone) {
@@ -95,7 +100,7 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
     });
   }
 
-  const existingName = db
+  const existingName = await db
     .prepare("SELECT id FROM drivers WHERE lower(trim(name)) = lower(trim(?)) AND deleted_at IS NULL")
     .get(name);
   if (existingName) {
@@ -104,15 +109,15 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
     });
   }
 
-  const pin = generateDriverPin();
+  const pin = await generateDriverPin();
 
   // Viene de una solicitud que llegó con el link "Invita a otro chofer": el
   // que invitó tiene que ser un chofer real de esta misma ciudad.
   const inviterId = Number.isInteger(referredByDriverId)
-    ? db.prepare("SELECT id FROM drivers WHERE id = ? AND city = ? AND deleted_at IS NULL").get(referredByDriverId, cityId)?.id ?? null
+    ? (await db.prepare("SELECT id FROM drivers WHERE id = ? AND city = ? AND deleted_at IS NULL").get(referredByDriverId, cityId))?.id ?? null
     : null;
 
-  const result = db
+  const result = await db
     .prepare(
       "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
@@ -120,33 +125,33 @@ router.post("/admin/drivers", checkAdminPin, (req, res) => {
       name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId,
       emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0
     );
-  ensureInviteCode(db, result.lastInsertRowid);
+  await ensureInviteCode(db, result.lastInsertRowid);
   // Insignia de "chofer fundador" (simbólica, por haberse sumado temprano):
   // la decide recomputeFounders, que no cuenta las cuentas de prueba.
-  recomputeFounders(db);
+  await recomputeFounders(db);
 
-  const driver = db
+  const driver = await db
     .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
 
   res.status(201).json(inflateRow(driver, DRIVER_IMG_COLS));
 });
 
-router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
-  const drivers = db
+router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
+  const drivers = await db
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
               d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
               (SELECT COUNT(*) FROM drivers x WHERE x.referred_by_driver_id = d.id AND x.deleted_at IS NULL) AS invited_count,
-              MAX(0, (SELECT COALESCE(SUM(amount), 0) FROM driver_credits WHERE driver_id = d.id)
+              GREATEST(0, (SELECT COALESCE(SUM(amount), 0) FROM driver_credits WHERE driver_id = d.id)
                    - (SELECT COALESCE(SUM(credit_applied), 0) FROM driver_payments WHERE driver_id = d.id)) AS credit_balance,
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
               (SELECT paid_at FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_at,
               (SELECT COUNT(*) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_rides,
               (SELECT COALESCE(SUM(
-                 CASE WHEN ride_type = 'taxi' THEN MIN(COALESCE(agreed_price, 0) * ?, ?) ELSE ? END
+                 CASE WHEN ride_type = 'taxi' THEN LEAST(COALESCE(agreed_price, 0) * CAST(? AS double precision), CAST(? AS double precision)) ELSE CAST(? AS double precision) END
                ), 0) FROM rides WHERE driver_id = d.id AND status = 'completado' AND fee_settled_at IS NULL) AS pending_fee_amount,
               (SELECT MAX(connected_at) FROM driver_activity_log WHERE driver_id = d.id) AS last_connected_at
        FROM drivers d
@@ -157,19 +162,19 @@ router.post("/admin/drivers/list", checkAdminPin, (req, res) => {
   res.json(drivers.map((d) => inflateRow(d, DRIVER_IMG_COLS)));
 });
 
-router.post("/admin/drivers/:id/paid-until", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
+router.post("/admin/drivers/:id/paid-until", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
   const { paidUntil } = req.body;
-  db.prepare("UPDATE drivers SET paid_until = ? WHERE id = ?").run(
+  await db.prepare("UPDATE drivers SET paid_until = ? WHERE id = ?").run(
     paidUntil || null,
     req.params.id
   );
   res.json({ ok: true });
 });
 
-router.post("/admin/drivers/:id/register-payment", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  const driver = db.prepare("SELECT id, paid_until FROM drivers WHERE id = ?").get(req.params.id);
+router.post("/admin/drivers/:id/register-payment", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const driver = await db.prepare("SELECT id, paid_until FROM drivers WHERE id = ?").get(req.params.id);
   if (!driver) {
     return res.status(404).json({ error: "Chofer no encontrado" });
   }
@@ -185,29 +190,29 @@ router.post("/admin/drivers/:id/register-payment", checkAdminPin, (req, res) => 
   periodEnd.setDate(periodEnd.getDate() + 30);
   const periodEndStr = periodEnd.toISOString().slice(0, 10);
 
-  db.prepare(
+  await db.prepare(
     "INSERT INTO driver_payments (driver_id, amount, period_start, period_end, concept) VALUES (?, ?, ?, ?, 'mensual')"
   ).run(req.params.id, amount, base, periodEndStr);
-  db.prepare("UPDATE drivers SET paid_until = ? WHERE id = ?").run(periodEndStr, req.params.id);
+  await db.prepare("UPDATE drivers SET paid_until = ? WHERE id = ?").run(periodEndStr, req.params.id);
 
   res.json({ ok: true, paidUntil: periodEndStr });
 });
 
-router.post("/admin/drivers/:id/pending-fees", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  const rides = db
+router.post("/admin/drivers/:id/pending-fees", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const rides = await db
     .prepare(
       "SELECT ride_type, agreed_price FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
     )
     .all(req.params.id);
   const amount = rides.reduce((sum, r) => sum + rideFee(r), 0);
-  const credit = creditBalance(db, req.params.id);
+  const credit = await creditBalance(db, req.params.id);
   res.json({ count: rides.length, amount, credit, net: Math.max(0, amount - credit), feePerRide: SERVICE_FEE });
 });
 
-router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  const pendingRides = db
+router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const pendingRides = await db
     .prepare(
       "SELECT id, ride_type, agreed_price FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
     )
@@ -226,21 +231,32 @@ router.post("/admin/drivers/:id/register-trip-fees", checkAdminPin, (req, res) =
   const gross = pendingRides.reduce((sum, r) => sum + rideFee(r), 0);
   // Saldo a favor por invitaciones (referrals.js): se resta de lo que el
   // chofer entrega. `amount` queda como lo que de verdad pagó.
-  const creditApplied = Math.min(creditBalance(db, req.params.id), gross);
+  const creditApplied = Math.min(await creditBalance(db, req.params.id), gross);
   const amount = Math.round((gross - creditApplied) * 100) / 100;
-  db.prepare(
-    `UPDATE rides SET fee_settled_at = datetime('now') WHERE id IN (${placeholders})`
-  ).run(...ids);
-  db.prepare(
-    "INSERT INTO driver_payments (driver_id, amount, concept, ride_count, credit_applied) VALUES (?, ?, 'viajes', ?, ?)"
-  ).run(req.params.id, amount, ids.length, creditApplied);
+  // Marcar los viajes y anotar el pago van juntos (todo o nada). Si otro
+  // clic de "Cobrar" ya marcó alguno de estos viajes, no se cobra dos veces.
+  const STALE = new Error("ya cobrado");
+  try {
+    await db.tx(async () => {
+      const settled = await db.prepare(
+        `UPDATE rides SET fee_settled_at = datetime('now') WHERE id IN (${placeholders}) AND fee_settled_at IS NULL`
+      ).run(...ids);
+      if (settled.changes !== ids.length) throw STALE;
+      await db.prepare(
+        "INSERT INTO driver_payments (driver_id, amount, concept, ride_count, credit_applied) VALUES (?, ?, 'viajes', ?, ?)"
+      ).run(req.params.id, amount, ids.length, creditApplied);
+    });
+  } catch (err) {
+    if (err === STALE) return res.status(409).json({ error: "Estos viajes ya se habían cobrado. Actualiza la pantalla." });
+    throw err;
+  }
 
   res.json({ ok: true, count: ids.length, amount, gross, creditApplied });
 });
 
-router.post("/admin/drivers/:id/payments", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  const payments = db
+router.post("/admin/drivers/:id/payments", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const payments = await db
     .prepare(
       "SELECT id, amount, period_start, period_end, paid_at, concept, ride_count, credit_applied FROM driver_payments WHERE driver_id = ? ORDER BY paid_at DESC"
     )
@@ -252,9 +268,9 @@ router.post("/admin/drivers/:id/payments", checkAdminPin, (req, res) => {
 // semana — se calcula en JS a partir de las sesiones crudas en vez de una
 // consulta SQL gigante, porque a esta escala (pocos choferes) es más simple
 // y menos propenso a errores que hacerlo todo en SQLite.
-router.post("/admin/drivers/:id/activity", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  const sessions = db
+router.post("/admin/drivers/:id/activity", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const sessions = await db
     .prepare(
       `SELECT connected_at, disconnected_at FROM driver_activity_log
        WHERE driver_id = ? AND connected_at >= datetime('now', '-7 days')
@@ -289,18 +305,18 @@ router.post("/admin/drivers/:id/activity", checkAdminPin, (req, res) => {
 // SIN tocar su fila (mismo id) — así conserva su historial de viajes, su
 // lugar en el ranking y todo lo demás. Borrarlo y volver a darlo de alta
 // perdería todo eso.
-router.post("/admin/drivers/:id/reset-pin", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  const pin = generateDriverPin();
-  db.prepare("UPDATE drivers SET pin = ? WHERE id = ?").run(pin, req.params.id);
+router.post("/admin/drivers/:id/reset-pin", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const pin = await generateDriverPin();
+  await db.prepare("UPDATE drivers SET pin = ? WHERE id = ?").run(pin, req.params.id);
   res.json({ ok: true, pin });
 });
 
-router.post("/admin/drivers/:id/vouch", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
+router.post("/admin/drivers/:id/vouch", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
   const { vouchedBy } = req.body;
   const vouchedAt = vouchedBy ? new Date().toISOString().slice(0, 10) : null;
-  db.prepare("UPDATE drivers SET vouched_by = ?, vouched_at = ? WHERE id = ?").run(
+  await db.prepare("UPDATE drivers SET vouched_by = ?, vouched_at = ? WHERE id = ?").run(
     vouchedBy || null,
     vouchedAt,
     req.params.id
@@ -308,8 +324,8 @@ router.post("/admin/drivers/:id/vouch", checkAdminPin, (req, res) => {
   res.json({ ok: true });
 });
 
-router.post("/admin/drivers/:id/update", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
+router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
   const { name, phone, vehicle, tipo, vehicleType, grupo } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
@@ -318,7 +334,7 @@ router.post("/admin/drivers/:id/update", checkAdminPin, (req, res) => {
   // ciudad de este admin, y no puede "mudarlo" a otra a la que no tiene acceso.
   const cityId = req.adminCity;
 
-  const existingPhone = db
+  const existingPhone = await db
     .prepare("SELECT id, name FROM drivers WHERE phone = ? AND deleted_at IS NULL AND id != ?")
     .get(phone, req.params.id);
   if (existingPhone) {
@@ -327,7 +343,7 @@ router.post("/admin/drivers/:id/update", checkAdminPin, (req, res) => {
     });
   }
 
-  const existingName = db
+  const existingName = await db
     .prepare("SELECT id FROM drivers WHERE lower(trim(name)) = lower(trim(?)) AND deleted_at IS NULL AND id != ?")
     .get(name, req.params.id);
   if (existingName) {
@@ -336,11 +352,11 @@ router.post("/admin/drivers/:id/update", checkAdminPin, (req, res) => {
     });
   }
 
-  db.prepare(
+  await db.prepare(
     "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, city = ? WHERE id = ?"
   ).run(name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId, req.params.id);
 
-  const driver = db
+  const driver = await db
     .prepare(
       "SELECT id, name, phone, vehicle, pin, status, last_seen, paid_until, tipo, vehicle_type, grupo, city, created_at FROM drivers WHERE id = ?"
     )
@@ -348,9 +364,9 @@ router.post("/admin/drivers/:id/update", checkAdminPin, (req, res) => {
   res.json(driver);
 });
 
-router.post("/admin/drivers/:id/delete", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  const activeRide = db
+router.post("/admin/drivers/:id/delete", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const activeRide = await db
     .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
     .get(req.params.id);
   if (activeRide) {
@@ -358,23 +374,23 @@ router.post("/admin/drivers/:id/delete", checkAdminPin, (req, res) => {
   }
   // Soft delete: conserva la fila (y su nombre en el historial de viajes),
   // solo lo saca de la lista de choferes activos y le cierra el acceso.
-  db.prepare("UPDATE drivers SET deleted_at = datetime('now'), status = 'offline' WHERE id = ?").run(req.params.id);
+  await db.prepare("UPDATE drivers SET deleted_at = datetime('now'), status = 'offline' WHERE id = ?").run(req.params.id);
   // Si era fundador, su lugar pasa al siguiente chofer real.
-  recomputeFounders(db);
+  await recomputeFounders(db);
   res.json({ ok: true });
 });
 
 // Marca/desmarca una cuenta como de prueba: no ocupa lugar de fundador ni
 // entra al ranking de Top chofer.
-router.post("/admin/drivers/:id/test-account", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("drivers", req, res)) return;
-  db.prepare("UPDATE drivers SET es_prueba = ? WHERE id = ?").run(req.body.esPrueba ? 1 : 0, req.params.id);
-  recomputeFounders(db);
+router.post("/admin/drivers/:id/test-account", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  await db.prepare("UPDATE drivers SET es_prueba = ? WHERE id = ?").run(req.body.esPrueba ? 1 : 0, req.params.id);
+  await recomputeFounders(db);
   res.json({ ok: true });
 });
 
-router.post("/admin/chofer-solicitudes/list", checkAdminPin, (req, res) => {
-  const apps = db
+router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) => {
+  const apps = await db
     .prepare(
       "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
@@ -382,16 +398,16 @@ router.post("/admin/chofer-solicitudes/list", checkAdminPin, (req, res) => {
   res.json(apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));
 });
 
-router.post("/admin/chofer-solicitudes/:id/dismiss", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("driver_applications", req, res)) return;
-  db.prepare("UPDATE driver_applications SET status = 'descartada' WHERE id = ?").run(
+router.post("/admin/chofer-solicitudes/:id/dismiss", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("driver_applications", req, res)) return;
+  await db.prepare("UPDATE driver_applications SET status = 'descartada' WHERE id = ?").run(
     req.params.id
   );
   res.json({ ok: true });
 });
 
-router.post("/admin/riders/list", checkAdminPin, (req, res) => {
-  const riders = db
+router.post("/admin/riders/list", checkAdminPin, async (req, res) => {
+  const riders = await db
     .prepare(
       `SELECT r.id, r.name, r.phone, r.created_at, r.last_ride_at, r.no_show_count, r.es_prueba,
               (SELECT COUNT(*) FROM rides WHERE rider_id = r.id AND status = 'completado') AS trips
@@ -405,19 +421,19 @@ router.post("/admin/riders/list", checkAdminPin, (req, res) => {
 
 // Marca/desmarca un pasajero como cuenta de prueba: sus viajes dejan de
 // contar en el resumen del admin (/admin/stats). No borra nada.
-router.post("/admin/riders/:id/test-account", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("riders", req, res)) return;
-  db.prepare("UPDATE riders SET es_prueba = ? WHERE id = ?").run(req.body.esPrueba ? 1 : 0, req.params.id);
+router.post("/admin/riders/:id/test-account", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("riders", req, res)) return;
+  await db.prepare("UPDATE riders SET es_prueba = ? WHERE id = ?").run(req.body.esPrueba ? 1 : 0, req.params.id);
   res.json({ ok: true });
 });
 
 // Único recurso de soporte hoy: si un pasajero pierde su PIN (o cambia de
 // celular sin haberlo apuntado), no hay forma de recuperarlo solo — el admin
 // le genera uno nuevo y se lo pasa por su cuenta (llamada, WhatsApp, etc.).
-router.post("/admin/riders/:id/reset-pin", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("riders", req, res)) return;
-  const pin = generateRiderPin();
-  db.prepare("UPDATE riders SET pin = ? WHERE id = ?").run(pin, req.params.id);
+router.post("/admin/riders/:id/reset-pin", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("riders", req, res)) return;
+  const pin = await generateRiderPin();
+  await db.prepare("UPDATE riders SET pin = ? WHERE id = ?").run(pin, req.params.id);
   res.json({ ok: true, pin });
 });
 
@@ -428,9 +444,9 @@ router.post("/admin/riders/:id/reset-pin", checkAdminPin, (req, res) => {
 // Con viajes completados, no se deja borrar aquí (evita perder ese
 // historial sin querer); si de verdad hay que quitarlo, es un caso especial
 // que se atiende aparte, no desde este botón.
-router.post("/admin/riders/:id/delete", checkAdminPin, (req, res) => {
-  if (!assertOwnCity("riders", req, res)) return;
-  const { trips } = db
+router.post("/admin/riders/:id/delete", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("riders", req, res)) return;
+  const { trips } = await db
     .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_id = ? AND status = 'completado'")
     .get(req.params.id);
   // Escotilla para casos de excepción (una cuenta de prueba propia con viajes
@@ -445,21 +461,24 @@ router.post("/admin/riders/:id/delete", checkAdminPin, (req, res) => {
   // abandonado (no es historial real, no lo protege el conteo de arriba)
   // igual apunta al pasajero y bloquea el DELETE si no se limpia primero.
   // Las ofertas de taxi (ride_offers) también apuntan al viaje: van primero.
-  db.prepare(
-    trips > 0
-      ? "DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ?)"
-      : "DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ? AND status != 'completado')"
-  ).run(req.params.id);
-  db.prepare("DELETE FROM rides WHERE rider_id = ? AND status != 'completado'").run(req.params.id);
-  if (trips > 0) {
-    db.prepare("DELETE FROM rides WHERE rider_id = ? AND status = 'completado'").run(req.params.id);
-  }
-  db.prepare("DELETE FROM riders WHERE id = ?").run(req.params.id);
+  // Todo o nada: si algo falla a medias, el pasajero queda como estaba.
+  await db.tx(async () => {
+    await db.prepare(
+      trips > 0
+        ? "DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ?)"
+        : "DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ? AND status != 'completado')"
+    ).run(req.params.id);
+    await db.prepare("DELETE FROM rides WHERE rider_id = ? AND status != 'completado'").run(req.params.id);
+    if (trips > 0) {
+      await db.prepare("DELETE FROM rides WHERE rider_id = ? AND status = 'completado'").run(req.params.id);
+    }
+    await db.prepare("DELETE FROM riders WHERE id = ?").run(req.params.id);
+  });
   res.json({ ok: true, deletedTrips: trips });
 });
 
-router.post("/admin/rides/list", checkAdminPin, (req, res) => {
-  const rides = db
+router.post("/admin/rides/list", checkAdminPin, async (req, res) => {
+  const rides = await db
     .prepare(
       `SELECT r.id, r.rider_name, r.rider_phone, r.pickup_label, r.dest_label,
               r.passengers, r.children, r.status, r.created_at, r.updated_at, r.driver_disconnected_at, r.rating, r.ride_type,
@@ -475,9 +494,11 @@ router.post("/admin/rides/list", checkAdminPin, (req, res) => {
   res.json(rides);
 });
 
-router.post("/admin/rides/reset", checkAdminPin, (req, res) => {
-  db.prepare("DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE city = ?)").run(req.adminCity);
-  db.prepare("DELETE FROM rides WHERE city = ?").run(req.adminCity);
+router.post("/admin/rides/reset", checkAdminPin, async (req, res) => {
+  await db.tx(async () => {
+    await db.prepare("DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE city = ?)").run(req.adminCity);
+    await db.prepare("DELETE FROM rides WHERE city = ?").run(req.adminCity);
+  });
   res.json({ ok: true });
 });
 
@@ -486,35 +507,35 @@ router.post("/admin/rides/reset", checkAdminPin, (req, res) => {
 const REAL_RIDE = `NOT EXISTS (SELECT 1 FROM drivers td WHERE td.id = r.driver_id AND td.es_prueba = 1)
          AND NOT EXISTS (SELECT 1 FROM riders tr WHERE tr.id = r.rider_id AND tr.es_prueba = 1)`;
 
-router.post("/admin/stats", checkAdminPin, (req, res) => {
+router.post("/admin/stats", checkAdminPin, async (req, res) => {
   const city = req.adminCity;
-  const ridesToday = db
+  const ridesToday = (await db
     .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at, '-6 hours') = date('now', '-6 hours') AND r.city = ? AND ${REAL_RIDE}`)
-    .get(city).n;
-  const ridesWeek = db
+    .get(city)).n;
+  const ridesWeek = (await db
     .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'completado' AND date(r.updated_at, '-6 hours') >= date('now', '-6 hours', '-6 days') AND r.city = ? AND ${REAL_RIDE}`)
-    .get(city).n;
-  const cancelledToday = db
+    .get(city)).n;
+  const cancelledToday = (await db
     .prepare(`SELECT COUNT(*) AS n FROM rides r WHERE r.status = 'cancelado' AND date(r.updated_at, '-6 hours') = date('now', '-6 hours') AND r.city = ? AND ${REAL_RIDE}`)
-    .get(city).n;
-  const driversOnline = db
+    .get(city)).n;
+  const driversOnline = (await db
     .prepare(
       `SELECT COUNT(*) AS n FROM drivers
        WHERE deleted_at IS NULL AND es_prueba = 0 AND city = ?
          AND (status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))`
     )
-    .get(city).n;
-  const topDrivers = db
+    .get(city)).n;
+  const topDrivers = await db
     .prepare(
       `SELECT d.name, COUNT(*) AS rides
        FROM rides r JOIN drivers d ON d.id = r.driver_id
        WHERE r.status = 'completado' AND date(r.updated_at, '-6 hours') >= date('now', '-6 hours', '-6 days') AND r.city = ? AND ${REAL_RIDE}
-       GROUP BY r.driver_id
-       ORDER BY rides DESC
+       GROUP BY d.id
+       ORDER BY rides DESC, d.id
        LIMIT 5`
     )
     .all(city);
-  const ratings = db
+  const ratings = await db
     .prepare(
       `SELECT COUNT(*) AS total, SUM(r.rating) AS good
        FROM rides r
@@ -522,27 +543,27 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
     )
     .get(city);
   const satisfactionPct = ratings.total > 0 ? Math.round((ratings.good / ratings.total) * 100) : null;
-  const collectedWeek = db
+  const collectedWeek = (await db
     .prepare(
       `SELECT COALESCE(SUM(p.amount), 0) AS total FROM driver_payments p
        JOIN drivers d ON d.id = p.driver_id
        WHERE date(p.paid_at) >= date('now', '-6 days') AND d.city = ? AND d.es_prueba = 0`
     )
-    .get(city).total;
-  const collectedMonth = db
+    .get(city)).total;
+  const collectedMonth = (await db
     .prepare(
       `SELECT COALESCE(SUM(p.amount), 0) AS total FROM driver_payments p
        JOIN drivers d ON d.id = p.driver_id
        WHERE date(p.paid_at) >= date('now', '-29 days') AND d.city = ? AND d.es_prueba = 0`
     )
-    .get(city).total;
-  const launchRanking = db
+    .get(city)).total;
+  const launchRanking = await db
     .prepare(
       `SELECT d.id, d.name, COUNT(*) AS rides
        FROM rides r JOIN drivers d ON d.id = r.driver_id
        WHERE r.status = 'completado' AND date(r.updated_at) >= date(?) AND (r.rating IS NULL OR r.rating = 1) AND r.city = ? AND ${REAL_RIDE}
-       GROUP BY r.driver_id
-       ORDER BY rides DESC
+       GROUP BY d.id
+       ORDER BY rides DESC, d.id
        LIMIT 5`
     )
     .all(LAUNCH_DATE, city);
@@ -560,8 +581,8 @@ router.post("/admin/stats", checkAdminPin, (req, res) => {
 // probarlo con certeza desde los datos (una cancelación real de pasajero se
 // ve idéntica), así que esto es una señal para que el admin revise con el
 // líder del gremio, no una acusación automática.
-router.post("/admin/reports/cancelaciones", checkAdminPin, (req, res) => {
-  const porChofer = db
+router.post("/admin/reports/cancelaciones", checkAdminPin, async (req, res) => {
+  const porChofer = (await db
     .prepare(
       `SELECT d.id, d.name, d.grupo,
               COUNT(*) AS total_asignados,
@@ -569,26 +590,26 @@ router.post("/admin/reports/cancelaciones", checkAdminPin, (req, res) => {
        FROM rides r
        JOIN drivers d ON d.id = r.driver_id
        WHERE d.city = ?
-       GROUP BY r.driver_id
-       HAVING total_asignados >= 3 AND cancelados_pasajero > 0
-       ORDER BY (1.0 * cancelados_pasajero / total_asignados) DESC
+       GROUP BY d.id
+       HAVING COUNT(*) >= 3 AND SUM(CASE WHEN r.status = 'cancelado' AND r.cancelled_by = 'rider' THEN 1 ELSE 0 END) > 0
+       ORDER BY (1.0 * SUM(CASE WHEN r.status = 'cancelado' AND r.cancelled_by = 'rider' THEN 1 ELSE 0 END) / COUNT(*)) DESC, d.id
        LIMIT 20`
     )
-    .all(req.adminCity)
+    .all(req.adminCity))
     .map((row) => ({ ...row, pct: Math.round((row.cancelados_pasajero / row.total_asignados) * 100) }));
 
   // La señal más fuerte: el mismo pasajero cancelando repetido justo con el
   // mismo chofer. Una cancelación real y aislada es normal; que se repita con
   // la misma pareja chofer-pasajero casi no pasa por accidente.
-  const paresRepetidos = db
+  const paresRepetidos = await db
     .prepare(
-      `SELECT r.driver_id, d.name AS driver_name, r.rider_phone, r.rider_name,
+      `SELECT r.driver_id, MAX(d.name) AS driver_name, r.rider_phone, MAX(r.rider_name) AS rider_name,
               COUNT(*) AS veces, MAX(r.updated_at) AS ultima_vez
        FROM rides r
        JOIN drivers d ON d.id = r.driver_id
        WHERE r.status = 'cancelado' AND r.cancelled_by = 'rider' AND d.city = ?
        GROUP BY r.driver_id, r.rider_phone
-       HAVING veces >= 2
+       HAVING COUNT(*) >= 2
        ORDER BY veces DESC, ultima_vez DESC
        LIMIT 20`
     )
@@ -599,7 +620,7 @@ router.post("/admin/reports/cancelaciones", checkAdminPin, (req, res) => {
   // admin decida si contacta o restringe, porque un "no llegó" también puede
   // ser el chofer equivocándose de ubicación.
   const NO_SHOW_ALERT_THRESHOLD = 2;
-  const inasistencias = db
+  const inasistencias = await db
     .prepare(
       `SELECT id, name, phone, no_show_count
        FROM riders

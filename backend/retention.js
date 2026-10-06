@@ -20,9 +20,9 @@ const PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // del pueblo hubo viajes. pickup_lat/lng son NOT NULL, por eso se redondean
 // en vez de dejarlos en NULL. share_token se borra para que la liga pública
 // de seguimiento de ese viaje deje de funcionar.
-function purgeOldPersonalData() {
+async function purgeOldPersonalData() {
   try {
-    const rides = db
+    const rides = await db
       .prepare(
         `UPDATE rides
          SET pickup_label = NULL,
@@ -39,7 +39,7 @@ function purgeOldPersonalData() {
       )
       .run(RETENTION_DAYS);
 
-    const activity = db
+    const activity = await db
       .prepare("DELETE FROM driver_activity_log WHERE julianday('now') - julianday(connected_at) > ?")
       .run(RETENTION_DAYS);
 
@@ -47,7 +47,7 @@ function purgeOldPersonalData() {
     // y solo sirve para aclarar un problema recién pasado — se borra mucho
     // antes que el resto. El monto y la fecha de confirmación se quedan
     // (son el registro de lo que recibió el chofer).
-    const receipts = db
+    const receipts = await db
       .prepare(
         "UPDATE rides SET deposit_receipt = NULL WHERE deposit_receipt IS NOT NULL AND julianday('now') - julianday(created_at) > ?"
       )
@@ -55,7 +55,7 @@ function purgeOldPersonalData() {
 
     // Fotos de perfil que ya nadie usa (cambiaron su foto o se borró la
     // cuenta): fuera del disco, y el respaldo las quita también de GitHub.
-    pruneUnusedImages(db);
+    await pruneUnusedImages(db);
 
     if (rides.changes || activity.changes || receipts.changes) {
       console.log(`[retention] ${rides.changes} viajes anonimizados, ${activity.changes} registros de conexión borrados, ${receipts.changes} comprobantes borrados`);

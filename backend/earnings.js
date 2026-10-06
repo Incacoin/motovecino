@@ -59,8 +59,8 @@ function driverEarnings(ride) {
 // Resumen para "Mis ganancias": hoy, semana (lunes a domingo) y mes, más los
 // últimos viajes. Solo cuenta viajes con ganancia guardada — los de antes de
 // esta función no tienen, y mezclarlos daría números incompletos.
-function earningsSummary(db, driverId) {
-  const sums = db
+async function earningsSummary(db, driverId) {
+  const sums = await db
     .prepare(
       `SELECT
          COALESCE(SUM(CASE WHEN ${LOCAL_DONE_DATE} = ${LOCAL_TODAY} THEN driver_earnings END), 0) AS todayTotal,
@@ -73,7 +73,7 @@ function earningsSummary(db, driverId) {
        FROM rides WHERE driver_id = ? AND status = 'completado' AND driver_earnings IS NOT NULL`
     )
     .get(driverId);
-  const recent = db
+  const recent = await db
     .prepare(
       `SELECT completed_at AS completedAt, ride_type AS rideType, driver_earnings AS earnings, dest_label AS destLabel
        FROM rides WHERE driver_id = ? AND status = 'completado' AND driver_earnings IS NOT NULL

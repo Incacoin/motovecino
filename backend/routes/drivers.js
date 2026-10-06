@@ -17,13 +17,13 @@ const router = express.Router();
 
 // Fuente única de las cuotas para los 3 frontends (pasajero, chofer, admin)
 // — evita que se desincronicen del valor real que se cobra.
-router.get("/config", (req, res) => {
+router.get("/config", async (req, res) => {
   res.json({ serviceFee: SERVICE_FEE, monthlyFee: MONTHLY_FEE, taxiCommissionRate: TAXI_COMMISSION_RATE, taxiCommissionCap: TAXI_COMMISSION_CAP, taxiWaitRatePerMin: TAXI_WAIT_RATE_PER_MIN, taxiPickupGraceMin: TAXI_PICKUP_GRACE_MIN, depositSuggestedRate: DEPOSIT_SUGGESTED_RATE });
 });
 
 // Choferes "disponibles" de verdad: con GPS reciente (no fantasmas de una
 // sesión que se quedó abierta) y cerca de quien está mirando el mapa.
-router.get("/drivers/available", (req, res) => {
+router.get("/drivers/available", async (req, res) => {
   const type = req.query.type === "taxi" ? "taxi" : "moto";
   const refLat = Number(req.query.lat);
   const refLng = Number(req.query.lng);
@@ -34,7 +34,7 @@ router.get("/drivers/available", (req, res) => {
   // se usaba en los primeros segundos, antes de que el GPS resolviera.
   const ref = hasRef ? { lat: refLat, lng: refLng } : getCityById(DEFAULT_CITY_ID);
 
-  const drivers = db
+  const drivers = await db
     .prepare(
       `SELECT id, lat, lng, vehicle_type FROM drivers
        WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL
@@ -56,8 +56,8 @@ router.get("/drivers/available", (req, res) => {
 // solo por volumen alguien con mala fama. Requiere mínimo de viajes y de
 // calificaciones recibidas para no premiar una racha de suerte con 1-2 viajes.
 // Las cuentas de prueba (es_prueba, se marcan en el admin) no entran.
-router.get("/drivers/ranking", (req, res) => {
-  const rows = db
+router.get("/drivers/ranking", async (req, res) => {
+  const rows = await db
     .prepare(
       `SELECT d.id, d.name,
               COUNT(r.id) AS trips,
@@ -67,8 +67,12 @@ router.get("/drivers/ranking", (req, res) => {
        JOIN rides r ON r.driver_id = d.id AND r.status = 'completado' AND date(r.updated_at) >= date('now', '-30 days')
        WHERE d.deleted_at IS NULL AND d.es_prueba = 0
        GROUP BY d.id
-       HAVING trips >= 5 AND ratedCount >= 3 AND (thumbsUp * 1.0 / ratedCount) >= 0.8
-       ORDER BY trips DESC, (thumbsUp * 1.0 / ratedCount) DESC
+       HAVING COUNT(r.id) >= 5
+          AND SUM(CASE WHEN r.rating IS NOT NULL THEN 1 ELSE 0 END) >= 3
+          AND SUM(CASE WHEN r.rating = 1 THEN 1 ELSE 0 END) * 1.0 / NULLIF(SUM(CASE WHEN r.rating IS NOT NULL THEN 1 ELSE 0 END), 0) >= 0.8
+       ORDER BY COUNT(r.id) DESC,
+                SUM(CASE WHEN r.rating = 1 THEN 1 ELSE 0 END) * 1.0 / NULLIF(SUM(CASE WHEN r.rating IS NOT NULL THEN 1 ELSE 0 END), 0) DESC,
+                d.id
        LIMIT 3`
     )
     .all();
@@ -84,7 +88,7 @@ router.get("/drivers/ranking", (req, res) => {
   );
 });
 
-router.post("/drivers/login", (req, res) => {
+router.post("/drivers/login", async (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
@@ -97,7 +101,7 @@ router.post("/drivers/login", (req, res) => {
   if (!phone || !pin) {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
-  const driver = db
+  const driver = await db
     .prepare(
       "SELECT id, name, phone, vehicle, vehicle_type, status, cooldown_until, deposit_account FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL"
     )
@@ -109,13 +113,13 @@ router.post("/drivers/login", (req, res) => {
   }
   clearAttempts(req.ip);
 
-  const { count: todayCount } = db
+  const { count: todayCount } = await db
     .prepare(
       `SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado' AND ${LOCAL_DONE_DATE} = ${LOCAL_TODAY}`
     )
     .get(driver.id);
 
-  const { count: lifetimeTrips } = db
+  const { count: lifetimeTrips } = await db
     .prepare(
       "SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado'"
     )
@@ -130,7 +134,7 @@ router.post("/drivers/login", (req, res) => {
 // Pantalla "Mi perfil" del chofer. Se autentica igual que el login: con su
 // propio teléfono + PIN — nunca con un id que mande el cliente, para que
 // nadie pueda pedir el perfil (ni el estado de cuenta) de otro chofer.
-router.post("/drivers/profile", (req, res) => {
+router.post("/drivers/profile", async (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
@@ -138,7 +142,7 @@ router.post("/drivers/profile", (req, res) => {
   if (!phone || !pin) {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
-  const driver = db
+  const driver = await db
     .prepare(
       `SELECT id, name, phone, vehicle, vehicle_type, grupo, photo, tipo, pin, created_at,
               paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, city
@@ -152,7 +156,7 @@ router.post("/drivers/profile", (req, res) => {
   }
   clearAttempts(req.ip);
 
-  const stats = db
+  const stats = await db
     .prepare(
       `SELECT COUNT(*) AS lifetimeTrips,
               SUM(CASE WHEN ${LOCAL_DONE_DATE} >= date('now', '${LOCAL_OFFSET}', 'start of month') THEN 1 ELSE 0 END) AS tripsMonth,
@@ -162,7 +166,7 @@ router.post("/drivers/profile", (req, res) => {
     )
     .get(driver.id);
 
-  const lastPayment = db
+  const lastPayment = await db
     .prepare(
       "SELECT amount, paid_at, credit_applied FROM driver_payments WHERE driver_id = ? ORDER BY paid_at DESC LIMIT 1"
     )
@@ -173,7 +177,7 @@ router.post("/drivers/profile", (req, res) => {
   // cuota por viaje (SERVICE_FEE = 0) esta sección ni existe, y su tabla
   // `rides` puede no tener la columna `fee_settled_at`.
   const pendingFeeRows = SERVICE_FEE
-    ? db
+    ? await db
         .prepare(
           "SELECT ride_type, agreed_price FROM rides WHERE driver_id = ? AND status = 'completado' AND fee_settled_at IS NULL"
         )
@@ -182,12 +186,12 @@ router.post("/drivers/profile", (req, res) => {
   const pendingRides = pendingFeeRows.length;
   const pendingRidesAmount = pendingFeeRows.reduce((sum, r) => sum + rideFee(r), 0);
   // Saldo a favor por invitaciones: se resta de lo que entrega de cuota.
-  try { checkReferralReward(db, driver.id); } catch (e) { console.error("[referral]", e.message); }
-  const credit = creditBalance(db, driver.id);
+  try { await checkReferralReward(db, driver.id); } catch (e) { console.error("[referral]", e.message); }
+  const credit = await creditBalance(db, driver.id);
 
   // Anticipos que el propio chofer confirmó haber recibido en su cuenta —
   // se van sumando para que lleve la cuenta sin anotarlo aparte.
-  const depositTotals = db
+  const depositTotals = await db
     .prepare(
       `SELECT COUNT(*) AS count,
               COALESCE(SUM(deposit_amount), 0) AS total,
@@ -196,7 +200,7 @@ router.post("/drivers/profile", (req, res) => {
        FROM rides WHERE driver_id = ? AND deposit_status = 'confirmado'`
     )
     .get(driver.id);
-  const recentDeposits = db
+  const recentDeposits = await db
     .prepare(
       `SELECT id, deposit_amount AS amount, deposit_confirmed_at AS confirmedAt, rider_name AS riderName, pickup_label AS pickupLabel
        FROM rides WHERE driver_id = ? AND deposit_status = 'confirmado'
@@ -206,17 +210,17 @@ router.post("/drivers/profile", (req, res) => {
 
   // "Invita a otro chofer": su código y cómo le va con sus invitados —
   // "activo" = ya completó al menos un viaje de la app.
-  const inviteCode = ensureInviteCode(db, driver.id);
-  const invited = db
+  const inviteCode = await ensureInviteCode(db, driver.id);
+  const invited = await db
     .prepare(
       `SELECT COUNT(*) AS registered,
               SUM(CASE WHEN EXISTS (SELECT 1 FROM rides r WHERE r.driver_id = d.id AND r.status = 'completado') THEN 1 ELSE 0 END) AS active
        FROM drivers d WHERE d.referred_by_driver_id = ? AND d.deleted_at IS NULL`
     )
     .get(driver.id);
-  const invitedPending = db
+  const invitedPending = (await db
     .prepare("SELECT COUNT(*) AS n FROM driver_applications WHERE referred_by_driver_id = ? AND status = 'pendiente'")
-    .get(driver.id).n;
+    .get(driver.id)).n;
 
   res.json({
     id: driver.id,
@@ -247,22 +251,22 @@ router.post("/drivers/profile", (req, res) => {
       ? { bank: driver.deposit_bank, account: driver.deposit_account, holder: driver.deposit_holder }
       : null,
     deposits: { ...depositTotals, recent: recentDeposits },
-    earnings: earningsSummary(db, driver.id),
+    earnings: await earningsSummary(db, driver.id),
     invite: {
       code: inviteCode,
       cityLabel: getCityById(driver.city)?.label || null,
       registered: invited.registered || 0,
       active: invited.active || 0,
       pending: invitedPending || 0,
-      ...referralStatus(db, driver, shortName),
+      ...(await referralStatus(db, driver, shortName)),
     },
   });
 });
 
 // Público (lo abre quien recibió el link de invitación): solo devuelve el
 // nombre corto de quien invita, para enseñar "Te invitó Carlos M.".
-router.get("/drivers/invite/:code", (req, res) => {
-  const inviter = findInviter(db, req.params.code);
+router.get("/drivers/invite/:code", async (req, res) => {
+  const inviter = await findInviter(db, req.params.code);
   if (!inviter) return res.status(404).json({ error: "Invitación no encontrada" });
   res.json({ name: shortName(inviter.name) });
 });
@@ -270,7 +274,7 @@ router.get("/drivers/invite/:code", (req, res) => {
 // Cuenta para recibir anticipos (CLABE o tarjeta). La captura el propio
 // chofer — a diferencia de nombre/placa, esto no lo avala nadie: es SU
 // dinero y SU cuenta. Mandar account vacío la borra (deja de pedir anticipos).
-router.post("/drivers/bank-account", (req, res) => {
+router.post("/drivers/bank-account", async (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
@@ -278,7 +282,7 @@ router.post("/drivers/bank-account", (req, res) => {
   if (!phone || !pin) {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
-  const driver = db
+  const driver = await db
     .prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
     .get(phone, pin);
   if (!driver) {
@@ -288,7 +292,7 @@ router.post("/drivers/bank-account", (req, res) => {
   clearAttempts(req.ip);
 
   if (!String(account ?? "").trim()) {
-    db.prepare("UPDATE drivers SET deposit_bank = NULL, deposit_account = NULL, deposit_holder = NULL WHERE id = ?").run(driver.id);
+    await db.prepare("UPDATE drivers SET deposit_bank = NULL, deposit_account = NULL, deposit_holder = NULL WHERE id = ?").run(driver.id);
     return res.json({ ok: true, bankAccount: null });
   }
 
@@ -299,7 +303,7 @@ router.post("/drivers/bank-account", (req, res) => {
   if (!cleanBank) return res.status(400).json({ error: "Escribe el nombre de tu banco" });
   if (!cleanHolder) return res.status(400).json({ error: "Escribe el nombre del titular de la cuenta" });
 
-  db.prepare("UPDATE drivers SET deposit_bank = ?, deposit_account = ?, deposit_holder = ? WHERE id = ?").run(
+  await db.prepare("UPDATE drivers SET deposit_bank = ?, deposit_account = ?, deposit_holder = ? WHERE id = ?").run(
     cleanBank, normalized.account, cleanHolder, driver.id
   );
   res.json({ ok: true, bankAccount: { bank: cleanBank, account: normalized.account, holder: cleanHolder } });
@@ -308,7 +312,7 @@ router.post("/drivers/bank-account", (req, res) => {
 // La foto es lo único que el chofer puede cambiar de su propio perfil.
 // Nombre, placa, agrupación y tipo de vehículo los avaló su líder y solo se
 // tocan desde el admin — si el chofer pudiera cambiarlos, el aval no valdría.
-router.post("/drivers/photo", (req, res) => {
+router.post("/drivers/photo", async (req, res) => {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
@@ -316,7 +320,7 @@ router.post("/drivers/photo", (req, res) => {
   if (!phone || !pin) {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
-  const driver = db
+  const driver = await db
     .prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
     .get(phone, pin);
 
@@ -334,11 +338,11 @@ router.post("/drivers/photo", (req, res) => {
 
   // Si el cliente (una versión vieja en caché) no manda miniatura, se limpia la
   // anterior: si no, quedaría la miniatura de la foto vieja junto a la nueva.
-  db.prepare("UPDATE drivers SET photo = ?, photo_thumb = ? WHERE id = ?").run(toStored(photo), toStored(cleanThumb(thumb)), driver.id);
+  await db.prepare("UPDATE drivers SET photo = ?, photo_thumb = ? WHERE id = ?").run(toStored(photo), toStored(cleanThumb(thumb)), driver.id);
   res.json({ ok: true });
 });
 
-router.post("/chofer-solicitudes", (req, res) => {
+router.post("/chofer-solicitudes", async (req, res) => {
   if (isSubmissionRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
@@ -406,10 +410,10 @@ router.post("/chofer-solicitudes", (req, res) => {
 
   // Vino con el link de invitación de un chofer: se guarda quién fue. Nadie
   // puede invitarse a sí mismo (mismo teléfono).
-  const inviter = findInviter(db, inviteCode);
+  const inviter = await findInviter(db, inviteCode);
   const inviterId = inviter && inviter.phone !== phone ? inviter.id : null;
 
-  db.prepare(
+  await db.prepare(
     "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, toStored(signature), cityId,
@@ -424,19 +428,19 @@ router.post("/chofer-solicitudes", (req, res) => {
 // ---- Avisos push de viajes nuevos (ver push.js) ----
 const push = require("../push");
 
-router.get("/push/public-key", (req, res) => {
-  res.json({ publicKey: push.getKeys().public_key });
+router.get("/push/public-key", async (req, res) => {
+  res.json({ publicKey: (await push.getKeys()).public_key });
 });
 
 // Igual que "Mi perfil": se autentica con su teléfono + PIN, nunca con un id.
-function driverFromPhonePin(req, res) {
+async function driverFromPhonePin(req, res) {
   if (isRateLimited(req.ip)) {
     res.status(429).json({ error: RATE_LIMIT_MESSAGE });
     return null;
   }
   const { phone, pin } = req.body;
   const driver = phone && pin
-    ? db.prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL").get(phone, pin)
+    ? await db.prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL").get(phone, pin)
     : null;
   if (!driver) {
     recordFailedAttempt(req.ip);
@@ -447,19 +451,19 @@ function driverFromPhonePin(req, res) {
   return driver;
 }
 
-router.post("/drivers/push/subscribe", (req, res) => {
-  const driver = driverFromPhonePin(req, res);
+router.post("/drivers/push/subscribe", async (req, res) => {
+  const driver = await driverFromPhonePin(req, res);
   if (!driver) return;
   const endpoint = req.body.endpoint;
   if (!push.isValidEndpoint(endpoint)) return res.status(400).json({ error: "Suscripción no válida" });
-  push.saveSubscription(driver.id, endpoint);
+  await push.saveSubscription(driver.id, endpoint);
   res.json({ ok: true });
 });
 
-router.post("/drivers/push/unsubscribe", (req, res) => {
-  const driver = driverFromPhonePin(req, res);
+router.post("/drivers/push/unsubscribe", async (req, res) => {
+  const driver = await driverFromPhonePin(req, res);
   if (!driver) return;
-  if (typeof req.body.endpoint === "string") push.removeSubscription(driver.id, req.body.endpoint);
+  if (typeof req.body.endpoint === "string") await push.removeSubscription(driver.id, req.body.endpoint);
   res.json({ ok: true });
 });
 

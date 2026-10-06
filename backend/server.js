@@ -2,6 +2,7 @@ const path = require("node:path");
 const http = require("node:http");
 const fs = require("node:fs");
 const express = require("express");
+require("./asyncRoutes");
 
 if (fs.existsSync(path.join(__dirname, ".env"))) {
   process.loadEnvFile(path.join(__dirname, ".env"));
@@ -114,9 +115,9 @@ app.get(["/quiero-ser-chofer", "/quiero-ser-chofer/"], (req, res) => {
 
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 
-app.get("/api/health", (req, res) => {
+app.get("/api/health", async (req, res) => {
   try {
-    db.prepare("SELECT 1").get();
+    await db.prepare("SELECT 1").get();
     res.json({ status: "ok" });
   } catch (err) {
     res.status(500).json({ status: "error" });
@@ -140,7 +141,7 @@ app.get("/api/cities", (req, res) => {
 // A qué ciudad de la red pertenece esta coordenada (o null si está fuera de
 // todas). El frontend lo usa para mostrar "Estás en Ticul" en vez de tener
 // el nombre de una sola ciudad escrito a mano en toda la app.
-app.get("/api/cities/resolve", (req, res) => {
+app.get("/api/cities/resolve", async (req, res) => {
   const lat = parseFloat(req.query.lat);
   const lng = parseFloat(req.query.lng);
   const city = resolveCity(lat, lng);
@@ -160,7 +161,7 @@ app.get("/api/cities/resolve", (req, res) => {
     : isWithinServiceRadius(zoneCityId, lat, lng, "taxi") ? "taxi" : "out";
   const zoneLabel = getCityById(zoneCityId)?.label || null;
   // Si en este pueblo ya está prendido "Pedir para otra persona" (ver familyRides.js).
-  const familyOn = familyRides.isFamilyEnabled(zoneCityId);
+  const familyOn = await familyRides.isFamilyEnabled(zoneCityId);
   res.json(city
     ? { city: city.id, label: city.label, inService, zone, zoneLabel, familyRides: familyOn }
     : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn });
@@ -177,7 +178,7 @@ app.use("/api", familyRides.router);
 app.use("/api", photoRoutes);
 
 // Última red de seguridad: si algo revienta sin que la ruta lo haya
-// atrapado (un tipo de dato inesperado, un error de SQLite, etc.), esto
+// atrapado (un tipo de dato inesperado, un error de la base, etc.), esto
 // evita que Express regrese su página de error por defecto — que en modo
 // desarrollo manda la ruta completa del archivo y el stack trace. Hoy
 // Render pone NODE_ENV=production y por eso ya sale genérico, pero eso es
@@ -188,22 +189,38 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Algo salió mal, intenta de nuevo" });
 });
 
-// Antes del primer respaldo: pasa a data/img/ las fotos que sigan dentro de
-// la base (solo hace algo la primera vez). Si falla, la app sigue igual: las
-// fotos viejas en la base se siguen sirviendo.
-try {
-  migrateImagesToFiles(db);
-} catch (err) {
-  console.error("[img] error al pasar fotos a archivos:", err);
+// Un error en algo que corre "por su cuenta" (un aviso, un barrido) se anota
+// en el registro en vez de tumbar el servidor completo.
+process.on("unhandledRejection", (err) => {
+  console.error("[sin atrapar]", err);
+});
+
+async function start() {
+  // Primero la base: tablas al día y arreglos de datos. Si Postgres no
+  // contesta, mejor no abrir la app a medias (Render reintenta el arranque).
+  await db.init();
+
+  // Pasa a data/img/ las fotos que sigan dentro de la base (ya no debería
+  // quedar ninguna). Si falla, la app sigue igual.
+  try {
+    await migrateImagesToFiles(db);
+  } catch (err) {
+    console.error("[img] error al pasar fotos a archivos:", err);
+  }
+
+  startBackupSchedule(6);
+  startRetentionSchedule();
+
+  const server = http.createServer(app);
+  realtime.attach(server);
+
+  const PORT = process.env.PORT || 3003;
+  server.listen(PORT, () => {
+    console.log(`MotoVecino backend escuchando en http://localhost:${PORT}`);
+  });
 }
 
-startBackupSchedule(6);
-startRetentionSchedule();
-
-const server = http.createServer(app);
-realtime.attach(server);
-
-const PORT = process.env.PORT || 3003;
-server.listen(PORT, () => {
-  console.log(`MotoVecino backend escuchando en http://localhost:${PORT}`);
+start().catch((err) => {
+  console.error("[arranque] no se pudo iniciar:", err);
+  process.exit(1);
 });

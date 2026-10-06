@@ -90,13 +90,13 @@ function inflateRow(row, cols) {
 }
 
 // Una sola vez por foto: pasa los data URL que sigan en la base a archivos.
-// Corre al arrancar; si ya no queda ninguno no hace nada. Al final compacta la
-// base (VACUUM) para que el archivo de verdad se haga chico.
-function migrateImagesToFiles(db) {
+// Corre al arrancar; si ya no queda ninguno no hace nada (desde el cambio a
+// Postgres ya no debería quedar ninguno: es solo por si acaso).
+async function migrateImagesToFiles(db) {
   let moved = 0;
   for (const [table, cols] of Object.entries(IMAGE_COLUMNS)) {
     for (const col of cols) {
-      const rows = db.prepare(`SELECT id, ${col} AS v FROM ${table} WHERE ${col} LIKE 'data:%'`).all();
+      const rows = await db.prepare(`SELECT id, ${col} AS v FROM ${table} WHERE ${col} LIKE 'data:%'`).all();
       const update = db.prepare(`UPDATE ${table} SET ${col} = ? WHERE id = ? AND ${col} = ?`);
       for (const row of rows) {
         const ref = toStored(row.v);
@@ -107,33 +107,39 @@ function migrateImagesToFiles(db) {
           console.error(`[img] no se pudo verificar ${table}.${col} id=${row.id}; se deja en la base`);
           continue;
         }
-        moved += update.run(ref, row.id, row.v).changes;
+        moved += (await update.run(ref, row.id, row.v)).changes;
       }
     }
   }
-  if (moved) {
-    console.log(`[img] ${moved} foto(s) pasadas de la base a data/img/`);
-    db.exec("VACUUM");
-  }
+  if (moved) console.log(`[img] ${moved} foto(s) pasadas de la base a data/img/`);
   return moved;
 }
 
 // Borra archivos de data/img/ que ya ninguna fila usa (alguien cambió su foto
 // o se borró un pasajero). Solo los de más de 1 hora, para no pisar una foto
 // que se acaba de guardar y cuya fila todavía no se escribe.
-function pruneUnusedImages(db) {
+async function pruneUnusedImages(db) {
   if (!fs.existsSync(IMG_DIR)) return 0;
   const used = new Set();
   for (const [table, cols] of Object.entries(IMAGE_COLUMNS)) {
     for (const col of cols) {
-      for (const { v } of db.prepare(`SELECT ${col} AS v FROM ${table} WHERE ${col} LIKE 'img:%'`).all()) {
+      for (const { v } of await db.prepare(`SELECT ${col} AS v FROM ${table} WHERE ${col} LIKE 'img:%'`).all()) {
         used.add(v.slice(4));
       }
     }
   }
+  // Candado: si la base no trae NINGUNA foto pero el disco sí tiene, lo más
+  // seguro es que la base esté vacía o sea otra (ej. recién creada antes de
+  // copiar los datos) — no se borra nada. El respaldo de GitHub copia el
+  // disco, así que borrar aquí también las borraría de allá.
+  const files = fs.readdirSync(IMG_DIR);
+  if (used.size === 0 && files.length > 0) {
+    console.warn(`[img] la base no tiene fotos pero el disco tiene ${files.length}: no se borra nada`);
+    return 0;
+  }
   const cutoff = Date.now() - 60 * 60 * 1000;
   let removed = 0;
-  for (const name of fs.readdirSync(IMG_DIR)) {
+  for (const name of files) {
     const full = path.join(IMG_DIR, name);
     if (used.has(name) || fs.statSync(full).mtimeMs > cutoff) continue;
     fs.unlinkSync(full);

@@ -16,44 +16,32 @@ const WANTS_RIDES_HOURS = 14;
 const PUSH_RADIUS_KM = { moto: 8, taxi: 60 };
 const CONTACT = "https://motovecinoapp.com";
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS push_keys (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    public_key TEXT NOT NULL,
-    private_pem TEXT NOT NULL
-  );
-  CREATE TABLE IF NOT EXISTS driver_push_subs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    driver_id INTEGER NOT NULL REFERENCES drivers(id),
-    endpoint TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    last_ok_at TEXT
-  );
-`);
-for (const [col, type] of [["wants_rides", "INTEGER NOT NULL DEFAULT 0"], ["wants_rides_at", "TEXT"]]) {
-  try { db.exec(`ALTER TABLE drivers ADD COLUMN ${col} ${type}`); } catch { /* ya existe */ }
-}
+// Tablas push_keys, driver_push_subs, rider_push_subs y columnas
+// drivers.wants_rides(_at): ver schema.sql.
 
 const b64url = (buf) => Buffer.from(buf).toString("base64url");
 
-// Las llaves se crean una sola vez y se guardan en la base (vive en el disco
-// persistente y entra en los respaldos): si cambiaran, todos los choferes
-// tendrían que volver a activar sus avisos.
-function getKeys() {
-  let row = db.prepare("SELECT public_key, private_pem FROM push_keys WHERE id = 1").get();
+// Las llaves se crean una sola vez y se guardan en la base (entra en los
+// respaldos): si cambiaran, todos los choferes tendrían que volver a activar
+// sus avisos. Ya leídas, se quedan en memoria (nunca cambian).
+let keysCache = null;
+async function getKeys() {
+  if (keysCache) return keysCache;
+  let row = await db.prepare("SELECT public_key, private_pem FROM push_keys WHERE id = 1").get();
   if (!row) {
     const { publicKey, privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
     const jwk = publicKey.export({ format: "jwk" });
     const raw = Buffer.concat([Buffer.from([4]), Buffer.from(jwk.x, "base64url"), Buffer.from(jwk.y, "base64url")]);
     row = { public_key: b64url(raw), private_pem: privateKey.export({ format: "pem", type: "pkcs8" }) };
-    db.prepare("INSERT OR IGNORE INTO push_keys (id, public_key, private_pem) VALUES (1, ?, ?)").run(row.public_key, row.private_pem);
-    row = db.prepare("SELECT public_key, private_pem FROM push_keys WHERE id = 1").get();
+    await db.prepare("INSERT OR IGNORE INTO push_keys (id, public_key, private_pem) VALUES (1, ?, ?)").run(row.public_key, row.private_pem);
+    row = await db.prepare("SELECT public_key, private_pem FROM push_keys WHERE id = 1").get();
   }
+  keysCache = row;
   return row;
 }
 
-function vapidHeader(endpoint) {
-  const { public_key, private_pem } = getKeys();
+async function vapidHeader(endpoint) {
+  const { public_key, private_pem } = await getKeys();
   const header = b64url(JSON.stringify({ typ: "JWT", alg: "ES256" }));
   const payload = b64url(JSON.stringify({ aud: new URL(endpoint).origin, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: CONTACT }));
   const sig = crypto.sign("sha256", Buffer.from(`${header}.${payload}`), { key: private_pem, dsaEncoding: "ieee-p1363" });
@@ -75,12 +63,12 @@ async function sendOne(sub) {
   try {
     const res = await fetch(sub.endpoint, {
       method: "POST",
-      headers: { Authorization: vapidHeader(sub.endpoint), TTL: "120", Urgency: "high", "Content-Length": "0" },
+      headers: { Authorization: await vapidHeader(sub.endpoint), TTL: "120", Urgency: "high", "Content-Length": "0" },
     });
     if (res.status === 404 || res.status === 410) {
-      db.prepare("DELETE FROM driver_push_subs WHERE id = ?").run(sub.id); // el chofer quitó el permiso o desinstaló
+      await db.prepare("DELETE FROM driver_push_subs WHERE id = ?").run(sub.id); // el chofer quitó el permiso o desinstaló
     } else if (res.ok) {
-      db.prepare("UPDATE driver_push_subs SET last_ok_at = datetime('now') WHERE id = ?").run(sub.id);
+      await db.prepare("UPDATE driver_push_subs SET last_ok_at = datetime('now') WHERE id = ?").run(sub.id);
     } else {
       console.warn("[push] respuesta", res.status, "chofer", sub.driver_id);
     }
@@ -98,9 +86,9 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // Se llama al crear un viaje (realtime.broadcastNewRide). A los choferes con
 // la app abierta y visible no les sale doble: el service worker no muestra el
 // aviso si la app del chofer está en pantalla.
-function notifyNewRide(ride) {
+async function notifyNewRide(ride) {
   const type = ride.ride_type === "taxi" ? "taxi" : "moto";
-  const drivers = db
+  const drivers = await db
     .prepare(
       `SELECT d.id, d.lat, d.lng FROM drivers d
        WHERE d.wants_rides = 1 AND d.wants_rides_at >= datetime('now', ?)
@@ -113,23 +101,23 @@ function notifyNewRide(ride) {
   const subsFor = db.prepare("SELECT id, driver_id, endpoint FROM driver_push_subs WHERE driver_id = ?");
   for (const d of drivers) {
     if (d.lat != null && d.lng != null && haversineKm(ride.pickup_lat, ride.pickup_lng, d.lat, d.lng) > PUSH_RADIUS_KM[type]) continue;
-    for (const sub of subsFor.all(d.id)) sendOne(sub);
+    for (const sub of await subsFor.all(d.id)) sendOne(sub);
   }
 }
 
 // El chofer se puso "Disponible" (quiere trabajar) o "Desconectado" a propósito.
-function setWantsRides(driverId, wants) {
-  db.prepare("UPDATE drivers SET wants_rides = ?, wants_rides_at = datetime('now') WHERE id = ?").run(wants ? 1 : 0, driverId);
+async function setWantsRides(driverId, wants) {
+  await db.prepare("UPDATE drivers SET wants_rides = ?, wants_rides_at = datetime('now') WHERE id = ?").run(wants ? 1 : 0, driverId);
 }
 
-function saveSubscription(driverId, endpoint) {
-  db.prepare(
+async function saveSubscription(driverId, endpoint) {
+  await db.prepare(
     `INSERT INTO driver_push_subs (driver_id, endpoint) VALUES (?, ?)
      ON CONFLICT(endpoint) DO UPDATE SET driver_id = excluded.driver_id`
   ).run(driverId, endpoint);
 }
-function removeSubscription(driverId, endpoint) {
-  db.prepare("DELETE FROM driver_push_subs WHERE driver_id = ? AND endpoint = ?").run(driverId, endpoint);
+async function removeSubscription(driverId, endpoint) {
+  await db.prepare("DELETE FROM driver_push_subs WHERE driver_id = ? AND endpoint = ?").run(driverId, endpoint);
 }
 
 // ---- Avisos al pasajero ("✅ Pedro aceptó tu viaje", "📍 Ya llegó por ti") ----
@@ -139,17 +127,6 @@ function removeSubscription(driverId, endpoint) {
 // suscripción se guarda por VIAJE y se da de alta con el token del viaje, así
 // sirve igual para quien pide para sí mismo y, más adelante, para la familia
 // que pide por otra persona. Al terminar el viaje se borra.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS rider_push_subs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ride_id INTEGER NOT NULL REFERENCES rides(id),
-    endpoint TEXT NOT NULL,
-    p256dh TEXT NOT NULL,
-    auth TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE (ride_id, endpoint)
-  );
-`);
 
 function hkdfExpand(prk, info, length) {
   return crypto.createHmac("sha256", prk).update(Buffer.concat([info, Buffer.from([1])])).digest().subarray(0, length);
@@ -188,7 +165,7 @@ async function sendToRider(sub, message) {
     const res = await fetch(sub.endpoint, {
       method: "POST",
       headers: {
-        Authorization: vapidHeader(sub.endpoint),
+        Authorization: await vapidHeader(sub.endpoint),
         TTL: "600",
         Urgency: "high",
         "Content-Encoding": "aes128gcm",
@@ -197,7 +174,7 @@ async function sendToRider(sub, message) {
       body: encryptPayload(sub.p256dh, sub.auth, JSON.stringify({ kind: "rider", ...message })),
     });
     if (res.status === 404 || res.status === 410) {
-      db.prepare("DELETE FROM rider_push_subs WHERE id = ?").run(sub.id);
+      await db.prepare("DELETE FROM rider_push_subs WHERE id = ?").run(sub.id);
     } else if (!res.ok) {
       console.warn("[push] respuesta", res.status, "viaje", sub.ride_id);
     }
@@ -210,12 +187,15 @@ const firstName = (name) => String(name || "").trim().split(/\s+/)[0] || "Tu cho
 
 // Qué aviso le toca al pasajero por cada evento del viaje (los mismos que ya
 // recibe su app abierta por WebSocket). null = ese evento no avisa.
-function riderMessage(ride, type, payload) {
+async function riderMessage(ride, type, payload) {
   const tag = `viaje-${ride.id}`;
-  const driverName = () => {
-    const d = ride.driver_id && db.prepare("SELECT name FROM drivers WHERE id = ?").get(ride.driver_id);
-    return firstName(d && d.name);
-  };
+  // El nombre del chofer se busca solo si el aviso lo usa.
+  let driverFirstName = null;
+  if (ride.driver_id && ["status_change", "chat"].includes(type)) {
+    const d = await db.prepare("SELECT name FROM drivers WHERE id = ?").get(ride.driver_id);
+    driverFirstName = d && d.name;
+  }
+  const driverName = () => firstName(driverFirstName);
   // Viaje pedido para otra persona (ver familyRides.js): el aviso habla de ella.
   const para = ride.for_name;
   if (type === "ride_accepted") {
@@ -269,22 +249,24 @@ const RIDE_OVER = new Set(["completado", "cancelado"]);
 // Se llama desde realtime.notifyRide con cada evento del viaje. La ubicación
 // del chofer (cada pocos segundos) se descarta aquí mismo, sin tocar la base.
 // onScreen = celulares que tienen la app del pasajero en pantalla ahorita.
-function notifyRider(rideId, type, payload, onScreen) {
+async function notifyRider(rideId, type, payload, onScreen) {
   if (!RIDER_PUSH_TYPES.has(type)) return;
-  const subs = db.prepare("SELECT id, ride_id, endpoint, p256dh, auth FROM rider_push_subs WHERE ride_id = ?").all(rideId);
+  const subs = await db.prepare("SELECT id, ride_id, endpoint, p256dh, auth FROM rider_push_subs WHERE ride_id = ?").all(rideId);
   if (!subs.length) return;
-  const ride = db.prepare("SELECT id, ride_type, status, driver_id, cancelled_by, for_name FROM rides WHERE id = ?").get(rideId);
+  const ride = await db.prepare("SELECT id, ride_type, status, driver_id, cancelled_by, for_name FROM rides WHERE id = ?").get(rideId);
   if (!ride) return;
-  const message = riderMessage(ride, type, payload || {});
+  const message = await riderMessage(ride, type, payload || {});
   const sends = message ? subs.filter((s) => !(onScreen && onScreen.has(s.endpoint))).map((s) => sendToRider(s, message)) : [];
   // El viaje terminó: ya no hay nada más que avisar.
   if (RIDE_OVER.has(ride.status) && (type === "status_change" || type === "no_drivers_available")) {
-    Promise.allSettled(sends).then(() => db.prepare("DELETE FROM rider_push_subs WHERE ride_id = ?").run(rideId));
+    Promise.allSettled(sends)
+      .then(() => db.prepare("DELETE FROM rider_push_subs WHERE ride_id = ?").run(rideId))
+      .catch((e) => console.warn("[push] no se pudieron borrar las suscripciones del viaje:", e.message));
   }
 }
 
-function saveRiderSubscription(rideId, endpoint, p256dh, auth) {
-  db.prepare(
+async function saveRiderSubscription(rideId, endpoint, p256dh, auth) {
+  await db.prepare(
     `INSERT INTO rider_push_subs (ride_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
      ON CONFLICT(ride_id, endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth`
   ).run(rideId, endpoint, p256dh, auth);
