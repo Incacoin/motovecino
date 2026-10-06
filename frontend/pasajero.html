@@ -1402,12 +1402,17 @@ function retryLocation() {
   );
 }
 
+// Dónde estaba el celular al abrir la app: el registro lo manda para que la
+// cuenta nueva quede en el cajón de su municipio (Oxkutzcab, Akil...).
+let deviceCoords = null;
+
 function initCityBrand(attempt) {
   attempt = attempt || 0;
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       hideLocationBanner();
+      deviceCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       fetch(API + `/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
         .then((data) => {
@@ -2288,7 +2293,7 @@ async function goToMap() {
     const res = await fetch(API + "/api/riders/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone, code }),
+      body: JSON.stringify({ name, phone, code, lat: deviceCoords?.lat, lng: deviceCoords?.lng }),
     });
     if (res.status === 409) return showPinLogin(phone);
     if (!res.ok) {

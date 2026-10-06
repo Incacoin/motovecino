@@ -5,6 +5,7 @@ const { photoUrls, cleanThumb } = require("../photos");
 const { toStored } = require("../imageStore");
 const { otpEnabled, sendOtp, verifyOtp, sendWelcome } = require("../whatsappOtp");
 const { parseRiderPhone } = require("../phone");
+const { rideCityAt } = require("../cities");
 
 const router = express.Router();
 
@@ -83,18 +84,26 @@ router.post("/riders/register", async (req, res) => {
   }
 
   const pin = await generateRiderPin();
+  // Cajón de la cuenta nueva: el municipio donde está el celular al
+  // registrarse (sin GPS, Tekax como siempre). Al pedir su primer viaje se
+  // vuelve a acomodar según la recogida (ver rides.js).
+  const lat = Number(req.body.lat);
+  const lng = Number(req.body.lng);
+  const city = Number.isFinite(lat) && Number.isFinite(lng) && req.body.lat != null && req.body.lng != null
+    ? rideCityAt(lat, lng)
+    : "tekax";
 
   if (existing) {
     // Rider de antes de que existiera el PIN (dato viejo) — se lo asignamos
     // ahora, de una vez, en vez de dejarlo sin dueño para siempre.
-    await db.prepare("UPDATE riders SET name = ?, pin = ? WHERE id = ?").run(name, pin, existing.id);
+    await db.prepare("UPDATE riders SET name = ?, pin = ?, city = ? WHERE id = ?").run(name, pin, city, existing.id);
     sendWelcome(parsed.e164, name);
     return res.status(200).json({ id: existing.id, name, phone, pin, isNewPin: true });
   }
 
   const result = await db
-    .prepare("INSERT INTO riders (phone, name, pin, created_at) VALUES (?, ?, ?, datetime('now'))")
-    .run(phone, name, pin);
+    .prepare("INSERT INTO riders (phone, name, pin, city, created_at) VALUES (?, ?, ?, ?, datetime('now'))")
+    .run(phone, name, pin, city);
   // Sin await: el WhatsApp de bienvenida no hace esperar a la persona.
   sendWelcome(parsed.e164, name);
   res.status(201).json({ id: result.lastInsertRowid, name, phone, pin, isNewPin: true });
