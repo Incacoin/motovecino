@@ -25,12 +25,12 @@ const CITIES = [
   // pide taxi. Quitar motoSoon cuando haya mototaxis registrados en el lugar.
   { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, signupClosed: true, motoSoon: true },
   { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, signupClosed: true, motoSoon: true },
-  // Akil (6-oct-2026): municipio con cajón propio (sus choferes, su
-  // selector en el admin). Registro de choferes abierto; el mototaxi sigue
-  // "Muy pronto" hasta que haya mototaxistas de Akil registrados.
+  // Akil (6-oct-2026): municipio con cajón propio (su selector en el
+  // admin). Registro de choferes cerrado por ahora (signupClosed) y el
+  // mototaxi "Muy pronto", igual que Oxkutzcab y Ticul.
   // labelRadiusKm = serviceRadiusKm a propósito: fuera de los 4km el punto
   // vuelve a ser de Tekax y sigue teniendo taxi foráneo (radio de 50km).
-  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, motoSoon: true },
+  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, signupClosed: true, motoSoon: true },
   // TEMPORAL (3-oct-2026): Mérida solo como zona de prueba para enseñar la
   // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
   // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
