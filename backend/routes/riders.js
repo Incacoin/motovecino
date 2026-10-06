@@ -3,7 +3,7 @@ const db = require("../db");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const { photoUrls, cleanThumb } = require("../photos");
 const { toStored } = require("../imageStore");
-const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
+const { otpEnabled, sendOtp, verifyOtp, sendWelcome } = require("../whatsappOtp");
 const { parseRiderPhone } = require("../phone");
 
 const router = express.Router();
@@ -88,12 +88,15 @@ router.post("/riders/register", async (req, res) => {
     // Rider de antes de que existiera el PIN (dato viejo) — se lo asignamos
     // ahora, de una vez, en vez de dejarlo sin dueño para siempre.
     await db.prepare("UPDATE riders SET name = ?, pin = ? WHERE id = ?").run(name, pin, existing.id);
+    sendWelcome(parsed.e164, name);
     return res.status(200).json({ id: existing.id, name, phone, pin, isNewPin: true });
   }
 
   const result = await db
     .prepare("INSERT INTO riders (phone, name, pin, created_at) VALUES (?, ?, ?, datetime('now'))")
     .run(phone, name, pin);
+  // Sin await: el WhatsApp de bienvenida no hace esperar a la persona.
+  sendWelcome(parsed.e164, name);
   res.status(201).json({ id: result.lastInsertRowid, name, phone, pin, isNewPin: true });
 });
 

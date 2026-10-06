@@ -198,4 +198,37 @@ async function verifyOtp(phone, code, e164) {
   return { ok: true };
 }
 
-module.exports = { otpEnabled, otpMode, otpChannel, sendOtp, verifyOtp };
+// Bienvenida por WhatsApp al terminar el registro (plantilla de utilidad
+// aprobada, TWILIO_WELCOME_CONTENT_SID = HX...). Solo en modo "twilio": ahí la
+// persona acaba de recibir su código por WhatsApp, así que sí tiene WhatsApp.
+// Sin la variable no se manda nada. Nunca frena el registro: si falla, solo
+// queda en el log.
+function welcomeName(name) {
+  // Meta no acepta saltos de línea ni muchos espacios en una variable.
+  const first = String(name || "").replace(/[\s\u0000-\u001f]+/g, " ").trim().split(" ")[0] || "";
+  return first.slice(0, 30) || "vecino";
+}
+
+async function sendWelcome(e164, name) {
+  const contentSid = process.env.TWILIO_WELCOME_CONTENT_SID;
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const from = process.env.TWILIO_WHATSAPP_FROM;
+  if (otpMode() !== "twilio" || !contentSid || !sid || !from) return;
+  try {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        From: `whatsapp:${from}`,
+        To: `whatsapp:${e164}`,
+        ContentSid: contentSid,
+        ContentVariables: JSON.stringify({ 1: welcomeName(name) }),
+      }),
+    });
+    if (!res.ok) console.error("No se pudo mandar la bienvenida:", res.status, await res.text());
+  } catch (e) {
+    console.error("No se pudo mandar la bienvenida:", e.message);
+  }
+}
+
+module.exports = { otpEnabled, otpMode, otpChannel, sendOtp, verifyOtp, sendWelcome, welcomeName };
