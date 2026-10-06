@@ -22,7 +22,7 @@ const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
 const { migrateImagesToFiles } = require("./imageStore");
-const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID } = require("./cities");
+const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP } = require("./cities");
 
 const app = express();
 app.disable("x-powered-by");
@@ -159,12 +159,23 @@ app.get("/api/cities/resolve", async (req, res) => {
   const zone = isWithinServiceRadius(zoneCityId, lat, lng, "moto")
     ? "in"
     : isWithinServiceRadius(zoneCityId, lat, lng, "taxi") ? "taxi" : "out";
-  const zoneLabel = getCityById(zoneCityId)?.label || null;
+  let zoneLabel = getCityById(zoneCityId)?.label || null;
+  // Ciudad por comisarías (Progreso): de qué comisaría es el punto, su
+  // tarifa y las reglas de las ofertas. La app del pasajero arma con esto
+  // "Moto Exprés" / "Propón tu precio" en vez de Mototaxi / Taxi.
+  let comisaria = null;
+  if (city && city.zones) {
+    const z = zoneAt(city.id, lat, lng);
+    if (z) {
+      zoneLabel = z.label;
+      comisaria = { id: z.id, label: z.label, fare: z.fare, serviceFee: city.serviceFee, offerMaxUp: OFFER_MAX_UP, lat: z.lat, lng: z.lng, radiusKm: z.radiusKm };
+    }
+  }
   // Si en este pueblo ya está prendido "Pedir para otra persona" (ver familyRides.js).
   const familyOn = await familyRides.isFamilyEnabled(zoneCityId);
   res.json(city
-    ? { city: city.id, label: city.label, inService, zone, zoneLabel, familyRides: familyOn }
-    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn });
+    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria }
+    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null });
 });
 
 app.use("/api", driverRoutes);

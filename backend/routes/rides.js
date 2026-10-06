@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
-const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius } = require("../cities");
+const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, OFFER_MAX_UP } = require("../cities");
 const { haversineKm } = require("../geo");
 
 // Si el celular de quien pide está a más de esto del punto de encuentro, al
@@ -148,6 +148,30 @@ router.post("/rides", async (req, res) => {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
 
+  // Progreso (por comisarías, ver cities.js): solo motocarro, y el viaje
+  // empieza y termina en la misma comisaría. "Propón tu precio" es un viaje
+  // de moto con offer_price (el chofer acepta o contraoferta, igual que el taxi).
+  const cityCfg = getCityById(city);
+  let motoOffer = false;
+  if (cityCfg?.zones) {
+    if (ride_type === "taxi") return res.status(400).json({ error: "Aquí solo hay motocarro" });
+    if (dest_lat == null || dest_lng == null) {
+      return res.status(400).json({ error: "Marca a dónde vas" });
+    }
+    const zp = zoneAt(city, pickup_lat, pickup_lng);
+    const zd = zoneAt(city, dest_lat, dest_lng);
+    if (!zd || zd.id !== zp.id) {
+      return res.status(400).json({ error: `El motocarro solo hace viajes dentro de ${zp.label}` });
+    }
+    if (offer_price != null) {
+      offerPrice = Math.round(Number(offer_price));
+      if (!(offerPrice >= 5) || offerPrice > 2000) {
+        return res.status(400).json({ error: "Revisa el precio que ofreces" });
+      }
+      motoOffer = true;
+    }
+  }
+
   // El registro de pasajero nunca pregunta ubicación, así que su `city` se
   // queda pegado al default para siempre si no lo actualizamos aquí — esto
   // lo mantiene sincronizado con dónde pidió viaje realmente la última vez,
@@ -180,7 +204,7 @@ router.post("/rides", async (req, res) => {
       cleanServiceKind,
       generateShareToken(),
       offerPrice,
-      cleanExtra,
+      motoOffer ? 0 : cleanExtra,
       forOther ? forOther.name : null,
       forOther ? forOther.note : null
     );
@@ -206,7 +230,7 @@ router.post("/rides", async (req, res) => {
   Object.assign(ride, riderInfo);
 
   await realtime.broadcastNewRide(ride);
-  realtime.startNoDriverTimer(ride.id, ride.ride_type);
+  realtime.startNoDriverTimer(ride.id, ride.ride_type, ride.offer_price != null);
   res.status(201).json({ ...ride, riderTripCount: riderInfo.riderTripCount });
 });
 
@@ -256,7 +280,7 @@ router.get("/rides/:id", async (req, res) => {
   if (ride.driver_id) {
     ride.driver = await driverForRide(ride.driver_id);
   }
-  if (ride.status === "buscando" && ride.ride_type === "taxi") {
+  if (ride.status === "buscando" && ride.offer_price != null) {
     ride.offers = await openOffersForRide(ride.id);
   }
   Object.assign(ride, await riderInfoFor(ride.rider_phone));
@@ -346,8 +370,17 @@ router.post("/rides/:id/accept", async (req, res) => {
   // compromete, en vez de quedarse esperando a un chofer específico sin
   // saber si el precio le va a convenir. El precio se negocia con las ofertas
   // (ya no hay chat antes de aceptar).
-  const pendingRide = await db.prepare("SELECT ride_type, offer_price FROM rides WHERE id = ?").get(rideId);
+  const pendingRide = await db.prepare("SELECT ride_type, offer_price, city, pickup_lat, pickup_lng FROM rides WHERE id = ?").get(rideId);
   const isTaxi = pendingRide?.ride_type === "taxi";
+  // "Propón tu precio" en motocarro (Progreso): aceptar = aceptar el precio
+  // del pasajero; otro precio va por contraoferta, igual que el taxi.
+  const isMotoOffer = pendingRide?.ride_type === "moto" && pendingRide.offer_price != null;
+  if (isMotoOffer && agreedPrice != null && Number(agreedPrice) !== pendingRide.offer_price) {
+    return res.status(400).json({ error: "Para cobrar otro precio, manda una contraoferta" });
+  }
+  if (pendingRide && !(await driverInRideZone(driverId, pendingRide))) {
+    return res.status(409).json({ error: "Este viaje es de otra comisaría" });
+  }
   if (isTaxi && !(Number(agreedPrice) > 0)) {
     return res.status(400).json({ error: "Captura el precio que acordaste con el pasajero" });
   }
@@ -388,7 +421,7 @@ router.post("/rides/:id/accept", async (req, res) => {
       )
       .run(
         driverId,
-        isTaxi ? Number(agreedPrice) : null,
+        isTaxi ? Number(agreedPrice) : isMotoOffer ? pendingRide.offer_price : null,
         deposit > 0 ? deposit : null,
         deposit > 0 ? "pendiente" : null,
         bank?.deposit_bank ?? null,
@@ -469,6 +502,18 @@ async function closeDriverOtherOffers(driverId) {
   }
 }
 
+// Ciudad por comisarías (Progreso): el chofer tiene que estar en la misma
+// comisaría que la recogida (su última ubicación). En las demás ciudades no
+// aplica.
+async function driverInRideZone(driverId, ride) {
+  const cfg = getCityById(ride.city);
+  if (!cfg?.zones) return true;
+  const zRide = zoneAt(ride.city, ride.pickup_lat, ride.pickup_lng);
+  const d = await db.prepare("SELECT lat, lng FROM drivers WHERE id = ?").get(driverId);
+  const zDriver = d ? zoneAt(ride.city, d.lat, d.lng) : null;
+  return !!(zRide && zDriver && zRide.id === zDriver.id);
+}
+
 // Valida el anticipo que pide el chofer (mismas reglas que /accept).
 async function validateDeposit(driverId, price, depositAmount) {
   const deposit = Math.round(Number(depositAmount) || 0);
@@ -481,8 +526,10 @@ async function validateDeposit(driverId, price, depositAmount) {
   return { deposit, bank };
 }
 
-// El chofer de taxi manda una contraoferta (un precio distinto al que ofreció
-// el pasajero). No toma el viaje: el pasajero tiene que aceptarla.
+// El chofer manda una contraoferta (un precio distinto al que ofreció el
+// pasajero). No toma el viaje: el pasajero tiene que aceptarla. Taxi, o
+// motocarro con "Propón tu precio" (Progreso: máximo OFFER_MAX_UP más que la
+// oferta del pasajero, y solo choferes de esa misma comisaría).
 router.post("/rides/:id/offer", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, price, depositAmount } = req.body || {};
@@ -494,21 +541,32 @@ router.post("/rides/:id/offer", async (req, res) => {
   }
   clearAttempts(req.ip);
 
-  const ride = await db.prepare("SELECT id, status, ride_type, offer_price FROM rides WHERE id = ?").get(rideId);
+  const ride = await db.prepare("SELECT id, status, ride_type, offer_price, city, pickup_lat, pickup_lng FROM rides WHERE id = ?").get(rideId);
   if (!ride || ride.status !== "buscando") return res.status(409).json({ error: "El viaje ya no está disponible" });
-  if (ride.ride_type !== "taxi" || ride.offer_price == null) {
+  if (ride.offer_price == null) {
     return res.status(400).json({ error: "Este viaje no acepta contraofertas" });
   }
+  const isMoto = ride.ride_type === "moto";
   const driverRow = await db.prepare("SELECT vehicle_type FROM drivers WHERE id = ?").get(driverId);
-  if (driverRow?.vehicle_type !== "taxi") return res.status(403).json({ error: "Solo choferes de taxi" });
+  if (driverRow?.vehicle_type !== ride.ride_type) {
+    return res.status(403).json({ error: isMoto ? "Solo choferes de motocarro" : "Solo choferes de taxi" });
+  }
+  if (!(await driverInRideZone(driverId, ride))) return res.status(409).json({ error: "Este viaje es de otra comisaría" });
   const active = await db
     .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
     .get(driverId);
   if (active) return res.status(409).json({ error: "Ya tienes otro viaje activo" });
 
   const offerPrice = Math.round(Number(price));
-  if (!(offerPrice >= 10) || offerPrice > 20000) return res.status(400).json({ error: "Revisa el precio" });
-  const dep = await validateDeposit(driverId, offerPrice, depositAmount);
+  if (isMoto) {
+    if (!(offerPrice > ride.offer_price) || offerPrice > ride.offer_price + OFFER_MAX_UP) {
+      return res.status(400).json({ error: `Tu precio debe ser más que $${ride.offer_price} y máximo $${ride.offer_price + OFFER_MAX_UP}` });
+    }
+  } else if (!(offerPrice >= 10) || offerPrice > 20000) {
+    return res.status(400).json({ error: "Revisa el precio" });
+  }
+  // El anticipo es solo del taxi foráneo.
+  const dep = isMoto ? { deposit: 0 } : await validateDeposit(driverId, offerPrice, depositAmount);
   if (dep.error) return res.status(400).json({ error: dep.error });
 
   // Una sola oferta viva por chofer en cada viaje: la nueva reemplaza la anterior.
@@ -864,7 +922,8 @@ router.post("/rides/:id/complete", async (req, res) => {
     .prepare(
       "UPDATE rides SET status = 'completado', agreed_price = ?, driver_earnings = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'en_curso'"
     )
-    .run(ride?.ride_type === "taxi" ? finalPrice : null, earnings, rideId, driverId);
+    // Moto: se conserva el precio acordado por oferta (Propón tu precio); sin oferta queda en NULL como siempre.
+    .run(ride?.ride_type === "taxi" ? finalPrice : (ride?.agreed_price ?? null), earnings, rideId, driverId);
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "No se pudo actualizar el viaje" });

@@ -29,6 +29,8 @@ router.param("id", numericParam);
 const ADMIN_PINS = {
   tekax: process.env.ADMIN_PIN_TEKAX || process.env.ADMIN_PIN,
   ticul: process.env.ADMIN_PIN_TICUL,
+  // Daniel (socio operador de Progreso): solo ve sus 4 comisarías.
+  progreso: process.env.ADMIN_PIN_PROGRESO,
 };
 
 function checkAdminPin(req, res, next) {

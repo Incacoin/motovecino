@@ -1169,6 +1169,14 @@ function toggleRiderTheme() {
         </div>
         <div class="offer-note">Tú propones el precio. El taxista lo acepta o te manda otra oferta.</div>
       </div>
+      <div id="motoOfferBox" style="display:none;">
+        <label class="offer-note" for="motoOfferInput" style="display:block;margin-bottom:6px;">¿Cuánto ofreces por el viaje?</label>
+        <div class="offer-stepper">
+          <span class="offer-value">$</span>
+          <input id="motoOfferInput" type="number" inputmode="numeric" min="5" max="2000" step="1" style="width:110px;font-size:22px;font-weight:700;text-align:center;" oninput="onMotoOfferInput()" />
+        </div>
+        <div class="offer-note" id="motoOfferNote"></div>
+      </div>
       <div id="extraBox" style="display:none;">
         <div class="extra-t">¿Lejos o con prisa? <span>Súmale al chofer:</span></div>
         <div class="extra-chips">
@@ -1378,7 +1386,7 @@ function initCityBrand(attempt) {
           applyCityLabel(data.zone === "in" ? data.label : "Yucatán");
           if (data.city) { resolvedCityId = data.city; updateFareEstimate(); }
           // Mientras no marque recogida, el aviso se basa en dónde está el celular.
-          if (!pickup) applyZone(data.zone, data.zoneLabel);
+          if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria);
         })
         .catch(() => {});
     },
@@ -1423,6 +1431,12 @@ const MAX_OCCUPANTS = 4;
 let passengers = 1;
 let children = 0;
 let serviceType = "moto";
+// Progreso (por comisarías, ver backend/cities.js): datos de la comisaría de
+// la recogida, o null en cualquier otro lugar. Ahí las tarjetas son "Moto
+// Exprés" (precio fijo) y "Propón tu precio" (motocarro con oferta).
+let comisaria = null;
+let priceMode = "fijo"; // "fijo" | "oferta" (solo con comisaria)
+let motoOffer = null;
 let serviceCategory = "pasaje";
 
 async function fetchRoute(from, to) {
@@ -1665,6 +1679,7 @@ function updateFareEstimate() {
     return;
   }
   if (serviceType === "taxi") { updateTaxiOfferUi(); return; }
+  if (comisaria) { updateComisariaFare(); return; }
   btn.disabled = !pickup;
   if (!pickup) { el.textContent = ""; btn.textContent = baseLabel; return; }
   const night = isNightFare();
@@ -1684,6 +1699,58 @@ function updateFareEstimate() {
   document.getElementById("extraBox").style.display = "flex";
   setVehPrice("Moto", `$${total}`);
 }
+// Progreso: Moto Exprés = tarifa fija de la comisaría por persona (+ la cuota
+// de la app, que no se muestra aparte, igual que en Tekax). Propón tu precio =
+// lo que el pasajero escriba; el chofer acepta o pide hasta offerMaxUp más.
+function comisariaFixedTotal() {
+  return comisaria.fare * (passengers + children) + comisaria.serviceFee;
+}
+function updateComisariaFare() {
+  const el = document.getElementById("fareEstimate");
+  const btn = document.getElementById("requestBtn");
+  document.getElementById("motoOfferBox").style.display = "none";
+  const fixed = comisariaFixedTotal();
+  setVehPrice("Moto", `$${fixed}`);
+  setVehPrice("Taxi", motoOffer ? `$${motoOffer}` : "");
+  if (!pickup) { el.textContent = ""; btn.textContent = "Pedir motocarro"; btn.disabled = true; return; }
+  if (!dest) {
+    el.textContent = `Marca a dónde vas (dentro de ${comisaria.label})`;
+    btn.textContent = "Pedir motocarro";
+    btn.disabled = true;
+    return;
+  }
+  if (!destInComisaria()) {
+    el.textContent = `El motocarro solo hace viajes dentro de ${comisaria.label}`;
+    btn.textContent = "Pedir motocarro";
+    btn.disabled = true;
+    return;
+  }
+  const totalPeople = passengers + children;
+  if (priceMode === "oferta") {
+    if (motoOffer == null) motoOffer = fixed;
+    const input = document.getElementById("motoOfferInput");
+    if (document.activeElement !== input) input.value = motoOffer;
+    document.getElementById("motoOfferBox").style.display = "block";
+    document.getElementById("motoOfferNote").textContent =
+      `Precio normal: $${fixed}. El chofer acepta tu precio o te pide hasta $${comisaria.offerMaxUp} más; tú decides.`;
+    el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""} · ${comisaria.label}`;
+    const ok = motoOffer >= 5 && motoOffer <= 2000;
+    btn.disabled = !ok;
+    btn.textContent = ok ? `Pedir por $${motoOffer}` : "Escribe tu precio";
+    setVehPrice("Taxi", ok ? `$${motoOffer}` : "");
+    return;
+  }
+  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""} · ${comisaria.label}${tripExtra ? ` + $${tripExtra} extra para el chofer` : ""}`;
+  btn.disabled = false;
+  btn.textContent = `Pedir Moto Exprés · $${fixed + tripExtra}`;
+  document.getElementById("extraBox").style.display = "flex";
+}
+function onMotoOfferInput() {
+  const v = Math.round(Number(document.getElementById("motoOfferInput").value));
+  motoOffer = Number.isFinite(v) && v > 0 ? v : null;
+  updateComisariaFare();
+}
+
 function setVehPrice(which, text) {
   const el = document.getElementById("vcPrice" + which);
   if (el) el.textContent = text || "";
@@ -1724,9 +1791,34 @@ function vehCardHtml(kind, note) {
   const sub = note || (kind === "taxi" ? "Tú propones el precio" : "Viajes cortos");
   return `<span class="vc-img">${img}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${kind === "taxi" ? "Taxi" : "Moto"}"></span>`;
 }
+// Progreso: las dos tarjetas son motocarro (mismos botones de siempre).
+function comisariaCardHtml(which) {
+  const name = which === "oferta" ? "Propón tu precio" : "Moto Exprés";
+  const sub = which === "oferta" ? "Tú pones el precio" : "Precio fijo, sin regatear";
+  return `<span class="vc-img">${MVVeh.motoSide(66)}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${which === "oferta" ? "Taxi" : "Moto"}"></span>`;
+}
 function renderVehCards(motoNote) {
+  if (comisaria) {
+    document.getElementById("tabMoto").innerHTML = comisariaCardHtml("fijo");
+    document.getElementById("tabTaxi").innerHTML = comisariaCardHtml("oferta");
+    return;
+  }
   document.getElementById("tabMoto").innerHTML = vehCardHtml("moto", motoNote);
   document.getElementById("tabTaxi").innerHTML = vehCardHtml("taxi");
+}
+function setComisaria(c) {
+  const before = comisaria && comisaria.id;
+  comisaria = c || null;
+  if ((comisaria && comisaria.id) === before) return;
+  priceMode = "fijo";
+  motoOffer = null;
+  if (comisaria) serviceType = "moto";
+  document.getElementById("tabMoto").classList.toggle("active", serviceType === "moto");
+  document.getElementById("tabTaxi").classList.toggle("active", serviceType === "taxi");
+}
+// ¿El destino cae dentro de la comisaría de la recogida?
+function destInComisaria() {
+  return !!(comisaria && dest && haversine(dest.lat, dest.lng, comisaria.lat, comisaria.lng) <= comisaria.radiusKm);
 }
 function greetingText() {
   const h = new Date().getHours();
@@ -1736,7 +1828,8 @@ function greetingText() {
   return name ? `${saludo}, ${name}` : saludo;
 }
 
-function applyZone(zone, zoneLabel) {
+function applyZone(zone, zoneLabel, com) {
+  setComisaria(com);
   serviceZone = zone || "in";
   const notice = document.getElementById("zoneNotice");
   const tabMoto = document.getElementById("tabMoto");
@@ -1805,11 +1898,22 @@ function checkPickupZone() {
   const seq = ++zoneCheckSeq;
   fetch(API + `/api/cities/resolve?lat=${pickup.lat}&lng=${pickup.lng}`)
     .then((r) => r.json())
-    .then((data) => { if (seq === zoneCheckSeq && pickup) { applyZone(data.zone, data.zoneLabel); setFamilyAvailable(data.familyRides); } })
+    .then((data) => { if (seq === zoneCheckSeq && pickup) { applyZone(data.zone, data.zoneLabel, data.comisaria); setFamilyAvailable(data.familyRides); } })
     .catch(() => {});
 }
 
 function setServiceType(type) {
+  if (comisaria) {
+    const mode = type === "taxi" ? "oferta" : "fijo";
+    if (priceMode === mode) return;
+    priceMode = mode;
+    serviceType = "moto";
+    document.getElementById("tabMoto").classList.toggle("active", mode === "fijo");
+    document.getElementById("tabTaxi").classList.toggle("active", mode === "oferta");
+    if (pickup && dest) document.getElementById("pickHint").textContent = readyHint();
+    updateFareEstimate();
+    return;
+  }
   if (type === "moto" && serviceZone !== "in") {
     showToast(serviceZone === "taxi"
       ? "El mototaxi solo recoge en la zona urbana. Desde aquí pide 🚕 Taxi."
@@ -1828,6 +1932,7 @@ function setServiceType(type) {
 }
 
 function readyHint() {
+  if (comisaria) return "Listo. Puedes pedir tu motocarro";
   return serviceType === "taxi" ? "Listo. Puedes pedir tu taxi" : "Listo. Puedes pedir tu mototaxi";
 }
 
@@ -2547,6 +2652,15 @@ async function requestRide() {
     showToast("Marca tu destino para pedir taxi");
     return;
   }
+  const offerMode = !!(comisaria && priceMode === "oferta");
+  if (comisaria && (!dest || !destInComisaria())) {
+    showToast(`El motocarro solo hace viajes dentro de ${comisaria.label}`);
+    return;
+  }
+  if (offerMode && !(motoOffer >= 5)) {
+    showToast("Escribe cuánto ofreces");
+    return;
+  }
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   // Sin sesión guardada (se borró el navegador, etc.) el pedido no puede salir:
   // se avisa y se regresa a la pantalla de entrada en vez de quedarse sin hacer nada.
@@ -2578,8 +2692,8 @@ async function requestRide() {
       children,
       ride_type: serviceType,
       service_kind: serviceCategory,
-      offer_price: serviceType === "taxi" ? taxiOffer : undefined,
-      extra: serviceType === "taxi" ? 0 : tripExtra,
+      offer_price: serviceType === "taxi" ? taxiOffer : offerMode ? motoOffer : undefined,
+      extra: serviceType === "taxi" || offerMode ? 0 : tripExtra,
       for_name: askingForOther ? forName : undefined,
       for_note: askingForOther ? document.getElementById("forNoteInput").value.trim() : undefined,
       // Dónde está el celular (si dio permiso): solo para avisarle al chofer
@@ -2611,7 +2725,7 @@ async function requestRide() {
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
   document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
-  if (serviceType === "taxi") setupTaxiSearch(ride.offer_price, []);
+  if (ride.offer_price != null) setupTaxiSearch(ride.offer_price, []);
 
   connectWs();
   requestWakeLock();
@@ -2807,10 +2921,11 @@ const taxiOffers = new Map();
 let offersTicker = null;
 
 function setupTaxiSearch(offerPrice, offers) {
+  const what = serviceType === "taxi" ? "taxi" : "motocarro";
   document.getElementById("searchTitleText").textContent = offerPrice
-    ? `Buscando taxi · tu oferta $${offerPrice}`
-    : "Buscando taxi...";
-  document.getElementById("statusText").textContent = "Buscando taxi...";
+    ? `Buscando ${what} · tu oferta $${offerPrice}`
+    : `Buscando ${what}...`;
+  document.getElementById("statusText").textContent = `Buscando ${what}...`;
   taxiOffers.clear();
   for (const o of offers || []) addTaxiOffer(o, false);
   renderTaxiOffers();
@@ -2847,8 +2962,8 @@ function renderTaxiOffers() {
   const list = document.getElementById("offersList");
   if (!list) return;
   if (taxiOffers.size === 0) {
-    list.innerHTML = serviceType === "taxi" && currentRideStatus === "buscando"
-      ? `<div class="offers-hint">Los taxistas cercanos están viendo tu oferta. Si alguno te propone otro precio, aparece aquí.</div>`
+    list.innerHTML = ride && ride.offer_price != null && currentRideStatus === "buscando"
+      ? `<div class="offers-hint">${serviceType === "taxi" ? "Los taxistas cercanos" : "Los choferes de tu comisaría"} están viendo tu oferta. Si alguno te propone otro precio, aparece aquí.</div>`
       : "";
     return;
   }
@@ -2858,14 +2973,14 @@ function renderTaxiOffers() {
       const d = o.driver || {};
       const photo = d.photo
         ? `<img class="driverPhoto" src="${d.photo}" />`
-        : `<div class="driverPhoto driverPhotoFallback">🚕</div>`;
+        : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`;
       return `
       <div class="card offer-card fade-in">
         <div class="offer-head">
           ${photo}
           <div class="offer-who">
-            <div class="name">${escapeHtml(d.name || "Taxista")}${d.es_fundador ? " 🏅" : ""}</div>
-            <div class="sub">🚕 ${escapeHtml(d.vehicle || "Taxi")} · te lleva por</div>
+            <div class="name">${escapeHtml(d.name || (serviceType === "taxi" ? "Taxista" : "Chofer"))}${d.es_fundador ? " 🏅" : ""}</div>
+            <div class="sub">${serviceType === "taxi" ? "🚕" : "🛵"} ${escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Motocarro"))} · te lleva por</div>
           </div>
           <div class="offer-price">$${o.price}</div>
         </div>
@@ -4154,7 +4269,7 @@ async function restoreActiveRide() {
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
   document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
-  if (fetched.status === "buscando" && fetched.ride_type === "taxi") setupTaxiSearch(fetched.offer_price, fetched.offers);
+  if (fetched.status === "buscando" && fetched.offer_price != null) setupTaxiSearch(fetched.offer_price, fetched.offers);
   loadAllyAd();
   showExtraNote(fetched.extra);
   showForOtherNote(fetched);

@@ -983,6 +983,12 @@ function initCityBrand(attempt) {
         .then((data) => {
           applyCityLabel(data.label);
           if (data.city) resolvedCityId = data.city;
+          driverComisaria = data.comisaria || null;
+          // En las comisarías de Progreso les dicen motocarro.
+          if (driverComisaria) {
+            const nameEl = document.getElementById("driverName");
+            if (nameEl) nameEl.textContent = nameEl.textContent.replace("🛵 Mototaxi", "🛵 Motocarro");
+          }
         })
         .catch(() => {});
     },
@@ -1146,6 +1152,11 @@ function suggestedDeposit(price) {
 // Ciudad resuelta por GPS (ver initCityBrand) — "tekax" hasta que se
 // confirme otra cosa, igual que en pasajero.html.
 let resolvedCityId = "tekax";
+// Progreso (por comisarías, ver backend/cities.js): la comisaría donde está el
+// chofer, con su tarifa de Moto Exprés. null en cualquier otro lugar.
+let driverComisaria = null;
+// Cuánto más puede pedir en una contraoferta de motocarro (igual que OFFER_MAX_UP del servidor).
+const MOTO_COUNTER_MAX_UP = 40;
 
 function isNightFare() {
   const h = new Date().getHours();
@@ -1157,6 +1168,19 @@ function estimateFare(ride) {
   const children = ride.children || 0;
   const totalPeople = passengers + children;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
+  // Motocarro con "Propón tu precio" (Progreso): el precio es el acordado.
+  if (ride.ride_type !== "taxi" && (ride.agreed_price || ride.offer_price != null)) {
+    const people = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
+    if (ride.agreed_price) return { total: ride.agreed_price, text: `🛵 Precio acordado $${ride.agreed_price} · ${people}` };
+    return { total: null, text: `🛵 Motocarro · ${people}` };
+  }
+  // Moto Exprés (Progreso): tarifa fija de la comisaría por persona.
+  if (ride.ride_type !== "taxi" && ride.city === "progreso" && driverComisaria) {
+    const extra = ride.extra || 0;
+    const total = driverComisaria.fare * totalPeople + driverComisaria.serviceFee + extra;
+    const extraNote = extra ? ` + $${extra} extra` : "";
+    return { total, text: `$${total} MXN (incl. $${driverComisaria.serviceFee} servicio${extraNote}) · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote} · ${driverComisaria.label}` };
+  }
   if (ride.ride_type === "taxi") {
     const people = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
     if (ride.agreed_price) return { total: null, text: `🚕 Taxi · precio acordado $${ride.agreed_price} · ${people}` };
@@ -1892,7 +1916,7 @@ function renderRideList() {
           ? `<div class="req-big"><small>Cobras en efectivo</small><b>$${fare.total}</b>${r.extra ? `<span>Incluye +$${r.extra} extra del pasajero</span>` : ""}</div>`
           : ""}
         <div class="meta fare">${fare.text}</div>
-        ${r.ride_type === "taxi" && r.offer_price != null
+        ${r.offer_price != null
           ? taxiOfferBlockHtml(r)
           : r.ride_type === "taxi"
           ? `<div style="margin-bottom:6px;">
@@ -1900,7 +1924,7 @@ function renderRideList() {
              </div>
              ${depositRequestHtml(r)}`
           : ""}
-        ${r.ride_type === "taxi" && r.offer_price != null
+        ${r.offer_price != null
           ? ""
           : `<button class="btn btn-accept" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : "Aceptar viaje"}</button>`}
       </div>`;
@@ -2038,6 +2062,21 @@ const COUNTER_STEPS_SHORT = [10, 20, 30];
 
 function taxiOfferBlockHtml(r) {
   const mine = myOffers[r.id];
+  if (r.ride_type !== "taxi") {
+    const max = r.offer_price + MOTO_COUNTER_MAX_UP;
+    const waitingMoto = mine
+      ? `<div class="my-offer">⏳ Le mandaste <strong>$${mine.price}</strong> · esperando al pasajero (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>)</div>`
+      : "";
+    return `
+    <div class="offer-in"><span class="lbl">El pasajero ofrece</span><span class="amt">$${r.offer_price}</span></div>
+    <button class="btn" onclick="acceptRide(${r.id})">Aceptar por $${r.offer_price}</button>
+    ${waitingMoto}
+    <div class="counter-label">¿Otro precio? Escribe cuánto pides (máximo $${max}):</div>
+    <div class="counter-row">
+      <input type="number" id="motoCounter-${r.id}" inputmode="numeric" min="${r.offer_price + 1}" max="${max}" placeholder="Ej. ${r.offer_price + 10}" style="flex:2;padding:9px;font-size:16px;text-align:center;">
+      <button class="btn-sm" onclick="sendMotoCounter(${r.id})">Mandar</button>
+    </div>`;
+  }
   const counters = (r.offer_price < 100 ? COUNTER_STEPS_SHORT : COUNTER_STEPS).map((step) => {
     const price = r.offer_price + step;
     return `<button class="btn-sm" onclick="sendTaxiOffer(${r.id}, ${price})" ${mine && mine.price === price ? "disabled" : ""}>$${price}</button>`;
@@ -2057,6 +2096,20 @@ function taxiOfferBlockHtml(r) {
 function fmtCountdown(ms) {
   const secs = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+}
+
+// Contraoferta del motocarro: la escribe el chofer, más que la oferta del
+// pasajero y máximo MOTO_COUNTER_MAX_UP más (el servidor también lo revisa).
+function sendMotoCounter(id) {
+  const r = pendingRides[id];
+  if (!r) return;
+  const price = Math.round(Number(document.getElementById(`motoCounter-${id}`)?.value));
+  const max = r.offer_price + MOTO_COUNTER_MAX_UP;
+  if (!(price > r.offer_price) || price > max) {
+    showToast(`Escribe un precio de $${r.offer_price + 1} a $${max}`);
+    return;
+  }
+  sendTaxiOffer(id, price);
 }
 
 async function sendTaxiOffer(id, price) {
@@ -2122,7 +2175,7 @@ async function acceptRide(id) {
   const ride = pendingRides[id];
   let agreedPrice;
   let depositAmount = 0;
-  if (ride && ride.ride_type === "taxi" && ride.offer_price != null) {
+  if (ride && ride.offer_price != null) {
     // Aceptar = aceptar el precio que ofreció el pasajero.
     agreedPrice = ride.offer_price;
     const depInput = document.getElementById(`taxiDepositInput-${id}`);

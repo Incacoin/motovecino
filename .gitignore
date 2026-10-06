@@ -3,3 +3,4 @@ backend/.env
 backend/data/*.db
 backend/server.log
 backend/data/menu/
+backend/data/img/

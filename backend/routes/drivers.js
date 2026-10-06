@@ -5,7 +5,7 @@ const { normalizeAccount } = require("../bankAccount");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
-const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius } = require("../cities");
+const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria } = require("../cities");
 const { rideFee } = require("../fees");
 const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
 const { photoUrls, cleanThumb } = require("../photos");
@@ -45,8 +45,11 @@ router.get("/drivers/available", async (req, res) => {
     .all(type);
 
   const maxDistance = type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
+  // En Progreso solo se ven los motocarros de la misma comisaría.
+  const refCity = hasRef ? resolveCity(refLat, refLng) : null;
   const nearby = drivers.filter(
-    (d) => haversineKm(ref.lat, ref.lng, d.lat, d.lng) <= maxDistance
+    (d) => haversineKm(ref.lat, ref.lng, d.lat, d.lng) <= maxDistance &&
+      (!refCity || sameComisaria(refCity.id, ref.lat, ref.lng, d.lat, d.lng))
   );
   res.json(nearby);
 });

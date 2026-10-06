@@ -3,6 +3,7 @@ const url = require("node:url");
 const db = require("./db");
 const { photoUrls } = require("./photos");
 const push = require("./push");
+const { sameComisaria } = require("./cities");
 const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC } = require("./constants");
 
 // driverId -> WebSocket
@@ -37,9 +38,10 @@ const DISCONNECT_GRACE_MS = 20000;
 // nadie lo acepte, probablemente no hay oferta suficiente en ese momento.
 const NO_DRIVER_GRACE_MS = 60000;
 
-// El taxi negocia por ofertas (ver rides.js /offer), así que busca más tiempo.
-function searchWindowMs(rideType) {
-  return rideType === "taxi" ? TAXI_SEARCH_MS : NO_DRIVER_GRACE_MS;
+// El taxi negocia por ofertas (ver rides.js /offer), así que busca más tiempo;
+// igual el motocarro con "Propón tu precio" (Progreso).
+function searchWindowMs(rideType, hasOffer) {
+  return rideType === "taxi" || hasOffer ? TAXI_SEARCH_MS : NO_DRIVER_GRACE_MS;
 }
 
 // Si un pasajero o chofer se quedó a medias (app cerrada, celular apagado,
@@ -104,7 +106,7 @@ async function handleDriverReconnected(driverId) {
   notifyRide(ride.id, "driver_reconnected", {});
 }
 
-function startNoDriverTimer(rideId, rideType) {
+function startNoDriverTimer(rideId, rideType, hasOffer) {
   const timer = setTimeout(() => bg("no_driver", (async () => {
     noDriverTimers.delete(rideId);
     // Solo si sigue buscando EN ESTE INSTANTE: si un chofer lo aceptó justo
@@ -116,7 +118,7 @@ function startNoDriverTimer(rideId, rideType) {
     await closeOpenOffers(rideId, "cerrada");
     notifyRide(rideId, "no_drivers_available", {});
     broadcastRideRemoved(rideId);
-  })()), searchWindowMs(rideType));
+  })()), searchWindowMs(rideType, hasOffer));
   noDriverTimers.set(rideId, timer);
 }
 
@@ -146,7 +148,7 @@ async function sweepStaleRides() {
   try {
     const stuckSearching = await db
       .prepare(
-        "SELECT id FROM rides WHERE status = 'buscando' AND (julianday('now') - julianday(created_at)) * 86400000 > CASE WHEN ride_type = 'taxi' THEN CAST(? AS double precision) ELSE CAST(? AS double precision) END"
+        "SELECT id FROM rides WHERE status = 'buscando' AND (julianday('now') - julianday(created_at)) * 86400000 > CASE WHEN ride_type = 'taxi' OR offer_price IS NOT NULL THEN CAST(? AS double precision) ELSE CAST(? AS double precision) END"
       )
       .all(TAXI_SEARCH_MS, NO_DRIVER_GRACE_MS);
     for (const ride of stuckSearching) {
@@ -448,6 +450,7 @@ async function broadcastNewRide(ride) {
     if (driver.lat == null || driver.lng == null) continue;
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > maxDistance) continue;
+    if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng)) continue;
     const ws = driverSockets.get(driver.id);
     if (ws) send(ws, "new_ride", payload);
   }
@@ -474,13 +477,14 @@ async function notifyPendingRides(driverId) {
 
   const pending = await db
     .prepare(
-      "SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ? AND (julianday('now') - julianday(created_at)) * 86400000 <= ?"
+      "SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ? AND (julianday('now') - julianday(created_at)) * 86400000 <= CASE WHEN ride_type = 'taxi' OR offer_price IS NOT NULL THEN CAST(? AS double precision) ELSE CAST(? AS double precision) END"
     )
-    .all(driver.vehicle_type, searchWindowMs(driver.vehicle_type));
+    .all(driver.vehicle_type, TAXI_SEARCH_MS, NO_DRIVER_GRACE_MS);
   const maxDistance = driver.vehicle_type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   for (const ride of pending) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > maxDistance) continue;
+    if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng)) continue;
     const riderRow = await db.prepare("SELECT id, photo FROM riders WHERE phone = ?").get(ride.rider_phone);
     const { trips } = await db
       .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_phone = ? AND status = 'completado'")

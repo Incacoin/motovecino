@@ -9,6 +9,7 @@
 // WANTS_RIDES_HOURS.
 const crypto = require("node:crypto");
 const db = require("./db");
+const { sameComisaria } = require("./cities");
 
 const WANTS_RIDES_HOURS = 14;
 // Radio desde la última ubicación conocida del chofer: más amplio que el de la
@@ -101,6 +102,7 @@ async function notifyNewRide(ride) {
   const subsFor = db.prepare("SELECT id, driver_id, endpoint FROM driver_push_subs WHERE driver_id = ?");
   for (const d of drivers) {
     if (d.lat != null && d.lng != null && haversineKm(ride.pickup_lat, ride.pickup_lng, d.lat, d.lng) > PUSH_RADIUS_KM[type]) continue;
+    if (d.lat != null && d.lng != null && !sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, d.lat, d.lng)) continue;
     for (const sub of await subsFor.all(d.id)) sendOne(sub);
   }
 }
