@@ -1832,7 +1832,7 @@ function vehCardHtml(kind, note) {
 }
 function motoCardHtml(which, note) {
   const name = which === "oferta" ? "Propón tu precio" : comisaria ? "Moto Exprés" : "Mototaxi Exprés";
-  const sub = note || (which === "oferta" ? `${comisaria ? "Motocarro" : "Mototaxi"} · tú pones el precio` : "Precio fijo, sin regatear");
+  const sub = note || (which === "oferta" ? `${comisaria ? "Motocarro" : "Mototaxi"} · tú pones el precio` : "Precio fijo");
   return `<span class="vc-img">${MVVeh.motoSide(66)}</span><span class="vc-txt"><b>${name}</b><small>${sub}</small></span><span class="vc-price" id="vcPrice${which === "oferta" ? "Oferta" : "Moto"}"></span>`;
 }
 function renderVehCards(motoNote) {

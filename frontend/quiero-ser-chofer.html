@@ -31,7 +31,7 @@
 </script>
 <link rel="stylesheet" href="style.css" />
 <script src="vehiculos-mapa.js?v=3"></script>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
 <style>
   body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
   .wrap { width: 100%; max-width: 380px; }
@@ -178,13 +178,45 @@
   #okScreen h2, #ticulSoonScreen h2, #comingSoonScreen h2 { color: var(--text) !important; }
   .credit { text-align: center; color: var(--text-dim); }
   html[data-theme="dark"] .credit strong { color: #fff !important; }
+  /* ===== Estilo admin (6-oct-2026): letras finas, cuadrícula, fecha y hora ===== */
+  :root { --mvx-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace; }
+  body { isolation: isolate; }
+  .mvx-grid { position: fixed; inset: 0; pointer-events: none; z-index: -1;
+    background-image: linear-gradient(rgba(15,23,42,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(15,23,42,.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(circle at 50% 22%, #000 0, transparent 72%); mask-image: radial-gradient(circle at 50% 22%, #000 0, transparent 72%); }
+  html[data-theme="dark"] .mvx-grid { background-image: linear-gradient(rgba(148,163,184,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,.10) 1px, transparent 1px); }
+  html[data-theme="dark"] body { background:
+      radial-gradient(520px 360px at 50% 120px, rgba(52,211,153,.14), transparent 70%),
+      radial-gradient(700px 420px at 100% 100%, rgba(56,120,255,.08), transparent 70%),
+      #060a16 !important; background-attachment: fixed !important; }
+  .mvx-clock { font-family: var(--mvx-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .qs-hero .brand { font-weight: 200 !important; letter-spacing: -0.01em; }
+  .qs-hero .brand #cityLabel { font-family: var(--mvx-mono); font-weight: 400 !important; letter-spacing: .3em !important; font-size: 11.5px !important; }
+  html[data-theme="dark"] .qs-hero .brand #cityLabel { color: #34d399 !important; }
+  html[data-theme="dark"] .qs-hero .brand .brand-icon { box-shadow: 0 0 0 1px rgba(52,211,153,.35), 0 0 30px rgba(52,211,153,.22) !important; }
+  .qs-title { font-weight: 300 !important; font-size: 28px !important; letter-spacing: -0.02em !important; }
+  .qs-perks b { font-weight: 600 !important; }
+  .qs-card-h { font-family: var(--mvx-mono); font-weight: 500 !important; font-size: 12px !important; letter-spacing: .16em; text-transform: uppercase; }
+  .field label { font-weight: 500 !important; }
+  input::placeholder { font-family: var(--mvx-mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+  #referredBy::placeholder { font-family: inherit; font-size: inherit; letter-spacing: 0; text-transform: none; }
+  html[data-theme="dark"] .qs-card, html[data-theme="dark"] .qs-perks > div { background: rgba(17,25,48,.45) !important; border: 1px solid rgba(148,163,184,.14) !important; box-shadow: none !important; }
+  html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] .phoneRow .prefix { background: rgba(6,10,22,.6) !important; border: 1.5px solid rgba(148,163,184,.18) !important; }
+  html[data-theme="dark"] input:focus, html[data-theme="dark"] select:focus { border-color: #34d399 !important; box-shadow: 0 0 0 3px rgba(52,211,153,.14) !important; }
+  html[data-theme="dark"] .qs-perks span, html[data-theme="dark"] .qs-card-h span { color: #34d399; background: rgba(52,211,153,.10); }
+  button.btn, a.btn { font-weight: 600 !important; letter-spacing: .03em; border-radius: 14px !important; }
+  html[data-theme="dark"] button.btn, html[data-theme="dark"] a.btn { background: #34d399 !important; color: #052e1f !important; box-shadow: 0 10px 28px rgba(52,211,153,.22) !important; }
+
 </style>
 </head>
 <body>
+<div class="mvx-grid" aria-hidden="true"></div>
 
 <div class="wrap">
   <div id="formScreen">
     <div class="qs-hero">
+      <div class="mvx-clock" id="mvxClock"></div>
       <p class="brand"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino<span id="cityLabel"></span></p>
       <div class="qs-veh" id="qsVeh"></div>
       <script>document.getElementById("qsVeh").innerHTML = MVVeh.motoSide(112) + MVVeh.taxiSide(124);</script>
@@ -192,7 +224,7 @@
       <div class="qs-perks">
         <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><p><b>Te avisa de cada viaje nuevo</b>aunque tengas la app cerrada.</p></div>
         <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V8"/><path d="M18 17v-9"/></svg></span><p><b>Ves lo que llevas ganado</b>hoy, en la semana y en el mes.</p></div>
-        <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><p><b>El extra es para ti</b>en mototaxi el pasajero puede darte +$5 o +$10, completo para ti.</p></div>
+        <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><p><b>Propón tu precio</b>el pasajero te ofrece un precio y tú lo aceptas o le haces tu contraoferta.</p></div>
       </div>
     </div>
     <div id="inviteBanner">🤝 Te invitó <b id="inviteName"></b></div>
@@ -598,6 +630,21 @@ async function submitApplication() {
   document.getElementById("formScreen").style.display = "none";
   document.getElementById("okScreen").style.display = "block";
 }
+</script>
+<script>
+// Fecha y hora (hora de Yucatán), como en el admin y las apps.
+(function () {
+  function tick() {
+    const el = document.getElementById("mvxClock");
+    if (!el) return;
+    const now = new Date();
+    const d = now.toLocaleDateString("es-MX", { timeZone: "America/Merida", weekday: "short", day: "2-digit", month: "short" }).replace(/\./g, "");
+    const t = now.toLocaleTimeString("es-MX", { timeZone: "America/Merida", hour: "2-digit", minute: "2-digit", hour12: false });
+    el.textContent = d + " · " + t;
+  }
+  tick();
+  setInterval(tick, 15000);
+})();
 </script>
 </body>
 </html>
