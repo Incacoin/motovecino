@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS } = require("../constants");
@@ -33,15 +34,79 @@ const ADMIN_PINS = {
   progreso: process.env.ADMIN_PIN_PROGRESO,
 };
 
-function checkAdminPin(req, res, next) {
+// ---- Sesiones (6-oct-2026) ----
+// Se entra una vez con el PIN y el servidor da un pase (token) que viaja en
+// la cabecera Authorization; el PIN ya no va en cada clic. El pase se cierra
+// solo tras SESSION_IDLE_MS sin usarse, y como máximo dura SESSION_MAX_MS.
+// En la base solo queda el sha256 del pase.
+const SESSION_IDLE_MS = 12 * 60 * 60 * 1000;
+const SESSION_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+const hashToken = (t) => crypto.createHash("sha256").update(t).digest("hex");
+
+async function sessionFromReq(req) {
+  const m = /^Bearer\s+([A-Za-z0-9_-]{30,100})$/.exec(req.get("authorization") || "");
+  if (!m) return null;
+  const s = await db.prepare("SELECT * FROM admin_sessions WHERE token_hash = ? AND revoked_at IS NULL").get(hashToken(m[1]));
+  const now = Date.now();
+  if (!s || now - s.last_seen_ms > SESSION_IDLE_MS || now > s.expires_ms) return null;
+  // Que un rol cuyo PIN ya no existe (ej. se quitó el de Daniel) no siga entrando.
+  if (!ADMIN_PINS[s.role]) return null;
+  if (now - s.last_seen_ms > 60 * 1000) {
+    await db.prepare("UPDATE admin_sessions SET last_seen_ms = ? WHERE id = ?").run(now, s.id);
+  }
+  return s;
+}
+
+async function createSession(role, req) {
+  const token = crypto.randomBytes(32).toString("base64url");
+  const now = Date.now();
+  await db.prepare(
+    "INSERT INTO admin_sessions (token_hash, role, created_ms, last_seen_ms, expires_ms, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(hashToken(token), role, now, now, now + SESSION_MAX_MS, req.ip || null, String(req.get("user-agent") || "").slice(0, 200));
+  return token;
+}
+
+// ---- Registro de movimientos ----
+// Lo que solo consulta no se anota (listas, resumen, reportes...).
+const READ_ONLY_ACTION = /\/(list|stats|status|reports|payments|activity|pending-fees|session|audit)(\/|$)|^\/admin\/family-rides$/;
+// Campos que nunca se guardan en el detalle (PINs, fotos, firmas).
+const SECRET_FIELDS = new Set(["adminPin", "adminZone", "photo", "photoPlaca", "signature", "image", "logo", "cover", "pin"]);
+
+async function audit({ role, zone, action, targetId, detail, ip, ok = 1 }) {
+  await db.prepare(
+    "INSERT INTO admin_audit (role, zone, action, target_id, detail, ip, ok) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(role || null, zone || null, action, targetId ?? null, detail || null, ip || null, ok ? 1 : 0);
+}
+
+function auditDetail(body) {
+  const out = {};
+  for (const [k, v] of Object.entries(body || {})) {
+    if (SECRET_FIELDS.has(k) || v == null || typeof v === "object") continue;
+    out[k] = String(v).slice(0, 80);
+  }
+  const txt = JSON.stringify(out);
+  return txt === "{}" ? null : txt.slice(0, 400);
+}
+
+async function checkAdminPin(req, res, next) {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const city = Object.keys(ADMIN_PINS).find(
-    (c) => ADMIN_PINS[c] && req.body.adminPin === ADMIN_PINS[c]
-  );
+  let city;
+  const session = await sessionFromReq(req);
+  if (session) {
+    city = session.role;
+    req.adminSession = session;
+  } else if (req.get("authorization")) {
+    return res.status(401).json({ error: "Tu sesión se cerró. Vuelve a entrar con tu PIN.", sessionExpired: true });
+  } else {
+    city = Object.keys(ADMIN_PINS).find(
+      (c) => ADMIN_PINS[c] && req.body.adminPin === ADMIN_PINS[c]
+    );
+  }
   if (!city) {
     recordFailedAttempt(req.ip);
+    audit({ action: "login_fallido", ip: req.ip, ok: 0 }).catch(() => {});
     return res.status(401).json({ error: "PIN de admin incorrecto" });
   }
   clearAttempts(req.ip);
@@ -51,6 +116,17 @@ function checkAdminPin(req, res, next) {
   const zones = city === "tekax" ? ADMIN_ZONES.map((z) => z.id) : [city];
   req.adminZones = zones;
   req.adminCity = zones.includes(req.body.adminZone) ? req.body.adminZone : zones[0];
+  req.adminRole = city;
+  // Al terminar, si fue una acción que cambia algo y salió bien, se anota.
+  res.on("finish", () => {
+    const action = req.route ? req.route.path : req.path;
+    if (res.statusCode >= 400 || READ_ONLY_ACTION.test(action) || action === "/admin/login") return;
+    audit({
+      role: city, zone: req.adminCity, action,
+      targetId: req.params.id != null ? Number(req.params.id) : null,
+      detail: auditDetail(req.body), ip: req.ip,
+    }).catch((e) => console.error("[audit]", e.message));
+  });
   next();
 }
 
@@ -79,9 +155,18 @@ async function generateDriverPin() {
   return pin;
 }
 
+// Entrar: con el PIN crea una sesión nueva y regresa su pase (token); con un
+// pase vigente (la app se reabrió) solo confirma quién es.
 router.post("/admin/login", checkAdminPin, async (req, res) => {
+  let token;
+  if (!req.adminSession) {
+    token = await createSession(req.adminRole, req);
+    await audit({ role: req.adminRole, zone: req.adminCity, action: "/admin/login", ip: req.ip });
+  }
   res.json({
     ok: true,
+    ...(token ? { token } : {}),
+    role: req.adminRole,
     city: req.adminCity,
     cityLabel: zoneInfo(req.adminCity).label,
     // Más de una = el selector de zona del dueño.
@@ -648,6 +733,34 @@ router.post("/admin/reports/cancelaciones", checkAdminPin, async (req, res) => {
     .all(req.adminCity, NO_SHOW_ALERT_THRESHOLD);
 
   res.json({ porChofer, paresRepetidos, inasistencias });
+});
+
+// Salir: el pase deja de servir en ese mismo momento.
+router.post("/admin/logout", checkAdminPin, async (req, res) => {
+  if (req.adminSession) {
+    await db.prepare("UPDATE admin_sessions SET revoked_at = datetime('now') WHERE id = ?").run(req.adminSession.id);
+  }
+  res.json({ ok: true });
+});
+
+// Cerrar TODAS las sesiones de este PIN (ej. perdiste el celular).
+router.post("/admin/logout-all", checkAdminPin, async (req, res) => {
+  const r = await db
+    .prepare("UPDATE admin_sessions SET revoked_at = datetime('now') WHERE role = ? AND revoked_at IS NULL")
+    .run(req.adminRole);
+  res.json({ ok: true, closed: r.changes });
+});
+
+// Movimientos de la zona que se está viendo (los últimos 200).
+router.post("/admin/audit/list", checkAdminPin, async (req, res) => {
+  const rows = await db
+    .prepare(
+      `SELECT id, at, role, action, target_id, detail, ok FROM admin_audit
+       WHERE zone = ? OR (zone IS NULL AND ? = 'tekax')
+       ORDER BY id DESC LIMIT 200`
+    )
+    .all(req.adminCity, req.adminRole);
+  res.json(rows);
 });
 
 module.exports = router;

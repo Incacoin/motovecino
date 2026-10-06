@@ -28,6 +28,8 @@ const TABLES = [
   "driver_push_subs",
   "rider_push_subs",
   "phone_otps",
+  "admin_sessions",
+  "admin_audit",
 ];
 
 // Llave para ordenar (las tablas de ajustes no tienen id).

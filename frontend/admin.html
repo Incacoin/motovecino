@@ -434,6 +434,14 @@
     #tabPanel-resumen.active > .section-card:first-child,
     #tabPanel-resumen.active > .section-card:last-child { grid-column: 1 / -1; }
   }
+  .drawer-foot { margin-top: auto; padding: 14px 12px 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .drawer-foot .sess { font-size: 12px; color: var(--text-dim); line-height: 1.45; padding: 0 6px; }
+  .drawer-foot .sess b { color: var(--text); }
+  .drawer-row.logout { color: var(--danger); }
+  .audit-who { font-size: 12px; color: var(--text-dim); }
+  .audit-act { font-weight: 600; }
+  .audit-det { font-size: 12px; color: var(--text-dim); margin-top: 2px; word-break: break-word; }
+  .audit-row.fail .audit-act { color: var(--danger); }
   /* Mientras no ha entrado, el menú fijo no debe verse. */
   body:has(#login.active) .admin-drawer { display: none; }
 </style>
@@ -463,6 +471,11 @@
     <button id="tabBtn-viajes" class="drawer-row" onclick="switchTab('viajes')"><span class="row-icon">🚗</span>Viajes</button>
     <button id="tabBtn-alertas" class="drawer-row" onclick="switchTab('alertas')"><span class="row-icon">🚩</span>Alertas</button>
     <button id="tabBtn-negocios" class="drawer-row" onclick="switchTab('negocios')"><span class="row-icon">🤝</span>Negocios</button>
+    <button id="tabBtn-movimientos" class="drawer-row" onclick="switchTab('movimientos')"><span class="row-icon">🛡️</span>Movimientos</button>
+  </div>
+  <div class="drawer-foot">
+    <div class="sess" id="sessionInfo">Sesión segura</div>
+    <button class="drawer-row logout" onclick="logoutAdmin()"><span class="row-icon">⏻</span>Cerrar sesión</button>
   </div>
 </div>
 
@@ -725,6 +738,21 @@
   </div>
   </div>
 
+  <div id="tabPanel-movimientos" class="tab-panel">
+  <div class="section-card">
+  <h1>🛡️ Movimientos</h1>
+  <p class="section-hint">Quién entró y quién cambió algo en esta zona (los últimos 200). Nunca se guardan PINs ni fotos.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Cuándo</th><th>Quién</th><th>Qué hizo</th></tr></thead>
+    <tbody id="auditRows"><tr><td colspan="3" class="ago">Cargando…</td></tr></tbody>
+  </table></div>
+  <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn-sm danger" onclick="logoutAllAdmin()">Cerrar sesión en todos los celulares</button>
+  </div>
+  <p class="section-hint" style="margin-top:8px;">Úsalo si perdiste un celular donde tenías abierto el admin: todas las sesiones con tu PIN se cierran y hay que volver a entrar.</p>
+  </div>
+  </div>
+
   <div id="tabPanel-negocios" class="tab-panel">
   <div class="section-card">
   <h1>🤝 Negocios aliados</h1>
@@ -862,19 +890,157 @@ let adminCity = "tekax";
 // de arriba; Daniel solo Progreso). Viene de /api/admin/login.
 let adminZones = [];
 try { adminCity = localStorage.getItem("motoyaAdminZone") || "tekax"; } catch {}
-// Todas las peticiones del admin mandan adminPin en el cuerpo; aquí se les
-// agrega la zona elegida en un solo lugar, en vez de en cada una (el
-// servidor solo la respeta si el PIN tiene permiso para esa zona).
+// Sesión (6-oct-2026): al entrar con el PIN el servidor da un pase (token)
+// que se guarda aquí y viaja en cada petición; el PIN ya no. El pase se
+// cierra solo si no se usa en 12 h (o a los 7 días).
+let adminToken = null;
+try { adminToken = localStorage.getItem("motoyaAdminToken"); } catch {}
+// Todas las peticiones del admin pasan por aquí: se les agrega la zona
+// elegida y el pase, y se les quita el PIN (en un solo lugar, en vez de en
+// cada una; el servidor solo respeta la zona si el PIN tiene permiso).
 const _adminFetch = window.fetch.bind(window);
 window.fetch = (url, opts) => {
-  if (typeof url === "string" && url.includes("/api/admin") && opts && typeof opts.body === "string") {
+  const isAdmin = typeof url === "string" && url.includes("/api/admin");
+  if (isAdmin && opts && typeof opts.body === "string") {
     try {
       const body = JSON.parse(opts.body);
-      if (body && "adminPin" in body) opts = { ...opts, body: JSON.stringify({ ...body, adminZone: adminCity }) };
+      if (body && "adminPin" in body) {
+        const next = { ...body, adminZone: adminCity };
+        const headers = { ...(opts.headers || {}) };
+        if (adminToken) {
+          delete next.adminPin;
+          headers.Authorization = "Bearer " + adminToken;
+        }
+        opts = { ...opts, headers, body: JSON.stringify(next) };
+      }
     } catch {}
   }
-  return _adminFetch(url, opts);
+  const p = _adminFetch(url, opts);
+  if (!isAdmin || !adminToken) return p;
+  return p.then((res) => {
+    if (res.status === 401) {
+      res.clone().json().then((d) => { if (d && d.sessionExpired) adminSessionEnded(); }).catch(() => {});
+    }
+    return res;
+  });
 };
+
+function saveAdminToken(t) {
+  adminToken = t || null;
+  try { t ? localStorage.setItem("motoyaAdminToken", t) : localStorage.removeItem("motoyaAdminToken"); } catch {}
+}
+
+// El pase venció o lo cerraron: de regreso a la pantalla del PIN.
+function adminSessionEnded(msg) {
+  saveAdminToken(null);
+  adminPin = null;
+  clearInterval(ridesPollTimer);
+  document.getElementById("app").classList.remove("active");
+  document.getElementById("login").classList.add("active");
+  document.getElementById("err").textContent = msg || "Tu sesión se cerró. Vuelve a entrar con tu PIN.";
+}
+
+async function logoutAdmin() {
+  try {
+    await fetch(API + "/api/admin/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  } catch {}
+  closeDrawer();
+  adminSessionEnded(" ");
+  document.getElementById("adminPin").value = "";
+}
+
+async function logoutAllAdmin() {
+  if (!(await mvConfirmAdmin("Se cerrará el admin en todos los celulares y computadoras donde entraste con tu PIN. ¿Seguro?"))) return;
+  const res = await fetch(API + "/api/admin/logout-all", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  const d = await res.json().catch(() => ({}));
+  adminSessionEnded(`Listo: se cerraron ${d.closed ?? 0} sesión(es). Vuelve a entrar con tu PIN.`);
+}
+
+// Confirmación sencilla dentro de la página (sin el confirm() del navegador).
+function mvConfirmAdmin(message) {
+  return new Promise((resolve) => {
+    const ov = document.createElement("div");
+    ov.className = "modal-overlay active";
+    ov.innerHTML = `<div class="modal-card"><p style="margin:0 0 16px;line-height:1.5;"></p><div style="display:flex;gap:8px;"><button class="btn btn-secondary" data-r="0" style="flex:1">Cancelar</button><button class="btn" data-r="1" style="flex:1">Sí, cerrar</button></div></div>`;
+    ov.querySelector("p").textContent = message;
+    ov.addEventListener("click", (e) => {
+      const r = e.target.closest("[data-r]");
+      if (!r && e.target !== ov) return;
+      ov.remove();
+      resolve(r ? r.dataset.r === "1" : false);
+    });
+    document.body.appendChild(ov);
+  });
+}
+
+// ---- Movimientos ----
+const AUDIT_LABELS = {
+  "/admin/login": "Entró al admin",
+  login_fallido: "Intento de entrada con PIN equivocado",
+  "/admin/logout": "Cerró sesión",
+  "/admin/logout-all": "Cerró sesión en todos los celulares",
+  "/admin/drivers": "Dio de alta un chofer",
+  "/admin/drivers/:id/update": "Editó un chofer",
+  "/admin/drivers/:id/delete": "Eliminó un chofer",
+  "/admin/drivers/:id/reset-pin": "Cambió el PIN de un chofer",
+  "/admin/drivers/:id/register-trip-fees": "Cobró cuotas de viajes",
+  "/admin/drivers/:id/register-payment": "Registró un pago",
+  "/admin/drivers/:id/paid-until": "Cambió la fecha de pago",
+  "/admin/drivers/:id/vouch": "Avaló a un chofer",
+  "/admin/drivers/:id/test-account": "Marcó cuenta de prueba (chofer)",
+  "/admin/chofer-solicitudes/:id/dismiss": "Descartó una solicitud",
+  "/admin/riders/:id/delete": "Eliminó un pasajero",
+  "/admin/riders/:id/reset-pin": "Cambió el PIN de un pasajero",
+  "/admin/riders/:id/test-account": "Marcó cuenta de prueba (pasajero)",
+  "/admin/rides/reset": "Borró todos los viajes",
+  "/admin/family-rides/enabled": "Prendió/apagó Pedir para otra persona",
+  "/admin/ally-ads/save": "Guardó un negocio aliado",
+  "/admin/ally-ads/enabled": "Prendió/apagó Negocios aliados",
+  "/admin/ally-ads/:id/active": "Activó/pausó un negocio aliado",
+  "/admin/ally-ads/:id/delete": "Borró un negocio aliado",
+  "/admin/food/enabled": "Prendió/apagó Comida y negocios",
+  "/admin/businesses/save": "Guardó un negocio",
+  "/admin/businesses/:id/active": "Activó/desactivó un negocio",
+};
+const ROLE_LABELS = { tekax: "Dueño", progreso: "Daniel (Progreso)", ticul: "Ticul" };
+
+// Solo lo que le sirve a una persona; lo técnico (lat, lng, casillas) no se enseña.
+const AUDIT_FIELDS = { name: "", phone: "Tel.", vehicleType: "", amount: "$", address: "", whatsapp: "WhatsApp", enabled: "", esPrueba: "", active: "" };
+function auditDetailText(raw) {
+  if (!raw) return "";
+  try {
+    const d = JSON.parse(raw);
+    return Object.entries(d)
+      .filter(([k]) => k in AUDIT_FIELDS)
+      .map(([k, v]) => {
+        if (k === "vehicleType") return v === "taxi" ? "Taxi" : "Mototaxi";
+        if (k === "enabled" || k === "active") return v === "true" ? "Prendido" : "Apagado";
+        if (k === "esPrueba") return v === "true" ? "Sí es prueba" : "No es prueba";
+        if (k === "amount") return `$${v}`;
+        return AUDIT_FIELDS[k] ? `${AUDIT_FIELDS[k]} ${v}` : v;
+      })
+      .join(" · ");
+  } catch { return ""; }
+}
+
+async function loadAudit() {
+  const tbody = document.getElementById("auditRows");
+  const res = await fetch(API + "/api/admin/audit/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  if (!res.ok) return;
+  const rows = await res.json();
+  tbody.innerHTML = rows.length
+    ? rows.map((r) => {
+        const when = new Date(String(r.at).replace(" ", "T") + "Z").toLocaleString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+        const label = AUDIT_LABELS[r.action] || r.action;
+        const target = r.target_id != null ? ` #${r.target_id}` : "";
+        return `<tr class="audit-row${r.ok ? "" : " fail"}">
+          <td class="ago" style="white-space:nowrap;">${escapeHtml(when)}</td>
+          <td class="audit-who">${escapeHtml(ROLE_LABELS[r.role] || r.role || "—")}</td>
+          <td><div class="audit-act">${escapeHtml(label + target)}</div>${r.detail ? `<div class="audit-det">${escapeHtml(auditDetailText(r.detail))}</div>` : ""}</td>
+        </tr>`;
+      }).join("")
+    : `<tr><td colspan="3" class="ago">Todavía no hay movimientos.</td></tr>`;
+}
 let adminCityLabel = "Tekax";
 let launchRankingCache = [];
 let driversCache = [];
@@ -908,15 +1074,16 @@ let lastRegistered = null;
 let editingId = null;
 let ridesPollTimer = null;
 
-const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas", negocios: "Negocios aliados" };
+const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas", negocios: "Negocios aliados", movimientos: "Movimientos" };
 
 function switchTab(tab) {
-  ["resumen", "choferes", "pasajeros", "viajes", "alertas", "negocios"].forEach((t) => {
+  ["resumen", "choferes", "pasajeros", "viajes", "alertas", "negocios", "movimientos"].forEach((t) => {
     document.getElementById(`tabPanel-${t}`).classList.toggle("active", t === tab);
     document.getElementById(`tabBtn-${t}`).classList.toggle("active", t === tab);
   });
   document.getElementById("appTopbarTitle").textContent = TAB_TITLES[tab] || "";
   try { localStorage.setItem("motoyaAdminTab", tab); } catch {}
+  if (tab === "movimientos") loadAudit();
   closeDrawer();
 }
 
@@ -1118,8 +1285,11 @@ function sendWhatsappFor(id) {
   window.open(waLink(driver.phone, welcomeMessage(driver)), "_blank");
 }
 
-async function login() {
-  adminPin = document.getElementById("adminPin").value.trim();
+async function login(withSavedToken) {
+  if (!withSavedToken) {
+    saveAdminToken(null); // un PIN nuevo siempre pide un pase nuevo
+    adminPin = document.getElementById("adminPin").value.trim();
+  }
   document.getElementById("err").textContent = "";
   const res = await fetch(API + "/api/admin/login", {
     method: "POST",
@@ -1127,10 +1297,18 @@ async function login() {
     body: JSON.stringify({ adminPin }),
   });
   if (!res.ok) {
-    document.getElementById("err").textContent = "PIN incorrecto";
+    if (withSavedToken) { saveAdminToken(null); return; }
+    const e = await res.json().catch(() => ({}));
+    document.getElementById("err").textContent = res.status === 429 ? (e.error || "Demasiados intentos") : "PIN incorrecto";
     return;
   }
   const loginData = await res.json();
+  if (loginData.token) saveAdminToken(loginData.token);
+  // Ya con pase: el PIN no se queda en memoria ni viaja más.
+  adminPin = null;
+  document.getElementById("adminPin").value = "";
+  const sess = document.getElementById("sessionInfo");
+  if (sess) sess.innerHTML = `Sesión segura · <b>${escapeHtml(ROLE_LABELS[loginData.role] || "Admin")}</b><br>Se cierra sola tras 12 h sin usar`;
   adminZones = loginData.zones || [];
   applyAdminZone(loginData.city || "tekax", loginData.cityLabel || "Tekax");
   document.getElementById("login").classList.remove("active");
@@ -2386,6 +2564,8 @@ async function downloadAllyArt(id, kind) {
   link.click();
   showToast(kind === "historia" ? "Imagen para historia descargada" : "Letrero descargado");
 }
+// Al abrir el admin: si hay un pase guardado y sigue vigente, se entra sin PIN.
+if (adminToken) login(true);
 </script>
 </body>
 </html>
