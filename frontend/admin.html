@@ -113,6 +113,8 @@
   .admin-drawer.open { transform: translateX(0); }
   .drawer-header { padding: 26px 20px 18px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
   .drawer-city { color: var(--accent); font-weight: 700; font-size: 13px; }
+  .zone-select { font: inherit; font-size: 13px; font-weight: 700; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--accent); background: transparent; color: var(--accent); max-width: 200px; }
+  .zone-select option { color: #111; }
   .drawer-nav { display: flex; flex-direction: column; padding: 10px 0; }
   .drawer-row {
     display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box;
@@ -298,7 +300,7 @@
   <div class="app-topbar">
     <button class="hamburger-btn" onclick="openDrawer()" title="Menú">☰</button>
     <div class="app-topbar-title" id="appTopbarTitle">Resumen</div>
-    <div style="width:42px;"></div>
+    <div id="zoneSelectWrap" style="min-width:42px;display:flex;justify-content:flex-end;"></div>
   </div>
 
   <div id="tabPanel-resumen" class="tab-panel active">
@@ -686,6 +688,23 @@ fetch(API + "/api/config").then((r) => r.json()).then((cfg) => {
 let trialEndDateCache = null;
 let adminPin = null;
 let adminCity = "tekax";
+// Zonas que puede ver este PIN (el dueño ve varias y cambia con el selector
+// de arriba; Daniel solo Progreso). Viene de /api/admin/login.
+let adminZones = [];
+try { adminCity = localStorage.getItem("motoyaAdminZone") || "tekax"; } catch {}
+// Todas las peticiones del admin mandan adminPin en el cuerpo; aquí se les
+// agrega la zona elegida en un solo lugar, en vez de en cada una (el
+// servidor solo la respeta si el PIN tiene permiso para esa zona).
+const _adminFetch = window.fetch.bind(window);
+window.fetch = (url, opts) => {
+  if (typeof url === "string" && url.includes("/api/admin") && opts && typeof opts.body === "string") {
+    try {
+      const body = JSON.parse(opts.body);
+      if (body && "adminPin" in body) opts = { ...opts, body: JSON.stringify({ ...body, adminZone: adminCity }) };
+    } catch {}
+  }
+  return _adminFetch(url, opts);
+};
 let adminCityLabel = "Tekax";
 let launchRankingCache = [];
 let driversCache = [];
@@ -942,18 +961,49 @@ async function login() {
     return;
   }
   const loginData = await res.json();
-  adminCity = loginData.city || "tekax";
-  adminCityLabel = loginData.cityLabel || "Tekax";
-  document.title = document.title.replace(/Tekax /, adminCityLabel + " ");
-  const cityBadge = document.getElementById("adminCityBadge");
-  if (cityBadge) cityBadge.textContent = "📍 " + adminCityLabel;
-  const cityField = document.getElementById("driverCityDisplay");
-  if (cityField) cityField.textContent = adminCityLabel;
+  adminZones = loginData.zones || [];
+  applyAdminZone(loginData.city || "tekax", loginData.cityLabel || "Tekax");
   document.getElementById("login").classList.remove("active");
   document.getElementById("app").classList.add("active");
   let savedTab = "resumen";
   try { savedTab = localStorage.getItem("motoyaAdminTab") || "resumen"; } catch {}
   switchTab(savedTab);
+  loadAllAdminData();
+}
+
+// Pone en pantalla la zona elegida (nombre, selector) sin recargar datos.
+function applyAdminZone(id, label) {
+  const prevLabel = adminCityLabel;
+  adminCity = id;
+  adminCityLabel = label;
+  try { localStorage.setItem("motoyaAdminZone", id); } catch {}
+  document.title = document.title.replace(prevLabel + " ", label + " ").replace(/Tekax /, label + " ");
+  const zoneTxt = (z) => z.label + (z.enabled ? "" : " (apagado)");
+  const cityBadge = document.getElementById("adminCityBadge");
+  const cityField = document.getElementById("driverCityDisplay");
+  if (cityField) cityField.textContent = label;
+  const wrap = document.getElementById("zoneSelectWrap");
+  if (adminZones.length > 1) {
+    const opts = adminZones.map((z) => `<option value="${escapeHtml(z.id)}"${z.id === id ? " selected" : ""}>📍 ${escapeHtml(zoneTxt(z))}</option>`).join("");
+    if (wrap) wrap.innerHTML = `<select class="zone-select" aria-label="Zona" onchange="switchAdminZone(this.value)">${opts}</select>`;
+    if (cityBadge) cityBadge.innerHTML = `<select class="zone-select" aria-label="Zona" onchange="switchAdminZone(this.value)">${opts}</select>`;
+  } else {
+    if (wrap) wrap.innerHTML = "";
+    if (cityBadge) cityBadge.textContent = "📍 " + label;
+  }
+}
+
+// El dueño cambia de zona: todo el admin pasa a mostrar la otra.
+function switchAdminZone(id) {
+  const z = adminZones.find((x) => x.id === id);
+  if (!z || id === adminCity) return;
+  applyAdminZone(z.id, z.label);
+  driversCache = [];
+  loadAllAdminData();
+  showToast(`Viendo ${z.label}${z.enabled ? "" : " (apagado: todavía no hay viajes)"}`);
+}
+
+function loadAllAdminData() {
   loadDrivers();
   loadRiders();
   loadRides();
@@ -1426,7 +1476,9 @@ function vehicleTypeSelect(id, vehicleType) {
 }
 
 function cityLabel(city) {
-  return city === "ticul" ? "Ticul" : "Tekax";
+  const z = adminZones.find((x) => x.id === city);
+  if (z) return z.label;
+  return city === "ticul" ? "Ticul" : city === "progreso" ? "Progreso" : "Tekax";
 }
 
 

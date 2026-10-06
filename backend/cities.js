@@ -61,6 +61,14 @@ const PROGRESO = {
     { id: "chuburna", label: "Chuburná", lat: 21.2524, lng: -89.8158, radiusKm: 2, fare: 10 },
   ],
 };
+// Zonas que puede ver el dueño en su admin (selector arriba): Tekax y las
+// que tengan socio operador. Progreso aparece aunque esté apagada, para
+// poder ver su panel antes de abrirla.
+const ADMIN_ZONES = [
+  { id: "tekax", label: "Tekax", enabled: true },
+  { id: PROGRESO.id, label: PROGRESO.label, enabled: process.env.ENABLE_PROGRESO === "1" },
+];
+
 // Cuánto más puede pedir un chofer sobre la oferta del pasajero.
 const OFFER_MAX_UP = 40;
 
@@ -156,4 +164,5 @@ module.exports = {
   zoneAt,
   sameComisaria,
   OFFER_MAX_UP,
+  ADMIN_ZONES,
 };

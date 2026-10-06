@@ -3,7 +3,7 @@ const db = require("../db");
 const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS } = require("../constants");
 const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
-const { getCityById } = require("../cities");
+const { getCityById, ADMIN_ZONES } = require("../cities");
 const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
@@ -45,8 +45,18 @@ function checkAdminPin(req, res, next) {
     return res.status(401).json({ error: "PIN de admin incorrecto" });
   }
   clearAttempts(req.ip);
-  req.adminCity = city;
+  // El PIN del dueño (Tekax) puede ver todas las zonas de ADMIN_ZONES con el
+  // selector del admin, que manda adminZone en cada petición. Cualquier otro
+  // PIN (Daniel, Ticul) solo ve la suya, mande lo que mande.
+  const zones = city === "tekax" ? ADMIN_ZONES.map((z) => z.id) : [city];
+  req.adminZones = zones;
+  req.adminCity = zones.includes(req.body.adminZone) ? req.body.adminZone : zones[0];
   next();
+}
+
+function zoneInfo(id) {
+  const z = ADMIN_ZONES.find((x) => x.id === id);
+  return { id, label: z ? z.label : getCityById(id)?.label || id, enabled: z ? z.enabled : true };
 }
 
 // Confirma que el chofer/solicitud sobre el que se va a actuar es de la
@@ -70,7 +80,13 @@ async function generateDriverPin() {
 }
 
 router.post("/admin/login", checkAdminPin, async (req, res) => {
-  res.json({ ok: true, city: req.adminCity, cityLabel: getCityById(req.adminCity)?.label });
+  res.json({
+    ok: true,
+    city: req.adminCity,
+    cityLabel: zoneInfo(req.adminCity).label,
+    // Más de una = el selector de zona del dueño.
+    zones: req.adminZones.map(zoneInfo),
+  });
 });
 
 router.post("/admin/drivers", checkAdminPin, async (req, res) => {

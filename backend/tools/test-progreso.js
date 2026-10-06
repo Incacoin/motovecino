@@ -84,6 +84,20 @@ async function main() {
   const progList = await post("/admin/drivers/list", { adminPin: ADMIN_PROGRESO });
   check("Daniel ve sus choferes", progList.data.some((d) => d.id === dChelem.id) && progList.data.every((d) => d.city === "progreso"), progList.data.length);
 
+  // ---------- Selector de zona del dueño ----------
+  const ownerLogin = await post("/admin/login", { adminPin: ADMIN });
+  check("el dueño tiene selector (Tekax y Progreso)", ownerLogin.data.zones && ownerLogin.data.zones.map((z) => z.id).join() === "tekax,progreso", ownerLogin.data);
+  const ownerProg = await post("/admin/drivers/list", { adminPin: ADMIN, adminZone: "progreso" });
+  check("el dueño ve los choferes de Daniel al cambiar a Progreso", ownerProg.data.some((d) => d.id === dChelem.id) && ownerProg.data.every((d) => d.city === "progreso"), ownerProg.data.length);
+  const ownerTk = await post("/admin/drivers/list", { adminPin: ADMIN, adminZone: "tekax" });
+  check("el dueño en Tekax no ve los de Progreso", !ownerTk.data.some((d) => d.id === dChelem.id), ownerTk.data.length);
+  const danielLogin = await post("/admin/login", { adminPin: ADMIN_PROGRESO, adminZone: "tekax" });
+  check("Daniel no tiene selector", danielLogin.data.city === "progreso" && danielLogin.data.zones.length === 1, danielLogin.data);
+  const danielTk = await post("/admin/drivers/list", { adminPin: ADMIN_PROGRESO, adminZone: "tekax" });
+  check("Daniel NO puede ver Tekax aunque lo pida", danielTk.data.every((d) => d.city === "progreso"), danielTk.data.length);
+  const ownerAdd = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "progreso", name: `Alta Dueño ${stamp}`, phone: `98400${stamp}`.slice(0, 10), acceptedLegal: true, vehicleType: "moto" });
+  check("el dueño da de alta un chofer en Progreso", ownerAdd.status === 201 && ownerAdd.data.city === "progreso", ownerAdd);
+
   // ---------- Choferes conectados en su comisaría ----------
   const ws1 = await driverSocket(dChelem.id, dChelem.pin);
   ws1.send(JSON.stringify({ type: "location", ...off(Z.chelem, 0.002) }));
