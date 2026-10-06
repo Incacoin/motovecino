@@ -444,6 +444,17 @@
   .audit-row.fail .audit-act { color: var(--danger); }
   /* Mientras no ha entrado, el menú fijo no debe verse. */
   body:has(#login.active) .admin-drawer { display: none; }
+  /* Entrar con huella */
+  .login-or { text-align: center; font-size: 12px; opacity: .6; margin: 12px 0 2px; }
+  #passkeyLoginWrap { width: 100%; }
+  #passkeyLoginWrap .btn { width: 100%; }
+  .btn-passkey { background: transparent !important; color: #34d399 !important; border: 1px solid #34d399 !important; }
+  .passkey-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid rgba(148,163,184,.15); }
+  .passkey-row:last-child { border-bottom: none; }
+  .passkey-row .pk-info { flex: 1; min-width: 0; }
+  .passkey-row .pk-name { font-weight: 600; }
+  .passkey-row .pk-when { font-size: 12px; opacity: .7; }
+  .pk-this { font-size: 11px; color: #34d399; margin-left: 6px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -454,6 +465,10 @@
     <div class="login-sub">Panel de administración</div>
     <input id="adminPin" inputmode="numeric" placeholder="PIN de admin" />
     <button class="btn" onclick="login()">Entrar</button>
+    <div id="passkeyLoginWrap" style="display:none;">
+      <div class="login-or">o</div>
+      <button class="btn btn-passkey" onclick="loginWithPasskey()">👆 Entrar con huella</button>
+    </div>
     <div id="err"></div>
   </div>
 </div>
@@ -740,6 +755,15 @@
 
   <div id="tabPanel-movimientos" class="tab-panel">
   <div class="section-card">
+  <h1>👆 Entrar con huella</h1>
+  <p class="section-hint">Entra al admin con la huella del celular en vez del PIN. Tu huella nunca sale del teléfono: MotoVecino solo guarda una llave que no sirve en ningún otro aparato. El PIN sigue sirviendo de respaldo.</p>
+  <div id="passkeyRows" class="ago">Cargando…</div>
+  <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+    <button id="passkeyActivateBtn" class="btn-sm" onclick="activatePasskey()">Activar huella en este celular</button>
+  </div>
+  <div id="passkeyMsg" class="section-hint" style="margin-top:8px;"></div>
+  </div>
+  <div class="section-card">
   <h1>🛡️ Movimientos</h1>
   <p class="section-hint">Quién entró y quién cambió algo en esta zona (los últimos 200). Nunca se guardan PINs ni fotos.</p>
   <div class="table-wrap"><table>
@@ -938,6 +962,8 @@ function adminSessionEnded(msg) {
   document.getElementById("app").classList.remove("active");
   document.getElementById("login").classList.add("active");
   document.getElementById("err").textContent = msg || "Tu sesión se cerró. Vuelve a entrar con tu PIN.";
+  const pkMsg = document.getElementById("passkeyMsg");
+  if (pkMsg) pkMsg.textContent = "";
 }
 
 async function logoutAdmin() {
@@ -957,12 +983,14 @@ async function logoutAllAdmin() {
 }
 
 // Confirmación sencilla dentro de la página (sin el confirm() del navegador).
-function mvConfirmAdmin(message) {
+function mvConfirmAdmin(message, okLabel = "Sí, cerrar", cancelLabel = "Cancelar") {
   return new Promise((resolve) => {
     const ov = document.createElement("div");
     ov.className = "modal-overlay active";
-    ov.innerHTML = `<div class="modal-card"><p style="margin:0 0 16px;line-height:1.5;"></p><div style="display:flex;gap:8px;"><button class="btn btn-secondary" data-r="0" style="flex:1">Cancelar</button><button class="btn" data-r="1" style="flex:1">Sí, cerrar</button></div></div>`;
+    ov.innerHTML = `<div class="modal-card"><p style="margin:0 0 16px;line-height:1.5;"></p><div style="display:flex;gap:8px;"><button class="btn btn-secondary" data-r="0" style="flex:1"></button><button class="btn" data-r="1" style="flex:1"></button></div></div>`;
     ov.querySelector("p").textContent = message;
+    ov.querySelector('[data-r="0"]').textContent = cancelLabel;
+    ov.querySelector('[data-r="1"]').textContent = okLabel;
     ov.addEventListener("click", (e) => {
       const r = e.target.closest("[data-r]");
       if (!r && e.target !== ov) return;
@@ -973,10 +1001,163 @@ function mvConfirmAdmin(message) {
   });
 }
 
+// ---- Entrar con huella (passkey / WebAuthn) ----
+// El celular guarda una llave protegida con la huella; aquí solo viajan
+// retos firmados. Este celular recuerda el id de su llave en localStorage
+// para enseñar el botón "Entrar con huella" en la pantalla del PIN.
+const PASSKEY_KEY = "motoyaAdminPasskey";
+const passkeySupported = () => !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext);
+function savedPasskeyId() { try { return localStorage.getItem(PASSKEY_KEY); } catch { return null; } }
+function setSavedPasskeyId(id) {
+  try { id ? localStorage.setItem(PASSKEY_KEY, id) : localStorage.removeItem(PASSKEY_KEY); } catch {}
+  refreshPasskeyLoginBtn();
+}
+function refreshPasskeyLoginBtn() {
+  const w = document.getElementById("passkeyLoginWrap");
+  if (w) w.style.display = passkeySupported() && savedPasskeyId() ? "" : "none";
+}
+refreshPasskeyLoginBtn();
+
+const b64uToBuf = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0)).buffer;
+const bufToB64u = (b) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const credList = (l) => (l || []).map((c) => ({ ...c, id: b64uToBuf(c.id) }));
+
+function passkeyErrorText(e) {
+  if (e && e.name === "NotAllowedError") return "Se canceló o se tardó mucho. Inténtalo otra vez.";
+  if (e && e.name === "InvalidStateError") return "Este celular ya tiene la huella activada.";
+  if (e && e.name === "NotSupportedError") return "Este celular o navegador no permite entrar con huella.";
+  return "No se pudo usar la huella en este celular.";
+}
+
+async function loginWithPasskey() {
+  const err = document.getElementById("err");
+  err.textContent = "";
+  try {
+    const optRes = await fetch(API + "/api/admin/passkey/login-options", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credentialId: savedPasskeyId() }),
+    });
+    const o = await optRes.json();
+    if (!optRes.ok) { err.textContent = o.error || "No se pudo entrar"; return; }
+    const cred = await navigator.credentials.get({
+      publicKey: { ...o, challenge: b64uToBuf(o.challenge), allowCredentials: credList(o.allowCredentials) },
+    });
+    const r = cred.response;
+    const res = await fetch(API + "/api/admin/passkey/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ response: {
+        id: cred.id, rawId: bufToB64u(cred.rawId), type: cred.type,
+        authenticatorAttachment: cred.authenticatorAttachment || undefined,
+        clientExtensionResults: cred.getClientExtensionResults(),
+        response: {
+          clientDataJSON: bufToB64u(r.clientDataJSON),
+          authenticatorData: bufToB64u(r.authenticatorData),
+          signature: bufToB64u(r.signature),
+          userHandle: r.userHandle ? bufToB64u(r.userHandle) : undefined,
+        },
+      } }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 401 && /ya no está activada/.test(d.error || "")) setSavedPasskeyId(null);
+      err.textContent = d.error || "No se pudo entrar con la huella";
+      return;
+    }
+    setSavedPasskeyId(cred.id);
+    saveAdminToken(d.token);
+    await login(true);
+  } catch (e) {
+    err.textContent = passkeyErrorText(e);
+  }
+}
+
+// Activa la huella en este celular. Regresa true si quedó activada.
+async function activatePasskey() {
+  const msg = document.getElementById("passkeyMsg");
+  if (msg) msg.textContent = "";
+  if (!passkeySupported()) { if (msg) msg.textContent = "Este celular o navegador no permite entrar con huella."; return false; }
+  try {
+    const optRes = await fetch(API + "/api/admin/passkey/register-options", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+    const o = await optRes.json();
+    if (!optRes.ok) { if (msg) msg.textContent = o.error || "No se pudo activar"; return false; }
+    const cred = await navigator.credentials.create({
+      publicKey: { ...o, challenge: b64uToBuf(o.challenge), user: { ...o.user, id: b64uToBuf(o.user.id) }, excludeCredentials: credList(o.excludeCredentials) },
+    });
+    const r = cred.response;
+    const res = await fetch(API + "/api/admin/passkey/register", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminPin, response: {
+        id: cred.id, rawId: bufToB64u(cred.rawId), type: cred.type,
+        authenticatorAttachment: cred.authenticatorAttachment || undefined,
+        clientExtensionResults: cred.getClientExtensionResults(),
+        response: {
+          clientDataJSON: bufToB64u(r.clientDataJSON),
+          attestationObject: bufToB64u(r.attestationObject),
+          transports: r.getTransports ? r.getTransports() : undefined,
+        },
+      } }),
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { if (msg) msg.textContent = d.error || "No se pudo activar"; return false; }
+    setSavedPasskeyId(d.credentialId);
+    if (msg) msg.textContent = "✅ Listo. La próxima vez toca \"Entrar con huella\".";
+    loadPasskeys();
+    return true;
+  } catch (e) {
+    if (msg) msg.textContent = passkeyErrorText(e);
+    return false;
+  }
+}
+
+async function loadPasskeys() {
+  const box = document.getElementById("passkeyRows");
+  if (!box) return;
+  const btn = document.getElementById("passkeyActivateBtn");
+  if (btn) btn.style.display = passkeySupported() && !savedPasskeyId() ? "" : "none";
+  const res = await fetch(API + "/api/admin/passkey/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  if (!res.ok) return;
+  const rows = await res.json();
+  const fmt = (ms) => new Date(ms).toLocaleString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const mine = savedPasskeyId();
+  // Si en el servidor ya no está la de este celular, se olvida aquí también.
+  if (mine && !rows.some((r) => r.credential_id === mine)) setSavedPasskeyId(null);
+  if (btn) btn.style.display = passkeySupported() && !savedPasskeyId() ? "" : "none";
+  box.className = rows.length ? "" : "ago";
+  box.innerHTML = rows.length
+    ? rows.map((r) => `<div class="passkey-row">
+        <div class="pk-info">
+          <div class="pk-name">${escapeHtml(r.label || "Celular")}${r.credential_id === savedPasskeyId() ? '<span class="pk-this">ESTE CELULAR</span>' : ""}</div>
+          <div class="pk-when">Activada ${escapeHtml(fmt(r.created_ms))}${r.last_used_ms ? " · último uso " + escapeHtml(fmt(r.last_used_ms)) : " · sin usar todavía"}</div>
+        </div>
+        <button class="btn-sm danger" onclick="removePasskey(${Number(r.id)})">Quitar</button>
+      </div>`).join("")
+    : "Todavía no tienes la huella activada en ningún celular.";
+}
+
+async function removePasskey(id) {
+  if (!(await mvConfirmAdmin("Ese celular ya no podrá entrar con huella (con el PIN sí). ¿Quitarla?", "Sí, quitar"))) return;
+  await fetch(API + `/api/admin/passkey/${id}/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  loadPasskeys();
+}
+
+// Recién entró con el PIN en un celular sin huella: se le ofrece una vez.
+async function offerPasskey() {
+  if (!passkeySupported() || savedPasskeyId()) return;
+  try { if (localStorage.getItem("motoyaAdminPasskeyAsked")) return; localStorage.setItem("motoyaAdminPasskeyAsked", "1"); } catch { return; }
+  if (await mvConfirmAdmin("¿Quieres entrar con tu huella la próxima vez, en vez del PIN? Tu huella no sale del celular.", "Activar huella", "Ahora no")) {
+    const ok = await activatePasskey();
+    if (!ok) { switchTab("movimientos"); }
+  }
+}
+
 // ---- Movimientos ----
 const AUDIT_LABELS = {
   "/admin/login": "Entró al admin",
   login_fallido: "Intento de entrada con PIN equivocado",
+  passkey_login: "Entró al admin con huella",
+  passkey_fallida: "Intento de entrada con huella que no pasó",
+  "/admin/passkey/register": "Activó la huella en un celular",
+  "/admin/passkey/:id/delete": "Quitó la huella de un celular",
   "/admin/logout": "Cerró sesión",
   "/admin/logout-all": "Cerró sesión en todos los celulares",
   "/admin/drivers": "Dio de alta un chofer",
@@ -1005,7 +1186,7 @@ const AUDIT_LABELS = {
 const ROLE_LABELS = { tekax: "Dueño", progreso: "Daniel (Progreso)", ticul: "Ticul" };
 
 // Solo lo que le sirve a una persona; lo técnico (lat, lng, casillas) no se enseña.
-const AUDIT_FIELDS = { name: "", phone: "Tel.", vehicleType: "", amount: "$", address: "", whatsapp: "WhatsApp", enabled: "", esPrueba: "", active: "" };
+const AUDIT_FIELDS = { device: "", name: "", phone: "Tel.", vehicleType: "", amount: "$", address: "", whatsapp: "WhatsApp", enabled: "", esPrueba: "", active: "" };
 function auditDetailText(raw) {
   if (!raw) return "";
   try {
@@ -1083,7 +1264,7 @@ function switchTab(tab) {
   });
   document.getElementById("appTopbarTitle").textContent = TAB_TITLES[tab] || "";
   try { localStorage.setItem("motoyaAdminTab", tab); } catch {}
-  if (tab === "movimientos") loadAudit();
+  if (tab === "movimientos") { loadAudit(); loadPasskeys(); }
   closeDrawer();
 }
 
@@ -1317,6 +1498,7 @@ async function login(withSavedToken) {
   try { savedTab = localStorage.getItem("motoyaAdminTab") || "resumen"; } catch {}
   switchTab(savedTab);
   loadAllAdminData();
+  if (!withSavedToken) offerPasskey();
 }
 
 // Pone en pantalla la zona elegida (nombre, selector) sin recargar datos.

@@ -10,6 +10,10 @@ const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
 const { toStored, inflateRow } = require("../imageStore");
+const {
+  generateRegistrationOptions, verifyRegistrationResponse,
+  generateAuthenticationOptions, verifyAuthenticationResponse,
+} = require("@simplewebauthn/server");
 
 // El admin siempre recibió las fotos completas (data URL); ahora viven en
 // data/img/ y se arman al responder.
@@ -68,7 +72,7 @@ async function createSession(role, req) {
 
 // ---- Registro de movimientos ----
 // Lo que solo consulta no se anota (listas, resumen, reportes...).
-const READ_ONLY_ACTION = /\/(list|stats|status|reports|payments|activity|pending-fees|session|audit)(\/|$)|^\/admin\/family-rides$/;
+const READ_ONLY_ACTION = /\/(list|stats|status|reports|payments|activity|pending-fees|session|audit|register-options)(\/|$)|^\/admin\/family-rides$/;
 // Campos que nunca se guardan en el detalle (PINs, fotos, firmas).
 const SECRET_FIELDS = new Set(["adminPin", "adminZone", "photo", "photoPlaca", "signature", "image", "logo", "cover", "pin"]);
 
@@ -761,6 +765,172 @@ router.post("/admin/audit/list", checkAdminPin, async (req, res) => {
     )
     .all(req.adminCity, req.adminRole);
   res.json(rows);
+});
+
+// ---- Entrar con huella (passkey / WebAuthn, 6-oct-2026) ----
+// Ya dentro (con el PIN), el admin activa la huella en ese celular: el
+// celular crea un par de llaves, guarda la privada protegida con la huella y
+// nos manda solo la pública. Para entrar después, el servidor manda un reto,
+// el celular lo firma al poner la huella y aquí se comprueba la firma. Ni la
+// huella ni la llave privada salen nunca del teléfono. El PIN sigue
+// sirviendo de respaldo (celular perdido o cambiado).
+const PASSKEY_ROLE_NAMES = { tekax: "Dueño MotoVecino", progreso: "Daniel (Progreso)", ticul: "Admin Ticul" };
+const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+// Retos pendientes (uno por intento; se borran al usarse o a los 5 min).
+const passkeyChallenges = new Map();
+
+// La llave queda atada al dominio principal, así sirve igual en
+// admin.motovecinoapp.com que en motovecinoapp.com/admin.html.
+function passkeyRpId(req) {
+  const host = req.hostname;
+  if (host === "motovecinoapp.com" || host.endsWith(".motovecinoapp.com")) return "motovecinoapp.com";
+  return host.replace(/^(admin|www)\./, "");
+}
+const passkeyOrigin = (req) => `${req.protocol}://${req.get("host")}`;
+
+function rememberChallenge(challenge, data) {
+  const now = Date.now();
+  for (const [c, d] of passkeyChallenges) if (d.exp < now) passkeyChallenges.delete(c);
+  if (passkeyChallenges.size > 500) passkeyChallenges.clear();
+  passkeyChallenges.set(challenge, { ...data, exp: now + CHALLENGE_TTL_MS });
+}
+// Un reto sirve una sola vez, para lo que se pidió y antes de vencer.
+function takeChallenge(kind, role) {
+  return (c) => {
+    const d = passkeyChallenges.get(c);
+    passkeyChallenges.delete(c);
+    return !!d && d.kind === kind && d.exp > Date.now() && (role == null || d.role === role);
+  };
+}
+
+function deviceLabel(req) {
+  const ua = String(req.get("user-agent") || "");
+  if (/iPhone|iPad/.test(ua)) return "iPhone";
+  if (/Android/.test(ua)) return "Celular Android";
+  if (/Windows/.test(ua)) return "Computadora Windows";
+  if (/Macintosh/.test(ua)) return "Mac";
+  return "Otro aparato";
+}
+
+const isCredId = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{16,1400}$/.test(v);
+const splitTransports = (t) => (t ? t.split(",") : undefined);
+
+// Activar, paso 1: el servidor manda las opciones (con el reto).
+router.post("/admin/passkey/register-options", checkAdminPin, async (req, res) => {
+  if (!req.adminSession) return res.status(403).json({ error: "Primero entra con tu PIN." });
+  const role = req.adminRole;
+  const existing = await db.prepare("SELECT credential_id, transports FROM admin_passkeys WHERE role = ?").all(role);
+  const options = await generateRegistrationOptions({
+    rpName: "MotoVecino Admin",
+    rpID: passkeyRpId(req),
+    userName: PASSKEY_ROLE_NAMES[role] || role,
+    userID: new TextEncoder().encode("motovecino-admin-" + role),
+    attestationType: "none",
+    // No volver a activar en un celular que ya tiene la suya.
+    excludeCredentials: existing.map((r) => ({ id: r.credential_id, transports: splitTransports(r.transports) })),
+    authenticatorSelection: { authenticatorAttachment: "platform", residentKey: "preferred", userVerification: "required" },
+  });
+  rememberChallenge(options.challenge, { kind: "register", role });
+  res.json(options);
+});
+
+// Activar, paso 2: el celular manda su llave pública firmada.
+router.post("/admin/passkey/register", checkAdminPin, async (req, res) => {
+  if (!req.adminSession) return res.status(403).json({ error: "Primero entra con tu PIN." });
+  const role = req.adminRole;
+  const failMsg = "No se pudo activar la huella. Inténtalo otra vez.";
+  let v;
+  try {
+    v = await verifyRegistrationResponse({
+      response: req.body.response,
+      expectedChallenge: takeChallenge("register", role),
+      expectedOrigin: passkeyOrigin(req),
+      expectedRPID: passkeyRpId(req),
+      requireUserVerification: true,
+    });
+  } catch (e) {
+    console.warn("[passkey] registro rechazado:", e.message);
+    return res.status(400).json({ error: failMsg });
+  }
+  if (!v.verified) return res.status(400).json({ error: failMsg });
+  const c = v.registrationInfo.credential;
+  await db.prepare(
+    "INSERT INTO admin_passkeys (role, credential_id, public_key, counter, transports, label, created_ms) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(role, c.id, Buffer.from(c.publicKey).toString("base64url"), c.counter || 0, (c.transports || []).join(",") || null, deviceLabel(req), Date.now());
+  res.json({ ok: true, credentialId: c.id });
+});
+
+router.post("/admin/passkey/list", checkAdminPin, async (req, res) => {
+  const rows = await db
+    .prepare("SELECT id, credential_id, label, created_ms, last_used_ms FROM admin_passkeys WHERE role = ? ORDER BY id DESC")
+    .all(req.adminRole);
+  res.json(rows);
+});
+
+// Quitar la huella de un celular (perdido, cambiado...).
+router.post("/admin/passkey/:id/delete", checkAdminPin, async (req, res) => {
+  const r = await db.prepare("DELETE FROM admin_passkeys WHERE id = ? AND role = ?").run(req.params.id, req.adminRole);
+  if (!r.changes) return res.status(404).json({ error: "No encontrado" });
+  res.json({ ok: true });
+});
+
+// Entrar, paso 1 (todavía sin sesión): el servidor manda un reto para firmar.
+router.post("/admin/passkey/login-options", async (req, res) => {
+  if (isRateLimited(req.ip)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  // Si este celular recuerda cuál es su llave, se pide esa directamente.
+  let allow;
+  if (isCredId(req.body.credentialId)) {
+    const row = await db.prepare("SELECT credential_id, transports FROM admin_passkeys WHERE credential_id = ?").get(req.body.credentialId);
+    if (row) allow = [{ id: row.credential_id, transports: splitTransports(row.transports) }];
+  }
+  const options = await generateAuthenticationOptions({
+    rpID: passkeyRpId(req),
+    allowCredentials: allow,
+    userVerification: "required",
+  });
+  rememberChallenge(options.challenge, { kind: "login" });
+  res.json(options);
+});
+
+// Entrar, paso 2: se comprueba la firma y se da un pase igual que con el PIN.
+router.post("/admin/passkey/login", async (req, res) => {
+  if (isRateLimited(req.ip)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  const response = req.body.response;
+  const fail = (msg) => {
+    recordFailedAttempt(req.ip);
+    audit({ action: "passkey_fallida", ip: req.ip, ok: 0 }).catch(() => {});
+    return res.status(401).json({ error: msg });
+  };
+  if (!response || !isCredId(response.id)) return fail("No se pudo entrar con la huella.");
+  const row = await db.prepare("SELECT * FROM admin_passkeys WHERE credential_id = ?").get(response.id);
+  if (!row) return fail("La huella de este celular ya no está activada. Entra con tu PIN.");
+  // Un rol cuyo PIN se quitó (ej. Daniel) tampoco entra con huella.
+  if (!ADMIN_PINS[row.role]) return fail("Este acceso ya no está activo.");
+  let v;
+  try {
+    v = await verifyAuthenticationResponse({
+      response,
+      expectedChallenge: takeChallenge("login"),
+      expectedOrigin: passkeyOrigin(req),
+      expectedRPID: passkeyRpId(req),
+      credential: {
+        id: row.credential_id,
+        publicKey: new Uint8Array(Buffer.from(row.public_key, "base64url")),
+        counter: Number(row.counter) || 0,
+        transports: splitTransports(row.transports),
+      },
+      requireUserVerification: true,
+    });
+  } catch (e) {
+    console.warn("[passkey] entrada rechazada:", e.message);
+    return fail("No se pudo entrar con la huella.");
+  }
+  if (!v.verified) return fail("No se pudo entrar con la huella.");
+  clearAttempts(req.ip);
+  await db.prepare("UPDATE admin_passkeys SET counter = ?, last_used_ms = ? WHERE id = ?").run(v.authenticationInfo.newCounter || 0, Date.now(), row.id);
+  const token = await createSession(row.role, req);
+  await audit({ role: row.role, zone: row.role, action: "passkey_login", detail: JSON.stringify({ device: row.label }), ip: req.ip });
+  res.json({ ok: true, token });
 });
 
 module.exports = router;
