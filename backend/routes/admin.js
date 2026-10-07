@@ -93,7 +93,21 @@ function auditDetail(body) {
   return txt === "{}" ? null : txt.slice(0, 400);
 }
 
-const PROGRESO_ALLOWED = /^\/admin\/(login|logout|logout-all|stats|drivers|drivers\/list|chofer-solicitudes\/list|chofer-solicitudes\/\d+\/(dismiss|reject))$/;
+// Daniel (PIN de Progreso), 7-oct-2026: opera su zona — choferes (alta,
+// editar, PIN, cobros), solicitudes, viajes y alertas para consultar,
+// negocios y anuncios (crear, editar, pausar). NO: borrar choferes ni
+// pasajeros, marcar cuentas de prueba, borrar anuncios, ver pasajeros,
+// prender/apagar comida, anuncios o "pedir para otra persona", borrar
+// viajes, ni Movimientos. Todo lo que hace queda en Movimientos del dueño.
+const PROGRESO_ALLOWED = new RegExp("^/admin/(" + [
+  "login", "logout", "logout-all", "stats",
+  "drivers", "drivers/list",
+  "drivers/[0-9]+/(paid-until|register-payment|pending-fees|register-trip-fees|payments|activity|reset-pin|vouch|update)",
+  "chofer-solicitudes/list", "chofer-solicitudes/[0-9]+/(dismiss|reject)",
+  "rides/list", "reports/cancelaciones",
+  "businesses/list", "businesses/save", "businesses/[0-9]+/active", "food/status",
+  "ally-ads/list", "ally-ads/save", "ally-ads/[0-9]+/active",
+].join("|") + ")$");
 
 async function checkAdminPin(req, res, next) {
   if (isRateLimited(req.ip)) {
@@ -117,9 +131,7 @@ async function checkAdminPin(req, res, next) {
     return res.status(401).json({ error: "PIN de admin incorrecto" });
   }
   clearAttempts(req.ip);
-  // Daniel (PIN de Progreso) SOLO da de alta motocarros (7-oct-2026): ver su
-  // resumen y sus choferes, dar de alta, y contestar solicitudes. Nada de
-  // borrar, editar, cobros, pasajeros, viajes, negocios ni movimientos.
+  // Daniel (PIN de Progreso): solo lo de PROGRESO_ALLOWED (arriba).
   if (city === "progreso" && !PROGRESO_ALLOWED.test(req.path)) {
     return res.status(403).json({ error: "Esto solo lo puede hacer el dueño." });
   }
@@ -628,7 +640,12 @@ router.post("/admin/rides/list", checkAdminPin, async (req, res) => {
     )
     .all(req.adminCity);
   // Comisaría de cada viaje (Progreso), para las pestañas del admin.
-  res.json(rides.map(({ pickup_lat, pickup_lng, ...r }) => ({ ...r, zone: zoneAt(req.adminCity, pickup_lat, pickup_lng)?.id || null })));
+  // Daniel no ve el teléfono del pasajero (datos privados, solo el dueño).
+  res.json(rides.map(({ pickup_lat, pickup_lng, rider_phone, ...r }) => ({
+    ...r,
+    ...(req.adminRole === "progreso" ? {} : { rider_phone }),
+    zone: zoneAt(req.adminCity, pickup_lat, pickup_lng)?.id || null,
+  })));
 });
 
 router.post("/admin/rides/reset", checkAdminPin, async (req, res) => {
@@ -779,6 +796,14 @@ router.post("/admin/reports/cancelaciones", checkAdminPin, async (req, res) => {
     )
     .all(req.adminCity, NO_SHOW_ALERT_THRESHOLD);
 
+  // Daniel no ve teléfonos de pasajeros (solo el dueño).
+  if (req.adminRole === "progreso") {
+    return res.json({
+      porChofer,
+      paresRepetidos: paresRepetidos.map(({ rider_phone, ...p }) => ({ ...p, rider_phone: "" })),
+      inasistencias: inasistencias.map(({ phone, ...r }) => ({ ...r, phone: "" })),
+    });
+  }
   res.json({ porChofer, paresRepetidos, inasistencias });
 });
 

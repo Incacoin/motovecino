@@ -68,11 +68,16 @@
   .ago { color: var(--text-dim); font-size: 12px; }
   .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .stat-tile { padding: 16px; }
-  /* Daniel (PIN de Progreso) solo da de alta motocarros (7-oct-2026). */
-  body.role-progreso #tabBtn-pasajeros, body.role-progreso #tabBtn-viajes, body.role-progreso #tabBtn-alertas,
-  body.role-progreso #tabBtn-negocios, body.role-progreso #tabBtn-movimientos,
-  body.role-progreso .owner-only, body.role-progreso .stat-tile:has(.owner-mark), body.role-progreso #driverRows .row-actions .btn-sm:not(.wa),
-  body.role-progreso #driverRows td:nth-child(10) > * { display: none !important; }
+  /* Daniel (PIN de Progreso), 7-oct-2026: opera su zona (choferes, cobros,
+     viajes, alertas, negocios, anuncios). Sin pasajeros, movimientos,
+     borrar, cuentas de prueba ni interruptores de lanzamiento. */
+  body.role-progreso #tabBtn-pasajeros, body.role-progreso #tabBtn-movimientos,
+  body.role-progreso .owner-only,
+  body.role-progreso #driverRows .row-actions .btn-sm.danger,
+  body.role-progreso #driverRows .row-actions button[onclick^="toggleTestAccount"],
+  body.role-progreso button[onclick^="deleteAllyAd"],
+  body.role-progreso #allySwitchBtn, body.role-progreso #foodSwitchBtn,
+  body.role-progreso .section-card:has(#familySwitch) { display: none !important; }
   .com-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
   .com-tabs button { border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 13px; cursor: pointer; }
   .com-tabs button.on { background: var(--accent); border-color: var(--accent); color: #04140a; }
@@ -1657,10 +1662,11 @@ function switchAdminZone(id) {
 function loadAllAdminData() {
   renderComTabs();
   if (adminRoleNow === "progreso") {
-    // Daniel: solo resumen, choferes y solicitudes (lo demás el servidor se lo niega).
-    loadDrivers(); loadStats(); loadApplications(); updateQrLink();
+    // Daniel: su zona sin pasajeros, movimientos ni interruptores (el servidor
+    // le niega lo demás; ver PROGRESO_ALLOWED en admin.js).
+    loadDrivers(); loadRides(); loadStats(); loadApplications(); loadAlertas(); loadAllyAds(); loadBusinesses(); updateQrLink();
     clearInterval(ridesPollTimer);
-    ridesPollTimer = setInterval(() => { loadStats(); loadApplications(); loadDrivers(); }, 4000);
+    ridesPollTimer = setInterval(() => { loadRides(); loadStats(); loadApplications(); loadDrivers(); }, 4000);
     return;
   }
   loadDrivers();
@@ -2494,7 +2500,7 @@ function renderRideRows(rides) {
       : "";
     return `
     <tr>
-      <td>${escapeHtml(r.rider_name)}<br><span class="ago">${r.rider_phone}</span></td>
+      <td>${escapeHtml(r.rider_name)}<br><span class="ago">${r.rider_phone || ""}</span></td>
       <td>${vehicleTypeBadge(r.ride_type)}${r.extra ? `<br><span class="ago" style="color:#0e8345;font-weight:700;">💵 +$${r.extra} extra</span>` : ""}</td>
       <td>${escapeHtml(r.driver_name) || "—"}${disconnected}</td>
       <td>${escapeHtml(r.pickup_label) || "—"}</td>
