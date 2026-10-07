@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.motovecino.app",
+        "sha256_cert_fingerprints": ["65:04:0C:19:85:8E:1E:28:65:38:E8:7F:6B:AC:48:D8:A8:7C:E0:09:DE:0A:C3:BF:91:F0:C6:4D:7B:90:40:84"]
+      }
+    }]

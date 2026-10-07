@@ -115,6 +115,14 @@ app.get(["/quiero-ser-chofer", "/quiero-ser-chofer/"], (req, res) => {
 
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 
+// App de Android en Google Play (com.motovecino.app): este archivo le prueba
+// a Android que la app y motovecinoapp.com son del mismo dueño, para que abra
+// a pantalla completa sin barra del navegador. express.static ignora las
+// carpetas que empiezan con punto, por eso va aparte.
+app.get("/.well-known/assetlinks.json", (req, res) => {
+  res.type("application/json").sendFile(path.join(__dirname, "..", "frontend", ".well-known", "assetlinks.json"));
+});
+
 app.get("/api/health", async (req, res) => {
   try {
     await db.prepare("SELECT 1").get();
