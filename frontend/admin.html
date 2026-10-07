@@ -1719,6 +1719,7 @@ function renderApplications(apps) {
           <div class="who">
             <span class="name">${escapeHtml(a.name)}</span>
             <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
+            <span class="meta">${a.phone_verified ? "✅ Teléfono verificado" : "⚠️ Teléfono sin verificar"}</span>
             <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}</span>
             ${a.inviter_name
               ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
@@ -1726,9 +1727,18 @@ function renderApplications(apps) {
             ${a.emergency_contact_name ? `<span class="meta">🚨 Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
           </div>
         </div>
-        <div class="row-actions">
+        <div class="row-actions" id="appActions${a.id}">
           <button class="btn-sm" onclick="useApplication(${a.id})">Usar datos</button>
+          <button class="btn-sm" onclick="showRejectOptions(${a.id})">Rechazar con amabilidad</button>
           <button class="btn-sm danger" onclick="dismissApplication(${a.id})">Descartar</button>
+        </div>
+        <div class="row-actions" id="appReject${a.id}" style="display:none;flex-wrap:wrap;">
+          <span class="meta" style="width:100%;">¿Por qué? Se abre tu WhatsApp con el mensaje listo:</span>
+          <button class="btn-sm" onclick="rejectApplication(${a.id}, 'vehiculo')">No es mototaxi ni taxi</button>
+          <button class="btn-sm" onclick="rejectApplication(${a.id}, 'zona')">Fuera de la zona</button>
+          <button class="btn-sm" onclick="rejectApplication(${a.id}, 'fotos')">Pedir fotos de nuevo</button>
+          <button class="btn-sm" onclick="rejectApplication(${a.id}, 'otro')">Otro motivo</button>
+          <button class="btn-sm" onclick="showRejectOptions(${a.id}, true)">Cancelar</button>
         </div>
       </div>`).join("")
     : `<div class="ago">No hay solicitudes pendientes.</div>`;
@@ -1760,6 +1770,42 @@ function renderPendingPhotoPreview() {
   el.innerHTML = pendingDriverPhoto
     ? `<img class="thumb" src="${pendingDriverPhoto}" /> ${pendingDriverPhotoPlaca ? `<img class="thumb" src="${pendingDriverPhotoPlaca}" title="Foto con su moto" />` : ""} ${pendingDriverSignature ? `<img class="thumb" style="background:#fff" src="${pendingDriverSignature}" title="Firma" />` : ""} <span class="ago">Se guardará con este chofer</span>`
     : "";
+}
+
+// ---- Rechazar con amabilidad ----
+// Abre el WhatsApp del admin con un mensaje amable ya escrito (él lo revisa y
+// lo manda) y deja la solicitud como "rechazada". "Pedir fotos de nuevo" solo
+// abre el mensaje: la solicitud sigue pendiente.
+const REJECT_MESSAGES = {
+  vehiculo: (n) => `Hola ${n}, gracias por tu interés en MotoVecino 🛵. Por ahora solo trabajamos con mototaxis y taxis, así que tu vehículo no entra en esta etapa. Te tenemos en cuenta y te avisamos si eso cambia. ¡Saludos!`,
+  zona: (n) => `Hola ${n}, gracias por tu interés en MotoVecino 🛵. Todavía no llegamos a tu municipio, pero vamos creciendo. Te avisamos en cuanto abramos ahí. ¡Saludos!`,
+  fotos: (n) => `Hola ${n}, gracias por registrarte en MotoVecino 🛵. No se alcanzan a ver bien tus fotos. ¿Nos puedes mandar por aquí una selfie clara y una foto de ti con tu vehículo donde se vea la placa? Con eso seguimos con tu alta.`,
+  otro: (n) => `Hola ${n}, gracias por tu interés en MotoVecino 🛵. Por ahora no podemos completar tu registro. Si tienes alguna duda, escríbenos por aquí con gusto. ¡Saludos!`,
+};
+
+function showRejectOptions(id, hide) {
+  document.getElementById("appActions" + id).style.display = hide ? "" : "none";
+  document.getElementById("appReject" + id).style.display = hide ? "none" : "flex";
+}
+
+async function rejectApplication(id, reason) {
+  const app = applicationsCache.find((a) => a.id === id);
+  if (!app) return;
+  const first = String(app.name || "").trim().split(/\s+/)[0] || "";
+  // Se abre antes de esperar al servidor: si no, el celular lo bloquea como ventana emergente.
+  window.open(waLink(app.phone, REJECT_MESSAGES[reason](first)), "_blank");
+  if (reason === "fotos") {
+    showRejectOptions(id, true);
+    showToast("Mensaje listo en tu WhatsApp; la solicitud sigue pendiente");
+    return;
+  }
+  await fetch(API + `/api/admin/chofer-solicitudes/${id}/reject`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin, reason }),
+  });
+  showToast("Solicitud rechazada con amabilidad");
+  loadApplications();
 }
 
 async function dismissApplication(id, silent) {

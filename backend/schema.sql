@@ -442,3 +442,8 @@ CREATE TABLE IF NOT EXISTS admin_passkeys (
   last_used_ms BIGINT
 );
 CREATE INDEX IF NOT EXISTS idx_admin_passkeys_role ON admin_passkeys(role);
+
+-- Solicitudes de chofer (6-oct-2026): teléfono confirmado con código por
+-- WhatsApp, y "rechazada" con su motivo cuando el admin contesta con amabilidad.
+ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS phone_verified INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS reject_reason TEXT;

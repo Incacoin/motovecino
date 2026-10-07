@@ -499,7 +499,7 @@ router.post("/admin/drivers/:id/test-account", checkAdminPin, async (req, res) =
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) => {
   const apps = await db
     .prepare(
-      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
+      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
   res.json(apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));
@@ -509,6 +509,18 @@ router.post("/admin/chofer-solicitudes/:id/dismiss", checkAdminPin, async (req, 
   if (!await assertOwnCity("driver_applications", req, res)) return;
   await db.prepare("UPDATE driver_applications SET status = 'descartada' WHERE id = ?").run(
     req.params.id
+  );
+  res.json({ ok: true });
+});
+
+// "Rechazar con amabilidad": el admin ya le mandó el mensaje por su WhatsApp;
+// aquí solo queda anotado que se le contestó y por qué.
+const REJECT_REASONS = ["vehiculo", "zona", "otro"];
+router.post("/admin/chofer-solicitudes/:id/reject", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("driver_applications", req, res)) return;
+  const reason = REJECT_REASONS.includes(req.body.reason) ? req.body.reason : "otro";
+  await db.prepare("UPDATE driver_applications SET status = 'rechazada', reject_reason = ? WHERE id = ?").run(
+    reason, req.params.id
   );
   res.json({ ok: true });
 });

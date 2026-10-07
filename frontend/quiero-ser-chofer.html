@@ -268,7 +268,7 @@
     </div>
     <div class="field">
       <label id="photoPlacaLabel">Foto de ti con tu mototaxi</label>
-      <p class="fieldHint">Solo para verificación interna — el pasajero nunca ve esta foto. No hace falta que se vea la placa.</p>
+      <p class="fieldHint">Que se vea tu vehículo completo y su placa. Solo para verificación interna — el pasajero nunca ve esta foto.</p>
       <input type="file" class="photoInput" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
       <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn">📷 Tomar foto con tu mototaxi</label>
       <img id="photoPlacaPreview" />
@@ -311,7 +311,17 @@
       </div>
     </div>
     </div>
-    <button class="btn" onclick="submitApplication()">Quiero ser chofer</button>
+    <div class="qs-card" id="otpCard" style="display:none;">
+    <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Confirma tu teléfono</div>
+    <div class="field">
+      <p class="fieldHint" id="otpHint">Te mandamos un código por WhatsApp. Escríbelo aquí para enviar tu solicitud.</p>
+      <input id="otpInput" placeholder="Código de 6 dígitos" inputmode="numeric" maxlength="6" autocomplete="one-time-code" oninput="this.value = this.value.replace(/\D/g, '')" />
+      <div class="sigActions">
+        <button type="button" class="btn-clear-sign" id="otpResend" onclick="sendDriverOtp(true)">Reenviar código</button>
+      </div>
+    </div>
+    </div>
+    <button class="btn" id="submitBtn" onclick="submitApplication()">Quiero ser chofer</button>
     <div id="err"></div>
   </div>
 
@@ -566,6 +576,57 @@ function clearSignature() {
   document.getElementById("sigStatus").textContent = "Sin firmar";
 }
 
+// ---- Código por WhatsApp (6-oct-2026) ----
+// otpPhone: a qué teléfono ya se le mandó código. Si lo cambia, se pide otro.
+let otpPhone = null;
+let otpTimer = null;
+
+function startResendCountdown(sec) {
+  const btn = document.getElementById("otpResend");
+  clearInterval(otpTimer);
+  let left = sec;
+  btn.disabled = true;
+  btn.textContent = `Reenviar código (${left})`;
+  otpTimer = setInterval(() => {
+    left -= 1;
+    if (left <= 0) {
+      clearInterval(otpTimer);
+      btn.disabled = false;
+      btn.textContent = "Reenviar código";
+    } else btn.textContent = `Reenviar código (${left})`;
+  }, 1000);
+}
+
+// Regresa "sent" (esperar código), "skip" (no hace falta) o null (error).
+async function sendDriverOtp(isResend) {
+  const phone = document.getElementById("phone").value.trim();
+  const err = document.getElementById("err");
+  err.textContent = "";
+  const res = await fetch("/api/chofer-solicitudes/otp/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    err.textContent = data.error || "No pudimos mandarte el código, intenta de nuevo";
+    if (data.retryIn) startResendCountdown(data.retryIn);
+    return null;
+  }
+  if (!data.required) return "skip";
+  otpPhone = phone;
+  document.getElementById("otpCard").style.display = "block";
+  document.getElementById("otpHint").textContent = data.channel === "sms"
+    ? `Te mandamos un código por mensaje de texto (SMS) al ${phone}. Escríbelo aquí para enviar tu solicitud.`
+    : `Te mandamos un código por WhatsApp al ${phone}. Escríbelo aquí para enviar tu solicitud.`;
+  document.getElementById("submitBtn").textContent = "Enviar solicitud";
+  startResendCountdown(60);
+  if (data.devCode) document.getElementById("otpInput").value = data.devCode;
+  document.getElementById("otpCard").scrollIntoView({ behavior: "smooth", block: "center" });
+  if (!isResend) document.getElementById("otpInput").focus();
+  return "sent";
+}
+
 async function submitApplication() {
   const name = document.getElementById("name").value.trim();
   const phone = document.getElementById("phone").value.trim();
@@ -607,6 +668,20 @@ async function submitApplication() {
     return;
   }
 
+  // Primero el código: si no se le ha mandado a ESTE teléfono, se manda y se
+  // espera a que lo escriba. Si el servidor dice que no hace falta, sigue.
+  let code;
+  if (otpPhone !== phone) {
+    const sent = await sendDriverOtp(false);
+    if (sent !== "skip") return;
+  } else {
+    code = document.getElementById("otpInput").value.trim();
+    if (code.length !== 6) {
+      err.textContent = "Escribe el código de 6 dígitos que te llegó";
+      return;
+    }
+  }
+
   const vehicleType = document.getElementById("vehicleType").value;
   const res = await fetch("/api/chofer-solicitudes", {
     method: "POST",
@@ -618,6 +693,7 @@ async function submitApplication() {
       referredBy: document.getElementById("referredBy").value.trim() || null,
       inviteCode,
       lat: detectedLat, lng: detectedLng,
+      code,
     }),
   });
   if (!res.ok) {

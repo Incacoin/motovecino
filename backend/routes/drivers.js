@@ -7,6 +7,7 @@ const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide } = require("../cities");
+const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
 const { rideFee } = require("../fees");
 const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
 const { photoUrls, cleanThumb } = require("../photos");
@@ -349,6 +350,32 @@ router.post("/drivers/photo", async (req, res) => {
   res.json({ ok: true });
 });
 
+// Primer paso de "Quiero ser chofer": código por WhatsApp al teléfono que
+// escribió (mismo sistema que el registro de pasajero). Así una broma con el
+// número de otra persona nunca llega al admin. Con OTP_MODE en "off" responde
+// required:false y la solicitud se manda directo, como antes.
+router.post("/chofer-solicitudes/otp/send", async (req, res) => {
+  const phone = String(req.body.phone || "").replace(/\D/g, "");
+  if (phone.length !== 10) {
+    return res.status(400).json({ error: "El teléfono debe tener 10 dígitos" });
+  }
+  if (await db.prepare("SELECT id FROM drivers WHERE phone = ? AND deleted_at IS NULL").get(phone)) {
+    return res.status(409).json({ error: "Ese teléfono ya es chofer de MotoVecino. Entra a la app del chofer con tu PIN." });
+  }
+  if (await db.prepare("SELECT id FROM driver_applications WHERE phone = ? AND status = 'pendiente'").get(phone)) {
+    return res.status(409).json({ error: "Ya recibimos tu solicitud con ese teléfono. Te escribimos pronto por WhatsApp." });
+  }
+  if (!otpEnabled()) return res.json({ required: false });
+  if (isSubmissionRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const result = await sendOtp(phone, "+52" + phone);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
+  }
+  res.json({ required: true, channel: result.channel, ...(result.devCode ? { devCode: result.devCode } : {}) });
+});
+
 router.post("/chofer-solicitudes", async (req, res) => {
   if (isSubmissionRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
@@ -423,13 +450,28 @@ router.post("/chofer-solicitudes", async (req, res) => {
   const inviter = await findInviter(db, inviteCode);
   const inviterId = inviter && inviter.phone !== phone ? inviter.id : null;
 
+  const cleanPhone = String(phone).replace(/\D/g, "");
+  if (await db.prepare("SELECT id FROM driver_applications WHERE phone = ? AND status = 'pendiente'").get(cleanPhone)) {
+    return res.status(409).json({ error: "Ya recibimos tu solicitud con ese teléfono. Te escribimos pronto por WhatsApp." });
+  }
+  // El código va al final, después de revisar todo lo demás: si faltaba algo,
+  // el código no se gasta y puede corregir sin pedir otro.
+  let phoneVerified = 0;
+  if (otpEnabled()) {
+    if (cleanPhone.length !== 10) return res.status(400).json({ error: "El teléfono debe tener 10 dígitos" });
+    const check = await verifyOtp(cleanPhone, req.body.code, "+52" + cleanPhone);
+    if (!check.ok) return res.status(check.status).json({ error: check.error });
+    phoneVerified = 1;
+  }
+
   await db.prepare(
-    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, toStored(signature), cityId,
     emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
-    inviterId
+    inviterId,
+    phoneVerified
   );
   recordSubmission(req.ip);
   res.status(201).json({ ok: true });
