@@ -41,7 +41,7 @@ pool.on("error", (err) => console.error("[db] error en una conexión libre:", er
 const txStore = new AsyncLocalStorage();
 
 // Tablas sin columna id (su llave es otra): a sus INSERT no se les pide RETURNING id.
-const NO_ID_TABLES = new Set(["ally_settings", "food_settings", "family_settings", "phone_otps"]);
+const NO_ID_TABLES = new Set(["ally_settings", "food_settings", "family_settings", "phone_otps", "otp_daily", "otp_devices"]);
 
 const translated = new Map();
 
