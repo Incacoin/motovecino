@@ -593,6 +593,7 @@
     </div>
     <div class="rx-clock" id="rxClock"></div>
   </div>
+  <div id="otpCapNotice" style="display:none;margin:10px 0 4px;padding:10px 14px;border-radius:12px;font-size:13.5px;line-height:1.45;"></div>
   <div class="stats-grid">
     <div class="card stat-tile accent">
       <span class="icon">🚗</span>
@@ -1884,6 +1885,21 @@ function renderRidesChart(byDay) {
   </svg>`;
 }
 
+// Tope diario de códigos de verificación (solo lo ve el dueño). Avisa cuando
+// va cerca o ya se llegó, para subirlo en Render (OTP_DAILY_CAP) si es gente real.
+function renderOtpCap(o) {
+  const el = document.getElementById("otpCapNotice");
+  if (!el) return;
+  if (!o || o.sent < Math.max(1, Math.ceil(o.cap * 0.8))) { el.style.display = "none"; return; }
+  const full = o.sent >= o.cap;
+  el.style.display = "block";
+  el.style.background = full ? "rgba(220,38,38,.14)" : "rgba(234,179,8,.14)";
+  el.style.border = `1px solid ${full ? "rgba(220,38,38,.45)" : "rgba(234,179,8,.45)"}`;
+  el.innerHTML = full
+    ? `⚠️ <b>Se llegó al tope de ${o.cap} códigos de verificación de hoy.</b> Nadie más puede registrarse hasta mañana. Si es gente real (reclutamiento), sube el tope.`
+    : `⚠️ Van <b>${o.sent} de ${o.cap}</b> códigos de verificación hoy.`;
+}
+
 async function loadStats() {
   const res = await fetch(API + "/api/admin/stats", {
     method: "POST",
@@ -1901,6 +1917,7 @@ async function loadStats() {
   document.getElementById("statCollectedWeek").textContent = `$${s.collectedWeek}`;
   document.getElementById("statCollectedMonth").textContent = `$${s.collectedMonth}`;
   renderRidesChart(s.ridesByDay);
+  renderOtpCap(s.otpToday);
 
   launchRankingCache = s.launchRanking || [];
   const medals = ["🥇", "🥈", "🥉", "4.", "5."];

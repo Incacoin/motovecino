@@ -597,6 +597,19 @@ function startResendCountdown(sec) {
   }, 1000);
 }
 
+// Marca de este celular para el tope de códigos por aparato (ver
+// whatsappOtp.js). Aleatoria; no identifica a la persona.
+function otpDeviceId() {
+  try {
+    let id = localStorage.getItem("mv_device");
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+      localStorage.setItem("mv_device", id);
+    }
+    return id;
+  } catch { return null; }
+}
+
 // Regresa "sent" (esperar código), "skip" (no hace falta) o null (error).
 async function sendDriverOtp(isResend) {
   const phone = document.getElementById("phone").value.trim();
@@ -605,7 +618,7 @@ async function sendDriverOtp(isResend) {
   const res = await fetch("/api/chofer-solicitudes/otp/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, deviceId: otpDeviceId() }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

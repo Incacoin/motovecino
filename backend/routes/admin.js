@@ -5,6 +5,7 @@ const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_
 const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById, ADMIN_ZONES } = require("../cities");
+const { otpDailyStatus } = require("../whatsappOtp");
 const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
@@ -696,9 +697,13 @@ router.post("/admin/stats", checkAdminPin, async (req, res) => {
     )
     .all(LAUNCH_DATE, city);
 
+  // Códigos de verificación de hoy (toda la app, no por zona): el dueño ve si
+  // se llegó al tope. Ver whatsappOtp.js.
+  const otpToday = req.adminRole === "tekax" ? await otpDailyStatus() : null;
+
   res.json({
     ridesToday, ridesWeek, cancelledToday, driversOnline, topDrivers, satisfactionPct, ratedCount: ratings.total,
-    collectedWeek, collectedMonth, launchRanking, ridesByDay, trialEndDate: TRIAL_END_DATE,
+    collectedWeek, collectedMonth, launchRanking, ridesByDay, trialEndDate: TRIAL_END_DATE, otpToday,
   });
 });
 

@@ -2338,12 +2338,25 @@ let otpResendTimer = null;
 // Regresa "sent" (se mandó, hay que escribirlo), "skip" (el servidor no pide
 // código), "login" (ese teléfono ya tiene cuenta) o "error".
 // call=true: pide el código por llamada (si el SMS no le llegó).
+// Marca de este celular para el tope de códigos por aparato (ver
+// whatsappOtp.js). Aleatoria; no identifica a la persona.
+function otpDeviceId() {
+  try {
+    let id = localStorage.getItem("mv_device");
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+      localStorage.setItem("mv_device", id);
+    }
+    return id;
+  } catch { return null; }
+}
+
 async function requestOtp(phone, call = false) {
   const err = document.getElementById("formError");
   const res = await fetch(API + "/api/riders/otp/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(call ? { phone, channel: "call" } : { phone }),
+    body: JSON.stringify(call ? { phone, channel: "call", deviceId: otpDeviceId() } : { phone, deviceId: otpDeviceId() }),
   });
   if (res.status === 409) return "login";
   const data = await res.json().catch(() => ({}));

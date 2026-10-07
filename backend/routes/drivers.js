@@ -369,7 +369,7 @@ router.post("/chofer-solicitudes/otp/send", async (req, res) => {
   if (isSubmissionRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const result = await sendOtp(phone, "+52" + phone);
+  const result = await sendOtp(phone, "+52" + phone, false, req.body.deviceId);
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
   }

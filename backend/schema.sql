@@ -447,3 +447,18 @@ CREATE INDEX IF NOT EXISTS idx_admin_passkeys_role ON admin_passkeys(role);
 -- WhatsApp, y "rechazada" con su motivo cuando el admin contesta con amabilidad.
 ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS phone_verified INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS reject_reason TEXT;
+
+-- Candados de los códigos por WhatsApp/SMS (6-oct-2026), cada envío cuesta:
+-- otp_daily = cuántos se mandaron en el día (hora de Yucatán), para el tope
+-- de toda la app; otp_devices = qué números pidió código cada celular en el
+-- día, para el tope por celular.
+CREATE TABLE IF NOT EXISTS otp_daily (
+  day TEXT PRIMARY KEY,
+  sends INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS otp_devices (
+  device_id TEXT NOT NULL,
+  day TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  PRIMARY KEY (device_id, day, phone)
+);

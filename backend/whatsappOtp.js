@@ -27,6 +27,58 @@ const MAX_WRONG_ATTEMPTS = 5; // por código; después hay que pedir otro
 
 // Tabla phone_otps: ver schema.sql.
 
+// Candados contra gastar códigos de más (cada uno cuesta). Ver otp_daily y
+// otp_devices en schema.sql.
+// - Toda la app: OTP_DAILY_CAP al día (20 de arranque; se sube con la
+//   variable de Render el día que haya reclutamiento).
+// - Por celular: MAX_PHONES_PER_DEVICE números distintos al día.
+const MAX_PHONES_PER_DEVICE = 3;
+const HELP_TEXT = "Escríbenos por WhatsApp al 997 973 9422 y te ayudamos.";
+
+function otpDailyCap() {
+  const n = parseInt(process.env.OTP_DAILY_CAP, 10);
+  return Number.isFinite(n) && n > 0 ? n : 20;
+}
+
+// Día en hora de Yucatán (el contador se reinicia a medianoche de aquí).
+function todayYucatan() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Merida" });
+}
+
+// Aparta un envío del tope del día. false = ya se llegó al tope.
+async function reserveDailySend() {
+  const day = todayYucatan();
+  await db.prepare("INSERT INTO otp_daily (day, sends) VALUES (?, 0) ON CONFLICT(day) DO NOTHING").run(day);
+  const r = await db.prepare("UPDATE otp_daily SET sends = sends + 1 WHERE day = ? AND sends < ?").run(day, otpDailyCap());
+  return r.changes > 0;
+}
+
+async function releaseDailySend() {
+  await db.prepare("UPDATE otp_daily SET sends = sends - 1 WHERE day = ? AND sends > 0").run(todayYucatan());
+}
+
+// Para el admin: cuántos van hoy y cuál es el tope.
+async function otpDailyStatus() {
+  const row = await db.prepare("SELECT sends FROM otp_daily WHERE day = ?").get(todayYucatan());
+  return { sent: row ? row.sends : 0, cap: otpDailyCap() };
+}
+
+// ¿Este celular puede pedir código para este número? Sin deviceId (versión
+// vieja de la página en caché) no se revisa: queda el tope del día.
+async function deviceAllows(deviceId, phone) {
+  if (!deviceId) return true;
+  const day = todayYucatan();
+  const rows = await db.prepare("SELECT phone FROM otp_devices WHERE device_id = ? AND day = ?").all(deviceId, day);
+  if (rows.some((r) => r.phone === phone)) return true;
+  if (rows.length >= MAX_PHONES_PER_DEVICE) return false;
+  await db.prepare("INSERT INTO otp_devices (device_id, day, phone) VALUES (?, ?, ?) ON CONFLICT DO NOTHING").run(deviceId, day, phone);
+  return true;
+}
+
+function cleanDeviceId(v) {
+  return typeof v === "string" && /^[A-Za-z0-9-]{8,64}$/.test(v) ? v : null;
+}
+
 function otpMode() {
   const mode = (process.env.OTP_MODE || "off").toLowerCase();
   if (mode === "simulado" && process.env.RENDER) {
@@ -100,7 +152,7 @@ async function sendViaTwilio(e164, code) {
 // `wantCall`: la persona pidió el código por llamada (solo en modo verify o
 // simulado; usa el mismo límite de reenvíos que el SMS).
 // Regresa { ok, channel, devCode? } o { status, error }.
-async function sendOtp(phone, e164, wantCall = false) {
+async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
   const now = Date.now();
   const row = await db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
 
@@ -112,6 +164,13 @@ async function sendOtp(phone, e164, wantCall = false) {
   const sends = windowFresh ? 0 : row.sends_in_window;
   if (sends >= MAX_SENDS_PER_HOUR) {
     return { status: 429, error: "Pediste demasiados códigos. Intenta en una hora o escríbenos por WhatsApp." };
+  }
+  if (!(await deviceAllows(cleanDeviceId(deviceId), phone))) {
+    return { status: 429, error: "Desde este celular ya se pidieron códigos para varios números hoy. " + HELP_TEXT };
+  }
+  if (!(await reserveDailySend())) {
+    console.warn(`[OTP] Se llegó al tope de ${otpDailyCap()} códigos de hoy`);
+    return { status: 429, error: "Por hoy no podemos mandar más códigos. " + HELP_TEXT, capReached: true };
   }
 
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
@@ -127,6 +186,7 @@ async function sendOtp(phone, e164, wantCall = false) {
     WHERE phone_otps.last_sent_at = ?
   `).run(phone, hashCode(phone, code), now + CODE_TTL_MS, now, windowFresh ? now : row.window_start, sends + 1, row ? row.last_sent_at : -1);
   if (saved.changes === 0) {
+    await releaseDailySend();
     return { status: 429, error: "Espera unos segundos para pedir otro código", retryIn: 60 };
   }
 
@@ -155,6 +215,7 @@ async function sendOtp(phone, e164, wantCall = false) {
     console.error("No se pudo mandar el código:", e.message);
     // No cuenta como envío: que pueda reintentar sin esperar.
     await db.prepare("UPDATE phone_otps SET last_sent_at = 0, sends_in_window = sends_in_window - 1 WHERE phone = ?").run(phone);
+    await releaseDailySend();
     return { status: 502, error: "No pudimos mandarte el código. Revisa tu número o escríbenos." };
   }
 }
@@ -231,4 +292,4 @@ async function sendWelcome(e164, name) {
   }
 }
 
-module.exports = { otpEnabled, otpMode, otpChannel, sendOtp, verifyOtp, sendWelcome, welcomeName };
+module.exports = { otpEnabled, otpMode, otpChannel, sendOtp, verifyOtp, sendWelcome, welcomeName, otpDailyStatus };

@@ -42,7 +42,7 @@ router.post("/riders/otp/send", async (req, res) => {
   if (isSubmissionRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const result = await sendOtp(phone, parsed.e164, req.body.channel === "call");
+  const result = await sendOtp(phone, parsed.e164, req.body.channel === "call", req.body.deviceId);
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
   }
