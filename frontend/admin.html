@@ -68,6 +68,15 @@
   .ago { color: var(--text-dim); font-size: 12px; }
   .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .stat-tile { padding: 16px; }
+  /* Daniel (PIN de Progreso) solo da de alta motocarros (7-oct-2026). */
+  body.role-progreso #tabBtn-pasajeros, body.role-progreso #tabBtn-viajes, body.role-progreso #tabBtn-alertas,
+  body.role-progreso #tabBtn-negocios, body.role-progreso #tabBtn-movimientos,
+  body.role-progreso .owner-only, body.role-progreso .stat-tile:has(.owner-mark), body.role-progreso #driverRows .row-actions .btn-sm:not(.wa),
+  body.role-progreso #driverRows td:nth-child(10) > * { display: none !important; }
+  .com-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+  .com-tabs button { border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 13px; cursor: pointer; }
+  .com-tabs button.on { background: var(--accent); border-color: var(--accent); color: #04140a; }
+  .com-tabs button small { opacity: .7; font-weight: 500; }
   .stat-tile .icon { font-size: 17px; opacity: 0.85; margin-bottom: 6px; display: block; }
   .stat-tile .label { color: var(--text-dim); font-size: 12.5px; font-weight: 600; }
   .stat-tile .value { font-size: 28px; font-weight: 800; color: var(--text); margin-top: 4px; }
@@ -623,12 +632,12 @@
     <div class="card stat-tile accent">
       <span class="icon">💰</span>
       <div class="label">Cobrado esta semana</div>
-      <div class="value" id="statCollectedWeek">—</div>
+      <div class="value owner-mark" id="statCollectedWeek">—</div>
     </div>
     <div class="card stat-tile accent">
       <span class="icon">💵</span>
       <div class="label">Cobrado este mes</div>
-      <div class="value" id="statCollectedMonth">—</div>
+      <div class="value owner-mark" id="statCollectedMonth">—</div>
     </div>
   </div>
   </div>
@@ -664,6 +673,7 @@
   </div>
 
   <div id="tabPanel-choferes" class="tab-panel">
+  <div class="com-tabs" id="comTabsChoferes" style="display:none"></div>
   <div class="section-card">
   <h1>🔗 Link / QR de registro</h1>
   <p class="section-hint">Compártelo con quien quiera registrarse como chofer — cualquiera que se registre queda como independiente.</p>
@@ -713,7 +723,12 @@
     <label>¿Quién lo invitó? (opcional)</label>
     <input id="driverReferredBy" placeholder="Ej. el chofer que lo invitó, o Facebook" />
   </div>
-  <div class="field">
+  <div class="field" id="driverZoneField" style="display:none">
+    <label>Comisaría del motocarro</label>
+    <select id="driverZone" class="tipo-select"></select>
+    <p class="section-hint" style="margin-top:6px">Solo le llegarán viajes de esta comisaría.</p>
+  </div>
+  <div class="field" id="driverVehicleField">
     <label>Servicio</label>
     <select id="driverVehicleType" class="tipo-select">
       <option value="moto">🛵 Mototaxi (viajes cortos)</option>
@@ -775,6 +790,7 @@
   </div>
 
   <div id="tabPanel-viajes" class="tab-panel">
+  <div class="com-tabs" id="comTabsViajes" style="display:none"></div>
   <div class="section-card">
   <h1>👤 Pedir para otra persona</h1>
   <p class="section-hint">La mamá (o quien sea) pide el viaje desde su cuenta para otra persona: pone su nombre y una seña para reconocerla. El chofer habla con quien lo pidió por el chat. Prende esto solo cuando tengas choferes de noche.</p>
@@ -1592,6 +1608,8 @@ async function login(withSavedToken) {
   if (sess) sess.innerHTML = `Sesión segura · <b>${escapeHtml(ROLE_LABELS[loginData.role] || "Admin")}</b><br>Se cierra sola tras 12 h sin usar`;
   adminZones = loginData.zones || [];
   adminRoleNow = loginData.role || null;
+  comisarias = loginData.comisarias || [];
+  document.body.classList.toggle("role-progreso", adminRoleNow === "progreso");
   applyAdminZone(loginData.city || "tekax", loginData.cityLabel || "Tekax");
   tickClocks();
   document.getElementById("login").classList.remove("active");
@@ -1637,6 +1655,14 @@ function switchAdminZone(id) {
 }
 
 function loadAllAdminData() {
+  renderComTabs();
+  if (adminRoleNow === "progreso") {
+    // Daniel: solo resumen, choferes y solicitudes (lo demás el servidor se lo niega).
+    loadDrivers(); loadStats(); loadApplications(); updateQrLink();
+    clearInterval(ridesPollTimer);
+    ridesPollTimer = setInterval(() => { loadStats(); loadApplications(); loadDrivers(); }, 4000);
+    return;
+  }
   loadDrivers();
   loadRiders();
   loadRides();
@@ -1709,6 +1735,7 @@ async function loadApplications() {
 }
 
 function renderApplications(apps) {
+  apps = (apps || []).filter((a) => inComisaria(a.zone));
   const wrap = document.getElementById("applicationsList");
   wrap.innerHTML = apps.length
     ? apps.map((a) => `
@@ -1721,7 +1748,7 @@ function renderApplications(apps) {
             <span class="name">${escapeHtml(a.name)}</span>
             <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
             <span class="meta">${a.phone_verified ? "✅ Teléfono verificado" : "⚠️ Teléfono sin verificar"}</span>
-            <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}</span>
+            <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}${a.zone ? " · " + escapeHtml(comisariaLabel(a.zone)) : ""}</span>
             ${a.inviter_name
               ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
               : a.referred_by ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
@@ -1762,6 +1789,7 @@ function useApplication(id) {
   // firma, todo) si el alta fallaba después (ej. nombre duplicado) o el
   // admin nunca llegaba a terminarla.
   pendingApplicationId = id;
+  if (app.zone && document.getElementById("driverZone")) document.getElementById("driverZone").value = app.zone;
   renderPendingPhotoPreview();
   document.getElementById("driverName").scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -1966,6 +1994,7 @@ async function registerDriver() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       adminPin, name, phone, vehicle, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature,
+      zone: isZonedAdmin() ? document.getElementById("driverZone").value : null,
       emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
       // Si la solicitud llegó con el link de invitación de un chofer.
       referredByDriverId: pendingApplicationId ? applicationsCache.find((a) => a.id === pendingApplicationId)?.referred_by_driver_id ?? null : null,
@@ -2218,7 +2247,9 @@ async function toggleTestAccount(id) {
 
 function vehicleTypeBadge(vehicleType) {
   const t = vehicleType === "taxi" ? "taxi" : "moto";
-  return t === "taxi" ? `<span class="badge-tipo formal">🚕 Taxi</span>` : `<span class="badge-tipo informal">🛵 Mototaxi</span>`;
+  // En Progreso (comisarías) son motocarros.
+  const moto = adminCity === "progreso" ? "Motocarro" : "Mototaxi";
+  return t === "taxi" ? `<span class="badge-tipo formal">🚕 Taxi</span>` : `<span class="badge-tipo informal">🛵 ${moto}</span>`;
 }
 
 function cancelCountCell(d) {
@@ -2284,9 +2315,45 @@ function togglePinVisible(id) {
   renderDriverRows();
 }
 
+// ---- Comisarías de Progreso (7-oct-2026) ----
+// Pestañas Todas · Flamboyanes · Chicxulub · Chelem · Chuburná en Choferes y
+// Viajes cuando la zona es Progreso. Filtran en pantalla; el alta pide comisaría.
+let comisarias = [];
+let comisariaFilter = "";
+let ridesCacheAll = [];
+const isZonedAdmin = () => adminCity === "progreso" && comisarias.length > 0;
+const comisariaLabel = (id) => (comisarias.find((c) => c.id === id) || {}).label || "";
+const inComisaria = (zone) => !comisariaFilter || zone === comisariaFilter;
+function renderComTabs() {
+  const zoned = isZonedAdmin();
+  if (!zoned) comisariaFilter = "";
+  const html = zoned ? [{ id: "", label: "Todas", open: true }, ...comisarias].map((c) =>
+    `<button class="${c.id === comisariaFilter ? "on" : ""}" onclick="setComisariaFilter('${c.id}')">${escapeHtml(c.label)}${c.open ? "" : " <small>· muy pronto</small>"}</button>`).join("") : "";
+  ["comTabsChoferes", "comTabsViajes"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) { el.innerHTML = html; el.style.display = zoned ? "flex" : "none"; }
+  });
+  const zf = document.getElementById("driverZoneField");
+  if (zf) {
+    zf.style.display = zoned ? "" : "none";
+    document.getElementById("driverZone").innerHTML = comisarias.map((c) => `<option value="${c.id}">${escapeHtml(c.label)}${c.open ? "" : " (muy pronto)"}</option>`).join("");
+    if (comisariaFilter) document.getElementById("driverZone").value = comisariaFilter;
+  }
+  const vf = document.getElementById("driverVehicleField");
+  if (vf) vf.style.display = zoned ? "none" : "";
+  if (zoned) document.getElementById("driverVehicleType").value = "moto";
+}
+function setComisariaFilter(id) {
+  comisariaFilter = id;
+  renderComTabs();
+  renderDriverRows();
+  renderApplications(applicationsCache);
+  renderRideRows(ridesCacheAll);
+}
+
 function renderDriverRows() {
   const query = (document.getElementById("driverSearch") || {}).value || "";
-  const filtered = driversCache.filter((d) => matchesSearch(d.name, d.phone, query));
+  const filtered = driversCache.filter((d) => matchesSearch(d.name, d.phone, query) && inComisaria(d.zone));
   if (query && filtered.length === 0) {
     document.getElementById("driverShowMore").innerHTML = "";
     document.getElementById("driverRows").innerHTML = `<tr><td colspan="12" class="ago">Sin resultados para "${query}".</td></tr>`;
@@ -2362,7 +2429,7 @@ function renderDriverRows() {
       <td>${pinCell(d.id, d.pin)}</td>
       <td>${d.phone}</td>
       <td>${vehicleTypeBadge(d.vehicle_type)}</td>
-      <td>${cityLabel(d.city)}</td>
+      <td>${cityLabel(d.city)}${d.zone ? `<div class="meta" style="font-size:11.5px;color:var(--accent);font-weight:700;">${escapeHtml(comisariaLabel(d.zone))}</div>` : ""}</td>
       <td><span class="dot ${d.status}"></span>${d.status}</td>
       <td>
         ${activityBadge(d.last_connected_at)}
@@ -2409,6 +2476,8 @@ const DEPOSIT_STATUS_LABEL = {
 };
 
 function renderRideRows(rides) {
+  ridesCacheAll = rides || [];
+  rides = ridesCacheAll.filter((r) => inComisaria(r.zone));
   document.getElementById("rideRows").innerHTML = rides.map((r) => {
     const disconnected = r.driver_disconnected_at
       ? `<br><span class="ago" style="color:var(--danger);">⚠ desconectado ${timeAgo(r.driver_disconnected_at)}</span>`

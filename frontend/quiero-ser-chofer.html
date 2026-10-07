@@ -468,6 +468,13 @@ function tryLocateCity(attempt) {
         .then((r) => r.json())
         .then((data) => {
           if (!data.city) { showComingSoon(); return; }
+          if (data.rideStyle === "comisarias") {
+            isComisaria = true;
+            const sel = document.getElementById("vehicleType");
+            sel.innerHTML = '<option value="moto">🛵 Motocarro</option>';
+            sel.value = "moto";
+            updateVehicleLabels();
+          }
           if (!data.inService) { showComingSoon(); return; }
           applyCityFromDetection(data.city, data.label);
         })
@@ -504,7 +511,10 @@ function resizeToDataUrl(file, onDone, onError) {
 }
 
 // La foto de verificación dice "mototaxi" o "taxi" según el vehículo elegido.
+// En las comisarías de Progreso son puros motocarros.
+let isComisaria = false;
 function vehicleWord() {
+  if (isComisaria) return "motocarro";
   return document.getElementById("vehicleType").value === "taxi" ? "taxi" : "mototaxi";
 }
 function updateVehicleLabels() {

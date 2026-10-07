@@ -462,3 +462,8 @@ CREATE TABLE IF NOT EXISTS otp_devices (
   phone TEXT NOT NULL,
   PRIMARY KEY (device_id, day, phone)
 );
+
+-- Comisaría fija de cada motocarro de Progreso (7-oct-2026): solo recibe
+-- viajes de la suya, esté donde esté. NULL = municipios sin comisarías.
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS zone TEXT;
+ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS zone TEXT;

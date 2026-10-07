@@ -64,10 +64,13 @@ const PROGRESO = {
   // fees.js con SERVICE_FEE): no cambiarla solo aquí.
   serviceFee: SERVICE_FEE,
   zones: [
-    { id: "flamboyanes", label: "Flamboyanes", lat: 21.2102, lng: -89.6605, radiusKm: 1.5, fare: 7 },
-    { id: "chicxulub", label: "Chicxulub", lat: 21.2933, lng: -89.6068, radiusKm: 2.5, fare: 10 },
-    { id: "chelem", label: "Chelem", lat: 21.2687, lng: -89.7423, radiusKm: 2.5, fare: 10 },
-    { id: "chuburna", label: "Chuburná", lat: 21.2524, lng: -89.8158, radiusKm: 2, fare: 10 },
+    // open (7-oct-2026): se prende comisaría por comisaría. Empezamos por
+    // Flamboyanes; en las cerradas la app dice "MotoVecino Chelem" pero el
+    // motocarro sale "Muy pronto" y no se registran choferes por QR.
+    { id: "flamboyanes", label: "Flamboyanes", lat: 21.2102, lng: -89.6605, radiusKm: 1.5, fare: 7, open: true },
+    { id: "chicxulub", label: "Chicxulub", lat: 21.2933, lng: -89.6068, radiusKm: 2.5, fare: 10, open: false },
+    { id: "chelem", label: "Chelem", lat: 21.2687, lng: -89.7423, radiusKm: 2.5, fare: 10, open: false },
+    { id: "chuburna", label: "Chuburná", lat: 21.2524, lng: -89.8158, radiusKm: 2, fare: 10, open: false },
   ],
 };
 // Zonas que puede ver el dueño en su admin (selector arriba): Tekax y las
@@ -105,6 +108,18 @@ function zoneAt(cityId, lat, lng) {
   return city.zones.find((z) => haversineKm(lat, lng, z.lat, z.lng) <= z.radiusKm) || null;
 }
 
+// Como zoneAt, pero solo si esa comisaría ya está abierta (open).
+function openZoneAt(cityId, lat, lng) {
+  const z = zoneAt(cityId, lat, lng);
+  return z && z.open !== false ? z : null;
+}
+
+// ¿Es una comisaría válida de esta ciudad? (para el alta de choferes)
+function zoneById(cityId, zoneId) {
+  const city = getCityById(cityId) || (cityId === PROGRESO.id ? PROGRESO : null);
+  return (city && city.zones && city.zones.find((z) => z.id === zoneId)) || null;
+}
+
 // Distancia a la ciudad: a su centro, o a la comisaría más cercana si tiene
 // zonas (sin zona propia, una ciudad con zonas no "atrapa" puntos de afuera).
 function distanceToCity(city, lat, lng) {
@@ -129,13 +144,16 @@ function resolveCity(lat, lng) {
   return closest;
 }
 
-// ¿El chofer (dLat, dLng) puede recibir un viaje que recoge en (pLat, pLng)?
-// Solo cuenta en ciudades por comisarías: los dos en la misma. En las demás
-// siempre sí (ahí manda la distancia, como siempre).
-function sameComisaria(cityId, pLat, pLng, dLat, dLng) {
+// ¿El chofer puede recibir un viaje que recoge en (pLat, pLng)?
+// Solo cuenta en ciudades por comisarías. Si el chofer tiene comisaría fija
+// (driverZone, la de su alta) manda esa, esté donde esté: un motocarro de
+// Chelem no levanta en Flamboyanes. Sin comisaría fija (choferes de antes),
+// la de donde está parado. En las demás ciudades siempre sí.
+function sameComisaria(cityId, pLat, pLng, dLat, dLng, driverZone) {
   const city = getCityById(cityId);
   if (!city || !city.zones) return true;
   const a = zoneAt(cityId, pLat, pLng);
+  if (driverZone) return !!(a && a.id === driverZone);
   const b = zoneAt(cityId, dLat, dLng);
   return !!(a && b && a.id === b.id);
 }
@@ -172,7 +190,7 @@ function isWithinServiceRadius(cityId, lat, lng, rideType) {
   if (!city) return true;
   if (city.zones) {
     if (lat == null || lng == null) return true;
-    return !!zoneAt(cityId, lat, lng);
+    return !!openZoneAt(cityId, lat, lng);
   }
   const radius = rideType === "taxi" && city.serviceRadiusKmTaxi != null
     ? city.serviceRadiusKmTaxi
@@ -196,6 +214,9 @@ module.exports = {
   rideCityAt,
   sameCityForRide,
   zoneAt,
+  openZoneAt,
+  zoneById,
+  PROGRESO_ZONES: PROGRESO.zones.map(({ id, label, open }) => ({ id, label, open: open !== false })),
   sameComisaria,
   OFFER_MAX_UP,
   ADMIN_ZONES,

@@ -442,7 +442,7 @@ async function broadcastNewRide(ride) {
   const maxDistance = rideType === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   const available = await db
     .prepare(
-      "SELECT id, lat, lng, city FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
+      "SELECT id, lat, lng, city, zone FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .all(rideType);
   const payload = omitRiderPhone(ride);
@@ -451,7 +451,7 @@ async function broadcastNewRide(ride) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > maxDistance) continue;
     if (!sameCityForRide(ride.ride_type, ride.city, driver.city)) continue;
-    if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng)) continue;
+    if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng, driver.zone)) continue;
     const ws = driverSockets.get(driver.id);
     if (ws) send(ws, "new_ride", payload);
   }
@@ -469,7 +469,7 @@ async function broadcastNewRide(ride) {
 async function notifyPendingRides(driverId) {
   const driver = await db
     .prepare(
-      "SELECT id, lat, lng, vehicle_type, city FROM drivers WHERE id = ? AND status = 'disponible' AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
+      "SELECT id, lat, lng, vehicle_type, city, zone FROM drivers WHERE id = ? AND status = 'disponible' AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .get(driverId);
   if (!driver || driver.lat == null || driver.lng == null) return;
@@ -486,7 +486,7 @@ async function notifyPendingRides(driverId) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > maxDistance) continue;
     if (!sameCityForRide(ride.ride_type, ride.city, driver.city)) continue;
-    if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng)) continue;
+    if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng, driver.zone)) continue;
     const riderRow = await db.prepare("SELECT id, photo FROM riders WHERE phone = ?").get(ride.rider_phone);
     const { trips } = await db
       .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_phone = ? AND status = 'completado'")

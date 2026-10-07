@@ -1344,7 +1344,7 @@ function initInstallBanner() {
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel} en tu celular para pedir tu mototaxi más rápido.`;
+      text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel} en tu celular para pedir tu ${rideWord} más rápido.`;
       document.getElementById("installBtn").style.display = "inline-block";
       banner.style.display = "flex";
     });
@@ -1420,6 +1420,14 @@ function initCityBrand(attempt) {
           // lejos: "MotoVecino Yucatán" — no ponerle a Akil el nombre de Tekax.
           // Akil/Oxkutzcab/Ticul (motoSoon): ya llegamos aunque solo haya taxi.
           applyCityLabel(data.zone === "in" || data.motoSoon ? data.label : "Yucatán");
+          // Comisarías (Progreso): puros motocarros, sin taxi en la entrada.
+          if (data.rideStyle === "comisarias") {
+            rideWord = "motocarro";
+            const t = document.querySelector(".entry-title");
+            if (t) t.textContent = "Pide tu motocarro";
+            const v = document.getElementById("entryVehRider");
+            if (v) v.innerHTML = MVVeh.motoSide(124);
+          }
           if (data.city) { resolvedCityId = data.city; updateFareEstimate(); }
           // Mientras no marque recogida, el aviso se basa en dónde está el celular.
           if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon);
@@ -1824,6 +1832,7 @@ function showExtraNote(extra) {
 // Akil se le puede pedir un mototaxi a alguien dentro de Tekax.
 let serviceZone = "in";
 let motoSoon = false; // Akil/Oxkutzcab/Ticul: mototaxi "Muy pronto" (ver applyZone)
+var rideWord = "mototaxi"; // "motocarro" en las comisarías de Progreso
 let zoneCheckSeq = 0;
 // true si la app cambió sola a Taxi por estar fuera de zona (no lo eligió él).
 let zoneForcedTaxi = false;
@@ -1896,6 +1905,13 @@ function applyZone(zone, zoneLabel, com, soon) {
     tabMoto.classList.add("unavailable");
     renderVehCards(motoSoon ? "Muy pronto" : `Solo dentro de ${escapeHtml(town)}`);
     if (serviceType !== "taxi") { zoneForcedTaxi = true; setServiceType("taxi"); }
+  } else if (motoSoon && comisaria) {
+    // Comisaría de Progreso todavía cerrada (Chelem, Chicxulub...).
+    notice.innerHTML = `🛵 <strong>Motocarro en ${escapeHtml(town)}: muy pronto.</strong> Ya estamos llegando.`;
+    notice.classList.remove("out"); // aviso amable, no de error
+    notice.style.display = "block";
+    tabMoto.classList.add("unavailable");
+    renderVehCards("Muy pronto");
   } else {
     notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más municipios de Yucatán!";
     if (pickup) document.getElementById("pickHint").textContent = "Todavía no llegamos a este punto";

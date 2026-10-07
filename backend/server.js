@@ -165,9 +165,12 @@ app.get("/api/cities/resolve", async (req, res) => {
   // tarifa y las reglas de las ofertas. La app del pasajero arma con esto
   // "Moto Exprés" / "Propón tu precio" en vez de Mototaxi / Taxi.
   let comisaria = null;
+  let zoneClosed = false;
   if (city && city.zones) {
     const z = zoneAt(city.id, lat, lng);
     if (z) {
+      // Comisaría todavía cerrada: se nombra igual, pero motocarro "Muy pronto".
+      zoneClosed = z.open === false;
       zoneLabel = z.label;
       comisaria = { id: z.id, label: z.label, fare: z.fare, serviceFee: city.serviceFee, offerMaxUp: OFFER_MAX_UP, lat: z.lat, lng: z.lng, radiusKm: z.radiusKm };
     }
@@ -176,7 +179,7 @@ app.get("/api/cities/resolve", async (req, res) => {
   const familyOn = await familyRides.isFamilyEnabled(zoneCityId);
   // motoSoon: llegamos al lugar pero el mototaxi todavía no (ver cities.js);
   // zone ya viene como "taxi" y la app enseña el mototaxi como "Muy pronto".
-  const motoSoon = !!(city && city.motoSoon);
+  const motoSoon = !!(city && city.motoSoon) || zoneClosed;
   res.json(city
     ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon }
     : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false });

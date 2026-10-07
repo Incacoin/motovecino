@@ -6,7 +6,7 @@ const { normalizeAccount } = require("../bankAccount");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
-const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide } = require("../cities");
+const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide, openZoneAt } = require("../cities");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
 const { rideFee } = require("../fees");
 const { earningsSummary, LOCAL_DONE_DATE, LOCAL_TODAY, LOCAL_OFFSET } = require("../earnings");
@@ -38,7 +38,7 @@ router.get("/drivers/available", async (req, res) => {
 
   const drivers = await db
     .prepare(
-      `SELECT id, lat, lng, vehicle_type, city FROM drivers
+      `SELECT id, lat, lng, vehicle_type, city, zone FROM drivers
        WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL
          AND vehicle_type = ?
          AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))
@@ -54,8 +54,8 @@ router.get("/drivers/available", async (req, res) => {
   const nearby = drivers.filter(
     (d) => haversineKm(ref.lat, ref.lng, d.lat, d.lng) <= maxDistance &&
       sameCityForRide(type, rideCity, d.city) &&
-      (!refCity || sameComisaria(refCity.id, ref.lat, ref.lng, d.lat, d.lng))
-  ).map(({ city, ...d }) => d);
+      (!refCity || sameComisaria(refCity.id, ref.lat, ref.lng, d.lat, d.lng, d.zone))
+  ).map(({ city, zone, ...d }) => d);
   res.json(nearby);
 });
 
@@ -465,13 +465,15 @@ router.post("/chofer-solicitudes", async (req, res) => {
   }
 
   await db.prepare(
-    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
-    name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" ? "taxi" : "moto", grupoLimpio || null, tipo, toStored(signature), cityId,
+    // Comisarías (Progreso): solo motocarro, y queda en la comisaría donde se registró.
+    name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", grupoLimpio || null, tipo, toStored(signature), cityId,
     emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
     inviterId,
-    phoneVerified
+    phoneVerified,
+    cityCfg?.zones ? openZoneAt(cityId, lat, lng)?.id || null : null
   );
   recordSubmission(req.ip);
   res.status(201).json({ ok: true });

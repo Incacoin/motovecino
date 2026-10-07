@@ -4,7 +4,7 @@ const db = require("../db");
 const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, LAUNCH_DATE, TRIAL_END_DATE, DRIVER_STALE_SECONDS } = require("../constants");
 const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
-const { getCityById, ADMIN_ZONES } = require("../cities");
+const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
 const { otpDailyStatus } = require("../whatsappOtp");
 const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
@@ -93,6 +93,8 @@ function auditDetail(body) {
   return txt === "{}" ? null : txt.slice(0, 400);
 }
 
+const PROGRESO_ALLOWED = /^\/admin\/(login|logout|logout-all|stats|drivers|drivers\/list|chofer-solicitudes\/list|chofer-solicitudes\/\d+\/(dismiss|reject))$/;
+
 async function checkAdminPin(req, res, next) {
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
@@ -115,6 +117,12 @@ async function checkAdminPin(req, res, next) {
     return res.status(401).json({ error: "PIN de admin incorrecto" });
   }
   clearAttempts(req.ip);
+  // Daniel (PIN de Progreso) SOLO da de alta motocarros (7-oct-2026): ver su
+  // resumen y sus choferes, dar de alta, y contestar solicitudes. Nada de
+  // borrar, editar, cobros, pasajeros, viajes, negocios ni movimientos.
+  if (city === "progreso" && !PROGRESO_ALLOWED.test(req.path)) {
+    return res.status(403).json({ error: "Esto solo lo puede hacer el dueño." });
+  }
   // El PIN del dueño (Tekax) puede ver todas las zonas de ADMIN_ZONES con el
   // selector del admin, que manda adminZone en cada petición. Cualquier otro
   // PIN (Daniel, Ticul) solo ve la suya, mande lo que mande.
@@ -176,6 +184,8 @@ router.post("/admin/login", checkAdminPin, async (req, res) => {
     cityLabel: zoneInfo(req.adminCity).label,
     // Más de una = el selector de zona del dueño.
     zones: req.adminZones.map(zoneInfo),
+    // Comisarías de Progreso, para las pestañas y el alta de motocarros.
+    comisarias: PROGRESO_ZONES,
   });
 });
 
@@ -195,6 +205,12 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   // La ciudad la decide el PIN con el que entró el admin, no un campo que
   // mande el navegador — así nadie puede darse de alta "en otra ciudad".
   const cityId = req.adminCity;
+  // Ciudad por comisarías (Progreso): siempre motocarro y con su comisaría.
+  const zoned = !!(getCityById(cityId)?.zones || cityId === "progreso");
+  const zone = zoned ? zoneById("progreso", req.body.zone) : null;
+  if (zoned && !zone) {
+    return res.status(400).json({ error: "Escoge la comisaría del motocarro" });
+  }
   if (!acceptedLegal) {
     return res.status(400).json({ error: "Confirma que el chofer aceptó el aviso legal" });
   }
@@ -227,11 +243,11 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
 
   const result = await db
     .prepare(
-      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador, zone) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
-      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId,
-      emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0
+      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", grupo || null, cityId,
+      emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0, zone ? zone.id : null
     );
   await ensureInviteCode(db, result.lastInsertRowid);
   // Insignia de "chofer fundador" (simbólica, por haberse sumado temprano):
@@ -239,7 +255,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   await recomputeFounders(db);
 
   const driver = await db
-    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
+    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, zone, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
 
   res.status(201).json(inflateRow(driver, DRIVER_IMG_COLS));
@@ -249,7 +265,7 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
   const drivers = await db
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
-              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.created_at,
+              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.zone, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
               (SELECT COUNT(*) FROM drivers x WHERE x.referred_by_driver_id = d.id AND x.deleted_at IS NULL) AS invited_count,
@@ -500,7 +516,7 @@ router.post("/admin/drivers/:id/test-account", checkAdminPin, async (req, res) =
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) => {
   const apps = await db
     .prepare(
-      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
+      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
   res.json(apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));
@@ -603,7 +619,7 @@ router.post("/admin/rides/list", checkAdminPin, async (req, res) => {
       `SELECT r.id, r.rider_name, r.rider_phone, r.pickup_label, r.dest_label,
               r.passengers, r.children, r.status, r.created_at, r.updated_at, r.driver_disconnected_at, r.rating, r.ride_type,
               r.cancelled_by, r.cancel_reason, r.agreed_price, r.deposit_amount, r.deposit_status, r.extra,
-              d.name AS driver_name
+              r.pickup_lat, r.pickup_lng, d.name AS driver_name
        FROM rides r
        LEFT JOIN drivers d ON d.id = r.driver_id
        WHERE r.city = ?
@@ -611,7 +627,8 @@ router.post("/admin/rides/list", checkAdminPin, async (req, res) => {
        LIMIT 50`
     )
     .all(req.adminCity);
-  res.json(rides);
+  // Comisaría de cada viaje (Progreso), para las pestañas del admin.
+  res.json(rides.map(({ pickup_lat, pickup_lng, ...r }) => ({ ...r, zone: zoneAt(req.adminCity, pickup_lat, pickup_lng)?.id || null })));
 });
 
 router.post("/admin/rides/reset", checkAdminPin, async (req, res) => {

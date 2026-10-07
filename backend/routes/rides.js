@@ -519,12 +519,13 @@ async function closeDriverOtherOffers(driverId) {
 // Ciudad por comisarías (Progreso): además el chofer tiene que estar en la
 // misma comisaría que la recogida (su última ubicación).
 async function driverInRideZone(driverId, ride) {
-  const d = await db.prepare("SELECT lat, lng, city FROM drivers WHERE id = ?").get(driverId);
+  const d = await db.prepare("SELECT lat, lng, city, zone FROM drivers WHERE id = ?").get(driverId);
   if (d && !sameCityForRide(ride.ride_type, ride.city, d.city)) return false;
   const cfg = getCityById(ride.city);
   if (!cfg?.zones) return true;
   const zRide = zoneAt(ride.city, ride.pickup_lat, ride.pickup_lng);
-  const zDriver = d ? zoneAt(ride.city, d.lat, d.lng) : null;
+  // Comisaría fija del motocarro (su alta); sin ella, donde está parado.
+  const zDriver = d ? (d.zone ? { id: d.zone } : zoneAt(ride.city, d.lat, d.lng)) : null;
   return !!(zRide && zDriver && zRide.id === zDriver.id);
 }
 

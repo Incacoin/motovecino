@@ -94,7 +94,7 @@ async function notifyNewRide(ride) {
   const cityFilter = type === "taxi" ? "" : "AND d.city = ?";
   const drivers = await db
     .prepare(
-      `SELECT d.id, d.lat, d.lng FROM drivers d
+      `SELECT d.id, d.lat, d.lng, d.zone FROM drivers d
        WHERE d.wants_rides = 1 AND d.wants_rides_at >= datetime('now', ?)
          AND d.vehicle_type = ? ${cityFilter} AND d.deleted_at IS NULL
          AND (d.cooldown_until IS NULL OR d.cooldown_until <= datetime('now'))
@@ -105,7 +105,7 @@ async function notifyNewRide(ride) {
   const subsFor = db.prepare("SELECT id, driver_id, endpoint FROM driver_push_subs WHERE driver_id = ?");
   for (const d of drivers) {
     if (d.lat != null && d.lng != null && haversineKm(ride.pickup_lat, ride.pickup_lng, d.lat, d.lng) > PUSH_RADIUS_KM[type]) continue;
-    if (d.lat != null && d.lng != null && !sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, d.lat, d.lng)) continue;
+    if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, d.lat, d.lng, d.zone) && (d.zone || (d.lat != null && d.lng != null))) continue;
     for (const sub of await subsFor.all(d.id)) sendOne(sub);
   }
 }
