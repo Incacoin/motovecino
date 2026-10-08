@@ -58,6 +58,9 @@
   #okScreen .big, #ticulSoonScreen .big, #comingSoonScreen .big { font-size: 38px; }
   #okScreen h2, #ticulSoonScreen h2, #comingSoonScreen h2 { color: var(--accent); font-size: 19px; margin: 10px 0 6px; }
   #okScreen p, #ticulSoonScreen p, #comingSoonScreen p { color: var(--text-dim); font-size: 14px; line-height: 1.5; margin: 0; }
+  #comingSoonScreen p { margin-bottom: 12px; }
+  #comingSoonScreen .soon-places { color: var(--text); font-weight: 800; font-size: 17px; line-height: 1.4; }
+  #comingSoonScreen .soon-places span { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-dim); }
   .credit { margin-top: 22px; }
   button.btn { width: 100%; }
   #legalModalOverlay {
@@ -339,10 +342,11 @@
 
   <div id="comingSoonScreen" class="card">
     <div class="big">🗺️</div>
-    <h2>¡Pronto en más municipios de Yucatán!</h2>
-    <p>Por ahora solo registramos choferes de Tekax. MotoVecino sigue creciendo por el estado.</p>
-    <p><strong>¿Eres chofer de Akil u otro municipio cercano?</strong> Escríbenos y te avisamos en cuanto lleguemos a tu municipio.</p>
-    <a class="btn" id="interestWaBtn" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none;">💬 Escribir por WhatsApp</a>
+    <h2>¡MotoVecino está creciendo en Yucatán!</h2>
+    <p>Todavía no abrimos el registro en tu zona, pero ya estamos llegando a más lugares.</p>
+    <p class="soon-places"><span>Muy pronto</span><br>Chicxulub · Chelem · Flamboyanes</p>
+    <p><strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos en tu zona.</p>
+    <a class="btn" id="interestWaBtn" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none;">💬 Apartar mi lugar por WhatsApp</a>
   </div>
 
   <p class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong></p>
@@ -438,7 +442,7 @@ const SOPORTE_WHATSAPP_NUMBER = "9979739422";
 function showComingSoon() {
   // Cada chofer de otro pueblo que escribe aquí es una señal real de demanda
   // para decidir a qué pueblo abrir después (p. ej. Akil).
-  const text = "Hola, soy chofer y me interesa MotoVecino. Soy de: ";
+  const text = "Hola, quiero apartar mi lugar como chofer en MotoVecino.\nManejo (mototaxi, motocarro o taxi): \nSoy de: ";
   document.getElementById("interestWaBtn").href =
     `https://api.whatsapp.com/send?phone=52${SOPORTE_WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`;
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));
