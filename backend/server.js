@@ -47,13 +47,16 @@ const CSP = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'none'",
+  // 'self' (no 'none'): el registro de choferes abre el Aviso Legal, el de
+  // Privacidad y el Contrato en un iframe de la misma página. Otro sitio
+  // sigue sin poder meter la app en un iframe.
+  "frame-ancestors 'self'",
 ].join("; ");
 
 app.use((req, res, next) => {
   res.set({
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
+    "X-Frame-Options": "SAMEORIGIN",
     "Strict-Transport-Security": "max-age=15552000; includeSubDomains",
     "Content-Security-Policy": CSP,
   });
