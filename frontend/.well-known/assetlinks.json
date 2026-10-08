@@ -3,6 +3,9 @@
       "target": {
         "namespace": "android_app",
         "package_name": "com.motovecino.app",
-        "sha256_cert_fingerprints": ["65:04:0C:19:85:8E:1E:28:65:38:E8:7F:6B:AC:48:D8:A8:7C:E0:09:DE:0A:C3:BF:91:F0:C6:4D:7B:90:40:84"]
+        "sha256_cert_fingerprints": [
+          "CA:1D:47:67:E0:0E:21:1D:B5:4A:DD:D0:6F:AE:27:4E:26:29:59:06:BE:E6:4D:1D:82:5B:63:01:A3:16:87:E9",
+          "65:04:0C:19:85:8E:1E:28:65:38:E8:7F:6B:AC:48:D8:A8:7C:E0:09:DE:0A:C3:BF:91:F0:C6:4D:7B:90:40:84"
+        ]
       }
     }]
