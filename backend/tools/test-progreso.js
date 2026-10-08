@@ -13,6 +13,9 @@ if (!ADMIN_PROGRESO) throw new Error("Falta ADMIN_PIN_PROGRESO en el ambiente");
 
 const Z = {
   flamboyanes: { lat: 21.2102, lng: -89.6605 },
+  paraiso: { lat: 21.1912, lng: -89.6493 },
+  rinconParaiso: { lat: 21.182944, lng: -89.626556 },
+  sanIgnacio: { lat: 21.16, lng: -89.66 },
   chicxulub: { lat: 21.2933, lng: -89.6068 },
   chelem: { lat: 21.2687, lng: -89.7423 },
   centro: { lat: 21.2822, lng: -89.6637 },
@@ -59,10 +62,16 @@ const stamp = String(Date.now()).slice(-6);
 
 async function main() {
   // ---------- Mapa: comisarías ----------
-  for (const [name, p, label, fare] of [["flamboyanes", Z.flamboyanes, "Flamboyanes", 7], ["chicxulub", Z.chicxulub, "Chicxulub", 10], ["chelem", Z.chelem, "Chelem", 10]]) {
+  for (const [name, p, label, fare] of [["flamboyanes", Z.flamboyanes, "Flamboyanes y Paraíso", 8], ["paraiso", Z.paraiso, "Flamboyanes y Paraíso", 8], ["rincon paraiso", Z.rinconParaiso, "Flamboyanes y Paraíso", 8], ["chicxulub", Z.chicxulub, "Chicxulub", 10], ["chelem", Z.chelem, "Chelem", 10]]) {
     const r = await get(`/cities/resolve?lat=${p.lat}&lng=${p.lng}`);
     check(`resolve ${name}`, r.data.city === "progreso" && r.data.zone === "in" && r.data.comisaria && r.data.comisaria.label === label && r.data.comisaria.fare === fare, r.data);
   }
+  const fp = await get(`/cities/resolve?lat=${Z.rinconParaiso.lat}&lng=${Z.rinconParaiso.lng}`);
+  check("Flamboyanes y Paraíso: solo Propón tu precio, mínimo $8", fp.data.comisaria && fp.data.comisaria.offerOnly === true && fp.data.comisaria.minOffer === 8, fp.data);
+  const chx = await get(`/cities/resolve?lat=${Z.chicxulub.lat}&lng=${Z.chicxulub.lng}`);
+  check("Chicxulub sigue con Exprés", chx.data.comisaria && chx.data.comisaria.offerOnly === false, chx.data);
+  const si = await get(`/cities/resolve?lat=${Z.sanIgnacio.lat}&lng=${Z.sanIgnacio.lng}`);
+  check("San Ignacio fuera de la zona", si.data.zone === "out" && !si.data.comisaria, si.data);
   const cen = await get(`/cities/resolve?lat=${Z.centro.lat}&lng=${Z.centro.lng}`);
   check("Progreso centro sin viajes", cen.data.zone === "out" && !cen.data.comisaria, cen.data);
   const tk = await get(`/cities/resolve?lat=20.2071&lng=-89.2809`);
@@ -126,6 +135,18 @@ async function main() {
   check("no hay taxi en Progreso", taxi.status === 400, taxi);
   const fromCentro = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: Z.centro.lat, pickup_lng: Z.centro.lng, dest_lat: Z.centro.lat + 0.002, dest_lng: Z.centro.lng, ride_type: "moto" });
   check("no se pide desde Progreso centro", fromCentro.status === 400, fromCentro);
+
+  // ---------- Flamboyanes y Paraíso: solo Propón tu precio ----------
+  const fl = Z.flamboyanes, rp = Z.rinconParaiso;
+  const flExp = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto" });
+  check("Flamboyanes: sin precio fijo (Exprés) = 400", flExp.status === 400, flExp);
+  const flLow = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 7 });
+  check("Flamboyanes: $7 es menos del mínimo", flLow.status === 400 && /\$8/.test(flLow.data.error), flLow);
+  const flLow2 = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 12, passengers: 2 });
+  check("Flamboyanes: 2 personas, mínimo $16", flLow2.status === 400 && /\$16/.test(flLow2.data.error), flLow2);
+  const flOk = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 8 });
+  check("Flamboyanes → Rincón Paraíso por $8", flOk.status === 201 && flOk.data.offer_price === 8, flOk);
+  if (flOk.data && flOk.data.id) await post(`/rides/${flOk.data.id}/cancel`, { riderPhone: phone, riderPin: rider.pin });
 
   // ---------- Moto Exprés en Chelem ----------
   const exp = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: Z.chelem.lat, pickup_lng: Z.chelem.lng, dest_lat: Z.chelem.lat + 0.006, dest_lng: Z.chelem.lng, passengers: 2, ride_type: "moto", extra: 10 });

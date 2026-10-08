@@ -50,7 +50,8 @@ const CITIES = [
 // solo le llegan choferes que están en ella. Progreso centro NO tiene viajes
 // (ahí es solo publicidad). Todo el panel de Daniel es la ciudad "progreso".
 // Dos opciones para el pasajero: Moto Exprés (precio fijo de abajo) y Propón
-// tu precio (ofertas; el chofer puede pedir hasta OFFER_MAX_UP más).
+// tu precio (ofertas; el chofer puede pedir hasta OFFER_MAX_UP más). Una zona
+// con offerOnly solo tiene Propón tu precio (así abrimos sin investigar tarifas).
 // TARIFAS PROVISIONALES (5-oct-2026): Flamboyanes $7 la dijo el usuario; las
 // otras $10 a falta de confirmar con Daniel. Cambiarlas AQUÍ: es el único
 // lugar (las apps las leen de /api/cities/resolve).
@@ -67,7 +68,15 @@ const PROGRESO = {
     // open (7-oct-2026): se prende comisaría por comisaría. Empezamos por
     // Flamboyanes; en las cerradas la app dice "MotoVecino Chelem" pero el
     // motocarro sale "Muy pronto" y no se registran choferes por QR.
-    { id: "flamboyanes", label: "Flamboyanes", lat: 21.2102, lng: -89.6605, radiusKm: 1.5, fare: 7, open: true },
+    // 8-oct-2026 (Daniel): Flamboyanes + El Paraíso + Rincón Paraíso son UNA
+    // zona (se conectan por la 261). Centro entre los tres, 3.5 km: cubre las
+    // orillas de Flamboyanes (~2.8 km) y Rincón Paraíso (~2.8 km); deja fuera
+    // San Ignacio (~4.5 km) y Progreso centro (~9 km). El id se queda
+    // "flamboyanes" porque ya está guardado en drivers.zone.
+    // offerOnly: solo "Propón tu precio" (sin Moto Exprés); minOffer = lo
+    // mínimo que puede ofrecer el pasajero POR PERSONA. fare queda para los
+    // viajes viejos de precio fijo (earnings.js).
+    { id: "flamboyanes", label: "Flamboyanes y Paraíso", lat: 21.1990, lng: -89.6470, radiusKm: 3.5, fare: 8, minOffer: 8, offerOnly: true, open: true },
     { id: "chicxulub", label: "Chicxulub", lat: 21.2933, lng: -89.6068, radiusKm: 2.5, fare: 10, open: false },
     { id: "chelem", label: "Chelem", lat: 21.2687, lng: -89.7423, radiusKm: 2.5, fare: 10, open: false },
     { id: "chuburna", label: "Chuburná", lat: 21.2524, lng: -89.8158, radiusKm: 2, fare: 10, open: false },

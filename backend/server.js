@@ -180,7 +180,7 @@ app.get("/api/cities/resolve", async (req, res) => {
       // Comisaría todavía cerrada: se nombra igual, pero motocarro "Muy pronto".
       zoneClosed = z.open === false;
       zoneLabel = z.label;
-      comisaria = { id: z.id, label: z.label, fare: z.fare, serviceFee: city.serviceFee, offerMaxUp: OFFER_MAX_UP, lat: z.lat, lng: z.lng, radiusKm: z.radiusKm };
+      comisaria = { id: z.id, label: z.label, fare: z.fare, serviceFee: city.serviceFee, offerMaxUp: OFFER_MAX_UP, offerOnly: !!z.offerOnly, minOffer: z.minOffer || 5, lat: z.lat, lng: z.lng, radiusKm: z.radiusKm };
     }
   }
   // Si en este pueblo ya está prendido "Pedir para otra persona" (ver familyRides.js).

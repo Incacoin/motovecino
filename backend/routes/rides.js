@@ -165,8 +165,18 @@ router.post("/rides", async (req, res) => {
     if (!zd || zd.id !== zp.id) {
       return res.status(400).json({ error: `El motocarro solo hace viajes dentro de ${zp.label}` });
     }
+    // Zona solo con "Propón tu precio" (offerOnly): sin precio fijo, y la
+    // oferta no baja de minOffer por persona.
+    if (zp.offerOnly && offer_price == null) {
+      return res.status(400).json({ error: "Aquí escribe tu precio con \"Propón tu precio\". Si no lo ves, cierra y vuelve a abrir la app." });
+    }
     if (offer_price != null) {
       offerPrice = Math.round(Number(offer_price));
+      const people = (Number(passengers) || 1) + (Number(children) || 0);
+      const min = zp.minOffer ? zp.minOffer * people : 0;
+      if (offerPrice < min) {
+        return res.status(400).json({ error: `El precio mínimo en ${zp.label} es $${min}` });
+      }
       if (!(offerPrice >= 5) || offerPrice > 2000) {
         return res.status(400).json({ error: "Revisa el precio que ofreces" });
       }
