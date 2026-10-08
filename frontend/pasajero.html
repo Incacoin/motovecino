@@ -1784,9 +1784,10 @@ function showMotoOfferUi(fixed, where, maxUp, min) {
 function comisariaFixedTotal() {
   return comisaria.fare * (passengers + children) + comisaria.serviceFee;
 }
-// Zona solo con ofertas (offerOnly): el mínimo es minOffer por persona.
+// Zona solo con ofertas (offerOnly): minOffer por persona es lo mínimo que
+// gana el chofer; el pasajero ve un solo precio que ya trae la cuota.
 function comisariaMinOffer() {
-  return comisaria.offerOnly ? comisaria.minOffer * (passengers + children) : 0;
+  return comisaria.offerOnly ? comisaria.minOffer * (passengers + children) + comisaria.serviceFee : 0;
 }
 function updateComisariaFare() {
   const el = document.getElementById("fareEstimate");

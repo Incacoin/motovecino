@@ -141,11 +141,11 @@ async function main() {
   const flExp = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto" });
   check("Flamboyanes: sin precio fijo (Exprés) = 400", flExp.status === 400, flExp);
   const flLow = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 7 });
-  check("Flamboyanes: $7 es menos del mínimo", flLow.status === 400 && /\$8/.test(flLow.data.error), flLow);
-  const flLow2 = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 12, passengers: 2 });
-  check("Flamboyanes: 2 personas, mínimo $16", flLow2.status === 400 && /\$16/.test(flLow2.data.error), flLow2);
-  const flOk = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 8 });
-  check("Flamboyanes → Rincón Paraíso por $8", flOk.status === 201 && flOk.data.offer_price === 8, flOk);
+  check("Flamboyanes: $7 es menos del mínimo ($10 = $8 chofer + $2)", flLow.status === 400 && /\$10/.test(flLow.data.error), flLow);
+  const flLow2 = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 16, passengers: 2 });
+  check("Flamboyanes: 2 personas, mínimo $18", flLow2.status === 400 && /\$18/.test(flLow2.data.error), flLow2);
+  const flOk = await post("/rides", { rider_phone: phone, rider_pin: rider.pin, pickup_lat: fl.lat, pickup_lng: fl.lng, dest_lat: rp.lat, dest_lng: rp.lng, ride_type: "moto", offer_price: 10 });
+  check("Flamboyanes → Rincón Paraíso por $10", flOk.status === 201 && flOk.data.offer_price === 10, flOk);
   if (flOk.data && flOk.data.id) await post(`/rides/${flOk.data.id}/cancel`, { riderPhone: phone, riderPin: rider.pin });
 
   // ---------- Moto Exprés en Chelem ----------

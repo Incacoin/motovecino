@@ -165,15 +165,16 @@ router.post("/rides", async (req, res) => {
     if (!zd || zd.id !== zp.id) {
       return res.status(400).json({ error: `El motocarro solo hace viajes dentro de ${zp.label}` });
     }
-    // Zona solo con "Propón tu precio" (offerOnly): sin precio fijo, y la
-    // oferta no baja de minOffer por persona.
+    // Zona solo con "Propón tu precio" (offerOnly): sin precio fijo. minOffer
+    // es lo mínimo que GANA el chofer por persona; el pasajero paga eso + la
+    // cuota de la app (8-oct-2026: la cuota no sale de lo del chofer).
     if (zp.offerOnly && offer_price == null) {
       return res.status(400).json({ error: "Aquí escribe tu precio con \"Propón tu precio\". Si no lo ves, cierra y vuelve a abrir la app." });
     }
     if (offer_price != null) {
       offerPrice = Math.round(Number(offer_price));
       const people = (Number(passengers) || 1) + (Number(children) || 0);
-      const min = zp.minOffer ? zp.minOffer * people : 0;
+      const min = zp.minOffer ? zp.minOffer * people + (cityCfg.serviceFee || 0) : 0;
       if (offerPrice < min) {
         return res.status(400).json({ error: `El precio mínimo en ${zp.label} es $${min}` });
       }

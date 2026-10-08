@@ -74,8 +74,8 @@ const PROGRESO = {
     // San Ignacio (~4.5 km) y Progreso centro (~9 km). El id se queda
     // "flamboyanes" porque ya está guardado en drivers.zone.
     // offerOnly: solo "Propón tu precio" (sin Moto Exprés); minOffer = lo
-    // mínimo que puede ofrecer el pasajero POR PERSONA. fare queda para los
-    // viajes viejos de precio fijo (earnings.js).
+    // mínimo que GANA el chofer POR PERSONA (el pasajero ve $8 + $2 = $10).
+    // fare queda para los viajes viejos de precio fijo (earnings.js).
     { id: "flamboyanes", label: "Flamboyanes y Paraíso", lat: 21.1990, lng: -89.6470, radiusKm: 3.5, fare: 8, minOffer: 8, offerOnly: true, open: true },
     { id: "chicxulub", label: "Chicxulub", lat: 21.2933, lng: -89.6068, radiusKm: 2.5, fare: 10, open: false },
     { id: "chelem", label: "Chelem", lat: 21.2687, lng: -89.7423, radiusKm: 2.5, fare: 10, open: false },

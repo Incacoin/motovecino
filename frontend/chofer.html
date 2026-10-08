@@ -1209,7 +1209,7 @@ function estimateFare(ride) {
   // Motocarro con "Propón tu precio" (Progreso): el precio es el acordado.
   if (ride.ride_type !== "taxi" && (ride.agreed_price || ride.offer_price != null)) {
     const people = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
-    if (ride.agreed_price) return { total: ride.agreed_price, text: `🛵 Precio acordado $${ride.agreed_price} · ${people}` };
+    if (ride.agreed_price) return { total: ride.agreed_price, text: `🛵 Precio acordado $${ride.agreed_price} · ganas $${motoNet(ride.agreed_price)} · ${people}` };
     return { total: null, text: `🛵 ${driverComisaria ? "Motocarro" : "Mototaxi"} · ${people}` };
   }
   // Moto Exprés (Progreso): tarifa fija de la comisaría por persona.
@@ -2096,9 +2096,15 @@ function onTaxiPriceInput(id) {
 // "Propón tu precio": el chofer acepta la oferta del pasajero o escribe la
 // suya, máximo MOTO_COUNTER_MAX_UP más en mototaxi y TAXI_COUNTER_MAX_UP más en
 // taxi (el servidor también lo revisa). El anticipo es solo del taxi.
+// Mototaxi/motocarro (8-oct-2026): el chofer ve y escribe lo que GANA; la
+// cuota de la app ($SERVICE_FEE) ya va dentro del precio del pasajero.
+function motoNet(price) {
+  return Math.max(0, price - SERVICE_FEE);
+}
 function taxiOfferBlockHtml(r) {
   const mine = myOffers[r.id];
   const isTaxi = r.ride_type === "taxi";
+  if (!isTaxi) return motoOfferBlockHtml(r, mine);
   const max = r.offer_price + (isTaxi ? TAXI_COUNTER_MAX_UP : MOTO_COUNTER_MAX_UP);
   const waiting = mine
     ? `<div class="my-offer">⏳ Le mandaste <strong>$${mine.price}</strong> · esperando al pasajero (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>)</div>`
@@ -2115,6 +2121,23 @@ function taxiOfferBlockHtml(r) {
     </div>`;
 }
 
+function motoOfferBlockHtml(r, mine) {
+  const net = motoNet(r.offer_price);
+  const maxNet = motoNet(r.offer_price + MOTO_COUNTER_MAX_UP);
+  const waiting = mine
+    ? `<div class="my-offer">⏳ Pediste ganar <strong>$${motoNet(mine.price)}</strong> · esperando al pasajero (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>)</div>`
+    : "";
+  return `
+    <div class="offer-in"><span class="lbl">Ganas<br><small>El pasajero paga $${r.offer_price}</small></span><span class="amt">$${net}</span></div>
+    <button class="btn" onclick="acceptRide(${r.id})">Aceptar · ganas $${net}</button>
+    ${waiting}
+    <div class="counter-label">¿Quieres ganar más? Escribe cuánto quieres ganar (máximo $${maxNet}):</div>
+    <div class="counter-row">
+      <input type="number" id="counterInput-${r.id}" inputmode="numeric" min="${net + 1}" max="${maxNet}" placeholder="Ej. ${net + 5}" style="flex:2;padding:9px;font-size:16px;text-align:center;">
+      <button class="btn-sm" onclick="sendCounter(${r.id})">Mandar</button>
+    </div>`;
+}
+
 function fmtCountdown(ms) {
   const secs = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
@@ -2124,8 +2147,20 @@ function fmtCountdown(ms) {
 function sendCounter(id) {
   const r = pendingRides[id];
   if (!r) return;
-  const price = Math.round(Number(document.getElementById(`counterInput-${id}`)?.value));
+  const typed = Math.round(Number(document.getElementById(`counterInput-${id}`)?.value));
   const max = r.offer_price + (r.ride_type === "taxi" ? TAXI_COUNTER_MAX_UP : MOTO_COUNTER_MAX_UP);
+  if (r.ride_type !== "taxi") {
+    // Mototaxi: el chofer escribe lo que quiere ganar; al pasajero le llega
+    // eso + la cuota de la app.
+    const price = typed + SERVICE_FEE;
+    if (!(price > r.offer_price) || price > max) {
+      showToast(`Escribe cuánto quieres ganar: de $${motoNet(r.offer_price) + 1} a $${motoNet(max)}`);
+      return;
+    }
+    sendTaxiOffer(id, price);
+    return;
+  }
+  const price = typed;
   if (!(price > r.offer_price) || price > max) {
     showToast(`Escribe un precio de $${r.offer_price + 1} a $${max}`);
     return;
@@ -2153,7 +2188,8 @@ async function sendTaxiOffer(id, price) {
     return;
   }
   myOffers[id] = { offerId: data.offerId, price: data.price, expiresAt: Date.now() + data.expiresInSec * 1000 };
-  showToast(`Le mandaste $${data.price} al pasajero`);
+  const r = pendingRides[id];
+  showToast(r && r.ride_type !== "taxi" ? `Pediste ganar $${motoNet(data.price)}` : `Le mandaste $${data.price} al pasajero`);
   renderRideList();
 }
 
