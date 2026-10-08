@@ -344,7 +344,7 @@
     <div class="big">🗺️</div>
     <h2>¡MotoVecino está creciendo en Yucatán!</h2>
     <p>Todavía no abrimos el registro en tu zona, pero ya estamos llegando a más lugares.</p>
-    <p class="soon-places"><span>Muy pronto</span><br>Chicxulub · Chelem · Flamboyanes</p>
+    <p class="soon-places"><span>Muy pronto</span><br>Chicxulub · Chelem · Chuburná</p>
     <p><strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos en tu zona.</p>
     <a class="btn" id="interestWaBtn" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none;">💬 Apartar mi lugar por WhatsApp</a>
   </div>
@@ -477,6 +477,8 @@ function tryLocateCity(attempt) {
             const sel = document.getElementById("vehicleType");
             sel.innerHTML = '<option value="moto">🛵 Motocarro</option>';
             sel.value = "moto";
+            // En las comisarías de Progreso solo hay motocarros: sin dibujo de taxi.
+            document.getElementById("qsVeh").innerHTML = MVVeh.motoSide(140);
             updateVehicleLabels();
           }
           if (!data.inService) { showComingSoon(); return; }
