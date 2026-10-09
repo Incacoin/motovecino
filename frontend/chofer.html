@@ -617,6 +617,50 @@ function setDriverTheme(pref) {
   html[data-theme="dark"] #login .btn-sm { background: rgba(17,25,48,.55) !important; border: 1px solid rgba(148,163,184,.16) !important; }
   html[data-theme="dark"] #login .brand .brand-icon { box-shadow: 0 0 0 1px rgba(52,211,153,.35), 0 0 30px rgba(52,211,153,.22) !important; }
 
+
+  /* ================================================================
+     SOLICITUDES (9-oct-2026, modelo B): una tarjeta grande —la más
+     cercana, o la que el chofer eligió con "Ver"— y las demás en renglones
+     chicos. Antes cada solicitud medía media pantalla y con 5 solo se veía
+     una. Pedir más = botones +$5/+$10/+$15/+$20 (u "Otro"), en dos toques
+     para que un toque por error no mande nada.
+     ================================================================ */
+  .req-feat { border: 1.5px solid var(--success) !important; border-left-width: 1.5px !important; background: linear-gradient(180deg, #14261b, #111a15) !important; border-radius: 18px; padding: 14px !important; }
+  html[data-theme="light"] .req-feat { background: #f0fdf4 !important; }
+  .req-lbl { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--success); font-weight: 700; margin-bottom: 6px; }
+  .req-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin: 8px 0 10px; }
+  .req-sub { font-size: 13.5px; color: var(--text-dim); line-height: 1.55; min-width: 0; }
+  .req-gana { text-align: right; flex: none; }
+  .req-gana b { display: block; font-size: 34px; line-height: 1; font-weight: 800; color: var(--text); }
+  .req-gana small { font-size: 11px; color: var(--text-dim); }
+  .ride-card .btn.btn-go { background: #22c55e; color: #04140a; font-size: 16px; font-weight: 800; padding: 15px; margin-top: 0; }
+  .ride-card .btn.btn-go.pedir { background: #16a34a; color: #fff; }
+  .ride-card .btn.btn-go:disabled { background: #2a2a2a; color: #888; }
+  .req-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
+  .req-chips button { padding: 11px 0; font: 700 14px Inter, sans-serif; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); cursor: pointer; }
+  .req-chips button.sel { background: #22c55e; border-color: #22c55e; color: #04140a; }
+  .req-note { font-size: 12.5px; color: var(--text-dim); margin-top: 8px; line-height: 1.45; }
+  .req-otro { display: flex; gap: 6px; margin-top: 8px; }
+  .req-otro input { flex: 1; font-size: 18px; font-weight: 700; padding: 10px 12px; border: 1.5px solid #22c55e !important; }
+  .req-wait { display: flex; align-items: center; gap: 10px; background: var(--bg-card); border-radius: 12px; padding: 12px; }
+  .req-wait b { font-size: 16px; color: var(--text); }
+  .req-spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--border); border-top-color: #22c55e; flex: none; animation: reqspin 1s linear infinite; }
+  @keyframes reqspin { to { transform: rotate(360deg); } }
+  .req-others { font-size: 11.5px; color: var(--text-dim); padding: 8px 6px 2px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+  .req-mini { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .req-mini:last-of-type { border-bottom: 0; }
+  .req-mini .n { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .req-mini .n small { display: block; font-weight: 400; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .req-mini > b { font-size: 16px; color: var(--text); }
+  .req-mini .btn-sm { padding: 8px 14px; }
+  /* Con solicitudes el panel crece (el mapa se achica) para que se vean la
+     tarjeta grande y los renglones de las demás sin tener que bajar. */
+  #panel.has-reqs { max-height: 64vh; }
+  .req-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+  /* El aviso de "avisos bloqueados" ahora es chico: antes ocupaba un tercio del panel. */
+  .push-card { padding: 8px 12px; gap: 10px; }
+  .push-card .push-txt { font-size: 12px; line-height: 1.35; }
+  .push-card .push-txt b { font-size: 13px; margin-bottom: 0; }
 </style>
 </head>
 <body>
@@ -1040,6 +1084,13 @@ let map, myMarker, routeLine;
 let currentPickupMarker = null, currentDestMarker = null;
 const pendingMarkers = {};
 let pendingRides = {};
+// Solicitud que va en la tarjeta grande: la más cercana. Si el chofer tocó
+// "Ver" en otra, escogió +$ o ya pidió más, esa se queda fija (featuredPinned)
+// para que no le "brinque" mientras decide.
+let featuredPendingId = null;
+let featuredPinned = false;
+// Lo que el chofer escogió para pedir más en cada solicitud: 5/10/15/20 u "otro".
+let counterPick = {};
 let currentRide = null;
 // Arranca ya "disponible" si así quedó la última vez — sin esto, cada vez
 // que Android descarga la pestaña de la memoria (muy común al pasar rato en
@@ -1386,7 +1437,7 @@ async function refreshPushUi(resync) {
   const card = document.getElementById("pushCard");
   const texts = {
     off: ["🔔 Activa los avisos de viajes", "Te suena aunque tengas la app cerrada o la pantalla apagada.", "Activar"],
-    denied: ["🔕 Los avisos están bloqueados", "Actívalos en los permisos del navegador: Notificaciones → Permitir.", ""],
+    denied: ["🔕 Avisos bloqueados", "Actívalos: candado 🔒 → Permisos → Notificaciones.", ""],
     iphone: ["🔔 Avisos en iPhone", "Primero instala la app: Safari → Compartir → «Agregar a pantalla de inicio». Luego ábrela desde el ícono.", ""],
   };
   // Si él mismo los desactivó, no se le vuelve a insistir en el mapa (puede
@@ -1719,6 +1770,8 @@ function addPendingRide(ride) {
 
 function removePendingRide(id) {
   delete pendingRides[id];
+  delete counterPick[id];
+  if (featuredPendingId === id) { featuredPendingId = null; featuredPinned = false; }
   delete pendingRideColors[id];
   if (pendingMarkers[id]) {
     pendingMarkers[id].forEach((m) => map.removeLayer(m));
@@ -1843,6 +1896,7 @@ function renderRideList() {
   const el = document.getElementById("rideList");
 
   if (currentRide) {
+    document.getElementById("panel")?.classList.remove("has-reqs");
     const shape = "current:" + currentRide.id + ":" + currentRide.status + ":" + (currentRide.deposit_status || "");
     if (shape === renderedShape) { updateDistances(); return; }
     renderedShape = shape;
@@ -1927,47 +1981,24 @@ function renderRideList() {
 
   const allPending = sortedPendingRides();
   const rides = allPending.slice(0, MAX_VISIBLE_PENDING_RIDES);
-  const shape = rides.length === 0 ? "empty:" + available : "pending:" + rides.map((r) => r.id).join(",") + ":" + allPending.length + ":" + myOffersShape();
+  const shape = rides.length === 0 ? "empty:" + available : "pending:" + rides.map((r) => r.id).join(",") + ":" + allPending.length + ":" + myOffersShape() + ":" + featuredPendingId + ":" + JSON.stringify(counterPick);
   if (shape === renderedShape) { updateDistances(); return; }
   renderedShape = shape;
+  document.getElementById("panel")?.classList.toggle("has-reqs", rides.length > 0);
 
   if (rides.length === 0) {
     el.innerHTML = `<div class="empty">${available ? "Esperando solicitudes..." : "Actívate como disponible para recibir viajes"}</div>`;
     return;
   }
-  const cards = rides.map((r) => {
-    const dist = myPos ? haversine(myPos.lat, myPos.lng, r.pickup_lat, r.pickup_lng).toFixed(1) : "?";
-    const color = colorForPendingRide(r.id);
-    const fare = estimateFare(r);
-    const acceptLabel = fare.total != null ? `Aceptar · $${fare.total} MXN` : "Aceptar";
-    return `
-      <div class="card ride-card pending fade-in">
-        <div class="label">${riderAvatarHtml(r.riderPhoto)}<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:7px;"></span>${serviceKindPrefix(r)}${escapeHtml(r.rider_name)}${riderTripText(r)}</div>
-        ${forOtherHtml(r)}
-        <div class="ride-chips">
-          <span class="chip">📍 <span id="dist-${r.id}">${dist}</span> km</span>
-          ${extraChipHtml(r)}
-          ${r.pickup_label ? `<span class="chip">${escapeHtml(r.pickup_label)}</span>` : ""}
-        </div>
-        ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde el punto de encuentro)</div>` : ""}
-        ${fare.total != null
-          ? `<div class="req-big"><small>Cobras en efectivo</small><b>$${fare.total}</b>${r.extra ? `<span>Incluye +$${r.extra} extra del pasajero</span>` : ""}</div>`
-          : ""}
-        <div class="meta fare">${fare.text}</div>
-        ${r.offer_price != null
-          ? taxiOfferBlockHtml(r)
-          : r.ride_type === "taxi"
-          ? `<div style="margin-bottom:6px;">
-               <input type="number" id="taxiPriceInput-${r.id}" inputmode="decimal" min="1" placeholder="Precio que YA acordaste con el pasajero" oninput="onTaxiPriceInput(${r.id})" style="width:100%;box-sizing:border-box;padding:9px;font-size:15px;">
-             </div>
-             ${depositRequestHtml(r)}`
-          : ""}
-        ${r.offer_price != null
-          ? ""
-          : `<button class="btn btn-accept" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : "Aceptar viaje"}</button>`}
-      </div>`;
-  }).join("");
-  const moreCount = allPending.length - rides.length;
+  const pinned = (featuredPinned || myOffers[featuredPendingId] || counterPick[featuredPendingId] !== undefined) && allPending.find((r) => r.id === featuredPendingId);
+  const featured = pinned || rides[0];
+  if (!pinned) featuredPinned = false;
+  featuredPendingId = featured.id;
+  const others = rides.filter((r) => r.id !== featured.id).slice(0, MAX_VISIBLE_PENDING_RIDES - 1);
+  const cards = featuredRideHtml(featured, allPending) + (others.length
+    ? `<div class="req-others">${others.length === 1 ? "Otra solicitud" : `Otras ${others.length} solicitudes`}</div>` + others.map(miniRideHtml).join("")
+    : "");
+  const moreCount = allPending.length - others.length - 1;
   const moreHint = moreCount > 0
     ? `<div class="empty" style="padding:8px 0;">+${moreCount} solicitud${moreCount === 1 ? "" : "es"} más lejos</div>`
     : "";
@@ -2101,6 +2132,128 @@ function onTaxiPriceInput(id) {
 function motoNet(price) {
   return Math.max(0, price - SERVICE_FEE);
 }
+// Tarjeta grande (modelo B). Taxi y viajes de precio fijo siguen con su
+// contenido de siempre (anticipo, precio a mano...); el mototaxi con "Propón
+// tu precio" lleva el diseño nuevo.
+function featuredRideHtml(r, allPending) {
+  const dist = myPos ? haversine(myPos.lat, myPos.lng, r.pickup_lat, r.pickup_lng).toFixed(1) : "?";
+  const color = colorForPendingRide(r.id);
+  const fare = estimateFare(r);
+  const n = allPending.length;
+  const pos = allPending.findIndex((x) => x.id === r.id) + 1;
+  const mine = myOffers[r.id];
+  const firstName = escapeHtml(String(r.rider_name || "el pasajero").trim().split(/\s+/)[0]);
+  const lbl = mine && r.ride_type !== "taxi" ? `Pediste más · esperando a ${firstName}`
+    : n === 1 ? "Nueva solicitud"
+    : pos === 1 ? `La más cercana · 1 de ${n}`
+    : `Solicitud · ${pos} de ${n}`;
+  const head = `
+      <div class="req-lbl">${lbl}</div>
+      <div class="label">${riderAvatarHtml(r.riderPhoto)}<span class="req-dot" style="background:${color};margin-right:7px;"></span>${serviceKindPrefix(r)}${escapeHtml(r.rider_name)}${riderTripText(r)}</div>
+      ${forOtherHtml(r)}`;
+  if (r.ride_type !== "taxi" && r.offer_price != null) {
+    const trip = r.dest_lat ? `🏁 Viaje de ${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km${r.dest_label ? ` · ${escapeHtml(r.dest_label)}` : ""}<br>` : "";
+    const extra = extraChipHtml(r);
+    return `
+    <div class="card ride-card pending req-feat fade-in">${head}
+      <div class="req-row">
+        <div class="req-sub">📍 A <span id="dist-${r.id}">${dist}</span> km de ti${r.pickup_label ? ` · ${escapeHtml(r.pickup_label)}` : ""}<br>${trip}${fare.text.replace(/^🛵 /, "")}</div>
+        <div class="req-gana"><b>$${motoNet(r.offer_price)}</b><small>ganas</small></div>
+      </div>
+      ${extra ? `<div class="ride-chips">${extra}</div>` : ""}
+      ${motoOfferBlockHtml(r, mine)}
+    </div>`;
+  }
+  return `
+    <div class="card ride-card pending req-feat fade-in">${head}
+      <div class="ride-chips">
+        <span class="chip">📍 <span id="dist-${r.id}">${dist}</span> km</span>
+        ${extraChipHtml(r)}
+        ${r.pickup_label ? `<span class="chip">${escapeHtml(r.pickup_label)}</span>` : ""}
+      </div>
+      ${r.dest_lat ? `<div class="meta">Destino: ${escapeHtml(r.dest_label) || "punto marcado en el mapa"} (${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km desde el punto de encuentro)</div>` : ""}
+      ${fare.total != null
+        ? `<div class="req-big"><small>Cobras en efectivo</small><b>$${fare.total}</b>${r.extra ? `<span>Incluye +$${r.extra} extra del pasajero</span>` : ""}</div>`
+        : ""}
+      <div class="meta fare">${fare.text}</div>
+      ${r.offer_price != null
+        ? taxiOfferBlockHtml(r)
+        : r.ride_type === "taxi"
+        ? `<div style="margin-bottom:6px;">
+             <input type="number" id="taxiPriceInput-${r.id}" inputmode="decimal" min="1" placeholder="Precio que YA acordaste con el pasajero" oninput="onTaxiPriceInput(${r.id})" style="width:100%;box-sizing:border-box;padding:9px;font-size:15px;">
+           </div>
+           ${depositRequestHtml(r)}`
+        : ""}
+      ${r.offer_price != null
+        ? ""
+        : `<button class="btn btn-accept" onclick="acceptRide(${r.id})">${r.ride_type === "taxi" ? "Aceptar" : "Aceptar viaje"}</button>`}
+    </div>`;
+}
+
+// Renglón chico de las otras solicitudes: tocarlo la sube a la tarjeta grande.
+function miniRideHtml(r) {
+  const dist = myPos ? haversine(myPos.lat, myPos.lng, r.pickup_lat, r.pickup_lng).toFixed(1) : "?";
+  const trip = r.dest_lat ? ` · viaje ${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km` : "";
+  const amount = r.offer_price != null
+    ? (r.ride_type === "taxi" ? r.offer_price : motoNet(r.offer_price))
+    : estimateFare(r).total;
+  const waiting = myOffers[r.id] ? " · ⏳ pediste más" : "";
+  return `
+    <div class="req-mini" onclick="selectPendingRide(${r.id})">
+      <span class="req-dot" style="background:${colorForPendingRide(r.id)}"></span>
+      <div class="n">${serviceKindPrefix(r)}${escapeHtml(r.rider_name)}<small>a <span id="dist-${r.id}">${dist}</span> km${trip}${waiting}</small></div>
+      ${amount != null ? `<b>$${amount}</b>` : ""}
+      <button class="btn-sm" onclick="event.stopPropagation(); selectPendingRide(${r.id})">Ver</button>
+    </div>`;
+}
+
+function selectPendingRide(id) {
+  if (!pendingRides[id]) return;
+  featuredPendingId = id;
+  featuredPinned = true;
+  renderRideList();
+  const r = pendingRides[id];
+  if (typeof map !== "undefined" && map && r) map.panTo([r.pickup_lat, r.pickup_lng]);
+  const list = document.getElementById("rideList");
+  if (list) list.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+
+// Botones +$5/+$10/+$15/+$20/Otro: el primer toque solo escoge (el botón
+// grande cambia a "Pedir +$10 · ganas $25"); otro toque al mismo lo quita.
+function pickCounter(id, v) {
+  if (counterPick[id] === v) delete counterPick[id];
+  else counterPick[id] = v;
+  renderRideList();
+  if (v === "otro" && counterPick[id]) setTimeout(() => document.getElementById(`counterInput-${id}`)?.focus(), 30);
+}
+
+// "Otro": se escribe cuánto MÁS quiere ganar (ej. 12 = +$12).
+function otroExtra(id) {
+  const v = Math.round(Number(document.getElementById(`counterInput-${id}`)?.value));
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+function onOtroInput(id) {
+  const r = pendingRides[id];
+  const btn = document.getElementById(`pedirBtn-${id}`);
+  if (!r || !btn) return;
+  const extra = otroExtra(id);
+  const net = motoNet(r.offer_price);
+  btn.disabled = !extra || extra > MOTO_COUNTER_MAX_UP;
+  btn.textContent = !extra ? "Escribe cuánto más" : extra > MOTO_COUNTER_MAX_UP ? `Máximo +$${MOTO_COUNTER_MAX_UP}` : `Pedir +$${extra} · ganas $${net + extra}`;
+}
+function sendPickedCounter(id) {
+  const r = pendingRides[id];
+  if (!r) return;
+  const pick = counterPick[id];
+  const extra = pick === "otro" ? otroExtra(id) : pick;
+  if (!extra || extra > MOTO_COUNTER_MAX_UP) {
+    showToast(`Puedes pedir de +$1 a +$${MOTO_COUNTER_MAX_UP}`);
+    return;
+  }
+  delete counterPick[id];
+  sendTaxiOffer(id, r.offer_price + extra);
+}
+
 function taxiOfferBlockHtml(r) {
   const mine = myOffers[r.id];
   const isTaxi = r.ride_type === "taxi";
@@ -2123,19 +2276,28 @@ function taxiOfferBlockHtml(r) {
 
 function motoOfferBlockHtml(r, mine) {
   const net = motoNet(r.offer_price);
-  const maxNet = motoNet(r.offer_price + MOTO_COUNTER_MAX_UP);
-  const waiting = mine
-    ? `<div class="my-offer">⏳ Pediste ganar <strong>$${motoNet(mine.price)}</strong> · esperando al pasajero (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>)</div>`
-    : "";
+  const firstName = escapeHtml(String(r.rider_name || "el pasajero").trim().split(/\s+/)[0]);
+  if (mine) {
+    return `
+    <div class="req-wait"><span class="req-spin"></span><div><b>Pediste ganar $${motoNet(mine.price)}</b>
+      <div class="req-note" style="margin:2px 0 0">Esperando que ${firstName} acepte (<span class="my-offer-timer" data-ride="${r.id}">${fmtCountdown(mine.expiresAt - Date.now())}</span>). Mientras, puedes ver las otras.</div></div></div>
+    <button class="btn btn-secondary" onclick="acceptRide(${r.id})">Mejor aceptar · ganas $${net}</button>`;
+  }
+  const pick = counterPick[r.id];
+  const steps = [5, 10, 15, 20].filter((v) => v <= MOTO_COUNTER_MAX_UP);
+  const chips = `<div class="req-chips">${steps.map((v) => `<button class="${pick === v ? "sel" : ""}" onclick="pickCounter(${r.id}, ${v})">+$${v}</button>`).join("")}<button class="${pick === "otro" ? "sel" : ""}" onclick="pickCounter(${r.id}, 'otro')">Otro</button></div>`;
+  if (!pick) {
+    return `<button class="btn btn-go" onclick="acceptRide(${r.id})">Aceptar · ganas $${net}</button>${chips}`;
+  }
+  if (pick === "otro") {
+    return `
+    <button class="btn btn-go pedir" id="pedirBtn-${r.id}" onclick="sendPickedCounter(${r.id})" disabled>Escribe cuánto más</button>${chips}
+    <div class="req-otro"><input type="number" id="counterInput-${r.id}" inputmode="numeric" min="1" max="${MOTO_COUNTER_MAX_UP}" placeholder="¿Cuánto más? Ej. 12" oninput="onOtroInput(${r.id})"></div>
+    <div class="req-note">Máximo +$${MOTO_COUNTER_MAX_UP}. Toca otra vez «Otro» para quitarlo.</div>`;
+  }
   return `
-    <div class="offer-in"><span class="lbl">Ganas<br><small>El pasajero paga $${r.offer_price}</small></span><span class="amt">$${net}</span></div>
-    <button class="btn" onclick="acceptRide(${r.id})">Aceptar · ganas $${net}</button>
-    ${waiting}
-    <div class="counter-label">¿Quieres ganar más? Escribe cuánto quieres ganar (máximo $${maxNet}):</div>
-    <div class="counter-row">
-      <input type="number" id="counterInput-${r.id}" inputmode="numeric" min="${net + 1}" max="${maxNet}" placeholder="Ej. ${net + 5}" style="flex:2;padding:9px;font-size:16px;text-align:center;">
-      <button class="btn-sm" onclick="sendCounter(${r.id})">Mandar</button>
-    </div>`;
+    <button class="btn btn-go pedir" onclick="sendPickedCounter(${r.id})">Pedir +$${pick} · ganas $${net + pick}</button>${chips}
+    <div class="req-note">${firstName} ve tu precio: <b>$${r.offer_price + pick}</b> (con la cuota de la app). Decide si acepta. Toca otra vez +$${pick} para quitarlo.</div>`;
 }
 
 function fmtCountdown(ms) {
