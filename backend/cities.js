@@ -15,7 +15,14 @@ const CITIES = [
   // serviceRadiusKmTaxi: el taxi sí hace viajes foráneos (Peto, Xul, ~50km a
   // la redonda) porque no tiene tarifa fija — el mototaxi se queda con el
   // radio normal de arriba, sin cambios.
-  { id: "tekax", label: "Tekax", lat: 20.2071, lng: -89.2809, serviceRadiusKm: 4.5, serviceRadiusKmTaxi: 50 },
+  // offerOnly (9-oct-2026): en el sur (Tekax, Ticul, Oxkutzcab, Akil) ya no
+  // hay Mototaxi Exprés de precio fijo, solo "Propón tu precio", igual que en
+  // Flamboyanes. El precio sugerido ES el mínimo, y es lo que GANA el chofer:
+  // minOffer por adulto (de noche minOfferNight) + minChild por niño (de
+  // noche minChildNight); el pasajero ve eso + la cuota de la app ($15 + $2
+  // = $17). La distancia la decide el chofer: ve el destino y acepta o pide
+  // hasta MOTO_OFFER_MAX_UP más.
+  { id: "tekax", label: "Tekax", lat: 20.2071, lng: -89.2809, serviceRadiusKm: 4.5, serviceRadiusKmTaxi: 50, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // Ticul y Oxkutzcab (6-oct-2026): cada uno con su cajón (sus viajes salen
   // en su propio selector del admin), pero signupClosed: todavía no se
   // registran choferes ahí. Ticul además sigue en espera por el gremio
@@ -23,14 +30,14 @@ const CITIES = [
   // motoSoon (6-oct-2026): ya llegamos (la portada dice "MotoVecino Akil"),
   // pero sin choferes de ahí: el mototaxi sale como "Muy pronto" y solo se
   // pide taxi. Quitar motoSoon cuando haya mototaxis registrados en el lugar.
-  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, signupClosed: true, motoSoon: true },
-  { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, signupClosed: true, motoSoon: true },
+  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, signupClosed: true, motoSoon: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
+  { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, signupClosed: true, motoSoon: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // Akil (6-oct-2026): municipio con cajón propio (su selector en el
   // admin). Registro de choferes cerrado por ahora (signupClosed) y el
   // mototaxi "Muy pronto", igual que Oxkutzcab y Ticul.
   // labelRadiusKm = serviceRadiusKm a propósito: fuera de los 4km el punto
   // vuelve a ser de Tekax y sigue teniendo taxi foráneo (radio de 50km).
-  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, signupClosed: true, motoSoon: true },
+  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, signupClosed: true, motoSoon: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // TEMPORAL (3-oct-2026): Mérida solo como zona de prueba para enseñar la
   // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
   // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
@@ -213,8 +220,27 @@ function isWithinServiceRadius(cityId, lat, lng, rideType) {
   return haversineKm(lat, lng, city.lat, city.lng) <= radius;
 }
 
+// Reglas de "Propón tu precio" de un pueblo offerOnly (sin Exprés), para la
+// app del pasajero (/api/cities/resolve). null si el pueblo tiene precio fijo.
+function cityOfferRules(city) {
+  if (!city || !city.offerOnly || city.zones) return null;
+  const { minOffer, minOfferNight, minChild, minChildNight } = city;
+  return { minOffer, minOfferNight, minChild, minChildNight, serviceFee: SERVICE_FEE };
+}
+
+// Lo mínimo que puede ofrecer el pasajero en un pueblo offerOnly (con la
+// cuota de la app). El servidor usa siempre la tarifa de DÍA: el celular
+// decide si ya es de noche con su propia hora, y no queremos rechazar un
+// viaje pedido justo a las 10:00 p.m. por segundos de diferencia.
+function cityMinOffer(city, adults, kids) {
+  if (!city || !city.offerOnly || city.zones) return 0;
+  return city.minOffer * Math.max(1, adults || 1) + (city.minChild || 0) * Math.max(0, kids || 0) + SERVICE_FEE;
+}
+
 module.exports = {
   CITIES,
+  cityOfferRules,
+  cityMinOffer,
   DEFAULT_CITY_ID,
   CITY_RADIUS_KM,
   resolveCity,

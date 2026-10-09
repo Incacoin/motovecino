@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
-const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide } = require("../cities");
+const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide, cityMinOffer } = require("../cities");
 const { haversineKm } = require("../geo");
 
 // Si el celular de quien pide está a más de esto del punto de encuentro, al
@@ -183,6 +183,10 @@ router.post("/rides", async (req, res) => {
       }
       motoOffer = true;
     }
+  } else if (ride_type !== "taxi" && cityCfg?.offerOnly && offer_price == null) {
+    // Tekax, Ticul, Oxkutzcab y Akil (9-oct-2026): ya no hay Exprés de precio
+    // fijo. Una app vieja guardada en el celular todavía lo puede mandar.
+    return res.status(400).json({ error: "Ahora el mototaxi es con \"Propón tu precio\". Cierra y vuelve a abrir la app para verlo." });
   } else if (ride_type !== "taxi" && offer_price != null) {
     // "Propón tu precio" en mototaxi (Tekax y demás): necesita destino, igual
     // que el taxi, para que el chofer sepa qué está aceptando.
@@ -192,6 +196,10 @@ router.post("/rides", async (req, res) => {
     offerPrice = Math.round(Number(offer_price));
     if (!(offerPrice >= 5) || offerPrice > 2000) {
       return res.status(400).json({ error: "Revisa el precio que ofreces" });
+    }
+    const min = cityMinOffer(cityCfg, Number(passengers) || 1, Number(children) || 0);
+    if (offerPrice < min) {
+      return res.status(400).json({ error: `El precio mínimo es $${min}` });
     }
     motoOffer = true;
   }

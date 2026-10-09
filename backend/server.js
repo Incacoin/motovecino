@@ -22,7 +22,7 @@ const realtime = require("./realtime");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
 const { migrateImagesToFiles } = require("./imageStore");
-const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP } = require("./cities");
+const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP, cityOfferRules } = require("./cities");
 
 const app = express();
 app.disable("x-powered-by");
@@ -191,9 +191,12 @@ app.get("/api/cities/resolve", async (req, res) => {
   // motoSoon: llegamos al lugar pero el mototaxi todavía no (ver cities.js);
   // zone ya viene como "taxi" y la app enseña el mototaxi como "Muy pronto".
   const motoSoon = !!(city && city.motoSoon) || zoneClosed;
+  // cityOffer: pueblo solo con "Propón tu precio" (Tekax y el sur): mínimo
+  // de día/noche por adulto y niño. null = hay Mototaxi Exprés.
+  const cityOffer = comisaria ? null : cityOfferRules(getCityById(zoneCityId));
   res.json(city
-    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon }
-    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false });
+    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon, cityOffer }
+    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false, cityOffer });
 });
 
 app.use("/api", driverRoutes);

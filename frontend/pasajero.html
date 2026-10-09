@@ -1430,7 +1430,7 @@ function initCityBrand(attempt) {
           }
           if (data.city) { resolvedCityId = data.city; updateFareEstimate(); }
           // Mientras no marque recogida, el aviso se basa en dónde está el celular.
-          if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon);
+          if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null);
         })
         .catch(() => {});
     },
@@ -1480,8 +1480,23 @@ let serviceType = "moto";
 // Exprés" (precio fijo) y "Propón tu precio" (motocarro con oferta).
 let comisaria = null;
 // Mototaxi: "fijo" (Exprés) u "oferta" (Propón tu precio), en cualquier zona.
-let priceMode = "fijo";
+let priceMode = "oferta";
 let motoOffer = null;
+// true cuando el pasajero escribió su propio precio: si no, el precio sigue
+// al sugerido (cambia con los pasajeros y con la noche).
+let motoOfferTouched = false;
+// Pueblo solo con "Propón tu precio" (Tekax y el sur, ver backend/cities.js):
+// el precio sugerido es el mínimo. Llega en /api/cities/resolve; estos son
+// los valores de Tekax mientras llega, para no enseñar el Exprés de más.
+let cityOffer = { minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10, serviceFee: 2 };
+// ¿Aquí el mototaxi es solo con "Propón tu precio"?
+function motoOfferOnly() { return comisaria ? !!comisaria.offerOnly : !!cityOffer; }
+// Precio sugerido = mínimo del pueblo para los que van (con la cuota de la app).
+function cityOfferMin(night) {
+  const adult = night ? cityOffer.minOfferNight : cityOffer.minOffer;
+  const kid = night ? cityOffer.minChildNight : cityOffer.minChild;
+  return adult * passengers + kid * children + SERVICE_FEE;
+}
 // Cuánto más puede pedir el chofer en su contraoferta (de /api/config).
 let MOTO_OFFER_MAX_UP = 40;
 let TAXI_OFFER_MAX_UP = 100;
@@ -1734,6 +1749,12 @@ function updateFareEstimate() {
   btn.disabled = !pickup;
   if (!pickup) { el.textContent = ""; btn.textContent = baseLabel; return; }
   const night = isNightFare();
+  if (cityOffer) {
+    const min = cityOfferMin(night);
+    setVehPrice("Moto", "");
+    showMotoOfferUi(min, night ? "tarifa nocturna" : "", MOTO_OFFER_MAX_UP, min);
+    return;
+  }
   const result = resolvedCityId === "ticul" ? estimateFareTicul(night) : estimateFareTekax(night);
   if (result.longTrip) {
     el.textContent = `Viaje largo: acuerda el precio directo con el chofer`;
@@ -1764,12 +1785,13 @@ function showMotoOfferUi(fixed, where, maxUp, min) {
     setVehPrice("Oferta", "");
     return;
   }
-  if (motoOffer == null) motoOffer = fixed;
+  if (motoOffer == null || (min && !motoOfferTouched)) motoOffer = fixed;
+  if (min && motoOffer < min && document.activeElement !== document.getElementById("motoOfferInput")) motoOffer = min;
   const input = document.getElementById("motoOfferInput");
   if (document.activeElement !== input) input.value = motoOffer;
   document.getElementById("motoOfferBox").style.display = "block";
   document.getElementById("motoOfferNote").textContent = min
-    ? `Precio mínimo: $${min}. El chofer acepta tu precio o te pide hasta $${maxUp} más; tú decides.`
+    ? `Precio sugerido: $${min} (es el mínimo). Puedes ofrecer más; el chofer acepta tu precio o te pide hasta $${maxUp} más, tú decides.`
     : `Precio normal: $${fixed}. El chofer acepta tu precio o te pide hasta $${maxUp} más; tú decides.`;
   const totalPeople = passengers + children;
   el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${where ? ` · ${where}` : ""}`;
@@ -1819,6 +1841,7 @@ function updateComisariaFare() {
 function onMotoOfferInput() {
   const v = Math.round(Number(document.getElementById("motoOfferInput").value));
   motoOffer = Number.isFinite(v) && v > 0 ? v : null;
+  motoOfferTouched = true;
   updateFareEstimate();
 }
 
@@ -1866,7 +1889,7 @@ function renderVehCards(motoNote) {
   document.getElementById("tabTaxi").innerHTML = vehCardHtml("taxi");
   document.getElementById("tabTaxi").style.display = comisaria ? "none" : "";
   // Zona solo con "Propón tu precio" (offerOnly): sin tarjeta de Exprés.
-  document.getElementById("tabMoto").style.display = comisaria && comisaria.offerOnly ? "none" : "";
+  document.getElementById("tabMoto").style.display = motoOfferOnly() ? "none" : "";
 }
 function markActiveCard() {
   document.getElementById("tabMoto").classList.toggle("active", serviceType === "moto" && priceMode === "fijo");
@@ -1878,8 +1901,10 @@ function setComisaria(c) {
   comisaria = c || null;
   if ((comisaria && comisaria.id) === before) return;
   motoOffer = null;
+  motoOfferTouched = false;
   if (comisaria && serviceType === "taxi") { serviceType = "moto"; priceMode = "fijo"; }
   if (comisaria && comisaria.offerOnly) { serviceType = "moto"; priceMode = "oferta"; }
+  if (!comisaria && cityOffer && serviceType === "moto") priceMode = "oferta";
   markActiveCard();
 }
 // ¿El destino cae dentro de la comisaría de la recogida?
@@ -1894,8 +1919,12 @@ function greetingText() {
   return name ? `${saludo}, ${name}` : saludo;
 }
 
-function applyZone(zone, zoneLabel, com, soon) {
+// offer: reglas de "Propón tu precio" del pueblo (cityOffer de /api/cities/resolve);
+// undefined = no vino (resetPins), se quedan las de antes.
+function applyZone(zone, zoneLabel, com, soon, offer) {
+  if (offer !== undefined) cityOffer = offer;
   setComisaria(com);
+  if (motoOfferOnly() && serviceType === "moto" && priceMode !== "oferta") { priceMode = "oferta"; markActiveCard(); }
   serviceZone = zone || "in";
   motoSoon = !!soon;
   const notice = document.getElementById("zoneNotice");
@@ -1976,7 +2005,7 @@ function checkPickupZone() {
   const seq = ++zoneCheckSeq;
   fetch(API + `/api/cities/resolve?lat=${pickup.lat}&lng=${pickup.lng}`)
     .then((r) => r.json())
-    .then((data) => { if (seq === zoneCheckSeq && pickup) { applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon); setFamilyAvailable(data.familyRides); } })
+    .then((data) => { if (seq === zoneCheckSeq && pickup) { applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null); setFamilyAvailable(data.familyRides); } })
     .catch(() => {});
 }
 
@@ -1992,7 +2021,7 @@ function setServiceType(type) {
     return;
   }
   if (type === "taxi" && comisaria) return;
-  if (type === "moto" && comisaria && comisaria.offerOnly) type = "oferta";
+  if (type === "moto" && motoOfferOnly()) type = "oferta";
   const newType = wantMoto ? "moto" : "taxi";
   const newMode = type === "oferta" ? "oferta" : "fijo";
   if (serviceType === newType && (newType === "taxi" || priceMode === newMode)) return;

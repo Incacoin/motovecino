@@ -130,7 +130,7 @@ async function main() {
   const pick = near(0.001);
   const ride = await post("/rides", {
     rider_phone: rider.phone, rider_pin: rider.pin, pickup_lat: pick.lat, pickup_lng: pick.lng, pickup_label: "Parque",
-    dest_lat: TEKAX.lat + 0.01, dest_lng: TEKAX.lng, dest_label: "Mercado", passengers: 2, children: 1, ride_type: "moto", extra: 5,
+    dest_lat: TEKAX.lat + 0.01, dest_lng: TEKAX.lng, dest_label: "Mercado", passengers: 2, children: 1, ride_type: "moto", extra: 5, offer_price: 37,
     rider_lat: 20.9674, rider_lng: -89.5926,
   });
   check("pedir viaje", ride.status === 201 && ride.data.status === "buscando" && ride.data.share_token, ride);
@@ -162,7 +162,7 @@ async function main() {
   check("el otro chofer recibe ride_taken", !!(await waitFor(loserWs, "ride_taken")));
 
   // Mismo chofer no puede tener dos viajes activos.
-  const ride2 = await post("/rides", { rider_phone: rider.phone, rider_pin: rider.pin, pickup_lat: pick.lat, pickup_lng: pick.lng, ride_type: "moto" });
+  const ride2 = await post("/rides", { rider_phone: rider.phone, rider_pin: rider.pin, pickup_lat: pick.lat, pickup_lng: pick.lng, dest_lat: TEKAX.lat + 0.01, dest_lng: TEKAX.lng, ride_type: "moto", offer_price: 17 });
   const dbl = await post(`/rides/${ride2.data.id}/accept`, { driverId: winner.id, pin: winner.pin });
   check("chofer ocupado no acepta otro = 409", dbl.status === 409, dbl);
   const c2 = await post(`/rides/${ride2.data.id}/cancel`, { riderPhone: rider.phone, riderPin: rider.pin, reason: "prueba" });
@@ -240,7 +240,7 @@ async function main() {
   check("ranking", rank.status === 200 && Array.isArray(rank.data), rank);
 
   // ---------- Cancelación del chofer: enfriamiento ----------
-  const ride3 = await post("/rides", { rider_phone: rider.phone, rider_pin: rider.pin, pickup_lat: pick.lat, pickup_lng: pick.lng, ride_type: "moto" });
+  const ride3 = await post("/rides", { rider_phone: rider.phone, rider_pin: rider.pin, pickup_lat: pick.lat, pickup_lng: pick.lng, dest_lat: TEKAX.lat + 0.01, dest_lng: TEKAX.lng, ride_type: "moto", offer_price: 17 });
   const a3 = await post(`/rides/${ride3.data.id}/accept`, { driverId: winner.id, pin: winner.pin });
   check("aceptar viaje 3", a3.status === 200, a3);
   const c3 = await post(`/rides/${ride3.data.id}/cancel`, { driverId: winner.id, pin: winner.pin, reason: "El pasajero no llegó" });
@@ -336,7 +336,7 @@ async function main() {
   const fam = await post("/admin/family-rides/enabled", { adminPin: ADMIN, enabled: true });
   const res2 = await get(`/cities/resolve?lat=${TEKAX.lat}&lng=${TEKAX.lng}`);
   check("resolve: familia prendida", fam.status === 200 && res2.data.familyRides === true && res2.data.zone === "in", res2);
-  const forOther = await post("/rides", { rider_phone: rider.phone, rider_pin: rider.pin, pickup_lat: pick.lat, pickup_lng: pick.lng, ride_type: "moto", for_name: "Mi hijo", for_note: "gorra roja 9991234567" });
+  const forOther = await post("/rides", { rider_phone: rider.phone, rider_pin: rider.pin, pickup_lat: pick.lat, pickup_lng: pick.lng, dest_lat: TEKAX.lat + 0.01, dest_lng: TEKAX.lng, ride_type: "moto", offer_price: 17, for_name: "Mi hijo", for_note: "gorra roja 9991234567" });
   check("viaje para otra persona", forOther.status === 201 && forOther.data.for_name === "Mi hijo" && !forOther.data.for_note.includes("1234567"), forOther.data);
   await post(`/rides/${forOther.data.id}/cancel`, { riderPhone: rider.phone, riderPin: rider.pin });
   await post("/admin/family-rides/enabled", { adminPin: ADMIN, enabled: false });
