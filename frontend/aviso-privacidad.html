@@ -20,137 +20,177 @@
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=2" />
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
+  /* Mismo lenguaje visual que la app (pasajero/chofer): fondo casi negro,
+     verde MotoVecino, Inter + JetBrains Mono. Claro si el celular está en
+     modo claro. */
   :root{
-    --ink:#1b2430;
-    --ink-soft:#535d6c;
-    --ink-faint:#8791a0;
-    --paper:#f7f6f2;
+    --ink:#0f172a;
+    --ink-soft:#475569;
+    --ink-faint:#94a3b8;
+    --paper:#f4f6f8;
     --surface:#ffffff;
-    --line:rgba(27,36,48,0.13);
-    --accent:#b5691a;
-    --accent-soft:#f1e2ce;
-    --accent-ink:#7a4610;
-    --danger:#9c3b2e;
-    --danger-soft:#f5e3df;
-    --font-display:'Newsreader', Georgia, 'Times New Roman', serif;
-    --font-body:'Public Sans', -apple-system, Segoe UI, sans-serif;
-    --font-mono:'IBM Plex Mono', 'Courier New', monospace;
+    --line:rgba(15,23,42,0.10);
+    --accent:#16a34a;
+    --accent-soft:#e8f7ee;
+    --accent-ink:#15803d;
+    --danger:#b42318;
+    --danger-soft:#fdecea;
+    --topbar:rgba(244,246,248,0.86);
+    --font-display:'Inter', -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-body:'Inter', -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-mono:'JetBrains Mono', ui-monospace, 'Courier New', monospace;
   }
 
   @media (prefers-color-scheme: dark){
     :root{
-      --ink:#e9e6de;
-      --ink-soft:#b3aea1;
-      --ink-faint:#7d7a70;
-      --paper:#15181c;
-      --surface:#1c2025;
-      --line:rgba(233,230,222,0.13);
-      --accent:#e0a751;
-      --accent-soft:#332a1c;
-      --accent-ink:#f0c383;
-      --danger:#d98a7a;
-      --danger-soft:#332420;
+      --ink:#e8ecf2;
+      --ink-soft:#a3adbd;
+      --ink-faint:#6b7585;
+      --paper:#0a0c10;
+      --surface:#12161d;
+      --line:rgba(255,255,255,0.08);
+      --accent:#22c55e;
+      --accent-soft:rgba(34,197,94,0.10);
+      --accent-ink:#4ade80;
+      --danger:#f87171;
+      --danger-soft:rgba(248,113,113,0.08);
+      --topbar:rgba(10,12,16,0.82);
     }
   }
 
   *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
   body{
     margin:0;
     background:var(--paper);
     color:var(--ink);
     font-family:var(--font-body);
+    font-size:16px;
     line-height:1.65;
     -webkit-font-smoothing:antialiased;
   }
 
   .topbar{
     border-bottom:1px solid var(--line);
-    background:var(--paper);
+    background:var(--topbar);
     position:sticky;
     top:0;
     z-index:10;
-    backdrop-filter:blur(6px);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
   }
   .topbar-inner{
     max-width:760px;
     margin:0 auto;
-    padding:14px 24px;
+    padding:10px 16px;
     display:flex;
-    align-items:baseline;
+    align-items:center;
     justify-content:space-between;
-    gap:16px;
+    gap:12px;
   }
+  .topbar-left{display:flex; align-items:center; gap:12px; min-width:0;}
   .wordmark{
+    display:flex;
+    align-items:center;
     font-family:var(--font-display);
-    font-weight:600;
-    font-size:1.05rem;
-    letter-spacing:0.01em;
-  }
-  .wordmark span{color:var(--accent);}
-  .topbar-left{display:flex; align-items:center; gap:16px;}
-  .back-link{
-    font-family:var(--font-mono);
-    font-size:0.78rem;
-    letter-spacing:0.03em;
-    color:var(--accent-ink);
-    text-decoration:none;
-    background:none;
-    border:none;
-    padding:0;
-    cursor:pointer;
+    font-weight:700;
+    font-size:1rem;
+    letter-spacing:-0.01em;
     white-space:nowrap;
   }
-  .back-link:hover, .back-link:focus-visible{color:var(--accent);}
+  .wordmark::before{
+    content:"";
+    width:28px;
+    height:28px;
+    flex:none;
+    margin-right:8px;
+    border-radius:7px;
+    background:url("icons/favicon.svg?v=2") center/cover no-repeat;
+  }
+  .wordmark span{color:var(--accent);}
+  .back-link{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-family:var(--font-body);
+    font-size:0.85rem;
+    font-weight:600;
+    color:var(--ink);
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:7px 14px;
+    cursor:pointer;
+    white-space:nowrap;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .back-link:hover, .back-link:focus-visible{border-color:var(--accent); color:var(--accent-ink);}
   .doc-meta{
     font-family:var(--font-mono);
-    font-size:0.72rem;
+    font-size:0.68rem;
     color:var(--ink-faint);
     text-transform:uppercase;
-    letter-spacing:0.06em;
+    letter-spacing:0.04em;
+    text-align:right;
   }
 
   main{
     max-width:760px;
     margin:0 auto;
-    padding:56px 24px 96px;
+    padding:40px 16px 80px;
   }
 
   .eyebrow{
+    display:inline-block;
     font-family:var(--font-mono);
-    font-size:0.72rem;
-    letter-spacing:0.12em;
+    font-size:0.7rem;
+    font-weight:500;
+    letter-spacing:0.1em;
     text-transform:uppercase;
     color:var(--accent-ink);
-    margin:0 0 14px;
+    background:var(--accent-soft);
+    border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-radius:999px;
+    padding:4px 12px;
+    margin:0 0 16px;
   }
   h1{
     font-family:var(--font-display);
-    font-size:2.35rem;
-    font-weight:600;
+    font-size:2.1rem;
+    font-weight:800;
+    letter-spacing:-0.025em;
     line-height:1.15;
-    margin:0 0 10px;
+    margin:0 0 12px;
     text-wrap:balance;
   }
   .subtitle{
     color:var(--ink-soft);
-    font-size:1.02rem;
-    max-width:56ch;
-    margin:0 0 40px;
+    font-size:1rem;
+    max-width:58ch;
+    margin:0 0 32px;
   }
 
   .summary-card{
     background:var(--surface);
     border:1px solid var(--line);
-    border-left:3px solid var(--accent);
-    border-radius:6px;
-    padding:24px 26px;
-    margin:0 0 48px;
+    border-radius:16px;
+    padding:22px 22px;
+    margin:0 0 36px;
+    position:relative;
+    overflow:hidden;
+  }
+  .summary-card::before{
+    content:"";
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:3px;
+    background:var(--accent);
   }
   .summary-card h2{
     font-family:var(--font-mono);
-    font-size:0.72rem;
+    font-size:0.7rem;
     text-transform:uppercase;
     letter-spacing:0.08em;
     color:var(--accent-ink);
@@ -165,50 +205,58 @@
     margin:0 0 10px;
     color:var(--ink);
   }
+  .summary-card li::marker{color:var(--accent);}
   .summary-card li:last-child{margin-bottom:0;}
-  .summary-card strong{font-weight:600;}
+  .summary-card strong{font-weight:700;}
 
   nav.toc{
     display:flex;
     flex-wrap:wrap;
-    gap:6px 0;
-    margin:0 0 52px;
-    padding:18px 0;
-    border-top:1px solid var(--line);
-    border-bottom:1px solid var(--line);
+    gap:8px;
+    margin:0 0 28px;
   }
   nav.toc a{
-    font-family:var(--font-mono);
-    font-size:0.78rem;
+    font-family:var(--font-body);
+    font-size:0.8rem;
+    font-weight:500;
     color:var(--ink-soft);
     text-decoration:none;
-    padding:4px 14px 4px 0;
-    border-right:1px solid var(--line);
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:6px 12px;
   }
-  nav.toc a:last-child{border-right:none;}
-  nav.toc a:hover, nav.toc a:focus-visible{color:var(--accent-ink);}
+  nav.toc a:hover, nav.toc a:focus-visible{color:var(--accent-ink); border-color:var(--accent);}
 
   section.clause{
     display:grid;
-    grid-template-columns:56px 1fr;
-    gap:0 20px;
-    padding:34px 0;
+    grid-template-columns:44px 1fr;
+    gap:0 16px;
+    padding:28px 0;
     border-top:1px solid var(--line);
-    scroll-margin-top:80px;
+    scroll-margin-top:72px;
   }
   section.clause:first-of-type{border-top:none;}
   .clause-num{
     font-family:var(--font-mono);
-    font-size:1.5rem;
-    color:var(--ink-faint);
-    line-height:1.2;
-    padding-top:2px;
+    font-size:0.85rem;
+    font-weight:500;
+    color:var(--accent-ink);
+    background:var(--accent-soft);
+    border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    border-radius:10px;
+    width:40px;
+    height:40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
   }
   .clause h3{
     font-family:var(--font-display);
-    font-size:1.28rem;
-    font-weight:600;
-    margin:0 0 12px;
+    font-size:1.15rem;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    margin:8px 0 12px;
     line-height:1.3;
   }
   .clause p{
@@ -223,13 +271,16 @@
     max-width:62ch;
   }
   .clause li{margin-bottom:8px;}
+  .clause li::marker{color:var(--accent);}
   .clause li:last-child{margin-bottom:0;}
+  .clause strong{font-weight:700;}
+  .clause a, .summary-card a{color:var(--accent-ink);}
 
   .callout-danger{
     background:var(--danger-soft);
-    border:1px solid color-mix(in srgb, var(--danger) 35%, transparent);
-    border-radius:6px;
-    padding:16px 18px;
+    border:1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    border-radius:12px;
+    padding:14px 16px;
     margin-top:16px;
     font-size:0.95rem;
     color:var(--ink);
@@ -239,9 +290,10 @@
   footer{
     max-width:760px;
     margin:0 auto;
-    padding:0 24px 64px;
+    padding:24px 16px 56px;
+    border-top:1px solid var(--line);
     color:var(--ink-faint);
-    font-size:0.82rem;
+    font-size:0.8rem;
     display:flex;
     justify-content:space-between;
     flex-wrap:wrap;
@@ -250,13 +302,20 @@
   footer a{color:var(--ink-faint);}
 
   @media (max-width:560px){
-    section.clause{grid-template-columns:34px 1fr; gap:0 14px;}
-    .clause-num{font-size:1.1rem;}
-    h1{font-size:1.85rem;}
+    section.clause{grid-template-columns:1fr; gap:0;}
+    .clause-num{width:34px; height:34px; font-size:0.78rem; margin-bottom:4px;}
+    h1{font-size:1.7rem;}
+    .doc-meta{font-size:0.6rem; max-width:9.5em;}
+    .wordmark{font-size:0.92rem;}
+  }
+  @media (max-width:360px){
+    .wordmark{font-size:0;}
+    .wordmark span{font-size:0;}
   }
 
   @media print{
     .topbar, nav.toc{display:none;}
+    body{background:#fff; color:#000;}
   }
 </style>
 </head>
