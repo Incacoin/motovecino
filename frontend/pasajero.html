@@ -3048,7 +3048,8 @@ const taxiOffers = new Map();
 let offersTicker = null;
 
 function setupTaxiSearch(offerPrice, offers) {
-  const what = serviceType === "taxi" ? "taxi" : "motocarro";
+  // "motocarro" solo en las comisarías de Progreso; en Tekax y demás, "mototaxi".
+  const what = serviceType === "taxi" ? "taxi" : rideWord;
   document.getElementById("searchTitleText").textContent = offerPrice
     ? `Buscando ${what} · tu oferta $${offerPrice}`
     : `Buscando ${what}...`;
@@ -3090,7 +3091,7 @@ function renderTaxiOffers() {
   if (!list) return;
   if (taxiOffers.size === 0) {
     list.innerHTML = ride && ride.offer_price != null && currentRideStatus === "buscando"
-      ? `<div class="offers-hint">${serviceType === "taxi" ? "Los taxistas cercanos" : "Los choferes de tu comisaría"} están viendo tu oferta. Si alguno te propone otro precio, aparece aquí.</div>`
+      ? `<div class="offers-hint">${serviceType === "taxi" ? "Los taxistas cercanos" : rideWord === "motocarro" ? "Los choferes de tu comisaría" : "Los choferes cercanos"} están viendo tu oferta. Si alguno te propone otro precio, aparece aquí.</div>`
       : "";
     return;
   }
