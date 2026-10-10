@@ -2440,7 +2440,7 @@ async function requestOtp(phone, call = false) {
   const prettyPhone = /^\d{10}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3") : phone;
   hint.textContent = (data.channel === "call"
     ? `Te estamos llamando al ${prettyPhone}. Contesta y una voz te dirá tu código. Escríbelo y toca Continuar.`
-    : `Te mandamos un código por ${via} al ${prettyPhone}. Escríbelo y toca Continuar.`) +
+    : `Te mandamos un código por ${via} al ${prettyPhone}. Escríbelo y toca Continuar. Si no te llega, escríbenos desde ese mismo número.`) +
     (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
   err.textContent = "";
   document.getElementById("otpInput").value = "";
@@ -2481,7 +2481,7 @@ async function resendOtp(call = false) {
 
 function otpHelp() {
   const phone = readRiderPhone() || document.getElementById("phoneInput").value.trim();
-  const msg = `Hola, me estoy registrando en MotoVecino con el número ${phone} y no me llegó el código de verificación.`;
+  const msg = `Hola, me estoy registrando en MotoVecino con el número ${phone} (les escribo desde ese mismo número) y no me llegó el código de verificación.`;
   window.open(waLink(SOPORTE_WHATSAPP_NUMBER, msg), "_blank");
 }
 
