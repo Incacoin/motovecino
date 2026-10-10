@@ -38,6 +38,14 @@ const CITIES = [
   // labelRadiusKm = serviceRadiusKm a propósito: fuera de los 4km el punto
   // vuelve a ser de Tekax y sigue teniendo taxi foráneo (radio de 50km).
   { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, signupClosed: true, motoSoon: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
+  // Celestún (9-oct-2026): PRUEBA de unos días mientras el usuario está allá
+  // (viaja 10-oct). Cajón propio (su selector en el admin); el registro
+  // público queda cerrado (signupClosed): los mototaxistas que quieran
+  // probar los da de alta el dueño desde el admin, eligiendo "Celestún".
+  // Solo Propón tu precio con el mínimo del sur ($15 + $2) PROVISIONAL hasta
+  // saber cuánto se cobra allá. 3.5 km cubre el pueblo, la playa y el
+  // puente de la ría. Para apagarla: borrar esta línea y la de ADMIN_ZONES.
+  { id: "celestun", label: "Celestún", lat: 20.8590, lng: -90.4000, serviceRadiusKm: 3.5, signupClosed: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // TEMPORAL (3-oct-2026): Mérida solo como zona de prueba para enseñar la
   // app en una reunión. Radio 12km = igual a CITY_RADIUS_KM, para que la
   // recogida sí se etiquete "merida" (si no, cae en Tekax y se bloquea).
@@ -98,6 +106,7 @@ const ADMIN_ZONES = [
   { id: "akil", label: "Akil", enabled: true },
   { id: "oxkutzcab", label: "Oxkutzcab", enabled: true },
   { id: "ticul", label: "Ticul", enabled: true },
+  { id: "celestun", label: "Celestún", enabled: true },
 ];
 
 // Cuánto más puede pedir un chofer sobre la oferta del pasajero.
