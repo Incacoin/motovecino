@@ -876,6 +876,11 @@ function toggleRiderTheme() {
   html[data-theme="dark"] #form .entry-card .entry-legal a { color: #34d399 !important; }
   #form .btn-sm { font-weight: 500 !important; }
   html[data-theme="dark"] #form .btn-sm { background: rgba(17,25,48,.55) !important; border: 1px solid rgba(148,163,184,.16) !important; }
+  /* Código por WhatsApp: el aviso y los botones del mismo ancho que las casillas, centrados */
+  #form .entry-card .otp-hint { width: 100%; box-sizing: border-box; padding: 0 8px; text-align: center; font-size: 12.5px; line-height: 1.5; }
+  #form .entry-card .otp-actions { width: 100%; box-sizing: border-box; gap: 8px; }
+  #form .entry-card .otp-actions .btn-sm { flex: 1 1 0; min-width: 0; font-size: 13px; padding: 10px 8px; white-space: nowrap; }
+  #form .entry-card .otp-actions .btn-sm:last-child { flex-basis: 100%; }
   html[data-theme="dark"] #form .brand .brand-icon { box-shadow: 0 0 0 1px rgba(52,211,153,.35), 0 0 30px rgba(52,211,153,.22) !important; }
 
 </style>
@@ -2431,9 +2436,11 @@ async function requestOtp(phone, call = false) {
   const hint = document.getElementById("otpHint");
   hint.style.display = "block";
   const via = data.channel === "sms" ? "mensaje de texto (SMS)" : "WhatsApp";
+  // 9971000000 → 997 100 0000 (se lee mejor); los de otro país quedan como están
+  const prettyPhone = /^\d{10}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3") : phone;
   hint.textContent = (data.channel === "call"
-    ? `Te estamos llamando al ${phone}. Contesta y una voz te dirá tu código. Escríbelo y toca Continuar.`
-    : `Te mandamos un código por ${via} al ${phone}. Escríbelo y toca Continuar.`) +
+    ? `Te estamos llamando al ${prettyPhone}. Contesta y una voz te dirá tu código. Escríbelo y toca Continuar.`
+    : `Te mandamos un código por ${via} al ${prettyPhone}. Escríbelo y toca Continuar.`) +
     (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
   err.textContent = "";
   document.getElementById("otpInput").value = "";
