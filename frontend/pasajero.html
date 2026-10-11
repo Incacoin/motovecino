@@ -3004,7 +3004,15 @@ function tapAllyAd() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ride: ride.id, t: ride.share_token }),
   }).catch(() => {});
-  const text = "Hola, vi su anuncio en MotoVecino 🛵";
+  // 10-oct-2026: el mensaje dice a qué negocio y qué anuncio vio, para que
+  // el negocio sepa que el cliente le llegó por MotoVecino.
+  const name = String(allyAd.name || "").trim();
+  const tagline = String(allyAd.tagline || "").trim();
+  const text = [
+    name ? `Hola, *${name}* 👋` : "Hola 👋",
+    tagline ? `Vi su anuncio en la app *MotoVecino* 📲: "${tagline}".` : "Vi su anuncio en la app *MotoVecino* 📲.",
+    "Me gustaría más información, por favor 🙏",
+  ].join("\n");
   window.open(`https://api.whatsapp.com/send?phone=52${allyAd.whatsapp}&text=${encodeURIComponent(text)}`, "_blank");
 }
 
