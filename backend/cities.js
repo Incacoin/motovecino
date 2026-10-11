@@ -30,7 +30,7 @@ const CITIES = [
   // motoSoon (6-oct-2026): ya llegamos (la portada dice "MotoVecino Akil"),
   // pero sin choferes de ahí: el mototaxi sale como "Muy pronto" y solo se
   // pide taxi. Quitar motoSoon cuando haya mototaxis registrados en el lugar.
-  // 11-oct-2026: PRUEBA TEMPORAL — mototaxi prendido en Ticul y Oxkutzcab (sin motoSoon)
+  // 11-oct-2026: PRUEBA TEMPORAL — mototaxi prendido en Ticul, Oxkutzcab y Akil (sin motoSoon)
   // para probar con choferes dados de alta en el admin. Para apagar: volver a poner motoSoon: true.
   { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, signupClosed: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, signupClosed: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
@@ -39,7 +39,7 @@ const CITIES = [
   // mototaxi "Muy pronto", igual que Oxkutzcab y Ticul.
   // labelRadiusKm = serviceRadiusKm a propósito: fuera de los 4km el punto
   // vuelve a ser de Tekax y sigue teniendo taxi foráneo (radio de 50km).
-  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, signupClosed: true, motoSoon: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
+  { id: "akil", label: "Akil", lat: 20.2656, lng: -89.3475, serviceRadiusKm: 4, labelRadiusKm: 4, signupClosed: true, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // Celestún (9-oct-2026): PRUEBA de unos días mientras el usuario está allá
   // (viaja 10-oct). Cajón propio (su selector en el admin); el registro
   // público queda cerrado (signupClosed): los mototaxistas que quieran
