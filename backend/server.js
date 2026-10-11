@@ -43,7 +43,10 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' https://unpkg.com",
   "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: https://*.tile.openstreetmap.org https://api.qrserver.com",
+  // blob: = la foto que la persona elige en su propio celular/compu, para
+  // achicarla antes de subirla (logo y productos de "Mi negocio", comprobante
+  // del pedido, foto de "Entregar sin clave"). Sin esto la foto no carga.
+  "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://api.qrserver.com",
   "connect-src 'self' ws: wss: https://router.project-osrm.org",
   "object-src 'none'",
   "base-uri 'self'",
