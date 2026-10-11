@@ -104,7 +104,7 @@ const PROGRESO_ALLOWED = new RegExp("^/admin/(" + [
   "drivers", "drivers/list", "photos/list",
   "drivers/[0-9]+/(paid-until|register-payment|pending-fees|register-trip-fees|payments|activity|reset-pin|vouch|update)",
   "chofer-solicitudes/list", "chofer-solicitudes/[0-9]+/(dismiss|reject)",
-  "rides/list", "reports/cancelaciones",
+  "rides/list", "rides/[0-9]+/delivery-photo", "reports/cancelaciones",
   "businesses/list", "businesses/save", "businesses/[0-9]+/active", "food/status",
   "ally-ads/list", "ally-ads/save", "ally-ads/[0-9]+/active",
 ].join("|") + ")$");
@@ -673,7 +673,9 @@ router.post("/admin/rides/list", checkAdminPin, async (req, res) => {
       `SELECT r.id, r.rider_name, r.rider_phone, r.pickup_label, r.dest_label,
               r.passengers, r.children, r.status, r.created_at, r.updated_at, r.driver_disconnected_at, r.rating, r.ride_type,
               r.cancelled_by, r.cancel_reason, r.agreed_price, r.deposit_amount, r.deposit_status, r.extra,
-              r.pickup_lat, r.pickup_lng, d.name AS driver_name
+              r.pickup_lat, r.pickup_lng, d.name AS driver_name,
+              r.service_kind, r.delivery_confirmed, r.delivery_code_attempts,
+              (r.delivery_code IS NOT NULL) AS delivery_code_required, (r.delivery_photo IS NOT NULL) AS has_delivery_photo
        FROM rides r
        LEFT JOIN drivers d ON d.id = r.driver_id
        WHERE r.city = ?
@@ -688,6 +690,15 @@ router.post("/admin/rides/list", checkAdminPin, async (req, res) => {
     ...(req.adminRole === "progreso" ? {} : { rider_phone }),
     zone: zoneAt(req.adminCity, pickup_lat, pickup_lng)?.id || null,
   })));
+});
+
+// Foto que tomó el chofer al entregar un domicilio sin clave.
+router.post("/admin/rides/:id/delivery-photo", checkAdminPin, async (req, res) => {
+  const ride = await db.prepare("SELECT city, delivery_photo FROM rides WHERE id = ?").get(Number(req.params.id));
+  if (!ride || !req.adminZones.includes(ride.city) || !ride.delivery_photo) {
+    return res.status(404).json({ error: "No hay foto de esta entrega" });
+  }
+  res.json({ photo: ride.delivery_photo });
 });
 
 router.post("/admin/rides/reset", checkAdminPin, async (req, res) => {

@@ -2587,6 +2587,17 @@ const DEPOSIT_STATUS_LABEL = {
   rechazado: "no le llegó al chofer",
 };
 
+async function viewDeliveryPhoto(id) {
+  const res = await fetch(API + `/api/admin/rides/${id}/delivery-photo`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.photo) { showToast(data.error || "No se pudo abrir la foto"); return; }
+  viewImage(data.photo);
+}
+
 function renderRideRows(rides) {
   ridesCacheAll = rides || [];
   rides = ridesCacheAll.filter((r) => inComisaria(r.zone));
@@ -2604,6 +2615,14 @@ function renderRideRows(rides) {
     const depositNote = r.deposit_status
       ? `<br><span class="ago">💵 Anticipo $${r.deposit_amount}${r.agreed_price ? ` de $${r.agreed_price}` : ""} · ${DEPOSIT_STATUS_LABEL[r.deposit_status] || r.deposit_status}</span>`
       : "";
+    // Domicilio con clave de entrega (10-oct-2026).
+    const deliveryNote = r.delivery_confirmed === "clave"
+      ? `<br><span class="ago" style="color:var(--success);font-weight:700;">🔑 Entrega confirmada con clave</span>`
+      : r.delivery_confirmed === "sin_clave"
+      ? `<br><span class="ago" style="color:var(--danger);font-weight:700;">📷 Entregado SIN clave</span>${r.has_delivery_photo ? ` <a href="#" onclick="viewDeliveryPhoto(${r.id});return false;">ver foto</a>` : ""}`
+      : r.delivery_code_required && r.delivery_code_attempts > 0
+      ? `<br><span class="ago" style="color:var(--danger);">⚠ ${r.delivery_code_attempts} clave(s) mal</span>`
+      : "";
     return `
     <tr>
       <td>${escapeHtml(r.rider_name)}<br><span class="ago">${r.rider_phone || ""}</span></td>
@@ -2612,7 +2631,7 @@ function renderRideRows(rides) {
       <td>${escapeHtml(r.pickup_label) || "—"}</td>
       <td>${escapeHtml(r.dest_label) || "—"}</td>
       <td>${r.passengers + (r.children || 0)}${r.children ? ` (${r.passengers} adultos + ${r.children} niños)` : ""}</td>
-      <td><span class="dot ${r.status}"></span>${RIDE_STATUS_LABEL[r.status] || r.status}${rating}${cancelNote}${depositNote}</td>
+      <td><span class="dot ${r.status}"></span>${RIDE_STATUS_LABEL[r.status] || r.status}${rating}${cancelNote}${depositNote}${deliveryNote}</td>
       <td class="ago">${timeAgo(r.updated_at)}</td>
     </tr>`;
   }).join("") || `<tr><td colspan="7" class="ago">Sin viajes todavía.</td></tr>`;

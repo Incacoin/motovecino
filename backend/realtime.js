@@ -432,9 +432,12 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // si le conviene aceptar, no hace falta el teléfono todavía, y mandárselo a
 // varios choferes cercanos que ni siquiera van a tomar ese viaje era exponer
 // el número de alguien a desconocidos de más.
+// Lo que mandamos a los choferes de una solicitud: sin teléfono del
+// pasajero, sin la clave de entrega del domicilio ni el token del viaje
+// (con él se podría leer la clave), y sin fotos de comprobantes.
 function omitRiderPhone(ride) {
-  const { rider_phone, ...rest } = ride;
-  return rest;
+  const { rider_phone, delivery_code, share_token, delivery_photo, deposit_receipt, ...rest } = ride;
+  return { ...rest, delivery_code_required: !!delivery_code };
 }
 
 async function broadcastNewRide(ride) {

@@ -53,6 +53,13 @@ async function purgeOldPersonalData() {
       )
       .run(RECEIPT_RETENTION_DAYS);
 
+    // Foto de "entregado sin clave": solo sirve para aclarar esa entrega.
+    await db
+      .prepare(
+        "UPDATE rides SET delivery_photo = NULL WHERE delivery_photo IS NOT NULL AND julianday('now') - julianday(created_at) > ?"
+      )
+      .run(RECEIPT_RETENTION_DAYS);
+
     // Fotos de perfil que ya nadie usa (cambiaron su foto o se borró la
     // cuenta): fuera del disco, y el respaldo las quita también de GitHub.
     await pruneUnusedImages(db);

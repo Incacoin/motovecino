@@ -883,6 +883,12 @@ function toggleRiderTheme() {
   #form .entry-card .otp-actions .btn-sm:last-child { flex-basis: 100%; }
   html[data-theme="dark"] #form .brand .brand-icon { box-shadow: 0 0 0 1px rgba(52,211,153,.35), 0 0 30px rgba(52,211,153,.22) !important; }
 
+  #deliveryCodeBox { width: 280px; box-sizing: border-box; padding: 14px 16px 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); text-align: center; margin: 10px auto 0; }
+  #deliveryCodeBox .dlv-lbl { font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+  #deliveryCodeBox .dlv-code { display: flex; gap: 8px; justify-content: center; margin: 10px 0 8px; }
+  #deliveryCodeBox .dlv-code span { width: 50px; height: 60px; border-radius: 12px; border: 2px solid var(--text); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: var(--text); }
+  #deliveryCodeBox .dlv-txt { font-size: 13.5px; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px; }
+  #deliveryCodeBox .btn { width: 100%; margin: 0; }
 </style>
 </head>
 <body>
@@ -1261,6 +1267,7 @@ function toggleRiderTheme() {
     <div id="offersList"></div>
   </div>
   <div id="driverCard" class="card fade-in" style="display:none;"></div>
+  <div id="deliveryCodeBox" class="fade-in" style="display:none;"></div>
   <div id="allyAd" class="fade-in" style="display:none;"></div>
   <button class="btn btn-secondary chat-toggle-btn" id="chatToggleBtn" onclick="toggleChat()" style="display:none;">💬 Chat</button>
   <div id="chatBox" class="card fade-in">
@@ -2891,6 +2898,7 @@ async function requestRide() {
   connectWs();
   requestWakeLock();
   loadAllyAd();
+  renderDeliveryCodeBox();
   showExtraNote(ride.extra);
   showForOtherNote(ride);
   setupRidePush();
@@ -2966,6 +2974,34 @@ async function acceptPushAsk() {
 function declinePushAsk() {
   try { localStorage.setItem("motovecino_avisos_pasajero_no", String(Date.now())); } catch {}
   hidePushAsk();
+}
+
+// --- Clave de entrega (domicilios, 10-oct-2026) ---
+// El cliente se la da al chofer al recibir su pedido; el chofer no la ve.
+// Si lo recibe otra persona, se la manda por WhatsApp.
+function renderDeliveryCodeBox() {
+  const box = document.getElementById("deliveryCodeBox");
+  if (!box) return;
+  const code = ride && ride.delivery_code;
+  if (!code || ["completado", "cancelado"].includes(currentRideStatus)) { hideDeliveryCodeBox(); return; }
+  box.innerHTML = `
+    <div class="dlv-lbl">🔑 Tu clave de entrega</div>
+    <div class="dlv-code">${String(code).split("").map((d) => `<span>${escapeHtml(d)}</span>`).join("")}</div>
+    <div class="dlv-txt">Dásela al repartidor <b>solo cuando tengas tu pedido en la mano</b>.</div>
+    <button class="btn btn-secondary" onclick="shareDeliveryCode()">📤 Mandar la clave a quien lo recibe</button>`;
+  box.style.display = "block";
+}
+
+function hideDeliveryCodeBox() {
+  const box = document.getElementById("deliveryCodeBox");
+  if (box) { box.style.display = "none"; box.innerHTML = ""; }
+}
+
+function shareDeliveryCode() {
+  if (!ride || !ride.delivery_code) return;
+  const text = `Tu clave de entrega de MotoVecino es *${ride.delivery_code}* 🔑
+Dásela al repartidor solo cuando tengas el pedido en la mano.`;
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
 }
 
 // --- Negocio aliado (un anuncio por viaje) ---
@@ -4223,9 +4259,13 @@ function onCompleted() {
   stopStatusAvailableDriversPolling();
   currentRideStatus = "completado";
   hideAllyAd();
+  const wasDelivery = !!(ride && ride.delivery_code);
+  hideDeliveryCodeBox();
   localStorage.removeItem("motoya_active_ride");
   if (ride) saveRideToLocalHistory(ride.id, ride.share_token);
-  document.getElementById("statusText").textContent = ride && ride.for_name
+  document.getElementById("statusText").textContent = wasDelivery
+    ? `📦 Tu pedido fue entregado a las ${new Date().toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" })} · Gracias por usar MotoVecino ${resolvedCityLabel}`
+    : ride && ride.for_name
     ? `✅ ${ride.for_name} ya llegó. Gracias por usar MotoVecino ${resolvedCityLabel}`
     : `¡Buen viaje! Gracias por usar MotoVecino ${resolvedCityLabel} 🛵`;
   document.getElementById("connWarning").style.display = "none";
@@ -4280,6 +4320,7 @@ function onNoDriversAvailable() {
   clearTaxiOffers();
   currentRideStatus = "cancelado";
   hideAllyAd();
+  hideDeliveryCodeBox();
   localStorage.removeItem("motoya_active_ride");
   document.getElementById("statusText").textContent = "😕 No hay choferes disponibles ahorita. Intenta de nuevo en unos minutos.";
   document.getElementById("connWarning").style.display = "none";
@@ -4297,6 +4338,7 @@ function onCancelledByDriver() {
   stopStatusAvailableDriversPolling();
   currentRideStatus = "cancelado";
   hideAllyAd();
+  hideDeliveryCodeBox();
   localStorage.removeItem("motoya_active_ride");
   document.getElementById("statusText").textContent = "El viaje fue cancelado.";
   document.getElementById("connWarning").style.display = "none";
@@ -4351,6 +4393,7 @@ async function cancelRide() {
   const wasActive = ["aceptado", "llegue", "en_curso"].includes(currentRideStatus);
   currentRideStatus = "cancelado";
   hideAllyAd();
+  hideDeliveryCodeBox();
   localStorage.removeItem("motoya_active_ride");
   stopRouteTracking();
   releaseWakeLock();
@@ -4441,6 +4484,7 @@ async function restoreActiveRide() {
   document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
   if (fetched.status === "buscando" && fetched.offer_price != null) setupTaxiSearch(fetched.offer_price, fetched.offers);
   loadAllyAd();
+  renderDeliveryCodeBox();
   showExtraNote(fetched.extra);
   showForOtherNote(fetched);
 

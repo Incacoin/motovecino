@@ -37,8 +37,23 @@ function maskPhoneTail(phone) {
 // con su PIN (ver /deposit/receipt/view).
 function publicRide(ride) {
   if (!ride) return ride;
-  const { deposit_receipt, ...rest } = ride;
+  const { deposit_receipt, delivery_photo, ...rest } = ride;
   return { ...rest, rider_phone: maskPhoneTail(rest.rider_phone), deposit_has_receipt: !!deposit_receipt };
+}
+
+// Lo que ve el chofer de un viaje: sin la clave de entrega (se la tiene que
+// dar el cliente) ni el token del viaje (con él se puede leer la clave).
+function driverRide(ride) {
+  if (!ride) return ride;
+  const { delivery_code, share_token, ...rest } = publicRide(ride);
+  return { ...rest, delivery_code_required: !!delivery_code };
+}
+
+// Clave de entrega: 4 números al azar (nunca 0000) y 5 intentos para el chofer.
+const DELIVERY_CODE_MAX_ATTEMPTS = 5;
+const MAX_DELIVERY_PHOTO_LENGTH = 900000;
+function newDeliveryCode() {
+  return String(crypto.randomInt(1, 10000)).padStart(4, "0");
 }
 
 // Lo que ve el pasajero del anticipo (y el chofer, para pintar su tarjeta).
@@ -241,6 +256,11 @@ router.post("/rides", async (req, res) => {
       forOther ? forOther.note : null
     );
 
+  // Domicilio pedido desde la app: lleva clave de entrega (ver driverRide).
+  if (cleanServiceKind === "domicilio") {
+    await db.prepare("UPDATE rides SET delivery_code = ? WHERE id = ?").run(newDeliveryCode(), result.lastInsertRowid);
+  }
+
   // Sin GPS del celular no se sabe: no se marca nada.
   const rLat = Number(rider_lat), rLng = Number(rider_lng);
   if (rider_lat != null && rider_lng != null && Number.isFinite(rLat) && Number.isFinite(rLng)) {
@@ -368,7 +388,7 @@ router.post("/rides/active", async (req, res) => {
   if (!ride) return res.json(null);
 
   Object.assign(ride, await riderInfoFor(ride.rider_phone));
-  res.json(publicRide(ride));
+  res.json(driverRide(ride));
 });
 
 router.post("/rides/:id/accept", async (req, res) => {
@@ -485,7 +505,7 @@ router.post("/rides/:id/accept", async (req, res) => {
 
   realtime.notifyRide(rideId, "ride_accepted", { ...driver, agreedPrice: ride.agreed_price, deposit: depositInfo(ride) });
   realtime.broadcastRideTaken(rideId, driverId);
-  res.json(publicRide(ride));
+  res.json(driverRide(ride));
 });
 
 // --- Taxi con ofertas (estilo inDrive) ---
@@ -682,7 +702,7 @@ router.post("/rides/:id/offers/:offerId/accept", async (req, res) => {
   Object.assign(updated, await riderInfoFor(updated.rider_phone));
   const driver = await driverForRide(offer.driver_id);
   // Al chofer: su oferta ganó, con el viaje completo (igual que la respuesta de /accept).
-  realtime.notifyDriver(offer.driver_id, "offer_accepted", { rideId, offerId: offer.id, ride: publicRide(updated) });
+  realtime.notifyDriver(offer.driver_id, "offer_accepted", { rideId, offerId: offer.id, ride: driverRide(updated) });
   realtime.notifyRide(rideId, "ride_accepted", { ...driver, agreedPrice: updated.agreed_price, deposit: depositInfo(updated) });
   realtime.broadcastRideTaken(rideId, offer.driver_id);
   res.json({ ok: true, driver, agreedPrice: updated.agreed_price, deposit: depositInfo(updated) });
@@ -924,7 +944,7 @@ router.post("/rides/:id/wait", async (req, res) => {
 
 router.post("/rides/:id/complete", async (req, res) => {
   const rideId = Number(req.params.id);
-  const { driverId, pin, agreedPrice } = req.body;
+  const { driverId, pin, agreedPrice, deliveryCode, deliveryPhoto } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
   if (isRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
@@ -941,6 +961,35 @@ router.post("/rides/:id/complete", async (req, res) => {
   // viejos, o un reintento). Si el chofer manda uno nuevo aquí, se respeta
   // (algo pudo cambiar de verdad a medio viaje), pero ya no es obligatorio
   // volver a escribirlo si no cambió nada.
+  // Domicilio con clave: sin la clave correcta (o la foto de la entrega) no
+  // se puede terminar. 5 intentos; después, solo con foto.
+  let deliveryConfirmed = null;
+  if (ride && ride.delivery_code && ride.driver_id === Number(driverId) && ride.status === "en_curso") {
+    const typed = String(deliveryCode ?? "").replace(/\D/g, "");
+    if (typed) {
+      if (ride.delivery_code_attempts >= DELIVERY_CODE_MAX_ATTEMPTS) {
+        return res.status(423).json({ error: "Ya se intentó la clave 5 veces. Entrega con foto.", deliveryLocked: true, attemptsLeft: 0 });
+      }
+      if (typed !== ride.delivery_code) {
+        const attempts = ride.delivery_code_attempts + 1;
+        await db.prepare("UPDATE rides SET delivery_code_attempts = ? WHERE id = ?").run(attempts, rideId);
+        const attemptsLeft = Math.max(0, DELIVERY_CODE_MAX_ATTEMPTS - attempts);
+        return res.status(400).json({
+          error: attemptsLeft ? "La clave no coincide. Pídesela otra vez al cliente." : "La clave no coincide. Ya no quedan intentos: entrega con foto.",
+          wrongCode: true, attemptsLeft, deliveryLocked: attemptsLeft === 0,
+        });
+      }
+      deliveryConfirmed = "clave";
+    } else if (deliveryPhoto) {
+      if (typeof deliveryPhoto !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(deliveryPhoto) || deliveryPhoto.length > MAX_DELIVERY_PHOTO_LENGTH) {
+        return res.status(400).json({ error: "La foto no es válida, tómala otra vez" });
+      }
+      deliveryConfirmed = "sin_clave";
+    } else {
+      return res.status(400).json({ error: "Pide la clave de entrega al cliente", needsDeliveryCode: true });
+    }
+  }
+
   const finalPrice = Number(agreedPrice) > 0 ? Number(agreedPrice) : ride?.agreed_price;
   if (ride?.ride_type === "taxi" && !(finalPrice > 0)) {
     return res.status(400).json({ error: "Falta el precio acordado con el pasajero" });
@@ -960,6 +1009,11 @@ router.post("/rides/:id/complete", async (req, res) => {
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "No se pudo actualizar el viaje" });
+  }
+
+  if (deliveryConfirmed) {
+    await db.prepare("UPDATE rides SET delivery_confirmed = ?, delivery_photo = ? WHERE id = ?")
+      .run(deliveryConfirmed, deliveryConfirmed === "sin_clave" ? deliveryPhoto : null, rideId);
   }
 
   await db.prepare("UPDATE drivers SET status = 'disponible' WHERE id = ?").run(
@@ -983,7 +1037,7 @@ router.post("/rides/:id/complete", async (req, res) => {
     )
     .get(driverId);
 
-  realtime.notifyRide(rideId, "status_change", { status: "completado" });
+  realtime.notifyRide(rideId, "status_change", { status: "completado", deliveryConfirmed });
   res.json({ ok: true, todayCount, todayEarned, lifetimeTrips });
 });
 
