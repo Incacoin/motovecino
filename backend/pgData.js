@@ -22,6 +22,7 @@ const TABLES = [
   "ally_settings",
   "businesses",
   "menu_items",
+  "business_orders",
   "food_settings",
   "family_settings",
   "push_keys",

@@ -53,6 +53,13 @@ async function purgeOldPersonalData() {
       )
       .run(RECEIPT_RETENTION_DAYS);
 
+    // Comprobantes de pedidos a negocios: traen datos bancarios.
+    await db
+      .prepare(
+        "UPDATE business_orders SET receipt = NULL WHERE receipt IS NOT NULL AND julianday('now') - julianday(created_at) > ?"
+      )
+      .run(RECEIPT_RETENTION_DAYS);
+
     // Foto de "entregado sin clave": solo sirve para aclarar esa entrega.
     await db
       .prepare(
