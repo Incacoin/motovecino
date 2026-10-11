@@ -953,7 +953,7 @@ function setDriverTheme(pref) {
   <div class="card cancel-sheet">
     <div class="label">¿Por qué cancelas este viaje?</div>
     <div id="cancelDepositNote" class="deposit-warn" style="display:none;"></div>
-    <button class="btn-secondary" onclick="confirmCancel('El pasajero no llegó')">El pasajero no llegó</button>
+    <button class="btn-secondary" id="cancelNoShowBtn" onclick="confirmCancel(this.dataset.reason || 'El pasajero no llegó')">El pasajero no llegó</button>
     <button class="btn-secondary" onclick="confirmCancel('Cambié de planes')">Cambié de planes</button>
     <button class="btn-secondary" onclick="confirmCancel('Otro motivo')">Otro motivo</button>
     <button class="btn-sm" onclick="closeCancelOverlay()">Ya no, seguir con el viaje</button>
@@ -1289,9 +1289,10 @@ function estimateFare(ride) {
   const children = ride.children || 0;
   const totalPeople = passengers + children;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
+  const peopleTxt = isDeliveryRide(ride) ? "📦 Pedido" : `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
   // Motocarro con "Propón tu precio" (Progreso): el precio es el acordado.
   if (ride.ride_type !== "taxi" && (ride.agreed_price || ride.offer_price != null)) {
-    const people = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
+    const people = `${peopleTxt}`;
     if (ride.agreed_price) return { total: ride.agreed_price, text: `🛵 Precio acordado $${ride.agreed_price} · ganas $${motoNet(ride.agreed_price)} · ${people}` };
     return { total: null, text: `🛵 ${driverComisaria ? "Motocarro" : "Mototaxi"} · ${people}` };
   }
@@ -1300,10 +1301,10 @@ function estimateFare(ride) {
     const extra = ride.extra || 0;
     const total = driverComisaria.fare * totalPeople + driverComisaria.serviceFee + extra;
     const extraNote = extra ? ` + $${extra} extra` : "";
-    return { total, text: `$${total} MXN (incl. $${driverComisaria.serviceFee} servicio${extraNote}) · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote} · ${driverComisaria.label}` };
+    return { total, text: `$${total} MXN (incl. $${driverComisaria.serviceFee} servicio${extraNote}) · ${peopleTxt} · ${driverComisaria.label}` };
   }
   if (ride.ride_type === "taxi") {
-    const people = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
+    const people = `${peopleTxt}`;
     if (ride.agreed_price) return { total: null, text: `🚕 Taxi · precio acordado $${ride.agreed_price} · ${people}` };
     if (ride.offer_price != null) return { total: null, text: `🚕 Taxi · ${people}` };
     return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero · ${people}` };
@@ -1317,7 +1318,7 @@ function estimateFare(ride) {
     approx = false;
     if (isTicul) {
       if (tripKm > TICUL_FARE_THRESHOLD_KM) {
-        return { total: null, text: `Viaje largo · acuerda el precio con el pasajero + $${SERVICE_FEE} de servicio · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}` };
+        return { total: null, text: `Viaje largo · acuerda el precio con el pasajero + $${SERVICE_FEE} de servicio · ${peopleTxt}` };
       }
       pricePerPerson = night ? TICUL_NIGHT_FARE : (tripKm > TICUL_FARE_SHORT_KM ? TICUL_FARE_NORMAL : TICUL_FARE_SHORT);
     } else {
@@ -1329,7 +1330,7 @@ function estimateFare(ride) {
   const total = pricePerPerson * passengers + childRate * children + SERVICE_FEE + extra;
   const nightNote = night ? " · tarifa nocturna" : "";
   const extraNote = extra ? ` + $${extra} extra` : "";
-  return { total, text: `$${total} MXN (incl. $${SERVICE_FEE} servicio${extraNote})${nightNote} · ${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}${approx ? " (aprox.)" : ""}` };
+  return { total, text: `$${total} MXN (incl. $${SERVICE_FEE} servicio${extraNote})${nightNote} · ${peopleTxt}${approx ? " (aprox.)" : ""}` };
 }
 
 // Chip verde con el extra que ofreció el pasajero (mototaxi).
@@ -1830,7 +1831,7 @@ function myOffersShape() {
 // también al chofer para que sepa con quién está tratando.
 function riderTripText(r) {
   if (r.riderTripCount == null) return "";
-  return r.riderTripCount > 0 ? ` · ${r.riderTripCount} viaje${r.riderTripCount === 1 ? "" : "s"}` : " · Pasajero nuevo";
+  return r.riderTripCount > 0 ? ` · ${r.riderTripCount} viaje${r.riderTripCount === 1 ? "" : "s"}` : isDeliveryRide(r) ? " · Cliente nuevo" : " · Pasajero nuevo";
 }
 
 // Foto del pasajero, igual que ya se ve la del chofer en pasajero.html —
@@ -1881,6 +1882,11 @@ function forOtherBody(r, accepted) {
 
 // A quién se recoge: en un envío de negocio es el negocio (el cliente es a
 // quien se le entrega); si no, la persona del viaje.
+// Domicilio: nadie se sube, se recoge y se entrega un pedido (11-oct-2026).
+function isDeliveryRide(r) {
+  return !!r && (r.service_kind === "domicilio" || r.service_kind === "mandado");
+}
+
 function pickupWho(r) {
   return r.business_id ? r.rider_name : r.for_name || r.rider_name;
 }
@@ -1943,8 +1949,8 @@ function renderRideList() {
       const dist = myPos ? haversine(myPos.lat, myPos.lng, currentRide.pickup_lat, currentRide.pickup_lng).toFixed(1) : "?";
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head"><small>Vas por</small><b>${escapeHtml(pickupWho(currentRide))}</b></div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="act-head">${isDeliveryRide(currentRide) ? `<small>Vas a recoger</small><b>📦 el pedido</b>` : `<small>Vas por</small><b>${escapeHtml(pickupWho(currentRide))}</b>`}</div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
             <span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>
@@ -1959,8 +1965,8 @@ function renderRideList() {
     } else if (currentRide.status === "llegue") {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head"><small>Esperando a</small><b>${escapeHtml(pickupWho(currentRide))}</b></div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="act-head">${isDeliveryRide(currentRide) ? `<small>Recogiendo</small><b>📦 el pedido</b>` : `<small>Esperando a</small><b>${escapeHtml(pickupWho(currentRide))}</b>`}</div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips"><span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"}</span></div>
           ${destLine}
@@ -1975,15 +1981,15 @@ function renderRideList() {
                </div>`
             : ""}
           ${depositBoxHtml(currentRide)}
-          <button class="btn btn-go" onclick="startTrip()">Iniciar viaje</button>
+          <button class="btn btn-go" onclick="startTrip()">${isDeliveryRide(currentRide) ? "Ya tengo el pedido, voy a entregar" : "Iniciar viaje"}</button>
           <button class="btn-danger" onclick="cancelCurrentRide()">Cancelar viaje</button>
         </div>`;
     } else if (currentRide.status === "en_curso") {
       const dist = myPos && currentRide.dest_lat ? haversine(myPos.lat, myPos.lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1) : null;
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head"><small>Llevando a</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}Pasajero: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="act-head"><small>${isDeliveryRide(currentRide) ? "Entregando a" : "Llevando a"}</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
             ${currentRide.dest_lat
@@ -2962,6 +2968,8 @@ function cancelCurrentRide() {
   } else {
     note.style.display = "none";
   }
+  const noShow = document.getElementById("cancelNoShowBtn");
+  noShow.dataset.reason = noShow.textContent = isDeliveryRide(currentRide) ? "El pedido no estaba listo" : "El pasajero no llegó";
   document.getElementById("cancelReasonOverlay").style.display = "flex";
 }
 

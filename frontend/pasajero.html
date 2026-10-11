@@ -1556,6 +1556,11 @@ function updateEtaDisplay(durationSeconds) {
   updateEtaCard(durationSeconds);
 }
 
+// Domicilio: nadie se sube; el repartidor recoge y entrega un pedido (11-oct-2026).
+function isDeliveryRide() {
+  return !!ride && (ride.service_kind === "domicilio" || ride.service_kind === "mandado");
+}
+
 // "Llega en X min" en grande dentro de la tarjeta del chofer.
 function updateEtaCard(durationSeconds) {
   const big = document.getElementById("etaBig");
@@ -1563,12 +1568,24 @@ function updateEtaCard(durationSeconds) {
   const sub = document.getElementById("etaSub"), badge = document.getElementById("etaBadge");
   const min = durationSeconds != null ? Math.max(1, Math.round(durationSeconds / 60)) : null;
   const unidad = serviceType === "taxi" ? "Tu taxi" : "Tu mototaxi";
+  const delivery = isDeliveryRide();
   if (currentRideStatus === "llegue") {
-    big.textContent = "Tu chofer ya llegó"; sub.textContent = "Sal cuando estés listo"; badge.style.display = "none"; return;
+    if (delivery) { big.textContent = "Recogiendo tu pedido"; sub.textContent = "Tu repartidor ya está en el lugar"; }
+    else { big.textContent = "Tu chofer ya llegó"; sub.textContent = "Sal cuando estés listo"; }
+    badge.style.display = "none"; return;
   }
-  if (min == null) { badge.style.display = "none"; return; }
+  if (min == null) {
+    badge.style.display = "none";
+    // Sin tiempo calculado todavía: en domicilio, que diga en qué va el pedido.
+    if (delivery && currentRideStatus === "en_curso") { big.textContent = "📦 Tu pedido va en camino"; sub.textContent = "Tu repartidor va a entregarlo"; }
+    else if (delivery) { big.textContent = "Tu repartidor va por tu pedido"; sub.textContent = "Primero recoge tu pedido"; }
+    return;
+  }
   const at = new Date(Date.now() + min * 60000).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
-  if (currentRideStatus === "en_curso") { big.textContent = `Llegas en ${min} min`; sub.textContent = `A tu destino · ${at}`; }
+  if (currentRideStatus === "en_curso") {
+    if (delivery) { big.textContent = `Llega en ${min} min`; sub.textContent = `📦 Tu pedido va en camino · ${at}`; }
+    else { big.textContent = `Llegas en ${min} min`; sub.textContent = `A tu destino · ${at}`; }
+  } else if (delivery) { big.textContent = `Recoge en ${min} min`; sub.textContent = `Tu repartidor va por tu pedido · ${at}`; }
   else { big.textContent = `Llega en ${min} min`; sub.textContent = `${unidad} va en camino · ${at}`; }
   document.getElementById("etaMin").textContent = min;
   badge.style.display = "flex";
@@ -3127,7 +3144,7 @@ let offersTicker = null;
 
 function setupTaxiSearch(offerPrice, offers) {
   // "motocarro" solo en las comisarías de Progreso; en Tekax y demás, "mototaxi".
-  const what = serviceType === "taxi" ? "taxi" : rideWord;
+  const what = isDeliveryRide() ? "repartidor" : serviceType === "taxi" ? "taxi" : rideWord;
   document.getElementById("searchTitleText").textContent = offerPrice
     ? `Buscando ${what} · tu oferta $${offerPrice}`
     : `Buscando ${what}...`;
@@ -3247,7 +3264,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
   stopStatusAvailableDriversPolling();
   clearTaxiOffers();
   currentRideStatus = "aceptado";
-  document.getElementById("statusText").textContent = "¡Chofer en camino!";
+  document.getElementById("statusText").textContent = isDeliveryRide() ? "¡Tu repartidor va por tu pedido!" : "¡Chofer en camino!";
   const cancelBtnEl = document.getElementById("cancelBtn");
   cancelBtnEl.style.display = "inline-block";
   cancelBtnEl.textContent = "🚪 Salir";
@@ -3263,7 +3280,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
     // sin insignia si falla, no bloquea el resto del flujo
   }
   card.innerHTML = `
-    <div class="eta-row"><div class="eta-txt"><b id="etaBig">Tu chofer va en camino</b><span id="etaSub">${serviceType === "taxi" ? "Tu taxi" : "Tu mototaxi"} va por ti</span></div><div class="eta-badge" id="etaBadge" style="display:none;"><b id="etaMin"></b><small>min</small></div></div>
+    <div class="eta-row"><div class="eta-txt"><b id="etaBig">${isDeliveryRide() ? "Tu repartidor va por tu pedido" : "Tu chofer va en camino"}</b><span id="etaSub">${isDeliveryRide() ? "Primero recoge tu pedido" : `${serviceType === "taxi" ? "Tu taxi" : "Tu mototaxi"} va por ti`}</span></div><div class="eta-badge" id="etaBadge" style="display:none;"><b id="etaMin"></b><small>min</small></div></div>
     <div class="driverInfo">
       ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
       <div class="driverInfo-main">
@@ -3296,7 +3313,9 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
 
 function onDriverArrived(arrivedAt) {
   currentRideStatus = "llegue";
-  document.getElementById("statusText").textContent = `Tu chofer ya llegó ${serviceType === "taxi" ? "🚕" : "🛵"} Sal cuando estés listo`;
+  document.getElementById("statusText").textContent = isDeliveryRide()
+    ? "Tu repartidor está recogiendo tu pedido 📦"
+    : `Tu chofer ya llegó ${serviceType === "taxi" ? "🚕" : "🛵"} Sal cuando estés listo`;
   updateEtaCard(null);
   if (serviceType === "taxi") {
     pickupArrivedAt = arrivedAt || pickupArrivedAt || Date.now();
@@ -3308,12 +3327,15 @@ function onDriverArrived(arrivedAt) {
 function onTripStarted(startedAt) {
   currentRideStatus = "en_curso";
   hideAllyAd();
-  document.getElementById("statusText").textContent = `En camino a tu destino ${serviceType === "taxi" ? "🚕" : "🛵"}`;
+  document.getElementById("statusText").textContent = isDeliveryRide()
+    ? "📦 Tu pedido va en camino"
+    : `En camino a tu destino ${serviceType === "taxi" ? "🚕" : "🛵"}`;
   if (serviceType === "taxi" && pickupArrivedAt) {
     pickupStartedAt = startedAt || pickupStartedAt || Date.now();
     renderPickupWaitBox();
   }
   clearInterval(pickupWaitTimer);
+  if (isDeliveryRide()) updateEtaCard(null);
   updateRouteLine();
 }
 
@@ -4259,7 +4281,7 @@ function onCompleted() {
   stopStatusAvailableDriversPolling();
   currentRideStatus = "completado";
   hideAllyAd();
-  const wasDelivery = !!(ride && ride.delivery_code);
+  const wasDelivery = isDeliveryRide();
   hideDeliveryCodeBox();
   localStorage.removeItem("motoya_active_ride");
   if (ride) saveRideToLocalHistory(ride.id, ride.share_token);
