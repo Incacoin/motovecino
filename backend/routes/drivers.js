@@ -139,6 +139,29 @@ router.post("/drivers/login", async (req, res) => {
   res.json({ ...driverOut, hasDepositAccount: !!deposit_account, todayCount, lifetimeTrips });
 });
 
+// La app de Google Play avisa que la abrieron (una vez por apertura, ver
+// isPlayApp() en chofer.html). Con teléfono + PIN, igual que el login.
+router.post("/drivers/app-open", async (req, res) => {
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const { phone, pin } = req.body || {};
+  if (!phone || !pin) return res.status(400).json({ error: "Falta teléfono o PIN" });
+  const r = await db
+    .prepare(
+      `UPDATE drivers SET play_first_open = COALESCE(play_first_open, datetime('now')),
+              play_last_open = datetime('now'), play_opens = play_opens + 1
+       WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
+    )
+    .run(phone, pin);
+  if (!r.changes) {
+    recordFailedAttempt(req.ip);
+    return res.status(404).json({ error: "No autorizado" });
+  }
+  clearAttempts(req.ip);
+  res.json({ ok: true });
+});
+
 // Pantalla "Mi perfil" del chofer. Se autentica igual que el login: con su
 // propio teléfono + PIN — nunca con un id que mande el cliente, para que
 // nadie pueda pedir el perfil (ni el estado de cuenta) de otro chofer.

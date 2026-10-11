@@ -170,6 +170,29 @@ router.post("/riders/login", async (req, res) => {
   res.json({ ...rider, ...photoUrls("r", rider.id, rider.photo) });
 });
 
+// La app de Google Play avisa que la abrieron (una vez por apertura, ver
+// isPlayApp() en pasajero.html). Con teléfono + PIN, igual que el login.
+router.post("/riders/app-open", async (req, res) => {
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const { phone, pin } = req.body || {};
+  if (!phone || !pin) return res.status(400).json({ error: "Falta teléfono o PIN" });
+  const r = await db
+    .prepare(
+      `UPDATE riders SET play_first_open = COALESCE(play_first_open, datetime('now')),
+              play_last_open = datetime('now'), play_opens = play_opens + 1
+       WHERE phone = ? AND pin = ?`
+    )
+    .run(phone, pin);
+  if (!r.changes) {
+    recordFailedAttempt(req.ip);
+    return res.status(404).json({ error: "No autorizado" });
+  }
+  clearAttempts(req.ip);
+  res.json({ ok: true });
+});
+
 // La foto es lo único que el pasajero puede cambiar de su propio perfil, igual
 // que con el chofer (ver routes/drivers.js) — mismo límite de tamaño y mismo
 // formato esperado (data URL ya recortada/comprimida por el navegador).

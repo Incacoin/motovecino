@@ -467,3 +467,13 @@ CREATE TABLE IF NOT EXISTS otp_devices (
 -- viajes de la suya, esté donde esté. NULL = municipios sin comisarías.
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS zone TEXT;
 ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS zone TEXT;
+
+-- App de Google Play (10-oct-2026): cuándo abrió cada quien MotoVecino desde
+-- la app instalada de Play Store (no desde Chrome ni el ícono de la página).
+-- Sirve para saber qué testers de la prueba cerrada sí la usan.
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS play_first_open TEXT;
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS play_last_open TEXT;
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS play_opens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS play_first_open TEXT;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS play_last_open TEXT;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS play_opens INTEGER NOT NULL DEFAULT 0;

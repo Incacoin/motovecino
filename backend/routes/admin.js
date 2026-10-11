@@ -279,6 +279,7 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
               d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.zone, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
+              d.play_last_open, d.play_opens,
               (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
               (SELECT COUNT(*) FROM drivers x WHERE x.referred_by_driver_id = d.id AND x.deleted_at IS NULL) AS invited_count,
               GREATEST(0, (SELECT COALESCE(SUM(amount), 0) FROM driver_credits WHERE driver_id = d.id)
@@ -558,6 +559,7 @@ router.post("/admin/riders/list", checkAdminPin, async (req, res) => {
   const riders = await db
     .prepare(
       `SELECT r.id, r.name, r.phone, r.created_at, r.last_ride_at, r.no_show_count, r.es_prueba,
+              r.play_last_open, r.play_opens,
               (SELECT COUNT(*) FROM rides WHERE rider_id = r.id AND status = 'completado') AS trips
        FROM riders r
        WHERE r.city = ?
@@ -565,6 +567,23 @@ router.post("/admin/riders/list", checkAdminPin, async (req, res) => {
     )
     .all(req.adminCity);
   res.json(riders);
+});
+
+// Quién abre MotoVecino desde la app de Google Play (pasajeros y choferes de
+// todas las zonas). Solo el dueño: junta teléfonos de todas las zonas.
+router.post("/admin/play-users/list", checkAdminPin, async (req, res) => {
+  if (req.adminRole !== "tekax") return res.status(403).json({ error: "Esto solo lo puede hacer el dueño." });
+  const rows = await db
+    .prepare(
+      `SELECT 'pasajero' AS kind, id, name, phone, city, es_prueba, play_first_open, play_last_open, play_opens
+       FROM riders WHERE play_last_open IS NOT NULL
+       UNION ALL
+       SELECT 'chofer' AS kind, id, name, phone, city, es_prueba, play_first_open, play_last_open, play_opens
+       FROM drivers WHERE play_last_open IS NOT NULL AND deleted_at IS NULL
+       ORDER BY play_last_open DESC`
+    )
+    .all();
+  res.json(rows);
 });
 
 // Marca/desmarca un pasajero como cuenta de prueba: sus viajes dejan de

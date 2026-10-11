@@ -1325,6 +1325,32 @@ function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
 
+// ¿Se abrió desde la app de Google Play (com.motovecino.app)? Android avisa en
+// document.referrer solo en la primera página; se guarda en sessionStorage
+// (vive lo que dura esa apertura) y no en localStorage, porque la app de Play
+// comparte datos con Chrome y la marca se colaría a las visitas por el navegador.
+function isPlayApp() {
+  try {
+    if (document.referrer.startsWith("android-app://com.motovecino.app")) sessionStorage.setItem("mv_play", "1");
+    return sessionStorage.getItem("mv_play") === "1";
+  } catch { return false; }
+}
+isPlayApp();
+
+// Avisa al servidor (una vez por apertura) que este pasajero usa la app de
+// Play: así el admin sabe qué testers de la prueba cerrada sí la abren.
+function pingPlayOpen(me) {
+  try {
+    if (!isPlayApp() || !me || !me.phone || !me.pin || sessionStorage.getItem("mv_play_ping_r")) return;
+    sessionStorage.setItem("mv_play_ping_r", "1");
+  } catch { return; }
+  fetch(API + "/api/riders/app-open", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: me.phone, pin: me.pin }),
+  }).catch(() => {});
+}
+
 function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
@@ -2373,6 +2399,7 @@ async function goToMap() {
     emergency_contact_name: rider.emergency_contact_name || null,
     emergency_contact_phone: rider.emergency_contact_phone || null,
   }));
+  pingPlayOpen(rider);
 
   if (rider.isNewPin) {
     pendingNewRider = rider;
@@ -4434,9 +4461,10 @@ async function restoreActiveRide() {
 // Si ya tiene cuenta guardada en este celular (con su PIN), no le volvemos a
 // pedir el formulario cada vez — entra directo, igual que ya hace el chofer.
 async function initSession() {
+  const savedRider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
+  pingPlayOpen(savedRider);
   const restored = await restoreActiveRide();
   if (restored) return;
-  const savedRider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
   if (savedRider && savedRider.phone && savedRider.pin) {
     enterMap();
   }

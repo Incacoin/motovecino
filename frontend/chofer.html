@@ -982,6 +982,30 @@ function isStandalone() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
 
+// ¿Se abrió desde la app de Google Play (com.motovecino.app)? Igual que en
+// pasajero.html: la marca vive en sessionStorage durante esa apertura (la app
+// entra por pasajero.html y aquí llega ya marcada).
+function isPlayApp() {
+  try {
+    if (document.referrer.startsWith("android-app://com.motovecino.app")) sessionStorage.setItem("mv_play", "1");
+    return sessionStorage.getItem("mv_play") === "1";
+  } catch { return false; }
+}
+isPlayApp();
+
+// Avisa al servidor (una vez por apertura) que este chofer usa la app de Play.
+function pingPlayOpen() {
+  try {
+    if (!isPlayApp() || !driver || !driver.phone || !driver.pin || sessionStorage.getItem("mv_play_ping_d")) return;
+    sessionStorage.setItem("mv_play_ping_d", "1");
+  } catch { return; }
+  fetch(API + "/api/drivers/app-open", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: driver.phone, pin: driver.pin }),
+  }).catch(() => {});
+}
+
 function isIOS() {
   return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
@@ -1367,6 +1391,7 @@ function goPasajero() {
 }
 
 function startApp() {
+  pingPlayOpen();
   document.getElementById("login").style.display = "none";
   document.getElementById("app").style.display = "flex";
   document.getElementById("driverName").textContent = driver.name;

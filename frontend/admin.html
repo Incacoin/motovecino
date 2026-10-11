@@ -778,6 +778,19 @@
   </div>
 
   <div id="tabPanel-pasajeros" class="tab-panel">
+  <div class="section-card" id="playUsersCard" style="display:none;">
+  <h1>📲 App de Google Play</h1>
+  <p class="section-hint">Quién abrió MotoVecino desde la app instalada de Play Store y entró con su cuenta (todas las zonas). Quien la instaló pero nunca la abrió no aparece aquí.</p>
+  <div id="playUsersSummary" style="margin:-6px 0 12px;font-size:14px;"></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Nombre</th><th>Teléfono</th><th>Tipo</th><th>Zona</th><th>Primera vez</th><th>Última vez</th><th>Veces</th></tr>
+      </thead>
+      <tbody id="playUsersRows"></tbody>
+    </table>
+  </div>
+  </div>
   <div class="section-card">
   <h1>🧍 Pasajeros registrados</h1>
   <p class="section-hint">Cuentas reales con PIN — si alguien pierde acceso (cambió de celular, olvidó su PIN), restablécelo aquí y pásaselo por su cuenta.</p>
@@ -1671,6 +1684,7 @@ function loadAllAdminData() {
   }
   loadDrivers();
   loadRiders();
+  loadPlayUsers();
   loadRides();
   loadStats();
   loadApplications();
@@ -2079,6 +2093,54 @@ function renderOnlineDrivers() {
     : `<div class="ago">Nadie conectado en este momento.</div>`;
 }
 
+// "hace 3 días", "hace 2 h"... para la tarjeta de la app de Play.
+function playAgo(sqliteUtc) {
+  if (!sqliteUtc) return "—";
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(sqliteUtc.replace(" ", "T") + "Z")) / 60000));
+  if (min < 1) return "hace un momento";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24);
+  return `hace ${d} día${d === 1 ? "" : "s"}`;
+}
+
+// Etiqueta junto al nombre: abre MotoVecino desde la app de Google Play.
+function playTag(x) {
+  return x.play_last_open
+    ? ` <span title="Usa la app de Google Play · última vez ${playAgo(x.play_last_open)} · ${x.play_opens || 0} veces" style="font-size:11px;color:var(--success);font-weight:600;">📲 Play</span>`
+    : "";
+}
+
+// Tarjeta "App de Google Play" (solo el dueño: junta todas las zonas).
+async function loadPlayUsers() {
+  const card = document.getElementById("playUsersCard");
+  if (adminRoleNow !== "tekax") { card.style.display = "none"; return; }
+  const res = await fetch(API + "/api/admin/play-users/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin }),
+  });
+  if (!res.ok) { card.style.display = "none"; return; }
+  const rows = await res.json();
+  card.style.display = "";
+  const real = rows.filter((x) => !x.es_prueba);
+  const week = real.filter((x) => Date.now() - Date.parse(x.play_last_open.replace(" ", "T") + "Z") < 7 * 864e5);
+  document.getElementById("playUsersSummary").innerHTML = rows.length
+    ? `<b>${real.length}</b> persona${real.length === 1 ? "" : "s"} con la app de Play · <b>${week.length}</b> la abrieron esta semana${rows.length > real.length ? ` <span style="color:var(--text-dim);">(sin contar ${rows.length - real.length} de prueba)</span>` : ""}`
+    : `<span style="color:var(--text-dim);">Nadie la ha abierto todavía desde la app de Play.</span>`;
+  document.getElementById("playUsersRows").innerHTML = rows.map((x) => `
+    <tr>
+      <td>${escapeHtml(x.name) || "—"}${x.es_prueba ? ` <span style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>` : ""}</td>
+      <td>${escapeHtml(x.phone || "")}</td>
+      <td>${x.kind === "chofer" ? "🛵 Chofer" : "🧍 Pasajero"}</td>
+      <td>${escapeHtml((x.city || "").replace(/^./, (c) => c.toUpperCase()))}</td>
+      <td>${playAgo(x.play_first_open)}</td>
+      <td>${playAgo(x.play_last_open)}</td>
+      <td>${x.play_opens || 0}</td>
+    </tr>`).join("") || `<tr><td colspan="7" class="ago">Todavía nadie.</td></tr>`;
+}
+
 let ridersCache = [];
 
 async function loadRiders() {
@@ -2097,7 +2159,7 @@ function renderRiderRows() {
   const visible = applyPreviewCap(filtered, query, showAllRiders, "riderShowMore", "toggleShowAllRiders");
   document.getElementById("riderRows").innerHTML = visible.map((r) => `
     <tr>
-      <td>${escapeHtml(r.name) || "—"}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>` : ""}</td>
+      <td>${escapeHtml(r.name) || "—"}${playTag(r)}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>` : ""}</td>
       <td>${r.phone}</td>
       <td>${r.trips}</td>
       <td>${r.no_show_count >= 2 ? `<span style="color:var(--danger);font-weight:600;">${r.no_show_count} ⚠️</span>` : (r.no_show_count || 0)}</td>
@@ -2425,7 +2487,7 @@ function renderDriverRows() {
       d.inviter_name ? `🤝 Lo invitó ${escapeHtml(d.inviter_name)} (chofer)` : d.referred_by ? `🤝 ${escapeHtml(d.referred_by)}` : "",
       d.invited_count ? `📨 Ha invitado a ${d.invited_count} chofer${d.invited_count === 1 ? "" : "es"}` : "",
     ].filter(Boolean).map((t) => `<div class="meta" style="color:var(--text-dim);font-size:11.5px;">${t}</div>`).join("");
-    const nameWithReferral = `<span>${escapeHtml(d.name)}${founderTag}</span>${referralLines}`;
+    const nameWithReferral = `<span>${escapeHtml(d.name)}${founderTag}${playTag(d)}</span>${referralLines}`;
     const nameCell = d.photo
       ? `<div class="info"><img class="thumb" src="${d.photo}" onclick="viewImage('${d.photo}')" />${placaThumb}${sigThumb}<div>${nameWithReferral}</div></div>`
       : nameWithReferral;
