@@ -10,7 +10,7 @@ const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
-const { toStored, inflateRow } = require("../imageStore");
+const { toStored, inflateRow, isRef, toDataUrl } = require("../imageStore");
 const {
   generateRegistrationOptions, verifyRegistrationResponse,
   generateAuthenticationOptions, verifyAuthenticationResponse,
@@ -101,7 +101,7 @@ function auditDetail(body) {
 // viajes, ni Movimientos. Todo lo que hace queda en Movimientos del dueño.
 const PROGRESO_ALLOWED = new RegExp("^/admin/(" + [
   "login", "logout", "logout-all", "stats",
-  "drivers", "drivers/list",
+  "drivers", "drivers/list", "photos/list",
   "drivers/[0-9]+/(paid-until|register-payment|pending-fees|register-trip-fees|payments|activity|reset-pin|vouch|update)",
   "chofer-solicitudes/list", "chofer-solicitudes/[0-9]+/(dismiss|reject)",
   "rides/list", "reports/cancelaciones",
@@ -296,7 +296,7 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
        ORDER BY d.created_at DESC`
     )
     .all(TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, SERVICE_FEE, req.adminCity);
-  res.json(drivers.map((d) => inflateRow(d, DRIVER_IMG_COLS)));
+  res.json(req.body.photoRefs ? drivers : drivers.map((d) => inflateRow(d, DRIVER_IMG_COLS)));
 });
 
 router.post("/admin/drivers/:id/paid-until", checkAdminPin, async (req, res) => {
@@ -532,7 +532,30 @@ router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) =>
       "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
-  res.json(apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));
+  res.json(req.body.photoRefs ? apps : apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));
+});
+
+// 10-oct-2026: el admin refrescaba la lista cada pocos segundos y cada vez
+// bajaba TODAS las fotos completas (≈2.4 GB en 10 días de ancho de banda de
+// Render). Ahora las listas mandan solo la referencia ("img:<hash>", con
+// photoRefs: true) y el admin pide aquí las que todavía no tiene. Como el
+// nombre es el hash de la foto, la misma referencia siempre es la misma foto
+// y el admin la guarda sin volver a pedirla.
+// Solo fotos de choferes o solicitudes de las zonas que ve ese PIN.
+const MAX_PHOTO_REFS = 60;
+router.post("/admin/photos/list", checkAdminPin, async (req, res) => {
+  const refs = [...new Set((Array.isArray(req.body.refs) ? req.body.refs : []).filter(isRef))].slice(0, MAX_PHOTO_REFS);
+  const photos = {};
+  for (const ref of refs) {
+    const owner = await db.prepare(
+      `SELECT city FROM drivers WHERE photo = ? OR photo_placa = ? OR signature = ?
+       UNION ALL SELECT city FROM driver_applications WHERE photo = ? OR photo_placa = ? OR signature = ?`
+    ).all(ref, ref, ref, ref, ref, ref);
+    if (!owner.some((o) => req.adminZones.includes(o.city))) continue;
+    const url = toDataUrl(ref);
+    if (url) photos[ref] = url;
+  }
+  res.json({ photos });
 });
 
 router.post("/admin/chofer-solicitudes/:id/dismiss", checkAdminPin, async (req, res) => {

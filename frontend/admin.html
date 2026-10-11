@@ -1389,6 +1389,52 @@ let lastRegistered = null;
 let editingId = null;
 let ridesPollTimer = null;
 
+// 10-oct-2026: cada refresco bajaba otra vez todas las fotos de choferes y
+// solicitudes (≈2.4 GB en 10 días de ancho de banda de Render). Ahora las
+// listas traen solo la referencia ("img:<hash>") y aquí se guardan las fotos
+// ya bajadas: la misma referencia siempre es la misma foto, así que solo se
+// piden las nuevas. Al terminar, cada fila queda con su foto completa como
+// antes, y lo demás del admin no cambia.
+const ADMIN_PHOTO_COLS = ["photo", "photo_placa", "signature"];
+const adminPhotoCache = new Map();
+async function resolvePhotoRefs(rows) {
+  if (!Array.isArray(rows)) return rows;
+  const isPhotoRef = (v) => typeof v === "string" && v.startsWith("img:");
+  const missing = new Set();
+  for (const r of rows) for (const c of ADMIN_PHOTO_COLS) if (isPhotoRef(r[c]) && !adminPhotoCache.has(r[c])) missing.add(r[c]);
+  const list = [...missing];
+  for (let i = 0; i < list.length; i += 60) {
+    const chunk = list.slice(i, i + 60);
+    try {
+      const res = await fetch(API + "/api/admin/photos/list", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminPin, refs: chunk }),
+      });
+      if (!res.ok) continue;
+      const { photos } = await res.json();
+      for (const ref of chunk) adminPhotoCache.set(ref, (photos && photos[ref]) || null);
+    } catch {}
+  }
+  for (const r of rows) for (const c of ADMIN_PHOTO_COLS) if (isPhotoRef(r[c])) r[c] = adminPhotoCache.get(r[c]) || null;
+  return rows;
+}
+
+// Refresco del admin: cada 20 s (antes 4 s) y nada mientras no está a la
+// vista (otra app, pantalla apagada, otra pestaña). Al volver se pone al día.
+const ADMIN_POLL_MS = 20000;
+function adminPollTick() {
+  if (document.hidden) return;
+  loadRides(); loadStats(); loadApplications(); loadDrivers();
+}
+function startAdminPoll() {
+  clearInterval(ridesPollTimer);
+  ridesPollTimer = setInterval(adminPollTick, ADMIN_POLL_MS);
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && document.getElementById("app").classList.contains("active")) adminPollTick();
+});
+
 const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas", negocios: "Negocios aliados", movimientos: "Movimientos" };
 
 function switchTab(tab) {
@@ -1678,8 +1724,7 @@ function loadAllAdminData() {
     // Daniel: su zona sin pasajeros, movimientos ni interruptores (el servidor
     // le niega lo demás; ver PROGRESO_ALLOWED en admin.js).
     loadDrivers(); loadRides(); loadStats(); loadApplications(); loadAlertas(); loadAllyAds(); loadBusinesses(); updateQrLink();
-    clearInterval(ridesPollTimer);
-    ridesPollTimer = setInterval(() => { loadRides(); loadStats(); loadApplications(); loadDrivers(); }, 4000);
+    startAdminPoll();
     return;
   }
   loadDrivers();
@@ -1693,8 +1738,7 @@ function loadAllAdminData() {
   loadBusinesses();
   loadFamilySwitch();
   updateQrLink();
-  clearInterval(ridesPollTimer);
-  ridesPollTimer = setInterval(() => { loadRides(); loadStats(); loadApplications(); loadDrivers(); }, 4000);
+  startAdminPoll();
 }
 
 function pctBadgeClass(pct) {
@@ -1747,10 +1791,10 @@ async function loadApplications() {
   const res = await fetch(API + "/api/admin/chofer-solicitudes/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin }),
+    body: JSON.stringify({ adminPin, photoRefs: true }),
   });
   if (!res.ok) return;
-  applicationsCache = await res.json();
+  applicationsCache = await resolvePhotoRefs(await res.json());
   renderApplications(applicationsCache);
 }
 
@@ -2059,10 +2103,10 @@ async function loadDrivers() {
   const res = await fetch(API + "/api/admin/drivers/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin }),
+    body: JSON.stringify({ adminPin, photoRefs: true }),
   });
-  driversCache = await res.json();
-  // No re-pintar la tabla si hay una fila en edición — el polling cada 4s
+  driversCache = await resolvePhotoRefs(await res.json());
+  // No re-pintar la tabla si hay una fila en edición — el refresco automático
   // borraría lo que el admin está escribiendo a medias.
   if (editingId === null) renderDriverRows();
   renderOnlineDrivers();
