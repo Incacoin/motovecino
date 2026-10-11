@@ -128,6 +128,11 @@ async function publicOrder(o, viewer) {
     dest_lat: o.dest_lat, dest_lng: o.dest_lng, dest_label: o.dest_label,
     ready_minutes: o.ready_minutes,
     accepted_at: o.accepted_at,
+    // Cronómetro: a qué hora (ms) estará listo, y la hora del servidor para
+    // que el celular corrija si su reloj va adelantado o atrasado.
+    ready_at_ms: o.accepted_at && o.ready_minutes ? Date.parse(String(o.accepted_at).replace(" ", "T") + "Z") + o.ready_minutes * 60000 : null,
+    server_now_ms: Date.now(),
+    client_note: o.client_note || null,
     reject_reason: o.reject_reason,
     created_at: o.created_at,
     business: b ? { id: b.id, name: b.name, address: b.address, whatsapp: b.whatsapp } : null,
@@ -222,11 +227,11 @@ router.post("/orders", async (req, res) => {
 
   const r = await db.prepare(
     `INSERT INTO business_orders (business_id, rider_id, city, kind, items, special_text, big, total, pay_method, receipt, receipt_at,
-       delivery_offer, dest_lat, dest_lng, dest_label, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       delivery_offer, dest_lat, dest_lng, dest_label, status, client_note)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     b.id, rider.id, b.city, kind, items, special, req.body.big ? 1 : 0, total, payMethod, receipt, receipt ? new Date().toISOString() : null,
-    offer, destLat, destLng, clean(req.body.dest_label) || null, status
+    offer, destLat, destLng, clean(req.body.dest_label) || null, status, clean(req.body.client_note, 140) || null
   );
   const o = await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(r.lastInsertRowid);
   res.status(201).json(await publicOrder(o, "client"));
@@ -341,6 +346,11 @@ router.post("/business/orders/:id/accept", async (req, res) => {
   const { o } = got;
   const minutes = Number(req.body.minutes);
   if (!READY_MINUTES.includes(minutes)) return res.status(400).json({ error: "Escoge en cuánto está listo" });
+  // Primero el pago: con transferencia no se acepta (ni arranca el
+  // cronómetro) hasta que el negocio confirma que le llegó.
+  if (o.pay_method === "transferencia" && !o.paid_confirmed_at) {
+    return res.status(409).json({ error: "Primero revisa el pago: confirma que te llegó la transferencia" });
+  }
   if (!await moveOrder(o, S.NUEVO, "status = ?, ready_minutes = ?, accepted_at = datetime('now')", [S.ACEPTADO, minutes])) {
     return res.status(409).json({ error: "Este pedido ya cambió" });
   }

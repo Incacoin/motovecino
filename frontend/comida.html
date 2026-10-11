@@ -166,6 +166,9 @@
   .preview-banner { position: sticky; top: 0; z-index: 10; background: #000; color: #fff; font-size: 13px; font-weight: 700; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   html[data-theme="dark"] .preview-banner { background: #fff; color: #000; }
   .preview-banner button { border: none; background: #22c55e; color: #04210f; font-weight: 800; border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+  .cdc { margin-top: 10px; border-radius: 12px; padding: 12px; background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; font-weight: 800; }
+  .cdc b { font-size: 24px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .ask { display: inline-flex; align-items: center; gap: 6px; margin: 12px 16px 0; padding: 9px 13px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 700; font-size: 13.5px; text-decoration: none; }
   .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--btn); color: var(--btn-ink); padding: 11px 16px; border-radius: 12px; font-weight: 700; font-size: 14px; z-index: 80; display: none; max-width: 90vw; text-align: center; }
 </style>
 </head>
@@ -245,7 +248,7 @@ const API = "";
 const FARMACIA_NOTE = "💊 Solo medicinas <b>sin receta</b>. Antibióticos y medicinas controladas: ve directo a la farmacia con tu receta.";
 let me = null, businesses = [], current = null, menu = [], cart = {}, chip = "Todos", isPreview = false;
 let opts = null, kind = "catalogo", offer = 17, payMethod = "transferencia", receipt = null, receiptFor = null;
-let destMap = null, orders = [], ordersTimer = null, quoteOrder = null;
+let destMap = null, orders = [], ordersTimer = null, quoteOrder = null, clockSkew = 0;
 try { me = JSON.parse(localStorage.getItem("motoya_rider") || "null"); } catch {}
 
 function escapeHtml(t) {
@@ -356,7 +359,10 @@ async function openDetail(b, items) {
   document.getElementById("dTagline").textContent = b.tagline || "";
   document.getElementById("dMeta").innerHTML = `<span class="pill ${b.is_open ? "open" : ""}">${b.is_open ? "● Abierto" : "Cerrado ahora"}</span>` +
     [b.category, b.hours, b.address].filter(Boolean).map((t) => `<span>${escapeHtml(t)}</span>`).join("<span>·</span>");
-  document.getElementById("pharmaNote").innerHTML = b.category === "Farmacia" ? `<div class="warn" style="margin:14px 16px 0">${FARMACIA_NOTE}</div>` : "";
+  document.getElementById("pharmaNote").innerHTML = (b.whatsapp && !isPreview
+      ? `<a class="ask" target="_blank" href="https://wa.me/52${b.whatsapp}?text=${encodeURIComponent(`Hola ${b.name}, vi su negocio en MotoVecino y tengo una duda: `)}">💬 ¿Dudas? Escríbele</a>`
+      : "") +
+    (b.category === "Farmacia" ? `<div class="warn" style="margin:14px 16px 0">${FARMACIA_NOTE}</div>` : "");
   document.getElementById("specialBox").innerHTML = b.special && b.is_open
     ? `<div class="special-card" onclick="openCheckout('especial')"><b>✍️ Pedido especial</b><div>${menu.length ? "¿No ves lo que buscas? " : ""}Escribe lo que necesitas y el negocio te manda el precio antes de pagar.</div></div>`
     : "";
@@ -434,7 +440,9 @@ function openCheckout(k) {
   if (kind === "catalogo") {
     const lines = cartLines();
     document.getElementById("sBody").innerHTML = `<div class="lines">${lines.map((l) => `<div class="ln"><span>${l.n} × ${escapeHtml(l.name)}</span><span>${money(l.n * l.price)}</span></div>`).join("")}
-      <div class="tot"><span>Total del pedido</span><span>${money(cartTotal())}</span></div></div>`;
+      <div class="tot"><span>Total del pedido</span><span>${money(cartTotal())}</span></div></div>
+      <div class="lab">📝 Nota para el negocio (opcional)</div>
+      <input id="clientNote" class="field" maxlength="140" placeholder="Ej. sin cebolla, salsa aparte" />`;
   } else {
     document.getElementById("sBody").innerHTML = `
       <div class="lab">Escribe lo que necesitas</div>
@@ -544,6 +552,7 @@ async function sendOrder() {
   if (!body.dest_label) { err.textContent = "Escribe tu dirección o una seña (ej. casa azul)"; return; }
   if (kind === "catalogo") {
     body.items = cartLines().map((l) => ({ id: l.id, n: l.n }));
+    body.client_note = (document.getElementById("clientNote") || {}).value || "";
     body.pay_method = payMethod;
     if (payMethod === "transferencia") {
       if (!receipt) { err.textContent = "Sube la foto de tu comprobante de transferencia"; return; }
@@ -604,7 +613,7 @@ function hideOrders() {
   document.getElementById(current && !isPreview ? "detailScreen" : "listScreen").classList.add("active");
 }
 async function refreshOrders(silent) {
-  try { orders = await post("/orders/mine"); } catch { if (!silent) document.getElementById("ordersList").innerHTML = `<div class="empty">Sin conexión. Intenta de nuevo.</div>`; return; }
+  try { orders = await post("/orders/mine"); if (orders[0] && orders[0].server_now_ms) clockSkew = orders[0].server_now_ms - Date.now(); } catch { if (!silent) document.getElementById("ordersList").innerHTML = `<div class="empty">Sin conexión. Intenta de nuevo.</div>`; return; }
   const waiting = orders.some((o) => o.status === "por_aceptar_precio");
   document.getElementById("mineDot").style.display = waiting || orders.some((o) => ["nuevo", "aceptado", "enviado", "cotizando"].includes(o.status)) ? "block" : "none";
   if (document.getElementById("ordersScreen").classList.contains("active")) renderOrders();
@@ -613,6 +622,18 @@ function orderLines(o) {
   if (o.kind === "especial") return `<div style="white-space:pre-line">${escapeHtml(o.special_text)}</div>`;
   return o.items.map((i) => `<div class="ln"><span>${i.n} × ${escapeHtml(i.name)}</span><span>${money(i.n * i.price)}</span></div>`).join("");
 }
+// Cronómetro del cliente: baja cada segundo.
+function tickClientCountdowns() {
+  document.querySelectorAll(".cdc[data-ready]").forEach((el) => {
+    const left = Number(el.dataset.ready) - (Date.now() + clockSkew);
+    const t = Math.max(0, Math.round(left / 1000));
+    el.innerHTML = left > 0
+      ? `<span>⏱️ Tu pedido estará listo en</span><b>${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}</b>`
+      : `<span>🍳 Ya casi: el negocio está terminando tu pedido</span>`;
+  });
+}
+setInterval(tickClientCountdowns, 1000);
+
 function minutesSince(t) { return t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"))) / 60000 : 0; }
 function renderOrders() {
   const el = document.getElementById("ordersList");
@@ -628,11 +649,16 @@ function renderOrders() {
       body = `<b>El negocio te manda precio: ${total}</b>${o.business_note ? `<br>Nota: <i>“${escapeHtml(o.business_note)}”</i>` : ""}`;
       btns = `<button class="r" onclick="cancelOrder(${o.id})">No, gracias</button><button class="g" onclick="openQuote(${o.id})">Ver y aceptar</button>`;
     } else if (o.status === "nuevo") {
-      body = `Esperando que el negocio acepte tu pedido.`;
+      body = o.pay_method === "transferencia" && o.payment_problem
+        ? `<div class="warn">⚠️ El negocio dice que <b>no le ha llegado tu transferencia</b>. Revisa tu banco y sube el comprobante correcto.</div>`
+        : o.pay_method === "transferencia" && !o.paid_confirmed
+        ? `El negocio está revisando tu pago.`
+        : `Esperando que el negocio acepte tu pedido.`;
       if (minutesSince(o.created_at) >= 5 && o.business && o.business.whatsapp) body += `<br>¿No contesta? <a href="https://wa.me/52${o.business.whatsapp}?text=${encodeURIComponent(`Hola ${o.business.name}, les mandé un pedido por MotoVecino (#${o.id}). ¿Lo recibieron?`)}" target="_blank">Avisarle por WhatsApp</a>`;
-      btns = `<button class="r" onclick="cancelOrder(${o.id})">Cancelar</button>`;
+      btns = `<button class="r" onclick="cancelOrder(${o.id})">Cancelar</button>` +
+        (o.pay_method === "transferencia" && o.payment_problem ? `<button class="g" onclick="pickReceipt('o${o.id}')">📎 Subir comprobante otra vez</button>` : "");
     } else if (o.status === "aceptado") {
-      body = `El negocio aceptó tu pedido${o.ready_minutes ? ` · listo en unos ${o.ready_minutes} min` : ""}.`;
+      body = `El negocio aceptó tu pedido.` + (o.ready_at_ms ? `<div class="cdc" data-ready="${o.ready_at_ms}"></div>` : "");
       if (o.pay_method === "transferencia") {
         body += o.paid_confirmed ? `<div class="okbox">✅ El negocio confirmó tu pago.</div>`
           : o.payment_problem ? `<div class="warn">⚠️ El negocio dice que <b>no le ha llegado tu transferencia</b>. Revisa tu banco y sube el comprobante correcto.</div>`
@@ -655,6 +681,7 @@ function renderOrders() {
       ${btns ? `<div class="btns">${btns}</div>` : ""}
     </div>`;
   }).join("");
+  tickClientCountdowns();
 }
 async function cancelOrder(id) {
   if (!confirm("¿Cancelar este pedido?")) return;

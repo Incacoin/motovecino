@@ -526,3 +526,5 @@ ALTER TABLE rides ADD COLUMN IF NOT EXISTS order_id INTEGER;
 ALTER TABLE rides ADD COLUMN IF NOT EXISTS business_name TEXT;
 ALTER TABLE rides ADD COLUMN IF NOT EXISTS cash_to_business INTEGER;
 ALTER TABLE rides ADD COLUMN IF NOT EXISTS order_big INTEGER NOT NULL DEFAULT 0;
+-- Nota del cliente para el negocio ("sin cebolla, salsa aparte"), 11-oct-2026.
+ALTER TABLE business_orders ADD COLUMN IF NOT EXISTS client_note TEXT;

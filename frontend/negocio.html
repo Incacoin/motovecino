@@ -168,6 +168,13 @@
   .sw span:after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: 0.2s; }
   .sw input:checked + span { background: #22c55e; }
   .sw input:checked + span:after { left: 23px; }
+  .cd { margin-top: 9px; border-radius: 10px; padding: 10px 11px; background: var(--bg-card); font-size: 15px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .cd.soon { background: #fef3c7; color: #92400e; }
+  .cd.late { background: #fee2e2; color: #b91c1c; }
+  html[data-theme="dark"] .cd.soon { background: #422006; color: #fbbf24; }
+  html[data-theme="dark"] .cd.late { background: #450a0a; color: #fca5a5; }
+  .cd b { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .cnote { margin-top: 8px; border-radius: 10px; padding: 9px 11px; border: 1px dashed var(--border); font-size: 14px; }
   .overlay { position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px; }
   .overlay.open { display: flex; }
   .overlay img { max-width: 100%; max-height: 62vh; border-radius: 10px; background: #fff; }
@@ -432,7 +439,8 @@ async function cancelRide(id) {
 
 // --- Pedidos en la app (11-oct-2026) ---
 // Llegan solos (se revisa cada 8 s); un pedido nuevo suena y vibra.
-let orders = [], pickMin = {}, seenNew = null, rcpOrder = null;
+let orders = [], pickMin = {}, seenNew = null, rcpOrder = null, clockSkew = 0;
+const alarmed = new Set();
 const ORD_ST = {
   cotizando: ["Pide precio", "new"], nuevo: ["Nuevo", "new"], por_aceptar_precio: ["Esperando al cliente", "wait"],
   aceptado: ["Preparando", "ok"], enviado: ["Con repartidor", "ok"], rechazado: ["Rechazado", ""], cancelado: ["Cancelado", ""],
@@ -457,6 +465,7 @@ function beep() {
 }
 async function loadOrders() {
   try { orders = await post("/business/orders/list", {}); } catch { return; }
+  if (orders[0] && orders[0].server_now_ms) clockSkew = orders[0].server_now_ms - Date.now();
   const fresh = orders.filter((o) => ["nuevo", "cotizando"].includes(o.status)).map((o) => o.id);
   if (seenNew && fresh.some((id) => !seenNew.has(id))) { beep(); toast("🔔 ¡Te llegó un pedido!"); }
   seenNew = new Set(fresh);
@@ -466,6 +475,30 @@ async function loadOrders() {
   const typing = document.activeElement && /^q[tn]\d+$/.test(document.activeElement.id || "");
   if (!typing) renderOrders();
 }
+// Cronómetro de cada pedido aceptado: baja cada segundo sin repintar la
+// lista. A los 5 min suena una vez: "Pide tu chofer ahora".
+function fmtLeft(ms) {
+  const t = Math.max(0, Math.round(Math.abs(ms) / 1000));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
+}
+function tickCountdowns() {
+  document.querySelectorAll(".cd[data-ready]").forEach((el) => {
+    const left = Number(el.dataset.ready) - (Date.now() + clockSkew);
+    const id = el.dataset.id;
+    el.classList.toggle("soon", left > 0 && left <= 5 * 60000);
+    el.classList.toggle("late", left <= 0);
+    if (left > 5 * 60000) el.innerHTML = `<span>⏱️ Listo en</span><b>${fmtLeft(left)}</b>`;
+    else if (left > 0) el.innerHTML = `<span>⏰ ¡Pide tu chofer ahora!</span><b>${fmtLeft(left)}</b>`;
+    else el.innerHTML = `<span>⚠️ Ya pasó el tiempo que prometiste</span><b>+${fmtLeft(left)}</b>`;
+    if (left <= 5 * 60000 && !alarmed.has(id)) {
+      alarmed.add(id);
+      beep();
+      toast("⏰ Faltan 5 min: pide tu chofer");
+    }
+  });
+}
+setInterval(tickCountdowns, 1000);
+
 function orderLines(o) {
   if (o.kind === "especial") return `<div class="txt">${escapeHtml(o.special_text)}</div>`;
   return o.items.map((i) => `<div class="ln"><span>${i.n} × ${escapeHtml(i.name)}</span><span>${money(i.n * i.price)}</span></div>`).join("") +
@@ -498,19 +531,21 @@ function renderOrders() {
       acts = `<button class="b red" onclick="rejectOrder(${o.id})">No lo tengo</button><button class="b green" onclick="sendQuote(${o.id})">Mandar precio</button>`;
     } else if (o.status === "por_aceptar_precio") {
       body = `<div class="okbox">Le mandaste <b>${money(o.total)}</b>. Esperando que el cliente acepte y pague.</div>`;
+    } else if (o.status === "nuevo" && o.pay_method === "transferencia" && !o.paid_confirmed) {
+      // Primero el pago: no se acepta ni arranca el cronómetro sin confirmar.
+      body = payLine(o) + (o.payment_problem
+        ? `<div class="note" style="margin-top:8px">⏳ Le avisamos al cliente que no te ha llegado. Espera su nuevo comprobante.</div>`
+        : `<div class="note" style="margin-top:8px">Paso 1: revisa que te llegó el dinero. Después eliges en cuánto está listo.</div>`);
+      acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="openReceipt(${o.id})">📎 Revisar el pago</button>`;
     } else if (o.status === "nuevo") {
       const sel = pickMin[o.id] || 20;
       body = payLine(o) + `<div class="lab" style="margin:10px 0 0">¿En cuánto está listo?</div>
         <div class="mins">${[5, 10, 20, 30, 45, 60].map((m) => `<button class="${m === sel ? "on" : ""}" onclick="pickMin[${o.id}]=${m};renderOrders()">${m} min</button>`).join("")}</div>`;
-      acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="acceptOrder(${o.id})">Aceptar pedido</button>`;
+      acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="acceptOrder(${o.id})">Aceptar · arranca el cronómetro</button>`;
     } else if (o.status === "aceptado") {
-      body = payLine(o);
-      if (o.pay_method === "transferencia" && !o.paid_confirmed) {
-        acts = `<button class="b green" onclick="openReceipt(${o.id})">📎 Revisar el pago</button>`;
-      } else {
-        body += `<div class="note" style="margin-top:8px">💡 Pide el chofer unos 5 min antes de que esté listo. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
-        acts = `<button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer</button>`;
-      }
+      body = payLine(o) + (o.ready_at_ms ? `<div class="cd" data-ready="${o.ready_at_ms}" data-id="${o.id}"></div>` : "") +
+        `<div class="note" style="margin-top:8px">💡 Pide el chofer unos 5 min antes de que esté listo. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
+      acts = `<button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer</button>`;
     } else if (o.status === "enviado") {
       const r = o.ride || {};
       body = payLine(o) + `<div class="okbox">${RIDE_ST[r.status] || "🛵"}${r.driver ? ` · <b>${escapeHtml(r.driver.name)}</b>${r.driver.vehicle ? " · " + escapeHtml(r.driver.vehicle) : ""}` : ""}${r.price ? ` · envío ${money(r.price)}` : ""}</div>`;
@@ -522,10 +557,11 @@ function renderOrders() {
     const done = ["rechazado", "cancelado"].includes(o.status) || (o.ride && o.ride.status === "completado");
     return `<div class="ord ${hot ? "hot" : ""} ${done ? "done" : ""}">
       <div class="hd"><div><div class="ttl">#${o.id} · ${escapeHtml(who)}</div><div class="when">${escapeHtml(o.dest_label || "")}${o.big ? " · 📦📦 grande" : ""} · ${ago(o.created_at)}</div></div><span class="st ${cls}">${label}</span></div>
-      <div class="lines">${orderLines(o)}</div>${body}
+      <div class="lines">${orderLines(o)}</div>${o.client_note ? `<div class="cnote">📝 <b>Nota del cliente:</b> ${escapeHtml(o.client_note)}</div>` : ""}${body}
       ${acts ? `<div class="btns">${acts}</div>` : ""}
     </div>`;
   }).join("");
+  tickCountdowns();
 }
 async function orderAction(id, path, body, okMsg) {
   try { await post(`/business/orders/${id}/${path}`, body || {}); if (okMsg) toast(okMsg); }
@@ -537,7 +573,7 @@ function sendQuote(id) {
   if (!(total > 0)) { toast("Escribe el total"); return; }
   orderAction(id, "quote", { total, note: document.getElementById("qn" + id).value.trim() }, "Precio enviado al cliente ✅");
 }
-function acceptOrder(id) { orderAction(id, "accept", { minutes: pickMin[id] || 20 }, "Pedido aceptado ✅"); }
+function acceptOrder(id) { orderAction(id, "accept", { minutes: pickMin[id] || 20 }, "Pedido aceptado ✅ El cronómetro ya corre"); }
 function rejectOrder(id) {
   const reason = prompt("¿Por qué no puedes atenderlo? (el cliente lo verá)", "Se acabó / no lo tengo");
   if (reason === null) return;
@@ -556,7 +592,7 @@ async function openReceipt(id) {
 function closeReceipt() { document.getElementById("rcpOverlay").classList.remove("open"); }
 async function confirmPay(received) {
   closeReceipt();
-  await orderAction(rcpOrder.id, "payment", { received }, received ? "Pago confirmado ✅ Ya puedes pedir chofer" : "Le avisamos al cliente que no te ha llegado");
+  await orderAction(rcpOrder.id, "payment", { received }, received ? "Pago confirmado ✅ Ahora elige en cuánto está listo" : "Le avisamos al cliente que no te ha llegado");
 }
 
 // --- Pedir chofer ---

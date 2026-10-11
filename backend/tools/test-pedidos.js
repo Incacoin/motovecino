@@ -75,10 +75,11 @@ async function main() {
   const cashNew = await post("/orders", { ...N, business_id: bizId, items: [{ id: para.id, n: 1 }], pay_method: "efectivo", delivery_offer: 17, ...dest });
   check("efectivo a cliente sin viajes = 400", cashNew.status === 400 && /primer viaje/.test(cashNew.data.error), cashNew);
 
-  const t1 = await post("/orders", { ...N, business_id: bizId, items: [{ id: para.id, n: 2, price: 1 }, { id: suero.id, n: 1 }], pay_method: "transferencia", receipt: JPG, delivery_offer: 20, ...dest });
+  const t1 = await post("/orders", { ...N, business_id: bizId, items: [{ id: para.id, n: 2, price: 1 }, { id: suero.id, n: 1 }], pay_method: "transferencia", receipt: JPG, delivery_offer: 20, client_note: "Sin caja, por favor", ...dest });
   check("pedido por transferencia creado", t1.status === 201 && t1.data.status === "nuevo", t1);
   check("el total sale de los precios del negocio ($98), no del celular", t1.data.total === 98, t1.data.total);
   check("el cliente ve la cuenta para pagar", t1.data.pay_to && t1.data.pay_to.account === "012790001234567890", t1.data.pay_to);
+  check("la nota del cliente se guarda", t1.data.client_note === "Sin caja, por favor", t1.data.client_note);
 
   // ---------- Negocio atiende ----------
   const list = await post("/business/orders/list", O);
@@ -88,20 +89,24 @@ async function main() {
   check("otra cuenta no puede tocar el pedido", intr.status === 403, intr);
   const badMin = await post(`/business/orders/${t1.data.id}/accept`, { ...O, minutes: 7 });
   check("minutos raros = 400", badMin.status === 400, badMin);
-  const acc = await post(`/business/orders/${t1.data.id}/accept`, { ...O, minutes: 10 });
-  check("aceptar pedido (10 min)", acc.status === 200 && acc.data.status === "aceptado" && acc.data.ready_minutes === 10, acc);
-  const lateCancel = await post(`/orders/${t1.data.id}/cancel`, N);
-  check("ya aceptado: el cliente no lo cancela solo", lateCancel.status === 409, lateCancel);
   const rec = await post(`/business/orders/${t1.data.id}/receipt`, O);
   check("el negocio ve el comprobante", rec.status === 200 && rec.data.receipt === JPG, rec.status);
+  const accUnpaid = await post(`/business/orders/${t1.data.id}/accept`, { ...O, minutes: 10 });
+  check("primero el pago: sin confirmarlo no se acepta", accUnpaid.status === 409 && /revisa el pago/.test(accUnpaid.data.error), accUnpaid);
   const early = await post(`/business/orders/${t1.data.id}/request-driver`, O);
-  check("sin confirmar la transferencia no pide chofer", early.status === 409, early);
+  check("sin aceptar no pide chofer", early.status === 409, early);
   const notYet = await post(`/business/orders/${t1.data.id}/payment`, { ...O, received: false });
   check("'no me ha llegado' queda marcado", notYet.data.payment_problem === true, notYet.data);
   const reup = await post(`/orders/${t1.data.id}/receipt`, { ...N, receipt: JPG });
   check("el cliente puede volver a subir comprobante", reup.status === 200 && reup.data.payment_problem === false, reup);
   const paid = await post(`/business/orders/${t1.data.id}/payment`, { ...O, received: true });
   check("'sí me llegó el pago'", paid.data.paid_confirmed === true, paid.data);
+  const acc = await post(`/business/orders/${t1.data.id}/accept`, { ...O, minutes: 10 });
+  check("aceptar pedido (10 min) ya pagado", acc.status === 200 && acc.data.status === "aceptado" && acc.data.ready_minutes === 10, acc);
+  const left = acc.data.ready_at_ms - acc.data.server_now_ms;
+  check("cronómetro: listo en ~10 min", left > 9 * 60000 && left <= 10 * 60000 + 2000, left);
+  const lateCancel = await post(`/orders/${t1.data.id}/cancel`, N);
+  check("ya aceptado: el cliente no lo cancela solo", lateCancel.status === 409, lateCancel);
 
   // Chofer conectado para ver la solicitud.
   const dr = (await post("/admin/drivers", { adminPin: ADMIN, name: `Repartidor ${stamp}`, phone: phone("9994"), vehicle: "Moto", acceptedLegal: true, vehicleType: "moto" })).data;
