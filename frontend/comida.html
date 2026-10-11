@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>Comida y negocios · MotoVecino</title>
-<meta name="description" content="Pide a los negocios de tu municipio: mira su menú con fotos y precios y pídeles por WhatsApp. El envío lo lleva un chofer de MotoVecino." />
+<title>Negocios · MotoVecino</title>
+<meta name="description" content="Pide a los negocios de tu municipio —comida, farmacia, abarrotes, papelería y más— desde la app. Pagas por transferencia o en efectivo y te lo lleva un mototaxista de MotoVecino." />
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#ffffff" />
@@ -21,14 +21,18 @@
 })();
 </script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
     --bg: #ffffff; --bg-card: #f6f6f6; --border: #e2e2e2; --text: #000; --dim: #545454; --faint: #8a8a8a;
     --green: #16a34a; --green-bg: #dcfce7; --btn: #000; --btn-ink: #fff;
+    --warn-bg: #fff7e0; --warn-bd: #f5d27a; --red: #d32f2f; --red-bg: #fdecec;
   }
   html[data-theme="dark"] {
     --bg: #000; --bg-card: #1a1a1a; --border: #2a2a2a; --text: #fff; --dim: #a8a8a8; --faint: #6b6b6b;
     --green: #4ade80; --green-bg: #14532d; --btn: #fff; --btn-ink: #000;
+    --warn-bg: #2a2410; --warn-bd: #6b5a1d; --red: #ff6b6b; --red-bg: #3a1414;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); letter-spacing: -0.005em; }
@@ -36,7 +40,10 @@
   .screen { display: none; min-height: 100vh; padding-bottom: 110px; }
   .screen.active { display: block; }
   .top { padding: 18px 16px 6px; display: flex; align-items: center; gap: 12px; }
+  .top .grow { flex: 1; min-width: 0; }
   .back { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--bg-card); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 38px; }
+  .mine-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 20px; padding: 8px 12px; font-weight: 800; font-size: 13px; cursor: pointer; position: relative; }
+  .mine-btn .dot { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #22c55e; display: none; }
   .kick { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: var(--green); }
   .title { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; }
   .hello { padding: 8px 16px 0; font-size: 25px; font-weight: 800; letter-spacing: -0.035em; line-height: 1.1; }
@@ -88,29 +95,78 @@
   .add { width: 34px; height: 34px; border-radius: 50%; border: none; background: var(--btn); color: var(--btn-ink); font-size: 20px; font-weight: 800; cursor: pointer; }
   .note { margin: 18px 16px 0; border-radius: 14px; padding: 13px 14px; background: var(--bg-card); font-size: 13px; color: var(--dim); line-height: 1.5; }
   .note b { color: var(--text); }
-  .bar { position: fixed; left: 14px; right: 14px; bottom: 18px; padding: 15px 16px; border-radius: 16px; border: none; background: #22c55e; color: #04210f; font-weight: 800; font-size: 15.5px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 10px 28px rgba(0,0,0,0.22); }
+  .special-card { margin: 18px 16px 0; border: 2px dashed var(--border); border-radius: 16px; padding: 14px; cursor: pointer; }
+  .special-card b { font-size: 15.5px; }
+  .special-card div { font-size: 13px; color: var(--dim); margin-top: 3px; line-height: 1.4; }
+  .bar { position: fixed; left: 14px; right: 14px; bottom: 18px; padding: 15px 16px; border-radius: 16px; border: none; background: #22c55e; color: #04210f; font-weight: 800; font-size: 15.5px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 10px 28px rgba(0,0,0,0.22); z-index: 20; }
   .bar:disabled { background: var(--bg-card); color: var(--faint); box-shadow: none; }
-  /* Confirmar pedido: dirección + cómo pagar (2-oct) */
+
+  /* Hoja para confirmar el pedido */
   .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; display: none; }
   .sheet-bg.open { display: block; }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; background: var(--bg); border-radius: 22px 22px 0 0; padding: 18px 16px 22px; max-height: 90vh; overflow-y: auto; transform: translateY(105%); transition: transform 0.25s; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; background: var(--bg); border-radius: 22px 22px 0 0; padding: 18px 16px 22px; max-height: 92vh; overflow-y: auto; transform: translateY(105%); transition: transform 0.25s; }
   .sheet.open { transform: none; }
   .sheet h3 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
-  .sheet .lines { margin: 12px 0; font-size: 14px; }
-  .sheet .ln { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
-  .sheet .tot { display: flex; justify-content: space-between; font-weight: 800; font-size: 16px; padding-top: 10px; }
-  .sheet .lab { font-size: 12.5px; font-weight: 700; color: var(--dim); margin: 14px 0 6px; }
-  .sheet input { width: 100%; font-family: inherit; font-size: 16px; padding: 13px 14px; border-radius: 12px; border: 1.5px solid transparent; background: var(--bg-card); color: var(--text); outline: none; }
-  .sheet input:focus { border-color: var(--text); background: var(--bg); }
-  .pay { margin-top: 14px; border-radius: 14px; padding: 13px 14px; background: var(--green-bg); color: var(--text); font-size: 13.5px; line-height: 1.5; }
-  .pay b { font-weight: 800; }
-  .pay .acct { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px; font-size: 16px; font-weight: 800; letter-spacing: 0.02em; }
-  .pay button { border: none; background: var(--btn); color: var(--btn-ink); border-radius: 9px; padding: 7px 11px; font-weight: 800; font-size: 12.5px; cursor: pointer; }
-  .sheet .go { width: 100%; margin-top: 16px; padding: 15px; border: none; border-radius: 14px; background: #22c55e; color: #04210f; font-weight: 800; font-size: 16px; cursor: pointer; }
-  .sheet .cancel { width: 100%; margin-top: 8px; padding: 12px; border: none; background: none; color: var(--dim); font-weight: 700; font-size: 14px; cursor: pointer; }
+  .lines { margin: 12px 0 0; font-size: 14px; }
+  .ln { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .tot { display: flex; justify-content: space-between; font-weight: 800; font-size: 16px; padding-top: 10px; }
+  .lab { font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); margin: 16px 0 6px; }
+  .field { width: 100%; font-family: inherit; font-size: 16px; padding: 13px 14px; border-radius: 12px; border: 1.5px solid transparent; background: var(--bg-card); color: var(--text); outline: none; }
+  .field:focus { border-color: var(--text); background: var(--bg); }
+  textarea.field { min-height: 110px; resize: vertical; line-height: 1.45; }
+  #destMapBox { position: relative; height: 170px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); }
+  #destMap { position: absolute; inset: 0; }
+  #destMapBox .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.04); }
+  html[data-theme="dark"] #destMapBox .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
+  .pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); z-index: 500; pointer-events: none; font-size: 30px; }
+  .hint { font-size: 12.5px; color: var(--faint); margin-top: 6px; line-height: 1.4; }
+  .stepper { display: flex; align-items: center; justify-content: space-between; border: 2px solid var(--text); border-radius: 14px; padding: 8px 10px; }
+  .stepper button { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--bg-card); color: var(--text); font-size: 24px; font-weight: 900; cursor: pointer; }
+  .stepper .v { text-align: center; }
+  .stepper .v b { font-size: 28px; letter-spacing: -0.03em; }
+  .stepper .v div { font-size: 12px; color: var(--dim); }
+  .opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--border); border-radius: 14px; padding: 12px; margin-top: 8px; cursor: pointer; }
+  .opt.sel { border-color: var(--text); }
+  .opt.off { opacity: 0.45; cursor: default; }
+  .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--faint); flex-shrink: 0; margin-top: 2px; }
+  .opt.sel .radio { border: 6px solid var(--text); }
+  .opt b { font-size: 15px; }
+  .sub, .opt .sub { font-size: 13px; color: var(--dim); margin-top: 3px; line-height: 1.4; }
+  .acct { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--bg-card); border-radius: 10px; padding: 10px; margin-top: 8px; font-size: 13.5px; line-height: 1.4; }
+  .acct b { font-size: 15px; letter-spacing: 0.02em; }
+  .mini { border: none; background: var(--btn); color: var(--btn-ink); border-radius: 9px; padding: 7px 11px; font-weight: 800; font-size: 12.5px; cursor: pointer; flex-shrink: 0; }
+  .upload { display: block; border: 2px dashed var(--border); border-radius: 12px; padding: 12px; text-align: center; font-size: 14px; font-weight: 700; margin-top: 8px; cursor: pointer; }
+  .upload.ok { border-style: solid; border-color: var(--green); color: var(--green); }
+  .warn { background: var(--warn-bg); border: 1px solid var(--warn-bd); border-radius: 12px; padding: 11px 12px; font-size: 13.5px; line-height: 1.45; margin-top: 8px; }
+  .okbox { background: var(--green-bg); border-radius: 12px; padding: 11px 12px; font-size: 13.5px; line-height: 1.45; margin-top: 8px; }
+  .err { color: var(--red); font-size: 13.5px; font-weight: 700; margin-top: 10px; min-height: 1px; }
+  .go { width: 100%; margin-top: 14px; padding: 15px; border: none; border-radius: 14px; background: #22c55e; color: #04210f; font-weight: 800; font-size: 16px; cursor: pointer; }
+  .go:disabled { opacity: 0.6; }
+  .go.dark { background: var(--btn); color: var(--btn-ink); }
+  .cancel { width: 100%; margin-top: 8px; padding: 12px; border: none; background: none; color: var(--dim); font-weight: 700; font-size: 14px; cursor: pointer; }
+  .check { display: flex; gap: 10px; align-items: center; margin-top: 10px; font-size: 14.5px; cursor: pointer; }
+  .check input { width: 20px; height: 20px; }
+
+  /* Mis pedidos */
+  .orders { padding: 0 16px; display: flex; flex-direction: column; gap: 12px; }
+  .ord { border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
+  .ord .hd { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .ord .nm { font-weight: 800; font-size: 16px; letter-spacing: -0.02em; }
+  .ord .sm { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+  .st { font-size: 11.5px; font-weight: 800; padding: 5px 10px; border-radius: 20px; white-space: nowrap; background: var(--bg-card); color: var(--dim); }
+  .st.new { background: #fff3cd; color: #8a6100; }
+  .st.ok { background: var(--green-bg); color: var(--green); }
+  .st.bad { background: var(--red-bg); color: var(--red); }
+  .ord .body { font-size: 14px; line-height: 1.5; margin-top: 10px; }
+  .ord .btns { display: flex; gap: 8px; margin-top: 10px; }
+  .ord .btns button { flex: 1; padding: 11px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 800; font-size: 13.5px; cursor: pointer; }
+  .ord .btns button.g { background: #22c55e; color: #04210f; border-color: #22c55e; }
+  .ord .btns button.r { color: var(--red); }
+  .ord a { color: var(--text); font-weight: 700; }
   .preview-banner { position: sticky; top: 0; z-index: 10; background: #000; color: #fff; font-size: 13px; font-weight: 700; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   html[data-theme="dark"] .preview-banner { background: #fff; color: #000; }
   .preview-banner button { border: none; background: #22c55e; color: #04210f; font-weight: 800; border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+  .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--btn); color: var(--btn-ink); padding: 11px 16px; border-radius: 12px; font-weight: 700; font-size: 14px; z-index: 80; display: none; max-width: 90vw; text-align: center; }
 </style>
 </head>
 <body>
@@ -118,12 +174,13 @@
 <div id="listScreen" class="screen active">
   <div class="top">
     <button class="back" onclick="goBack()" aria-label="Regresar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <div><div class="kick">MOTOVECINO</div><div class="title">Comida y negocios</div></div>
+    <div class="grow"><div class="kick">MOTOVECINO</div><div class="title">Negocios</div></div>
+    <button class="mine-btn" id="mineBtn" onclick="showOrders()" style="display:none">🧾 Mis pedidos<span class="dot" id="mineDot"></span></button>
   </div>
-  <div class="hello" id="hello">¿Qué se te antoja hoy?</div>
+  <div class="hello" id="hello">¿Qué necesitas hoy?</div>
   <div class="search">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-    <input id="q" type="search" placeholder="Busca tacos, pizza, postres…" oninput="renderList()" autocomplete="off" />
+    <input id="q" type="search" placeholder="Busca farmacia, tacos, papelería…" oninput="renderList()" autocomplete="off" />
   </div>
   <div class="chips" id="chips"></div>
   <div class="sec" id="listTitle">Negocios</div>
@@ -138,25 +195,57 @@
     <div class="tg" id="dTagline"></div>
     <div class="mt" id="dMeta"></div>
   </div>
+  <div id="pharmaNote"></div>
+  <div id="specialBox"></div>
   <div id="menu"></div>
-  <div class="note">🛵 Le pides directo al negocio por WhatsApp. <b>La comida la pagas al negocio</b> (te dice cómo) y <b>el envío se lo pagas al chofer</b> de MotoVecino al recibir.</div>
-  <button class="bar" id="orderBar" onclick="openCheckout()" disabled><span id="barLeft">Elige tus productos</span><span id="barRight"></span></button>
+  <div class="note">🛵 Pides aquí y el negocio te confirma. <b>El pedido</b> lo pagas por transferencia o en efectivo, y <b>el envío</b> lo propones tú y se lo pagas al mototaxista al recibir.</div>
+  <button class="bar" id="orderBar" onclick="openCheckout('catalogo')" disabled><span id="barLeft">Elige tus productos</span><span id="barRight"></span></button>
+</div>
+
+<div id="ordersScreen" class="screen">
+  <div class="top">
+    <button class="back" onclick="hideOrders()" aria-label="Regresar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="grow"><div class="kick">MOTOVECINO · NEGOCIOS</div><div class="title">Mis pedidos</div></div>
+  </div>
+  <div class="orders" id="ordersList"><div class="empty">Cargando…</div></div>
 </div>
 
 <div class="sheet-bg" id="sheetBg" onclick="closeCheckout()"></div>
 <div class="sheet" id="sheet">
-  <h3>Tu pedido</h3>
-  <div class="lines" id="sLines"></div>
+  <h3 id="sTitle">Tu pedido</h3>
+  <div id="sBody"></div>
   <div class="lab">¿Dónde te lo llevamos?</div>
-  <input id="sAddress" maxlength="120" placeholder='Ej. Calle 50 x 47 y 49, casa azul' autocomplete="street-address" />
-  <div class="pay" id="sPay"></div>
-  <button class="go" onclick="sendOrder()">Enviar pedido por WhatsApp</button>
+  <div id="destMapBox"><div id="destMap"></div><div class="pin">📍</div></div>
+  <div class="hint">Mueve el mapa: el 📍 marca dónde se entrega.</div>
+  <input id="sAddress" class="field" style="margin-top:8px" maxlength="120" placeholder="Ej. Calle 50 x 47 y 49, casa azul" autocomplete="street-address" />
+  <div class="lab">🛵 Propón tu precio de envío</div>
+  <div class="stepper"><button onclick="stepOffer(-1)" aria-label="Menos">−</button><div class="v"><b id="offerV">$17</b><div id="offerHint">Sugerido (es el mínimo)</div></div><button onclick="stepOffer(1)" aria-label="Más">+</button></div>
+  <div class="hint">El envío se lo pagas al mototaxista al recibir. Si ofreces más, lo toman más rápido.</div>
+  <div id="sPay"></div>
+  <div class="err" id="sErr"></div>
+  <button class="go" id="sGo" onclick="sendOrder()">Enviar pedido</button>
   <button class="cancel" onclick="closeCheckout()">Seguir eligiendo</button>
 </div>
 
+<!-- Aceptar el precio de un pedido especial -->
+<div class="sheet-bg" id="quoteBg" onclick="closeQuote()"></div>
+<div class="sheet" id="quoteSheet">
+  <h3>Precio de tu pedido</h3>
+  <div id="qBody"></div>
+  <div class="err" id="qErr"></div>
+  <button class="go" id="qGo" onclick="acceptQuote()">Aceptar y pedir</button>
+  <button class="cancel" onclick="closeQuote()">Ahora no</button>
+</div>
+
+<input type="file" id="receiptInput" accept="image/*" style="display:none" onchange="onReceipt(this)" />
+<div class="toast" id="toast"></div>
+
 <script>
 const API = "";
+const FARMACIA_NOTE = "💊 Solo medicinas <b>sin receta</b>. Antibióticos y medicinas controladas: ve directo a la farmacia con tu receta.";
 let me = null, businesses = [], current = null, menu = [], cart = {}, chip = "Todos", isPreview = false;
+let opts = null, kind = "catalogo", offer = 17, payMethod = "transferencia", receipt = null, receiptFor = null;
+let destMap = null, orders = [], ordersTimer = null, quoteOrder = null;
 try { me = JSON.parse(localStorage.getItem("motoya_rider") || "null"); } catch {}
 
 function escapeHtml(t) {
@@ -164,15 +253,29 @@ function escapeHtml(t) {
 }
 function norm(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
 function goBack() { if (history.length > 1) history.back(); else location.href = "pasajero.html"; }
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = "none"), 3200);
+}
+function authBody(extra) { return JSON.stringify({ phone: me.phone, pin: me.pin, ...extra }); }
+async function post(path, extra) {
+  const r = await fetch(API + "/api" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: authBody(extra) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "No se pudo, intenta de nuevo");
+  return d;
+}
+function money(n) { return "$" + Number(n || 0).toLocaleString("es-MX"); }
 
 async function start() {
   const params = new URLSearchParams(location.search);
   const name = me && me.name ? me.name.trim().split(/\s+/)[0] : "";
-  if (name) document.getElementById("hello").textContent = `${name}, ¿qué se te antoja hoy?`;
+  if (name) document.getElementById("hello").textContent = `${name}, ¿qué necesitas hoy?`;
+  if (me && me.pin) document.getElementById("mineBtn").style.display = "";
   // Vista previa del dueño: su propio negocio aunque la sección esté apagada.
   if (params.get("vista") && me && me.pin) {
     try {
-      const r = await fetch(API + "/api/business/profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: me.phone, pin: me.pin }) });
+      const r = await fetch(API + "/api/business/profile", { method: "POST", headers: { "Content-Type": "application/json" }, body: authBody() });
       const d = await r.json();
       if (r.ok) {
         isPreview = true;
@@ -182,10 +285,11 @@ async function start() {
       }
     } catch {}
   }
+  if (params.get("pedidos") && me && me.pin) showOrders();
   try {
     const d = await (await fetch(API + "/api/food/businesses?city=tekax", { cache: "no-store" })).json();
     if (!d.enabled) {
-      document.getElementById("bizList").innerHTML = `<div class="empty">🍽️ <b>Muy pronto</b><br>Aquí vas a poder ver el menú de los negocios de tu municipio y pedirles directo. El envío lo lleva un chofer de MotoVecino.</div>`;
+      document.getElementById("bizList").innerHTML = `<div class="empty">🛍️ <b>Muy pronto</b><br>Aquí vas a poder pedirle a los negocios de tu municipio —comida, farmacia, abarrotes y más— y te lo lleva un mototaxista de MotoVecino.</div>`;
       document.getElementById("listTitle").style.display = "none";
       return;
     }
@@ -197,6 +301,7 @@ async function start() {
   } catch {
     document.getElementById("bizList").innerHTML = `<div class="empty">Sin conexión. Intenta de nuevo.</div>`;
   }
+  if (me && me.pin) refreshOrders(true);
 }
 
 function renderChips() {
@@ -215,7 +320,7 @@ function renderList() {
   const el = document.getElementById("bizList");
   document.getElementById("listTitle").textContent = q ? `Resultados · ${list.length}` : "Negocios";
   if (!list.length) {
-    el.innerHTML = `<div class="empty">${businesses.length ? "No encontramos eso. Prueba con otra palabra." : "Todavía no hay negocios con menú."}</div>`;
+    el.innerHTML = `<div class="empty">${businesses.length ? "No encontramos eso. Prueba con otra palabra." : "Todavía no hay negocios."}</div>`;
     return;
   }
   el.innerHTML = list.map((b) => `
@@ -225,7 +330,7 @@ function renderList() {
         <div class="lg" style="${b.logo ? `background-image:url('${b.logo}')` : ""}">${b.logo ? "" : "🏪"}</div>
       </div>
       <div class="bd"><div class="nm">${escapeHtml(b.name)}</div>${b.tagline ? `<div class="tg">${escapeHtml(b.tagline)}</div>` : ""}
-        <div class="mt">${[b.category, b.hours].filter(Boolean).map(escapeHtml).join(" · ")}</div></div>
+        <div class="mt">${[b.category, b.hours, b.special ? "acepta pedido especial" : ""].filter(Boolean).map(escapeHtml).join(" · ")}</div></div>
     </div>`).join("");
 }
 
@@ -235,14 +340,14 @@ async function loadBusiness(id) {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error);
     openDetail(d.business, d.menu);
-  } catch { alertMsg("No se pudo abrir el negocio"); }
+  } catch { toast("No se pudo abrir el negocio"); }
 }
-function alertMsg(m) { document.getElementById("barLeft").textContent = m; }
 
-function openDetail(b, items) {
+async function openDetail(b, items) {
   current = b;
-  menu = items;
+  menu = b.catalog === false ? [] : items;
   cart = {};
+  opts = null;
   document.getElementById("hero").style.backgroundImage = b.cover ? `url("${b.cover}")` : "";
   const lg = document.getElementById("heroLogo");
   lg.style.backgroundImage = b.logo ? `url("${b.logo}")` : "";
@@ -251,10 +356,18 @@ function openDetail(b, items) {
   document.getElementById("dTagline").textContent = b.tagline || "";
   document.getElementById("dMeta").innerHTML = `<span class="pill ${b.is_open ? "open" : ""}">${b.is_open ? "● Abierto" : "Cerrado ahora"}</span>` +
     [b.category, b.hours, b.address].filter(Boolean).map((t) => `<span>${escapeHtml(t)}</span>`).join("<span>·</span>");
+  document.getElementById("pharmaNote").innerHTML = b.category === "Farmacia" ? `<div class="warn" style="margin:14px 16px 0">${FARMACIA_NOTE}</div>` : "";
+  document.getElementById("specialBox").innerHTML = b.special && b.is_open
+    ? `<div class="special-card" onclick="openCheckout('especial')"><b>✍️ Pedido especial</b><div>${menu.length ? "¿No ves lo que buscas? " : ""}Escribe lo que necesitas y el negocio te manda el precio antes de pagar.</div></div>`
+    : "";
   renderMenu();
   document.getElementById("listScreen").classList.remove("active");
+  document.getElementById("ordersScreen").classList.remove("active");
   document.getElementById("detailScreen").classList.add("active");
   window.scrollTo(0, 0);
+  if (!isPreview) {
+    try { opts = await (await fetch(API + "/api/orders/options/" + b.id, { cache: "no-store" })).json(); } catch {}
+  }
 }
 function closeDetail() {
   if (isPreview) { location.href = "negocio.html"; return; }
@@ -264,7 +377,7 @@ function closeDetail() {
 
 function renderMenu() {
   const groups = {};
-  for (const i of menu) (groups[i.category || "Menú"] = groups[i.category || "Menú"] || []).push(i);
+  for (const i of menu) (groups[i.category || "Productos"] = groups[i.category || "Productos"] || []).push(i);
   document.getElementById("menu").innerHTML = Object.entries(groups).map(([cat, items]) => `<div class="cat-h">${escapeHtml(cat)}</div>` + items.map((i) => {
     const n = cart[i.id] || 0;
     const ctl = n
@@ -283,11 +396,12 @@ function setQty(id, d) {
   renderMenu();
 }
 function cartLines() { return menu.filter((i) => cart[i.id]).map((i) => ({ ...i, n: cart[i.id] })); }
+function cartTotal() { return cartLines().reduce((a, l) => a + l.n * l.price, 0); }
 function renderBar() {
   const bar = document.getElementById("orderBar");
   const lines = cartLines();
   const count = lines.reduce((a, l) => a + l.n, 0);
-  const total = lines.reduce((a, l) => a + l.n * l.price, 0);
+  bar.style.display = menu.length ? "" : "none";
   if (!current.is_open) {
     bar.disabled = true;
     document.getElementById("barLeft").textContent = "Cerrado ahora";
@@ -295,66 +409,315 @@ function renderBar() {
     return;
   }
   bar.disabled = !count;
-  document.getElementById("barLeft").textContent = count ? `Pedir por WhatsApp · ${count}` : "Elige tus productos";
-  document.getElementById("barRight").textContent = count ? `$${total}` : "";
+  document.getElementById("barLeft").textContent = count ? `Ver mi pedido · ${count}` : "Elige tus productos";
+  document.getElementById("barRight").textContent = count ? money(cartTotal()) : "";
 }
 
-// Antes de mandar: resumen, dirección y cómo pagarle al negocio. La cuenta
-// solo se muestra aquí, cuando el cliente ya está pidiendo.
-function payText() {
-  if (!current.pay_account) return "";
-  const kind = current.pay_account.length === 18 ? "CLABE" : "Tarjeta";
-  return `${current.pay_bank ? current.pay_bank + " · " : ""}${kind} ${current.pay_account}${current.pay_holder ? " · " + current.pay_holder : ""}`;
+// ---------- Confirmar pedido ----------
+function minOffer() { return (opts && opts.min_delivery) || 17; }
+function stepOffer(d) {
+  offer = Math.max(minOffer(), Math.min(300, offer + d));
+  document.getElementById("offerV").textContent = money(offer);
+  document.getElementById("offerHint").textContent = offer === minOffer() ? "Sugerido (es el mínimo)" : `+${money(offer - minOffer())} sobre el mínimo`;
+  if (kind === "catalogo") renderPay();
 }
-function openCheckout() {
-  const lines = cartLines();
-  if (!lines.length) return;
-  const total = lines.reduce((a, l) => a + l.n * l.price, 0);
-  document.getElementById("sLines").innerHTML = lines.map((l) => `<div class="ln"><span>${l.n} × ${escapeHtml(l.name)}</span><span>$${l.n * l.price}</span></div>`).join("") +
-    `<div class="tot"><span>Total de la comida</span><span>$${total}</span></div>`;
-  const addr = document.getElementById("sAddress");
-  if (!addr.value && me && me.home_label) addr.value = me.home_label;
-  const kind = current.pay_account && current.pay_account.length === 18 ? "CLABE" : "Tarjeta";
-  document.getElementById("sPay").innerHTML = current.pay_account
-    ? `💳 <b>Transfiere $${total}</b> a ${escapeHtml(current.name)}:
-       <div class="acct"><span>${escapeHtml(current.pay_bank || "")} · ${kind}<br>${escapeHtml(current.pay_account.replace(/(\d{4})(?=\d)/g, "$1 "))}</span><button onclick="copyAccount()" id="copyBtn">Copiar</button></div>
-       ${current.pay_holder ? `<div>Titular: <b>${escapeHtml(current.pay_holder)}</b></div>` : ""}
-       <div style="margin-top:6px">📎 Manda tu comprobante en el mismo chat de WhatsApp. El envío se lo pagas al chofer al recibir.</div>`
-    : `💳 El negocio te dirá por WhatsApp cómo pagarle la comida. El envío se lo pagas al chofer al recibir.`;
+
+function openCheckout(k) {
+  if (!me || !me.pin) { location.href = "pasajero.html"; return; }
+  kind = k;
+  if (kind === "catalogo" && !cartLines().length) return;
+  receipt = null;
+  offer = minOffer();
+  stepOffer(0);
+  document.getElementById("sErr").textContent = "";
+  document.getElementById("sTitle").textContent = kind === "especial" ? "Pedido especial" : "Tu pedido";
+  if (kind === "catalogo") {
+    const lines = cartLines();
+    document.getElementById("sBody").innerHTML = `<div class="lines">${lines.map((l) => `<div class="ln"><span>${l.n} × ${escapeHtml(l.name)}</span><span>${money(l.n * l.price)}</span></div>`).join("")}
+      <div class="tot"><span>Total del pedido</span><span>${money(cartTotal())}</span></div></div>`;
+  } else {
+    document.getElementById("sBody").innerHTML = `
+      <div class="lab">Escribe lo que necesitas</div>
+      <textarea class="field" id="specialText" maxlength="500" placeholder="Ej. 2 kg de frijol negro, 1 aceite de 1 litro, 1 kg de azúcar"></textarea>
+      ${current.category === "Farmacia" ? `<div class="warn">${FARMACIA_NOTE}</div>` : ""}
+      <label class="check"><input type="checkbox" id="bigBox"> 📦📦 Es grande o pesado (garrafón, bulto…)</label>
+      <div class="okbox">ℹ️ El negocio revisa lo que tiene y <b>te manda el precio</b>. Tú decides si lo aceptas antes de pagar.</div>`;
+  }
+  renderPay();
+  document.getElementById("sGo").textContent = kind === "especial" ? "Pedir precio al negocio" : "Enviar pedido";
   document.getElementById("sheetBg").classList.add("open");
   document.getElementById("sheet").classList.add("open");
+  const addr = document.getElementById("sAddress");
+  if (!addr.value && me.home_label) addr.value = me.home_label;
+  setTimeout(initDestMap, 260);
 }
 function closeCheckout() {
   document.getElementById("sheetBg").classList.remove("open");
   document.getElementById("sheet").classList.remove("open");
 }
-function copyAccount() {
-  const done = () => { const b = document.getElementById("copyBtn"); if (b) b.textContent = "¡Copiada!"; };
-  if (navigator.clipboard) navigator.clipboard.writeText(current.pay_account).then(done, done);
-  else done();
+
+function initDestMap() {
+  const start = me && me.home_lat != null ? [me.home_lat, me.home_lng] : [current.lat, current.lng];
+  if (!destMap) {
+    destMap = L.map("destMap", { zoomControl: false, attributionControl: false }).setView(start, 16);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(destMap);
+  } else {
+    destMap.setView(start, 16, { animate: false });
+  }
+  destMap.invalidateSize();
+  if (!(me && me.home_lat != null) && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition((p) => destMap.setView([p.coords.latitude, p.coords.longitude], 17), () => {}, { timeout: 6000 });
+  }
 }
 
-// El pedido sale escrito al WhatsApp del negocio; ahí mismo el cliente manda su
-// comprobante. El negocio confirma el pago y pide chofer desde "Mi negocio".
-function sendOrder() {
-  const lines = cartLines();
-  if (!lines.length || !current.whatsapp) return;
-  const total = lines.reduce((a, l) => a + l.n * l.price, 0);
-  const name = me && me.name ? me.name.trim() : "";
-  const address = document.getElementById("sAddress").value.trim();
-  const pay = payText();
-  const text = [
-    `Hola ${current.name}, vi su menú en MotoVecino 🛵 Quiero pedir:`,
-    ...lines.map((l) => `• ${l.n} × ${l.name} — $${l.n * l.price}`),
-    `Total: $${total} (más el envío)`,
-    name ? `A nombre de: ${name}` : "",
-    `Entregar en: ${address}`,
-    pay ? `💳 Le transfiero a: ${pay}` : "",
-    pay ? `📎 Ahorita le mando mi comprobante por aquí.` : "",
-  ].filter(Boolean).join("\n");
-  if (isPreview) { closeCheckout(); alertMsg("Así le llegaría tu pedido a WhatsApp ✅"); return; }
-  closeCheckout();
-  window.open(`https://wa.me/52${current.whatsapp}?text=${encodeURIComponent(text)}`, "_blank");
+// Formas de pago (solo catálogo; el especial paga cuando acepta el precio).
+function payOptionsHtml(total, method, receiptOk, idPrefix) {
+  const o = opts || {};
+  const transferOk = !!o.transfer, cashOk = !!o.cash && (total == null || total <= o.cash_cap);
+  const acct = current && current.pay_account ? current : null;
+  const kindTxt = acct && acct.pay_account.length === 18 ? "CLABE" : "Tarjeta";
+  const transfer = `<div class="opt ${method === "transferencia" ? "sel" : ""} ${transferOk ? "" : "off"}" onclick="${transferOk ? `setPay('transferencia','${idPrefix}')` : ""}"><div class="radio"></div><div style="flex:1;min-width:0">
+      <b>💳 Transferencia al negocio</b>
+      ${!transferOk ? `<div class="sub">Este negocio no tiene cuenta para transferencia.</div>` : method === "transferencia" && acct ? `
+        <div class="acct"><span>${escapeHtml(acct.pay_bank || "")} · ${kindTxt}<br><b>${escapeHtml(acct.pay_account.replace(/(\d{4})(?=\d)/g, "$1 "))}</b>${acct.pay_holder ? `<br>${escapeHtml(acct.pay_holder)}` : ""}</span><button class="mini" onclick="event.stopPropagation();copyAccount(this)">Copiar</button></div>
+        <div class="sub" style="margin-top:6px">Transfiere <b>${money(total)}</b> y sube la foto del comprobante.</div>
+        <label class="upload ${receiptOk ? "ok" : ""}" onclick="event.stopPropagation();pickReceipt('${idPrefix}')">${receiptOk ? "✅ Comprobante listo · cambiar" : "📎 Subir foto del comprobante"}</label>` : `<div class="sub">Ves la cuenta y subes tu comprobante.</div>`}
+    </div></div>`;
+  const cashSub = !o.cash ? "Este negocio no acepta efectivo."
+    : total != null && total > o.cash_cap ? `En efectivo, máximo ${money(o.cash_cap)}.`
+    : "Le pagas todo al mototaxista cuando llegue.";
+  const cash = `<div class="opt ${method === "efectivo" ? "sel" : ""} ${cashOk ? "" : "off"}" onclick="${cashOk ? `setPay('efectivo','${idPrefix}')` : ""}"><div class="radio"></div><div style="flex:1">
+      <b>💵 Efectivo al recibir</b><div class="sub">${cashSub}</div>
+      ${method === "efectivo" && cashOk ? `<div class="warn">💵 <b>Pagarás en efectivo al repartidor:</b><br>${money(total)} del pedido + ${money(offer)} de envío = <b>${money(total + offer)}</b>.<br>Ten el dinero listo, de preferencia exacto: el repartidor no siempre trae cambio.</div>
+        <div class="sub" style="margin-top:6px">ℹ️ El repartidor le paga el pedido al negocio al recogerlo, por eso se lo pagas a él.</div>` : ""}
+    </div></div>`;
+  return `<div class="lab">¿Cómo pagas el pedido?</div>${transfer}${cash}`;
+}
+function renderPay() {
+  const el = document.getElementById("sPay");
+  if (kind !== "catalogo") { el.innerHTML = ""; return; }
+  const o = opts || {};
+  if (payMethod === "transferencia" && !o.transfer && o.cash) payMethod = "efectivo";
+  if (payMethod === "efectivo" && !(o.cash && cartTotal() <= o.cash_cap) && o.transfer) payMethod = "transferencia";
+  el.innerHTML = payOptionsHtml(cartTotal(), payMethod, !!receipt, "s");
+}
+function setPay(m, prefix) {
+  payMethod = m;
+  if (prefix === "q") renderQuote(); else renderPay();
+}
+function copyAccount(btn) {
+  const done = () => { btn.textContent = "¡Copiada!"; };
+  if (navigator.clipboard) navigator.clipboard.writeText(current.pay_account).then(done, done); else done();
+}
+function pickReceipt(prefix) { receiptFor = prefix; document.getElementById("receiptInput").click(); }
+function compressImage(file, maxSide) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL("image/jpeg", 0.72));
+    };
+    img.onerror = () => reject(new Error("No se pudo leer la foto"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function onReceipt(input) {
+  const f = input.files && input.files[0];
+  input.value = "";
+  if (!f) return;
+  try { receipt = await compressImage(f, 1400); } catch { toast("No se pudo leer la foto, tómala otra vez"); return; }
+  if (receiptFor === "q") renderQuote();
+  else if (receiptFor && receiptFor.startsWith("o")) reuploadReceipt(Number(receiptFor.slice(1)));
+  else renderPay();
+}
+
+async function sendOrder() {
+  if (isPreview) { closeCheckout(); toast("Vista previa: así lo verían tus clientes ✅"); return; }
+  const err = document.getElementById("sErr");
+  err.textContent = "";
+  const c = destMap.getCenter();
+  const body = { business_id: current.id, kind, delivery_offer: offer, dest_lat: c.lat, dest_lng: c.lng, dest_label: document.getElementById("sAddress").value.trim() };
+  if (!body.dest_label) { err.textContent = "Escribe tu dirección o una seña (ej. casa azul)"; return; }
+  if (kind === "catalogo") {
+    body.items = cartLines().map((l) => ({ id: l.id, n: l.n }));
+    body.pay_method = payMethod;
+    if (payMethod === "transferencia") {
+      if (!receipt) { err.textContent = "Sube la foto de tu comprobante de transferencia"; return; }
+      body.receipt = receipt;
+    }
+  } else {
+    body.special_text = document.getElementById("specialText").value.trim();
+    body.big = document.getElementById("bigBox").checked;
+    if (body.special_text.length < 3) { err.textContent = "Escribe lo que necesitas"; return; }
+  }
+  const btn = document.getElementById("sGo");
+  btn.disabled = true;
+  try {
+    await post("/orders", body);
+    closeCheckout();
+    cart = {};
+    renderMenu();
+    toast(kind === "especial" ? "Listo, el negocio te mandará el precio 🧾" : "¡Pedido enviado! Espera a que el negocio lo acepte 🧾");
+    showOrders();
+  } catch (e) {
+    err.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------- Mis pedidos ----------
+const ORDER_STATUS = {
+  cotizando: ["Esperando precio", "new"],
+  por_aceptar_precio: ["Te mandaron precio", "new"],
+  nuevo: ["Esperando al negocio", "new"],
+  aceptado: ["Preparando", "ok"],
+  enviado: ["Con repartidor", "ok"],
+  rechazado: ["Rechazado", "bad"],
+  cancelado: ["Cancelado", ""],
+};
+const RIDE_TXT = {
+  buscando: "🔎 Buscando repartidor…",
+  aceptado: "🛵 Tu repartidor va por tu pedido",
+  llegue: "📦 Tu repartidor está recogiendo tu pedido",
+  en_curso: "📦 Tu pedido va en camino",
+  completado: "✅ Entregado",
+  cancelado: "Nadie tomó el envío todavía. El negocio lo volverá a pedir.",
+};
+
+function showOrders() {
+  if (!me || !me.pin) { location.href = "pasajero.html"; return; }
+  ["listScreen", "detailScreen"].forEach((id) => document.getElementById(id).classList.remove("active"));
+  document.getElementById("ordersScreen").classList.add("active");
+  window.scrollTo(0, 0);
+  refreshOrders();
+  clearInterval(ordersTimer);
+  ordersTimer = setInterval(() => { if (!document.hidden) refreshOrders(); }, 10000);
+}
+function hideOrders() {
+  clearInterval(ordersTimer);
+  document.getElementById("ordersScreen").classList.remove("active");
+  document.getElementById(current && !isPreview ? "detailScreen" : "listScreen").classList.add("active");
+}
+async function refreshOrders(silent) {
+  try { orders = await post("/orders/mine"); } catch { if (!silent) document.getElementById("ordersList").innerHTML = `<div class="empty">Sin conexión. Intenta de nuevo.</div>`; return; }
+  const waiting = orders.some((o) => o.status === "por_aceptar_precio");
+  document.getElementById("mineDot").style.display = waiting || orders.some((o) => ["nuevo", "aceptado", "enviado", "cotizando"].includes(o.status)) ? "block" : "none";
+  if (document.getElementById("ordersScreen").classList.contains("active")) renderOrders();
+}
+function orderLines(o) {
+  if (o.kind === "especial") return `<div style="white-space:pre-line">${escapeHtml(o.special_text)}</div>`;
+  return o.items.map((i) => `<div class="ln"><span>${i.n} × ${escapeHtml(i.name)}</span><span>${money(i.n * i.price)}</span></div>`).join("");
+}
+function minutesSince(t) { return t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"))) / 60000 : 0; }
+function renderOrders() {
+  const el = document.getElementById("ordersList");
+  if (!orders.length) { el.innerHTML = `<div class="empty">Todavía no tienes pedidos.<br>Elige un negocio y pide lo que necesites.</div>`; return; }
+  el.innerHTML = orders.map((o) => {
+    const [label, cls] = ORDER_STATUS[o.status] || [o.status, ""];
+    const total = o.total != null ? money(o.total) : "";
+    let body = "", btns = "";
+    if (o.status === "cotizando") {
+      body = `El negocio está revisando lo que tiene y te mandará el precio.`;
+      btns = `<button class="r" onclick="cancelOrder(${o.id})">Cancelar</button>`;
+    } else if (o.status === "por_aceptar_precio") {
+      body = `<b>El negocio te manda precio: ${total}</b>${o.business_note ? `<br>Nota: <i>“${escapeHtml(o.business_note)}”</i>` : ""}`;
+      btns = `<button class="r" onclick="cancelOrder(${o.id})">No, gracias</button><button class="g" onclick="openQuote(${o.id})">Ver y aceptar</button>`;
+    } else if (o.status === "nuevo") {
+      body = `Esperando que el negocio acepte tu pedido.`;
+      if (minutesSince(o.created_at) >= 5 && o.business && o.business.whatsapp) body += `<br>¿No contesta? <a href="https://wa.me/52${o.business.whatsapp}?text=${encodeURIComponent(`Hola ${o.business.name}, les mandé un pedido por MotoVecino (#${o.id}). ¿Lo recibieron?`)}" target="_blank">Avisarle por WhatsApp</a>`;
+      btns = `<button class="r" onclick="cancelOrder(${o.id})">Cancelar</button>`;
+    } else if (o.status === "aceptado") {
+      body = `El negocio aceptó tu pedido${o.ready_minutes ? ` · listo en unos ${o.ready_minutes} min` : ""}.`;
+      if (o.pay_method === "transferencia") {
+        body += o.paid_confirmed ? `<div class="okbox">✅ El negocio confirmó tu pago.</div>`
+          : o.payment_problem ? `<div class="warn">⚠️ El negocio dice que <b>no le ha llegado tu transferencia</b>. Revisa tu banco y sube el comprobante correcto.</div>`
+          : `<div class="sub" style="margin-top:6px">⏳ Esperando que el negocio confirme tu pago.</div>`;
+        if (o.payment_problem) btns = `<button class="g" onclick="pickReceipt('o${o.id}')">📎 Subir comprobante otra vez</button>`;
+      } else {
+        body += `<div class="warn">💵 Ten listos <b>${money(o.total + o.delivery_offer)}</b> (${total} del pedido + ${money(o.delivery_offer)} de envío), de preferencia exacto.</div>`;
+      }
+    } else if (o.status === "enviado") {
+      const r = o.ride || {};
+      body = `${RIDE_TXT[r.status] || "🛵 Buscando repartidor…"}${r.driver ? `<br>${escapeHtml(r.driver.name)}${r.driver.vehicle ? " · " + escapeHtml(r.driver.vehicle) : ""}` : ""}`;
+      if (o.pay_method === "efectivo" && r.status !== "completado") body += `<div class="warn">💵 Ten listos <b>${money(o.total + (r.price || o.delivery_offer))}</b> para el repartidor.</div>`;
+      if (r.share_token && !["completado", "cancelado"].includes(r.status)) btns = `<button class="g" onclick="trackRide(${r.id}, '${r.share_token}')">🗺️ Ver en el mapa y mi clave</button>`;
+    } else if (o.status === "rechazado") {
+      body = `El negocio no pudo atenderlo${o.reject_reason ? `: <i>“${escapeHtml(o.reject_reason)}”</i>` : "."}`;
+    }
+    return `<div class="ord">
+      <div class="hd"><div><div class="nm">${escapeHtml(o.business ? o.business.name : "Negocio")}</div><div class="sm">Pedido #${o.id}${total ? " · " + total : ""} · ${o.pay_method === "efectivo" ? "💵 efectivo" : o.pay_method === "transferencia" ? "💳 transferencia" : "✍️ especial"}</div></div><span class="st ${cls}">${label}</span></div>
+      <div class="body">${orderLines(o)}<div style="margin-top:8px">${body}</div></div>
+      ${btns ? `<div class="btns">${btns}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+async function cancelOrder(id) {
+  if (!confirm("¿Cancelar este pedido?")) return;
+  try { await post(`/orders/${id}/cancel`); toast("Pedido cancelado"); refreshOrders(); } catch (e) { toast(e.message); }
+}
+async function reuploadReceipt(id) {
+  try { await post(`/orders/${id}/receipt`, { receipt }); toast("Comprobante enviado ✅"); refreshOrders(); } catch (e) { toast(e.message); }
+  receipt = null;
+}
+// El pedido ya tiene viaje: se sigue en la app de siempre (mapa, clave, chat).
+function trackRide(id, token) {
+  try { localStorage.setItem("motoya_active_ride", JSON.stringify({ id, token })); } catch {}
+  location.href = "pasajero.html";
+}
+
+// ---------- Aceptar precio (pedido especial) ----------
+async function openQuote(id) {
+  quoteOrder = orders.find((o) => o.id === id);
+  if (!quoteOrder) return;
+  receipt = null;
+  payMethod = "transferencia";
+  try {
+    const r = await fetch(API + "/api/food/business/" + quoteOrder.business.id, { cache: "no-store" });
+    current = (await r.json()).business;
+    opts = await (await fetch(API + "/api/orders/options/" + quoteOrder.business.id, { cache: "no-store" })).json();
+  } catch { toast("Sin conexión"); return; }
+  offer = quoteOrder.delivery_offer;
+  if (!opts.transfer) payMethod = "efectivo";
+  renderQuote();
+  document.getElementById("qErr").textContent = "";
+  document.getElementById("quoteBg").classList.add("open");
+  document.getElementById("quoteSheet").classList.add("open");
+}
+function renderQuote() {
+  const o = quoteOrder;
+  document.getElementById("qBody").innerHTML = `
+    <div class="sub" style="margin-top:6px">${escapeHtml(o.business.name)} · Pedido #${o.id}</div>
+    <div class="note" style="margin:10px 0 0;white-space:pre-line">${escapeHtml(o.special_text)}</div>
+    ${o.business_note ? `<div class="warn">Nota del negocio: <i>“${escapeHtml(o.business_note)}”</i></div>` : ""}
+    <div class="lines"><div class="tot"><span>Total del pedido</span><span>${money(o.total)}</span></div>
+    <div class="ln" style="border:0"><span>Envío (lo propusiste tú)</span><span>${money(o.delivery_offer)}</span></div></div>
+    ${payOptionsHtml(o.total, payMethod, !!receipt, "q")}`;
+}
+function closeQuote() {
+  document.getElementById("quoteBg").classList.remove("open");
+  document.getElementById("quoteSheet").classList.remove("open");
+}
+async function acceptQuote() {
+  const err = document.getElementById("qErr");
+  err.textContent = "";
+  const body = { pay_method: payMethod };
+  if (payMethod === "transferencia") {
+    if (!receipt) { err.textContent = "Sube la foto de tu comprobante de transferencia"; return; }
+    body.receipt = receipt;
+  }
+  const btn = document.getElementById("qGo");
+  btn.disabled = true;
+  try {
+    await post(`/orders/${quoteOrder.id}/accept-price`, body);
+    closeQuote();
+    toast("¡Listo! Ahora el negocio prepara tu pedido 🧾");
+    refreshOrders();
+  } catch (e) { err.textContent = e.message; } finally { btn.disabled = false; }
 }
 
 start();

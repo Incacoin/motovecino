@@ -119,6 +119,7 @@ function setDriverTheme(pref) {
   .for-other { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.45); color: var(--text); font-size: 14.5px; line-height: 1.4; }
   .for-other b { font-weight: 800; }
   .for-other-by { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+  .for-other-cash { margin-top: 7px; padding: 8px 10px; border-radius: 9px; background: rgba(250,204,21,.14); border: 1px solid rgba(250,204,21,.45); font-size: 14px; line-height: 1.4; }
   .far-req { margin: 8px 0; padding: 10px 12px; border-radius: 10px; background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.55); color: var(--text); font-size: 14px; line-height: 1.4; }
   .ride-card .label { font-weight: 700; font-size: 15px; }
   .ride-card .meta { color: var(--text-dim); font-size: 13.5px; margin: 4px 0; }
@@ -1867,12 +1868,24 @@ function forOtherHtml(r, accepted) {
 }
 
 function forOtherBody(r, accepted) {
-  // Envío de un negocio (Mi negocio, 2-oct): recoge en el negocio y entrega al
-  // cliente. La comida ya está pagada: el chofer solo cobra el envío.
+  // Envío de un negocio: recoge en el negocio y entrega al cliente.
+  // - Pedido hecho en la app (order_id, 11-oct-2026): si el cliente paga en
+  //   efectivo, el chofer le paga el pedido al negocio al recoger
+  //   (cash_to_business) y al entregar cobra pedido + envío.
+  // - Envío pedido a mano desde "Mi negocio" (pedidos por WhatsApp o
+  //   teléfono): el chofer solo cobra el envío; el pedido lo cobra el negocio.
   if (r.business_id) {
-    return `<div class="for-other">🏪 Envío de <b>${escapeHtml(r.rider_name)}</b>
+    const bizName = r.business_name || r.rider_name;
+    const cash = Number(r.cash_to_business) || 0;
+    const price = Number(r.agreed_price || r.offer_price) || 0;
+    let pay;
+    if (!r.order_id) pay = `<div class="for-other-by">Cobra solo el envío · el pedido lo cobra el negocio</div>`;
+    else if (!cash) pay = `<div class="for-other-by">✅ Pedido ya pagado · cobra solo el envío</div>`;
+    else pay = `<div class="for-other-cash">💵 <b>Necesitas $${cash} en efectivo</b> para pagarle el pedido al negocio al recoger.</div>` +
+      (accepted && price ? `<div class="for-other-cash">Al entregar, <b>cobra $${cash + price}</b> ($${cash} del pedido + $${price} de envío)</div>` : "");
+    return `<div class="for-other">🏪 ${r.order_id ? "Pedido de" : "Envío de"} <b>${escapeHtml(bizName)}</b>${r.order_big ? ` · <b>📦📦 grande</b>` : ""}
       <div>Entregar a <b>${escapeHtml(r.for_name || "cliente")}</b>${r.for_note ? ` · ${escapeHtml(r.for_note)}` : ""}</div>
-      <div class="for-other-by">✅ Comida ya pagada · Cobra solo el envío</div></div>`;
+      ${pay}</div>`;
   }
   if (!r.for_name) return "";
   return `<div class="for-other">👤 Vas por <b>${escapeHtml(r.for_name)}</b>

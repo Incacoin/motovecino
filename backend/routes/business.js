@@ -47,6 +47,7 @@ function publicBusiness(b) {
     ? {
         id: b.id, name: b.name, lat: b.lat, lng: b.lng, address: b.address, city: b.city,
         tagline: b.tagline, category: b.category, hours: b.hours, whatsapp: b.whatsapp, is_open: !!b.is_open,
+        catalog: !!b.catalog_enabled, special: !!b.special_enabled,
         logo: imageUrl(b.logo), cover: imageUrl(b.cover),
       }
     : null;
@@ -58,7 +59,13 @@ function payInfo(b) {
   return { pay_bank: b.pay_bank || null, pay_account: b.pay_account || null, pay_holder: b.pay_holder || null };
 }
 
-const BUSINESS_CATEGORIES = ["Antojitos", "Comida", "Tacos", "Pizzas", "Hamburguesas", "Mariscos", "Pollos", "Panadería", "Postres", "Bebidas", "Tienda", "Otro"];
+// Cómo recibe pedidos y cómo le pagan (pedidos en la app, 11-oct-2026).
+function orderSettings(b) {
+  return { accepts_transfer: !!b.accepts_transfer, accepts_cash: !!b.accepts_cash, cash_cap: b.cash_cap };
+}
+
+// 11-oct-2026: no solo comida — cualquier negocio del municipio.
+const BUSINESS_CATEGORIES = ["Antojitos", "Comida", "Tacos", "Pizzas", "Hamburguesas", "Mariscos", "Pollos", "Panadería", "Postres", "Bebidas", "Farmacia", "Abarrotes", "Tienda", "Papelería", "Ferretería", "Ropa y zapatos", "Regalos", "Otro"];
 
 function menuItem(i) {
   return {
@@ -176,7 +183,7 @@ async function needBusiness(req, res) {
 router.post("/business/profile", async (req, res) => {
   const b = await needBusiness(req, res);
   if (!b) return;
-  res.json({ business: { ...publicBusiness(b), ...payInfo(b) }, menu: await menuOf(b.id, false), categories: BUSINESS_CATEGORIES });
+  res.json({ business: { ...publicBusiness(b), ...payInfo(b), ...orderSettings(b) }, menu: await menuOf(b.id, false), categories: BUSINESS_CATEGORIES });
 });
 
 router.post("/business/profile/save", async (req, res) => {
@@ -274,7 +281,9 @@ async function foodEnabled(city) {
   return !!(row && row.enabled);
 }
 
-const LISTED = `b.active = 1 AND b.whatsapp IS NOT NULL AND EXISTS (SELECT 1 FROM menu_items m WHERE m.business_id = b.id AND m.deleted_at IS NULL AND m.available = 1)`;
+// Se ve si tiene algo que pedir: catálogo con productos o "pedido especial".
+// (Desde el 11-oct el pedido va dentro de la app; el WhatsApp ya no es obligatorio.)
+const LISTED = `b.active = 1 AND (b.special_enabled = 1 OR EXISTS (SELECT 1 FROM menu_items m WHERE m.business_id = b.id AND m.deleted_at IS NULL AND m.available = 1))`;
 
 // Abierto/cerrado y "agotado" cambian a cada rato: que el navegador nunca los guarde.
 router.use("/food", (req, res, next) => {
