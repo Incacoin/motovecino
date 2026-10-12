@@ -320,6 +320,8 @@ function setDriverTheme(pref) {
   #map .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.02); }
   /* De noche: el mismo mapa pintado azul pizarra, calles más claras (tanda 1, 30-sep). */
   /* (30-sep: mapa en su color de siempre también de noche.) */
+  /* 11-oct: en modo oscuro el mapa también va oscuro (igual que Negocios). */
+  html[data-theme="dark"] #map .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
   .veh-icon { background: none; border: 0; }
   .veh { width: 46px; height: 46px; transition: transform 0.6s ease; }
   .leaflet-control-zoom a { color: #000 !important; }

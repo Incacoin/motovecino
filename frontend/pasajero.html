@@ -441,6 +441,8 @@ function toggleRiderTheme() {
   /* De noche: el mismo mapa de OpenStreetMap pintado azul pizarra, con las calles
      más claras que las manzanas (tanda 1, 30-sep). */
   /* (30-sep: el usuario prefirió el mapa en su color de siempre también de noche.) */
+  /* 11-oct: en modo oscuro el mapa también va oscuro (igual que Negocios). */
+  html[data-theme="dark"] #map .leaflet-tile-pane, html[data-theme="dark"] #statusMap .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
   #accountBtn { background: #fff; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.22); }
   #accountBtn svg { stroke: #000; }
   #pickHint { background: #000; color: #fff; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
