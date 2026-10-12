@@ -1569,7 +1569,7 @@ function updateEtaCard(durationSeconds) {
   if (!big) return;
   const sub = document.getElementById("etaSub"), badge = document.getElementById("etaBadge");
   const min = durationSeconds != null ? Math.max(1, Math.round(durationSeconds / 60)) : null;
-  const unidad = serviceType === "taxi" ? "Tu taxi" : "Tu mototaxi";
+  const unidad = serviceType === "taxi" ? "Tu taxi" : `Tu ${rideWord}`; // "motocarro" en Progreso
   const delivery = isDeliveryRide();
   if (currentRideStatus === "llegue") {
     if (delivery) { big.textContent = "Recogiendo tu pedido"; sub.textContent = "Tu repartidor ya está en el lugar"; }
@@ -2029,7 +2029,7 @@ function setSheetCollapsed(collapsed) {
   const people = serviceCategory === "pasaje"
     ? ` · ${passengers} adulto${passengers === 1 ? "" : "s"}${children ? ` + ${children} niño${children === 1 ? "" : "s"}` : ""}`
     : "";
-  document.getElementById("collapsedSum").textContent = (serviceType === "taxi" ? "🚕 Taxi" : "🛵 Mototaxi") + " · " + kind + people;
+  document.getElementById("collapsedSum").textContent = (serviceType === "taxi" ? "🚕 Taxi" : rideWord === "motocarro" ? "🛵 Motocarro" : "🛵 Mototaxi") + " · " + kind + people;
   // El mapa cambia de alto: Leaflet necesita recalcular su tamaño, y de paso
   // se acomoda para que se vean la recogida y el destino.
   if (!map) return;
@@ -3282,7 +3282,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
     // sin insignia si falla, no bloquea el resto del flujo
   }
   card.innerHTML = `
-    <div class="eta-row"><div class="eta-txt"><b id="etaBig">${isDeliveryRide() ? "Tu repartidor va por tu pedido" : "Tu chofer va en camino"}</b><span id="etaSub">${isDeliveryRide() ? "Primero recoge tu pedido" : `${serviceType === "taxi" ? "Tu taxi" : "Tu mototaxi"} va por ti`}</span></div><div class="eta-badge" id="etaBadge" style="display:none;"><b id="etaMin"></b><small>min</small></div></div>
+    <div class="eta-row"><div class="eta-txt"><b id="etaBig">${isDeliveryRide() ? "Tu repartidor va por tu pedido" : "Tu chofer va en camino"}</b><span id="etaSub">${isDeliveryRide() ? "Primero recoge tu pedido" : `${serviceType === "taxi" ? "Tu taxi" : `Tu ${rideWord}`} va por ti`}</span></div><div class="eta-badge" id="etaBadge" style="display:none;"><b id="etaMin"></b><small>min</small></div></div>
     <div class="driverInfo">
       ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
       <div class="driverInfo-main">
