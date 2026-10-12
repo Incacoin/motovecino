@@ -345,8 +345,9 @@
     <h2>¡MotoVecino está creciendo en Yucatán!</h2>
     <p>Todavía no abrimos el registro en tu zona, pero ya estamos llegando a más lugares.</p>
     <p class="soon-places"><span>Muy pronto</span><br>Chicxulub · Chelem · Chuburná</p>
-    <p><strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos en tu zona.</p>
+    <p id="soonWho"><strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos en tu zona.</p>
     <a class="btn" id="interestWaBtn" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none;">💬 Apartar mi lugar por WhatsApp</a>
+    <p id="soonDaniel" style="display:none;margin-top:10px;font-size:14px;opacity:.8">Daniel · WhatsApp 999 255 2383</p>
   </div>
 
   <p class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong></p>
@@ -438,13 +439,24 @@ function applyCityFromDetection(city, label) {
 // va a rechazar al enviar el formulario.
 // Número de soporte de MotoVecino (mismo que chofer.html / pasajero.html).
 const SOPORTE_WHATSAPP_NUMBER = "9979739422";
+// Comisarías de Progreso que aún no abren (Chicxulub, Chelem, Chuburná): el
+// botón le llega a Daniel, encargado de la costa, no a soporte (12-oct-2026).
+const DANIEL_WHATSAPP_NUMBER = "9992552383";
 
-function showComingSoon() {
+function showComingSoon(comisariaLabel) {
   // Cada chofer de otro pueblo que escribe aquí es una señal real de demanda
   // para decidir a qué pueblo abrir después (p. ej. Akil).
-  const text = "Hola, quiero apartar mi lugar como chofer en MotoVecino.\nManejo (mototaxi, motocarro o taxi): \nSoy de: ";
-  document.getElementById("interestWaBtn").href =
-    `https://api.whatsapp.com/send?phone=52${SOPORTE_WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`;
+  const costa = !!comisariaLabel;
+  const text = costa
+    ? `Hola Daniel, quiero apartar mi lugar como chofer de motocarro en MotoVecino.\nSoy de: ${comisariaLabel}\nMi nombre: `
+    : "Hola, quiero apartar mi lugar como chofer en MotoVecino.\nManejo (mototaxi, motocarro o taxi): \nSoy de: ";
+  const btn = document.getElementById("interestWaBtn");
+  btn.href = `https://api.whatsapp.com/send?phone=52${costa ? DANIEL_WHATSAPP_NUMBER : SOPORTE_WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`;
+  if (costa) {
+    btn.textContent = "💬 Apartar mi lugar con Daniel";
+    document.getElementById("soonWho").innerHTML = `<strong>¿Manejas motocarro en ${comisariaLabel}?</strong> Escríbele a Daniel, encargado de MotoVecino en la costa, y te aparta tu lugar. Te avisamos en cuanto abramos.`;
+    document.getElementById("soonDaniel").style.display = "block";
+  }
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));
   document.title = "MotoVecino Yucatán — Quiero ser chofer";
   document.getElementById("formScreen").style.display = "none";
@@ -481,7 +493,7 @@ function tryLocateCity(attempt) {
             document.getElementById("qsVeh").innerHTML = MVVeh.motoSide(140);
             updateVehicleLabels();
           }
-          if (!data.inService) { showComingSoon(); return; }
+          if (!data.inService) { showComingSoon(isComisaria ? data.label : ""); return; }
           applyCityFromDetection(data.city, data.label);
         })
         .catch(() => showManualCityPicker());
