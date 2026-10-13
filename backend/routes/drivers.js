@@ -439,12 +439,12 @@ router.post("/chofer-solicitudes", async (req, res) => {
     }
   }
   const cityId = getCityById(city) ? city : DEFAULT_CITY_ID;
-  // Ticul aun corre en su propio servidor aparte de este backend unificado;
-  // una solicitud etiquetada "ticul" aqui no le llegaria a ningun admin.
-  // Lugares sin registro todavía (Oxkutzcab, Ticul, zonas de prueba): la app
+  // Ticul ya vive en este backend (su cajón en el admin) y desde 13-oct-2026
+  // recibe solicitudes como Oxkutzcab y Akil.
+  // Lugares sin registro todavía (signupClosed, zonas de prueba): la app
   // no enseña el formulario ahí, pero es público y la ciudad la manda él.
   const cityCfg = getCityById(cityId);
-  if (cityId === "ticul" || cityCfg?.testOnly || cityCfg?.signupClosed) {
+  if (cityCfg?.testOnly || cityCfg?.signupClosed) {
     return res.status(400).json({ error: `${getCityById(cityId)?.label || "Ese lugar"} todavía no está disponible en este formulario` });
   }
   // Si el navegador sí entregó GPS (aunque haya caído en el selector manual

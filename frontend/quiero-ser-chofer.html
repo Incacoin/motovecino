@@ -250,6 +250,9 @@
       <label>¿En qué ciudad vas a trabajar?</label>
       <select id="manualCitySelect" onchange="applyManualCity()">
         <option value="tekax">Tekax</option>
+        <option value="ticul">Ticul</option>
+        <option value="oxkutzcab">Oxkutzcab</option>
+        <option value="akil">Akil</option>
       </select>
     </div>
     <div class="field">
@@ -420,15 +423,7 @@ function applyCityFromDetection(city, label) {
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " " + label));
   document.getElementById("cityLabelInline").textContent = label;
   document.title = "MotoVecino " + label + " — Quiero ser chofer";
-
-  // Ticul todavía no está listo para recibir choferes desde este formulario
-  // (su base de datos vive en otro servidor aparte — una solicitud
-  // etiquetada "ticul" aquí no le llegaría a nadie). Mientras tanto, se
-  // muestra un aviso en vez de dejar que alguien llene todo para nada.
-  if (city === "ticul") {
-    document.getElementById("formScreen").style.display = "none";
-    document.getElementById("ticulSoonScreen").style.display = "block";
-  }
+  // 13-oct-2026: Ticul ya recibe choferes desde aquí (cajón Ticul del admin), igual que Oxkutzcab y Akil.
 }
 
 // GPS sí resolvió una ubicación real, pero fuera del radio de servicio de
@@ -480,7 +475,7 @@ function showManualCityPicker() {
 
 function applyManualCity() {
   const select = document.getElementById("manualCitySelect");
-  const label = select.value === "ticul" ? "Ticul" : "Tekax";
+  const label = select.options[select.selectedIndex].text;
   applyCityFromDetection(select.value, label);
 }
 
