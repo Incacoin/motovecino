@@ -1,5 +1,6 @@
 const express = require("express");
 const db = require("../db");
+const livePos = require("../livePos");
 const { MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
 const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, TAXI_WAIT_RATE_PER_MIN, TAXI_PICKUP_GRACE_MIN, MONTHLY_FEE, TRIAL_END_DATE, DEPOSIT_SUGGESTED_RATE } = require("../constants");
 const { normalizeAccount } = require("../bankAccount");
@@ -25,6 +26,31 @@ router.get("/config", async (req, res) => {
 
 // Choferes "disponibles" de verdad: con GPS reciente (no fantasmas de una
 // sesión que se quedó abierta) y cerca de quien está mirando el mapa.
+// Cada chofer y cada pasajero con el mapa abierto piden esto cada 4 s; ir a
+// la base cada vez saturaba la base en la prueba de carga del 12-oct. La
+// lista de quién está disponible se pide a lo mucho una vez cada
+// AVAILABLE_CACHE_MS por tipo (la comparten todas las peticiones) y la
+// posición sale del pizarrón (livePos), que siempre está al día.
+const AVAILABLE_CACHE_MS = 3000;
+const availableCache = new Map(); // type -> { at, rows: Promise }
+function availableDriverRows(type) {
+  const hit = availableCache.get(type);
+  if (hit && Date.now() - hit.at < AVAILABLE_CACHE_MS) return hit.rows;
+  const rows = db
+    .prepare(
+      `SELECT id, lat, lng, vehicle_type, city, zone FROM drivers
+       WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL
+         AND vehicle_type = ?
+         AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))
+         AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')`
+    )
+    .all(type);
+  availableCache.set(type, { at: Date.now(), rows });
+  // Si la consulta falla, que la siguiente petición lo intente de nuevo.
+  rows.catch(() => availableCache.delete(type));
+  return rows;
+}
+
 router.get("/drivers/available", async (req, res) => {
   const type = req.query.type === "taxi" ? "taxi" : "moto";
   const refLat = Number(req.query.lat);
@@ -36,15 +62,7 @@ router.get("/drivers/available", async (req, res) => {
   // se usaba en los primeros segundos, antes de que el GPS resolviera.
   const ref = hasRef ? { lat: refLat, lng: refLng } : getCityById(DEFAULT_CITY_ID);
 
-  const drivers = await db
-    .prepare(
-      `SELECT id, lat, lng, vehicle_type, city, zone FROM drivers
-       WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL
-         AND vehicle_type = ?
-         AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))
-         AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')`
-    )
-    .all(type);
+  const drivers = (await availableDriverRows(type)).map((d) => livePos.overlay({ ...d }));
 
   const maxDistance = type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   // En Progreso solo se ven los motocarros de la misma comisaría.

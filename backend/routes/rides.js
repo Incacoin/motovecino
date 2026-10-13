@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
+const livePos = require("../livePos");
 const realtime = require("../realtime");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide, cityMinOffer } = require("../cities");
 const { haversineKm } = require("../geo");
@@ -360,6 +361,7 @@ async function driverForRide(driverId) {
     .prepare("SELECT id, name, phone, vehicle, grupo, lat, lng, photo, es_fundador FROM drivers WHERE id = ?")
     .get(driverId);
   if (!driver) return driver;
+  livePos.overlay(driver);
   return { ...driver, phone: maskPhoneTail(driver.phone), ...photoUrls("d", driver.id, driver.photo) };
 }
 
@@ -558,7 +560,7 @@ async function closeDriverOtherOffers(driverId) {
 // Ciudad por comisarías (Progreso): además el chofer tiene que estar en la
 // misma comisaría que la recogida (su última ubicación).
 async function driverInRideZone(driverId, ride) {
-  const d = await db.prepare("SELECT lat, lng, city, zone FROM drivers WHERE id = ?").get(driverId);
+  const d = livePos.overlay(await db.prepare("SELECT lat, lng, city, zone FROM drivers WHERE id = ?").get(driverId), driverId);
   if (d && !sameCityForRide(ride.ride_type, ride.city, d.city)) return false;
   const cfg = getCityById(ride.city);
   if (!cfg?.zones) return true;

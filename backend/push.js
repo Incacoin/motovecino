@@ -9,6 +9,7 @@
 // WANTS_RIDES_HOURS.
 const crypto = require("node:crypto");
 const db = require("./db");
+const livePos = require("./livePos");
 const { sameComisaria } = require("./cities");
 
 const WANTS_RIDES_HOURS = 14;
@@ -104,6 +105,7 @@ async function notifyNewRide(ride) {
     .all(`-${WANTS_RIDES_HOURS} hours`, type, ...(type === "taxi" ? [] : [ride.city || "tekax"]));
   const subsFor = db.prepare("SELECT id, driver_id, endpoint FROM driver_push_subs WHERE driver_id = ?");
   for (const d of drivers) {
+    livePos.overlay(d);
     if (d.lat != null && d.lng != null && haversineKm(ride.pickup_lat, ride.pickup_lng, d.lat, d.lng) > PUSH_RADIUS_KM[type]) continue;
     if (!sameComisaria(ride.city, ride.pickup_lat, ride.pickup_lng, d.lat, d.lng, d.zone) && (d.zone || (d.lat != null && d.lng != null))) continue;
     for (const sub of await subsFor.all(d.id)) sendOne(sub);

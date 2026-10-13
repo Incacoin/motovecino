@@ -3,6 +3,7 @@ const url = require("node:url");
 const db = require("./db");
 const { photoUrls } = require("./photos");
 const push = require("./push");
+const livePos = require("./livePos");
 const { sameComisaria, sameCityForRide } = require("./cities");
 const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC } = require("./constants");
 
@@ -69,6 +70,21 @@ async function activeRideForDriver(driverId) {
       "SELECT id, driver_disconnected_at FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso') ORDER BY id DESC LIMIT 1"
     )
     .get(driverId);
+}
+
+// Cada ubicación necesita saber si el chofer trae viaje (para mandársela al
+// pasajero). Preguntarle a la base cada 1-3 s por chofer era la otra mitad de
+// la carga; se recuerda unos segundos. Al aceptar un viaje, el pasajero
+// empieza a ver al chofer moverse a lo mucho ACTIVE_RIDE_TTL_MS después (ya
+// recibe su posición inicial con los datos del chofer).
+const ACTIVE_RIDE_TTL_MS = 5000;
+const activeRideCache = new Map(); // driverId -> { ride, at }
+async function activeRideForLocation(driverId) {
+  const hit = activeRideCache.get(driverId);
+  if (hit && Date.now() - hit.at < ACTIVE_RIDE_TTL_MS) return hit.ride;
+  const ride = await activeRideForDriver(driverId);
+  activeRideCache.set(driverId, { ride, at: Date.now() });
+  return ride;
 }
 
 async function handleDriverDisconnected(driverId) {
@@ -280,6 +296,7 @@ async function setupConnection(ws, req, early, keepEarly) {
     ws.on("close", () => {
       if (driverSockets.get(driverId) === ws) {
         driverSockets.delete(driverId);
+        activeRideCache.delete(driverId);
         bg("driver_close", (async () => {
           await db.prepare(
             "UPDATE drivers SET status = 'offline' WHERE id = ?"
@@ -307,11 +324,10 @@ async function setupConnection(ws, req, early, keepEarly) {
     const onMessage = serialHandler("driver_ws", async (msg) => {
       if (msg.type === "location") {
         const { lat, lng } = msg;
-        await db.prepare(
-          "UPDATE drivers SET lat = ?, lng = ?, last_seen = datetime('now') WHERE id = ?"
-        ).run(lat, lng, driverId);
+        // Al pizarrón (memoria); a la base pasa en lote (ver livePos.js).
+        livePos.set(driverId, Number(lat), Number(lng));
 
-        const activeRide = await activeRideForDriver(driverId);
+        const activeRide = await activeRideForLocation(driverId);
         if (activeRide) {
           notifyRide(activeRide.id, "driver_location", { lat, lng });
         }
@@ -450,6 +466,7 @@ async function broadcastNewRide(ride) {
     .all(rideType);
   const payload = omitRiderPhone(ride);
   for (const driver of available) {
+    livePos.overlay(driver);
     if (driver.lat == null || driver.lng == null) continue;
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);
     if (distanceKm > maxDistance) continue;
@@ -475,6 +492,7 @@ async function notifyPendingRides(driverId) {
       "SELECT id, lat, lng, vehicle_type, city, zone FROM drivers WHERE id = ? AND status = 'disponible' AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .get(driverId);
+  livePos.overlay(driver);
   if (!driver || driver.lat == null || driver.lng == null) return;
   const ws = driverSockets.get(driverId);
   if (!ws) return;

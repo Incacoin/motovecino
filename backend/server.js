@@ -20,6 +20,7 @@ const menuImages = require("./menuImages");
 const familyRides = require("./routes/familyRides");
 const { router: photoRoutes } = require("./photos");
 const realtime = require("./realtime");
+const livePos = require("./livePos");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
 const { migrateImagesToFiles } = require("./imageStore");
@@ -247,6 +248,15 @@ async function start() {
 
   startBackupSchedule(6);
   startRetentionSchedule();
+  livePos.start();
+
+  // Render manda SIGTERM antes de apagar (cada deploy): que las últimas
+  // ubicaciones del pizarrón lleguen a la base antes de salir.
+  process.once("SIGTERM", () => {
+    livePos.flush()
+      .catch((err) => console.error("[livePos] al apagar:", err))
+      .finally(() => process.exit(0));
+  });
 
   const server = http.createServer(app);
   realtime.attach(server);
