@@ -2856,7 +2856,7 @@ function bizSearch() {
   const q = document.getElementById("bizAddress").value;
   const box = document.getElementById("bizResults");
   if (!q.trim()) { box.classList.remove("open"); return; }
-  MVBuscador.load("tekax").then((data) => {
+  MVBuscador.load(adminCity || "tekax").then((data) => {
     bizFound = MVBuscador.matches(q, data).slice(0, 5);
     box.innerHTML = bizFound.map((r, i) => `<button type="button" onclick="bizPick(${i})">📍 ${escapeHtml(r.label)}</button>`).join("");
     box.classList.toggle("open", bizFound.length > 0);

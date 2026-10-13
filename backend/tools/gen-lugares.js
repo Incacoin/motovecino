@@ -4,7 +4,11 @@
 // comisarías/pueblos cercanos (sirven para el destino del taxi).
 //
 // Uso:  node backend/tools/gen-lugares.js tekax
+//       ENABLE_PROGRESO=1 node backend/tools/gen-lugares.js progreso flamboyanes
 // Para un pueblo nuevo: agregarlo a cities.js y correr esto con su id.
+// Ciudad por comisarías (Progreso): un archivo por comisaría (<ciudad>-<zona>.json),
+// porque cada una repite los mismos números de calle y el motocarro no sale
+// de su comisaría (por eso tampoco lleva pueblos cercanos).
 // Los lugares que no estén en OSM se agregan a mano en frontend/lugares/<ciudad>-extra.json.
 
 const fs = require("node:fs");
@@ -17,7 +21,8 @@ const SERVERS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
 ];
-const STREET_KM = 3.5; // calles y lugares: el área urbana
+const STREET_KM = 3.5; // calles y lugares: el área urbana (mínimo)
+const STREET_KM_MAX = 7; // municipios grandes (Oxkutzcab, Ticul): su radio de servicio
 const PLACES_KM = 50; // comisarías y pueblos: radio del taxi
 
 function bbox(lat, lng, km) {
@@ -58,9 +63,15 @@ function streetNum(name) {
 
 async function main() {
   const id = process.argv[2] || "tekax";
+  const zoneId = process.argv[3];
   const city = CITIES.find((c) => c.id === id);
-  if (!city) throw new Error("Ciudad no encontrada en cities.js: " + id);
-  const bb = bbox(city.lat, city.lng, STREET_KM);
+  if (!city) throw new Error("Ciudad no encontrada en cities.js: " + id + (id === "progreso" ? " (corre con ENABLE_PROGRESO=1)" : ""));
+  const zone = zoneId ? (city.zones || []).find((z) => z.id === zoneId) : null;
+  if (zoneId && !zone) throw new Error("Comisaría no encontrada: " + zoneId);
+  if (city.zones && !zone) throw new Error("Esta ciudad va por comisarías: " + city.zones.map((z) => z.id).join(", "));
+  const center = zone || city;
+  const km = zone ? zone.radiusKm + 0.5 : Math.min(Math.max(STREET_KM, city.serviceRadiusKm || 0), STREET_KM_MAX);
+  const bb = bbox(center.lat, center.lng, km);
 
   const streets = await overpass(`[out:json][timeout:90];way["highway"]["name"](${bb});out body;>;out skel qt;`);
   const nodes = new Map();
@@ -96,8 +107,8 @@ async function main() {
     nwr["name"]["tourism"](${bb});nwr["name"]["office"](${bb});nwr["name"]["healthcare"](${bb});
     nwr["name"]["historic"](${bb});nwr["name"]["place"~"neighbourhood|suburb|quarter"](${bb});
   );out center tags;`);
-  const places = await overpass(`[out:json][timeout:90];node["place"~"town|village|hamlet"]["name"](${bbox(city.lat, city.lng, PLACES_KM)});out body;`);
-  if (!places.length) console.log("  OJO: no llegaron comisarías/pueblos; vuelve a correr el script más tarde.");
+  const places = zone ? [] : await overpass(`[out:json][timeout:90];node["place"~"town|village|hamlet"]["name"](${bbox(city.lat, city.lng, PLACES_KM)});out body;`);
+  if (!zone && !places.length) console.log("  OJO: no llegaron comisarías/pueblos; vuelve a correr el script más tarde.");
 
   const seen = new Set();
   const lugares = [];
@@ -113,9 +124,10 @@ async function main() {
   }
   for (const e of places) if (e.tags.name.toLowerCase() !== city.label.toLowerCase()) add(e.tags.name, e.lat, e.lon, "pueblo");
 
-  const out = path.join(__dirname, "../../frontend/lugares", id + ".json");
+  const fileId = zone ? `${id}-${zone.id}` : id;
+  const out = path.join(__dirname, "../../frontend/lugares", fileId + ".json");
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, JSON.stringify({ city: id, generado: new Date().toISOString().slice(0, 10), cruces, lugares }));
+  fs.writeFileSync(out, JSON.stringify({ city: fileId, generado: new Date().toISOString().slice(0, 10), cruces, lugares }));
   console.log(`${out}: ${Object.keys(cruces).length} cruces, ${lugares.length} lugares`);
 }
 

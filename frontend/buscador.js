@@ -4,7 +4,7 @@
 // lugares por nombre ("mercado", "Kancab"). Los datos son un archivo por
 // pueblo en /lugares/ (ver backend/tools/gen-lugares.js), sin servicios de pago.
 (function () {
-let placeData = null, placeDataCity = null, placeDataLoading = null;
+let placeData = null, placeDataCity = null, placeDataLoading = null, placeDataLoadingCity = null;
 
 function normText(t) {
   return (t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
@@ -12,8 +12,10 @@ function normText(t) {
 
 function load(city) {
   if (placeData && placeDataCity === city) return Promise.resolve(placeData);
-  if (placeDataLoading) return placeDataLoading;
-  placeDataLoading = fetch("/lugares/" + city + ".json")
+  // Si ya se está cargando OTRO pueblo (cambió de zona a media carga), se pide este.
+  if (placeDataLoading && placeDataLoadingCity === city) return placeDataLoading;
+  placeDataLoadingCity = city;
+  const loading = fetch("/lugares/" + city + ".json")
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .catch(() => ({ cruces: {}, lugares: [] }))
     .then((data) => {
@@ -24,12 +26,16 @@ function load(city) {
         (cruces[b] = cruces[b] || {})[a] = p;
       }
       const lugares = (data.lugares || []).map((l) => ({ ...l, k: normText(l.n) }));
-      placeData = { cruces, lugares };
-      placeDataCity = city;
-      placeDataLoading = null;
-      return placeData;
+      const result = { cruces, lugares };
+      if (placeDataLoading === loading) {
+        placeData = result;
+        placeDataCity = city;
+        placeDataLoading = null;
+      }
+      return result;
     });
-  return placeDataLoading;
+  placeDataLoading = loading;
+  return loading;
 }
 
 const PS_ICONS = {

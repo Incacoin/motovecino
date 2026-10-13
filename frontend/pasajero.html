@@ -2728,7 +2728,11 @@ function confirmDest() { setDestAt(map.getCenter(), searchedLabelHere()); }
 // revisa el pin y confirma, igual que siempre.
 var searchedPlace = null; // { label, p: L.latLng } del último resultado elegido
 // La búsqueda en sí vive en buscador.js (la comparte "Mi negocio").
-function loadPlaceData() { return MVBuscador.load(resolvedCityId || "tekax"); }
+// Progreso va por comisarías: cada una tiene su archivo (repiten números de calle).
+function loadPlaceData() {
+  const city = resolvedCityId || "tekax";
+  return MVBuscador.load(comisaria && comisaria.id ? `${city}-${comisaria.id}` : city);
+}
 const PS_ICONS = MVBuscador.ICONS;
 const placeMatches = MVBuscador.matches;
 
