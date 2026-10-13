@@ -1101,6 +1101,9 @@ function initCityBrand(attempt) {
           driverComisaria = data.comisaria || null;
           // En las comisarías de Progreso les dicen motocarro.
           if (driverComisaria) {
+            // Y en la entrada solo el motocarro, sin dibujo de taxi (12-oct-2026).
+            const entryVeh = document.getElementById("entryVehDriver");
+            if (entryVeh) entryVeh.innerHTML = MVVeh.motoSide(112);
             const nameEl = document.getElementById("driverName");
             if (nameEl) nameEl.textContent = nameEl.textContent.replace("🛵 Mototaxi", "🛵 Motocarro");
           }
