@@ -344,7 +344,7 @@
     <div class="big">🗺️</div>
     <h2>¡MotoVecino está creciendo en Yucatán!</h2>
     <p>Todavía no abrimos el registro en tu zona, pero ya estamos llegando a más lugares.</p>
-    <p class="soon-places" id="soonPlaces"><span>Muy pronto</span><br>Chicxulub · Chelem · Chuburná</p>
+    <p class="soon-places" id="soonPlaces"><span>Ya estamos llegando</span><br>Chicxulub · Chelem · Chuburná</p>
     <p id="soonWho"><strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos en tu zona.</p>
     <a class="btn" id="interestWaBtn" href="#" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;text-decoration:none;">💬 Apartar mi lugar por WhatsApp</a>
     <p id="soonDaniel" style="display:none;margin-top:10px;font-size:14px;opacity:.8">Daniel · WhatsApp 999 255 2383</p>
@@ -443,7 +443,7 @@ const SOPORTE_WHATSAPP_NUMBER = "9979739422";
 // botón le llega a Daniel, encargado de la costa, no a soporte (12-oct-2026).
 const DANIEL_WHATSAPP_NUMBER = "9992552383";
 
-// Municipios del sur con registro cerrado: su propio "Muy pronto" (no la lista
+// Municipios del sur con registro cerrado: su propio "Ya estamos llegando" (no la lista
 // de la costa) y el botón a soporte con el municipio ya escrito (12-oct-2026).
 const SUR_SOON = { ticul: "Ticul", oxkutzcab: "Oxkutzcab", akil: "Akil" };
 
@@ -457,14 +457,14 @@ function showComingSoon(comisariaLabel, surLabel) {
     ? `Hola, quiero apartar mi lugar como chofer en MotoVecino.\nManejo (mototaxi o taxi): \nSoy de: ${surLabel}\nMi nombre: `
     : "Hola, quiero apartar mi lugar como chofer en MotoVecino.\nManejo (mototaxi, motocarro o taxi): \nSoy de: ";
   if (surLabel) {
-    document.getElementById("soonPlaces").innerHTML = `<span>Muy pronto</span><br>${Object.values(SUR_SOON).join(" · ")}`;
-    document.getElementById("soonWho").innerHTML = `<strong>¿Manejas mototaxi o taxi en ${surLabel}?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos en ${surLabel}.`;
+    document.getElementById("soonPlaces").innerHTML = `<span>Ya estamos llegando</span><br>${Object.values(SUR_SOON).join(" · ")}`;
+    document.getElementById("soonWho").innerHTML = `<strong>¿Manejas mototaxi o taxi en ${surLabel}?</strong> Estamos sumando choferes. Escríbenos y te apartamos tu lugar; te avisamos en cuanto abramos en ${surLabel}.`;
   }
   const btn = document.getElementById("interestWaBtn");
   btn.href = `https://api.whatsapp.com/send?phone=52${costa ? DANIEL_WHATSAPP_NUMBER : SOPORTE_WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`;
   if (costa) {
     btn.textContent = "💬 Apartar mi lugar con Daniel";
-    document.getElementById("soonWho").innerHTML = `<strong>¿Manejas motocarro en ${comisariaLabel}?</strong> Escríbele a Daniel, encargado de MotoVecino en la costa, y te aparta tu lugar. Te avisamos en cuanto abramos.`;
+    document.getElementById("soonWho").innerHTML = `<strong>¿Manejas motocarro en ${comisariaLabel}?</strong> Estamos sumando choferes. Escríbele a Daniel, encargado de MotoVecino en la costa, y te aparta tu lugar.`;
     document.getElementById("soonDaniel").style.display = "block";
   }
   document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));

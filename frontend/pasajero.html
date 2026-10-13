@@ -2006,11 +2006,11 @@ function applyZone(zone, zoneLabel, com, soon, offer) {
     if (serviceType !== "taxi") { zoneForcedTaxi = true; setServiceType("taxi"); }
   } else if (motoSoon && comisaria) {
     // Comisaría de Progreso todavía cerrada (Chelem, Chicxulub...).
-    notice.innerHTML = `🛵 <strong>Motocarro en ${escapeHtml(town)}: muy pronto.</strong> Ya estamos llegando.`;
+    notice.innerHTML = `🛵 <strong>Motocarro en ${escapeHtml(town)}: ya estamos llegando.</strong> Estamos sumando choferes.`;
     notice.classList.remove("out"); // aviso amable, no de error
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
-    renderVehCards("Muy pronto");
+    renderVehCards("Ya estamos llegando");
   } else {
     notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más municipios de Yucatán!";
     if (pickup) document.getElementById("pickHint").textContent = "Todavía no llegamos a este punto";
