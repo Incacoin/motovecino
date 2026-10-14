@@ -290,7 +290,7 @@ async function start() {
   }
   if (params.get("pedidos") && me && me.pin) showOrders();
   try {
-    const d = await (await fetch(API + "/api/food/businesses?city=tekax", { cache: "no-store" })).json();
+    const d = await (await fetch(API + "/api/food/businesses?city=" + encodeURIComponent(params.get("city") || "tekax"), { cache: "no-store" })).json();
     if (!d.enabled) {
       document.getElementById("bizList").innerHTML = `<div class="empty">🛍️ <b>Muy pronto</b><br>Aquí vas a poder pedirle a los negocios de tu municipio —comida, farmacia, abarrotes y más— y te lo lleva un mototaxista de MotoVecino.</div>`;
       document.getElementById("listTitle").style.display = "none";

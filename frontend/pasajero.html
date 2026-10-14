@@ -1105,7 +1105,7 @@ function toggleRiderTheme() {
   </div>
   <div class="drawer-nav">
     <button class="drawer-row" onclick="openProfile()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span>Mi cuenta</button>
-    <button class="drawer-row" id="foodRow" style="display:none" onclick="location.href='comida.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span>Negocios · pide lo que necesites</button>
+    <button class="drawer-row" id="foodRow" style="display:none" onclick="goFood()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span>Negocios · pide lo que necesites</button>
     <button class="drawer-row" id="bizRow" style="display:none" onclick="location.href='negocio.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span>Mi negocio</button>
     <button class="drawer-row" onclick="openHistory()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Mis viajes</button>
     <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></span>Modo chofer</button>
@@ -1146,7 +1146,7 @@ function toggleRiderTheme() {
         </div>
         <div id="placeResults"></div>
       </div>
-      <button type="button" id="foodChip" onclick="location.href='comida.html'"><span class="fc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span><span>Negocios<small>Comida, farmacia, abarrotes y más</small></span><span class="fc-go">›</span></button>
+      <button type="button" id="foodChip" onclick="goFood()"><span class="fc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span><span>Negocios<small>Comida, farmacia, abarrotes y más</small></span><span class="fc-go">›</span></button>
     </div>
     <div id="pickupStep" class="step-only step-block">
       <div class="row">
@@ -1469,7 +1469,7 @@ function initCityBrand(attempt) {
             const v = document.getElementById("entryVehRider");
             if (v) v.innerHTML = MVVeh.motoSide(124);
           }
-          if (data.city) { resolvedCityId = data.city; updateFareEstimate(); }
+          if (data.city) { resolvedCityId = data.city; updateFareEstimate(); checkFoodSection(); }
           // Mientras no marque recogida, el aviso se basa en dónde está el celular.
           if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null);
         })
@@ -2608,6 +2608,11 @@ function checkFoodSection() {
       document.getElementById("foodChip").classList.toggle("show", foodOn && pickStep === "pickup");
     })
     .catch(() => {});
+}
+
+// La lista abre con los negocios del municipio donde está el pasajero.
+function goFood() {
+  location.href = "comida.html?city=" + encodeURIComponent(resolvedCityId || "tekax");
 }
 
 // Si esta cuenta es de un negocio (lo da de alta el admin), el menú muestra
