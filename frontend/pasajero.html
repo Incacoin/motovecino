@@ -902,6 +902,86 @@ function toggleRiderTheme() {
   .wb-phone { font-size: 14px; text-align: center; color: var(--text-dim); margin-top: 2px; letter-spacing: .04em; }
   #form .entry-card .btn.wb-outline, #login .entry-card .btn.wb-outline, .wb-outline { background: transparent !important; background-image: none !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; }
   .wb-other { background: none; border: none; color: var(--text-dim); font-size: 14px; text-decoration: underline; cursor: pointer; padding: 6px; font-family: inherit; }
+  /* ===== Rediseño 14-oct: sin emojis, íconos de línea y espacios más finos ===== */
+  .ic-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn.ic-btn { display: inline-flex; }
+  .ic-btn svg.li { flex-shrink: 0; }
+  /* Pasaje / Domicilio: selector de dos lados; el verde lleno queda solo para "Pedir" */
+  #serviceCategoryRow { background: rgba(15,23,42,0.06) !important; border-radius: 999px !important; padding: 4px !important; gap: 4px !important; }
+  html[data-theme="dark"] #serviceCategoryRow { background: rgba(255,255,255,0.07) !important; }
+  #serviceCategoryRow .service-tab { display: flex; align-items: center; justify-content: center; gap: 7px; border-radius: 999px !important; padding: 8px !important; font-size: 14.5px !important; font-weight: 600 !important; background: transparent !important; color: var(--text-dim) !important; }
+  #serviceCategoryRow .service-tab.active { background: #fff !important; color: #0a0a0a !important; box-shadow: 0 1px 5px rgba(0,0,0,0.14) !important; font-weight: 700 !important; }
+  html[data-theme="dark"] #serviceCategoryRow .service-tab { color: #a3a3a3 !important; }
+  html[data-theme="dark"] #serviceCategoryRow .service-tab.active { background: #2a2d33 !important; color: #fff !important; box-shadow: none !important; }
+  /* Panel más bajo: se ve más mapa */
+  #pickBar { gap: 8px !important; }
+  .veh-card { padding: 4px 14px 4px 6px !important; }
+  .vc-img { width: 66px !important; }
+  .pax-card { padding: 6px 10px !important; gap: 8px !important; }
+  .pax-card .pax-label { font-size: 13px; white-space: nowrap; }
+  .pax-card .stepper { gap: 6px !important; }
+  .pax-card .stepper .btn-sm { width: 28px !important; height: 28px !important; border-radius: 50% !important; border: 1.5px solid rgba(127,127,127,0.3) !important; font-size: 15px !important; }
+  #pickBar #referenceInput { padding-top: 10px; padding-bottom: 10px; }
+  .for-lbl { display: inline-flex; align-items: center; gap: 8px; }
+  #pickBar.trip #collapsedSum, #pickBar #collapsedSum:empty { display: none; }
+  /* Precio: pregunta y mínimo a la izquierda, $ y número juntos a la derecha */
+  .offer-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .offer-ask { text-align: left; font-size: 13px; color: var(--text-dim); line-height: 1.3; }
+  .offer-ask b { display: block; font-size: 15px; font-weight: 800; color: var(--text); }
+  .offer-ask span { display: block; }
+  .offer-box { gap: 2px !important; background: rgba(15,23,42,0.06); border-radius: 16px; padding: 4px 12px 4px 14px; }
+  html[data-theme="dark"] .offer-box { background: rgba(255,255,255,0.08); }
+  .offer-box .offer-value { min-width: 0 !important; font-size: 22px !important; color: var(--text-dim) !important; }
+  .offer-box input { width: 76px !important; font-size: 28px !important; font-weight: 800 !important; text-align: left !important; background: transparent !important; border: 0 !important; padding: 6px 0 !important; box-shadow: none !important; color: var(--text) !important; }
+  #motoOfferNote, #taxiOfferNote { font-size: 11.5px !important; margin-top: 4px !important; }
+  /* Buscando / en camino / terminado: todo del mismo ancho y alineado */
+  #status > .card, #status > .share-cancel-row, #status > .chat-toggle-btn, #status > #allyAd, #status > #deliveryCodeBox, #status > #ratingBox, #status > #newRideBtn, #status > #reportBtn, #status > .status-header { width: min(360px, calc(100vw - 32px)) !important; max-width: none !important; box-sizing: border-box; }
+  .status-header-text .big { font-size: 18px !important; line-height: 1.2; }
+  #tripCountBadge { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+  .status-icon { width: 64px !important; }
+  .tier-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; font-style: normal; background: rgba(15,23,42,0.06); color: var(--text); white-space: nowrap; }
+  .tier-pill svg { flex-shrink: 0; }
+  .tier-gold { background: linear-gradient(180deg, #fff6df, #fbecc6) !important; color: #7a5a12 !important; box-shadow: inset 0 0 0 1px #f1dca4; }
+  .tier-silver { background: linear-gradient(180deg, #f7f8fa, #e7eaee) !important; color: #4b5563 !important; box-shadow: inset 0 0 0 1px #d6dbe1; }
+  .tier-bronze { background: linear-gradient(180deg, #fbf1ea, #f2dccb) !important; color: #8a4b22 !important; box-shadow: inset 0 0 0 1px #e8c6ad; }
+  html[data-theme="dark"] .tier-gold { background: rgba(251,191,36,0.14) !important; color: #fcd34d !important; box-shadow: inset 0 0 0 1px rgba(251,191,36,0.35); }
+  html[data-theme="dark"] .tier-silver { background: rgba(203,213,225,0.12) !important; color: #e2e8f0 !important; box-shadow: inset 0 0 0 1px rgba(203,213,225,0.3); }
+  html[data-theme="dark"] .tier-bronze { background: rgba(217,119,6,0.14) !important; color: #fdba74 !important; box-shadow: inset 0 0 0 1px rgba(217,119,6,0.35); }
+  .medal-ring { width: 54px; height: 54px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+  .medal-ring svg { width: 26px; height: 26px; }
+  .avatar-veh { background: #f3f4f6 !important; overflow: visible !important; }
+  html[data-theme="dark"] .avatar-veh { background: #1f2937 !important; }
+  .push-bell { color: #16a34a; display: flex; justify-content: center; }
+  .eta-row { margin-bottom: 10px !important; }
+  .eta-txt b { font-size: 19px !important; }
+  .eta-badge { width: auto !important; height: auto !important; flex-direction: row !important; gap: 3px; padding: 6px 12px !important; border-radius: 12px !important; box-shadow: 0 6px 14px -6px rgba(22,163,74,0.6) !important; }
+  .eta-badge b { font-size: 16px !important; }
+  .eta-badge small { font-size: 13px !important; margin-top: 0 !important; opacity: 1 !important; }
+  .driverInfo { gap: 12px !important; }
+  .driverPhoto { width: 56px !important; height: 56px !important; }
+  .driverInfo-main .name { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .driverVeh svg { width: 78px; height: auto; }
+  .meta-tel { display: inline-flex; align-items: center; gap: 5px; }
+  .agreed-box { display: flex; align-items: center; justify-content: space-between; }
+  .agreed-box .amt { font-size: 22px !important; }
+  .agreed-box .mxn { font-size: 12px; font-weight: 600; color: var(--text-dim); margin-left: 3px; }
+  #allyAd { border-radius: 24px !important; }
+  #allyAd .ally-row { margin: 8px 0 10px !important; }
+  #allyAd .btn { border-radius: 14px !important; background: #111 !important; color: #fff !important; }
+  html[data-theme="dark"] #allyAd .btn { background: #fff !important; color: #000 !important; }
+  .share-cancel-row .btn, .chat-toggle-btn { border-radius: 14px !important; }
+  #ratingBox { border-radius: 24px !important; padding: 18px !important; }
+  .ratingButtons .btn { flex: 1; padding: 12px !important; border-radius: 14px !important; }
+  /* Mi cuenta */
+  .acc-cam { color: #0a0a0a; width: 26px !important; height: 26px !important; }
+  .acc-hero-txt { padding-right: 34px; }
+  .acc-hero-txt b { white-space: normal !important; overflow-wrap: anywhere; line-height: 1.15; }
+  .acc-hero-txt em { background: none !important; padding: 0 !important; color: inherit !important; }
+  .acc-edit { top: 12px !important; right: 12px !important; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,0.06); color: var(--text) !important; }
+  html[data-theme="dark"] .acc-edit { background: rgba(255,255,255,0.08); }
+  .big-sub { display: block; font-size: 13px; font-weight: 500; color: var(--text-dim); letter-spacing: 0; margin-top: 2px; }
+  .search-title { gap: 10px; }
+  .acc-private { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 </style>
 </head>
 <body>
@@ -997,7 +1077,7 @@ function toggleRiderTheme() {
     <line x1="92" y1="105" x2="108" y2="105" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
     <line x1="10" y1="130" x2="190" y2="130" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
   </svg>
-  <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
+  <div class="credit" style="position:absolute;bottom:18px;">Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
 </div>
 
 <div id="pinScreen" class="screen" style="align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;">
@@ -1025,14 +1105,14 @@ function toggleRiderTheme() {
   <div class="acc-top"><button class="acc-back" onclick="closeProfile()" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><h1>Mi cuenta</h1></div>
 
   <button class="acc-hero" onclick="toggleAccountSection('edit', this)">
-    <div class="acc-av"><div id="profilePhotoSlot"></div><span class="acc-cam">📷</span></div>
+    <div class="acc-av"><div id="profilePhotoSlot"></div><span class="acc-cam"><svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></span></div>
     <div class="acc-hero-txt"><b id="accHeroName"></b><span id="profilePhone"></span><em id="accHeroTier"></em></div>
-    <span class="acc-edit">Editar</span>
+    <span class="acc-edit" aria-label="Editar"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
   </button>
 
   <div id="accountSectionEdit" class="account-detail">
     <input type="file" id="profilePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleProfilePhoto(event)" />
-    <button class="btn-sm" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()">📷 Cambiar mi foto</button>
+    <button class="btn-sm ic-btn" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>Cambiar mi foto</button>
     <div id="profilePhotoMsg" style="font-size:13px;min-height:16px;"></div>
     <input id="profileNameInput" placeholder="Tu nombre" oninput="this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]/g, '')" />
     <button class="btn-sm acc-save" onclick="saveProfileName()">Guardar cambios</button>
@@ -1083,17 +1163,17 @@ function toggleRiderTheme() {
 
   <div id="accountSectionHome" class="account-detail">
     <span class="account-detail-title">Referencia de tu casa</span>
-    <div style="font-size:12px;color:var(--text-dim);">🔒 Solo tú ves esto. El chofer no.</div>
+    <div class="acc-private"><svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Solo tú ves esto. El chofer no.</div>
     <div id="homeSavedNote" style="display:none;font-size:13px;color:var(--text-dim);"></div>
     <input id="homeLabelInput" placeholder="Referencia (ej. casa azul, portón negro)" />
-    <button class="btn-sm" onclick="saveHomeLocation()">📍 Guardar mi ubicación actual</button>
+    <button class="btn-sm ic-btn" onclick="saveHomeLocation()"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg>Guardar mi ubicación actual</button>
     <button class="btn-sm" id="clearHomeBtn" style="display:none;color:var(--danger);border-color:rgba(229,72,77,0.35);" onclick="clearHomeLocation()">Quitar mi casa guardada</button>
     <div id="homeMsg" style="font-size:13px;min-height:16px;"></div>
   </div>
 
   <div id="accountSectionEmergency" class="account-detail">
     <span class="account-detail-title">Contacto de emergencia</span>
-    <div style="font-size:12px;color:var(--text-dim);">🔒 Solo tú ves esto. El chofer no.</div>
+    <div class="acc-private"><svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Solo tú ves esto. El chofer no.</div>
     <div id="emergencyContactNote" style="display:none;font-size:13px;color:var(--text-dim);"></div>
     <input id="emergencyNameInput" placeholder="Nombre (opcional)" />
     <input id="emergencyPhoneInput" placeholder="Teléfono (10 dígitos)" inputmode="numeric" />
@@ -1182,7 +1262,7 @@ function toggleRiderTheme() {
     </div>
     <div id="destStep" class="step-only step-block">
       <div class="row">
-        <button class="btn btn-secondary big" id="destHomeBtn" style="display:none;" onclick="useHomeAsDest()">🏠 Mi casa</button>
+        <button class="btn btn-secondary big ic-btn" id="destHomeBtn" style="display:none;" onclick="useHomeAsDest()"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>Mi casa</button>
         <button class="btn btn-secondary big" onclick="skipDest()">Sin destino</button>
       </div>
       <button class="btn" id="confirmDestBtn" onclick="confirmDest()">Confirmar destino</button>
@@ -1192,16 +1272,16 @@ function toggleRiderTheme() {
       <button type="button" class="trip-pt" onclick="editDest()"><small>Destino</small><span id="sumDest">Sin destino</span></button>
       <button type="button" class="trip-edit" onclick="editPickup()">Cambiar</button>
     </div>
+    <div class="segmented trip-only" id="serviceCategoryRow">
+      <button class="service-tab active" id="catPasaje" onclick="setServiceCategory('pasaje')"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5.5 21v-2.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V21"/></svg>Pasaje</button>
+      <button class="service-tab" id="catDomicilio" onclick="setServiceCategory('domicilio')"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>Domicilio</button>
+      <!-- Mandado escondido (26-sep): sin chat antes de aceptar no hay cómo pagarle al chofer la espera o el dinero que adelanta. Quitar el display:none para volver a prenderlo. -->
+      <button class="service-tab" id="catMandado" style="display:none" onclick="setServiceCategory('mandado')"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>Mandado</button>
+    </div>
     <div class="veh-cards trip-only" id="serviceTypeRow">
       <button class="veh-card active" id="tabMoto" onclick="setServiceType('moto')"></button>
       <button class="veh-card" id="tabOferta" onclick="setServiceType('oferta')"></button>
       <button class="veh-card" id="tabTaxi" onclick="setServiceType('taxi')"></button>
-    </div>
-    <div class="segmented trip-only" id="serviceCategoryRow">
-      <button class="service-tab active" id="catPasaje" onclick="setServiceCategory('pasaje')">🧍 Pasaje</button>
-      <button class="service-tab" id="catDomicilio" onclick="setServiceCategory('domicilio')">🍲 Domicilio</button>
-      <!-- Mandado escondido (26-sep): sin chat antes de aceptar no hay cómo pagarle al chofer la espera o el dinero que adelanta. Quitar el display:none para volver a prenderlo. -->
-      <button class="service-tab" id="catMandado" style="display:none" onclick="setServiceCategory('mandado')">📦 Mandado</button>
     </div>
     <div class="pax-card trip-only" id="paxCard">
       <div class="pax-col" id="passengerRow">
@@ -1213,7 +1293,7 @@ function toggleRiderTheme() {
         </div>
       </div>
       <div class="pax-col" id="childrenRow">
-        <span class="pax-label">Niños<br>3-9 años</span>
+        <span class="pax-label">Niños 3-9</span>
         <div class="stepper">
           <button class="btn-sm" onclick="changeChildren(-1)">−</button>
           <span id="childrenCount">0</span>
@@ -1225,7 +1305,7 @@ function toggleRiderTheme() {
     <!-- "Pedir para otra persona" (ver backend/routes/familyRides.js): solo
          sale si ya está prendido en el pueblo de la recogida. -->
     <div id="forOtherBox" class="trip-only" style="display:none;">
-      <button type="button" class="btn btn-secondary for-row" id="forOtherBtn" onclick="setForOther(!forOther)"><span>👤 ¿Es para otra persona?</span><span class="for-arrow" id="forRowArrow">›</span></button>
+      <button type="button" class="btn btn-secondary for-row" id="forOtherBtn" onclick="setForOther(!forOther)"><span class="for-lbl"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5.5 21v-2.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V21"/></svg>¿Es para otra persona?</span><span class="for-arrow" id="forRowArrow">›</span></button>
       <div id="forOtherFields" style="display:none;">
         <input id="forNameInput" maxlength="40" placeholder="Nombre de quien se sube (ej. Juan)" />
         <input id="forNoteInput" maxlength="100" placeholder="Seña para reconocerlo (ej. camisa roja, afuera del salón)" />
@@ -1236,18 +1316,22 @@ function toggleRiderTheme() {
       <div id="collapsedSum"></div>
       <div id="fareEstimate" class="hint"></div>
       <div id="taxiOfferBox" style="display:none;">
-        <label class="offer-note" for="taxiOfferInput" style="display:block;margin-bottom:6px;">¿Cuánto ofreces por el taxi?</label>
-        <div class="offer-stepper">
+        <div class="offer-line">
+        <label class="offer-ask" for="taxiOfferInput"><b>¿Cuánto ofreces?</b><span>Por el taxi</span></label>
+        <div class="offer-stepper offer-box">
           <span class="offer-value">$</span>
           <input id="taxiOfferInput" type="number" inputmode="numeric" min="10" step="1" style="width:120px;font-size:22px;font-weight:700;text-align:center;" oninput="onTaxiOfferInput()" />
+        </div>
         </div>
         <div class="offer-note" id="taxiOfferNote"></div>
       </div>
       <div id="motoOfferBox" style="display:none;">
-        <label class="offer-note" for="motoOfferInput" style="display:block;margin-bottom:6px;">¿Cuánto ofreces por el viaje?</label>
-        <div class="offer-stepper">
+        <div class="offer-line">
+        <label class="offer-ask" for="motoOfferInput"><b>¿Cuánto ofreces?</b><span id="motoOfferMin"></span></label>
+        <div class="offer-stepper offer-box">
           <span class="offer-value">$</span>
           <input id="motoOfferInput" type="number" inputmode="numeric" min="5" max="2000" step="1" style="width:110px;font-size:22px;font-weight:700;text-align:center;" oninput="onMotoOfferInput()" />
+        </div>
         </div>
         <div class="offer-note" id="motoOfferNote"></div>
       </div>
@@ -1258,7 +1342,7 @@ function toggleRiderTheme() {
 
 <div id="status" class="screen">
   <div class="status-header">
-    <span class="status-icon" id="statusIcon">🛵</span>
+    <span class="status-icon" id="statusIcon"></span>
     <div class="status-header-text">
       <div class="big" id="statusText">Buscando chofer cercano...</div>
       <div id="tripCountBadge" class="etaText" style="display:none;"></div>
@@ -1269,7 +1353,7 @@ function toggleRiderTheme() {
   <div id="extraNote" style="display:none;"></div>
   <div id="forOtherNote" style="display:none;"></div>
   <div id="pushAsk" class="fade-in" style="display:none;">
-    <div class="push-bell">🔔</div>
+    <div class="push-bell"><svg class="li" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg></div>
     <div class="push-title">¿Te avisamos de tu viaje?</div>
     <div class="push-body">Te llega un aviso cuando tu chofer acepte y cuando llegue por ti, aunque tengas la app cerrada.</div>
     <button class="btn" onclick="acceptPushAsk()">Sí, avísame</button>
@@ -1297,7 +1381,7 @@ function toggleRiderTheme() {
   <div id="driverCard" class="card fade-in" style="display:none;"></div>
   <div id="deliveryCodeBox" class="fade-in" style="display:none;"></div>
   <div id="allyAd" class="fade-in" style="display:none;"></div>
-  <button class="btn btn-secondary chat-toggle-btn" id="chatToggleBtn" onclick="toggleChat()" style="display:none;">💬 Chat</button>
+  <button class="btn btn-secondary chat-toggle-btn ic-btn" id="chatToggleBtn" onclick="toggleChat()" style="display:none;"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.3-4.6A8 8 0 1 1 21 12z"/></svg><span id="chatToggleTxt">Chat</span></button>
   <div id="chatBox" class="card fade-in">
     <div id="chatMessages"></div>
     <div class="chat-row">
@@ -1306,20 +1390,20 @@ function toggleRiderTheme() {
     </div>
   </div>
   <div class="share-cancel-row">
-    <button class="btn btn-secondary" id="shareBtn" onclick="shareRide()">📍 Compartir</button>
-    <button class="btn btn-secondary" id="emergencyBtn" style="display:none;" onclick="notifyEmergencyContact()">🚨 Avisar</button>
+    <button class="btn btn-secondary ic-btn" id="shareBtn" onclick="shareRide()"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Compartir</button>
+    <button class="btn btn-secondary ic-btn" id="emergencyBtn" style="display:none;" onclick="notifyEmergencyContact()"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/></svg>Avisar</button>
     <button class="btn btn-secondary" id="cancelBtn" onclick="cancelRide()">Cancelar</button>
   </div>
   <div id="ratingBox" class="card fade-in" style="display:none;">
     <p class="ratingQuestion">¿Tuviste buen servicio?</p>
     <div class="ratingButtons">
-      <button class="btn btn-secondary" onclick="rateRide(1)">👍 Sí</button>
-      <button class="btn btn-secondary" onclick="rateRide(0)">👎 No</button>
+      <button class="btn btn-secondary ic-btn" onclick="rateRide(1)"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H4V10zM7 10l4-7a2.5 2.5 0 0 1 2.7 3L13 10h5.6a2 2 0 0 1 2 2.4l-1.6 7A2 2 0 0 1 17 21H7"/></svg>Sí</button>
+      <button class="btn btn-secondary ic-btn" onclick="rateRide(0)"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V3h3v11zM17 14l-4 7a2.5 2.5 0 0 1-2.7-3L11 14H5.4a2 2 0 0 1-2-2.4l1.6-7A2 2 0 0 1 7 3h10"/></svg>No</button>
     </div>
   </div>
   <button class="btn" id="newRideBtn" style="display:none;" onclick="location.reload()">Pedir otro viaje</button>
   <button class="btn btn-secondary" id="reportBtn" style="display:none;" onclick="reportViaWhatsapp()">Quejas y sugerencias</button>
-  <div class="credit">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
+  <div class="credit">Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
 </div>
 
 <div id="photoLightbox" onclick="closePhotoLightbox()">
@@ -1510,7 +1594,7 @@ let map, statusMap;
 let chatExpanded = false;
 
 function showChatToggle() {
-  document.getElementById("chatToggleBtn").style.display = "inline-block";
+  document.getElementById("chatToggleBtn").style.display = "inline-flex";
 }
 
 function toggleChat() {
@@ -1518,7 +1602,7 @@ function toggleChat() {
   document.getElementById("chatBox").style.display = chatExpanded ? "flex" : "none";
   const btn = document.getElementById("chatToggleBtn");
   btn.classList.remove("has-unread");
-  btn.textContent = chatExpanded ? "💬 Cerrar chat" : "💬 Chat";
+  document.getElementById("chatToggleTxt").textContent = chatExpanded ? "Cerrar chat" : "Chat";
 }
 
 function hideChat() {
@@ -1609,13 +1693,13 @@ function updateEtaCard(durationSeconds) {
   if (min == null) {
     badge.style.display = "none";
     // Sin tiempo calculado todavía: en domicilio, que diga en qué va el pedido.
-    if (delivery && currentRideStatus === "en_curso") { big.textContent = "📦 Tu pedido va en camino"; sub.textContent = "Tu repartidor va a entregarlo"; }
+    if (delivery && currentRideStatus === "en_curso") { big.textContent = "Tu pedido va en camino"; sub.textContent = "Tu repartidor va a entregarlo"; }
     else if (delivery) { big.textContent = "Tu repartidor va por tu pedido"; sub.textContent = "Primero recoge tu pedido"; }
     return;
   }
   const at = new Date(Date.now() + min * 60000).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
   if (currentRideStatus === "en_curso") {
-    if (delivery) { big.textContent = `Llega en ${min} min`; sub.textContent = `📦 Tu pedido va en camino · ${at}`; }
+    if (delivery) { big.textContent = `Llega en ${min} min`; sub.textContent = `Tu pedido va en camino · ${at}`; }
     else { big.textContent = `Llegas en ${min} min`; sub.textContent = `A tu destino · ${at}`; }
   } else if (delivery) { big.textContent = `Recoge en ${min} min`; sub.textContent = `Tu repartidor va por tu pedido · ${at}`; }
   else { big.textContent = `Llega en ${min} min`; sub.textContent = `${unidad} va en camino · ${at}`; }
@@ -1877,11 +1961,11 @@ function showMotoOfferUi(fixed, where, maxUp, min) {
   const input = document.getElementById("motoOfferInput");
   if (document.activeElement !== input) input.value = motoOffer;
   document.getElementById("motoOfferBox").style.display = "block";
-  document.getElementById("motoOfferNote").textContent = min
-    ? `Precio sugerido: $${min} (es el mínimo). Puedes ofrecer más; el chofer acepta tu precio o te pide hasta $${maxUp} más, tú decides.`
-    : `Precio normal: $${fixed}. El chofer acepta tu precio o te pide hasta $${maxUp} más; tú decides.`;
+  document.getElementById("motoOfferMin").textContent = min ? `Mínimo $${min}` : `Precio normal $${fixed}`;
+  document.getElementById("motoOfferNote").textContent = `El chofer acepta tu precio o te pide hasta $${maxUp} más. Tú decides.`;
   const totalPeople = passengers + children;
-  el.textContent = `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${where ? ` · ${where}` : ""}`;
+  // El número de pasajeros ya está en los contadores de arriba (14-oct): aquí solo la zona.
+  el.textContent = where || "";
   const ok = motoOffer >= (min || 5) && motoOffer <= 2000;
   btn.disabled = !ok;
   btn.textContent = ok ? `Pedir por $${motoOffer}` : min && motoOffer ? `El mínimo es $${min}` : "Escribe tu precio";
@@ -2301,7 +2385,7 @@ async function loadStatusAvailableDrivers() {
       .slice(0, 4)
       .map((d) => (d.photo
         ? `<div class="avatar"><img src="${d.photo}" /></div>`
-        : `<div class="avatar">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`))
+        : `<div class="avatar avatar-veh">${serviceType === "taxi" ? MVVeh.taxiSide(24) : MVVeh.motoSide(22)}</div>`))
       .join("");
     // Tope visual en 8+ para que el número no se sienta abrumador cuando
     // haya mucha flota activa en una zona chica (ver conversación 2026-09-11).
@@ -3187,10 +3271,10 @@ function renderDeliveryCodeBox() {
   const code = ride && ride.delivery_code;
   if (!code || ["completado", "cancelado"].includes(currentRideStatus)) { hideDeliveryCodeBox(); return; }
   box.innerHTML = `
-    <div class="dlv-lbl">🔑 Tu clave de entrega</div>
+    <div class="dlv-lbl">Tu clave de entrega</div>
     <div class="dlv-code">${String(code).split("").map((d) => `<span>${escapeHtml(d)}</span>`).join("")}</div>
     <div class="dlv-txt">Dásela al repartidor <b>solo cuando tengas tu pedido en la mano</b>.</div>
-    <button class="btn btn-secondary" onclick="shareDeliveryCode()">📤 Mandar la clave a quien lo recibe</button>`;
+    <button class="btn btn-secondary ic-btn" onclick="shareDeliveryCode()"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Mandar la clave a quien lo recibe</button>`;
   box.style.display = "block";
 }
 
@@ -3221,12 +3305,12 @@ async function loadAllyAd() {
   const box = document.getElementById("allyAd");
   if (!allyAd || !["buscando", "aceptado", "llegue"].includes(currentRideStatus)) { hideAllyAd(); return; }
   box.innerHTML = `
-    <div class="ally-label">🤝 Negocio aliado</div>
+    <div class="ally-label">Negocio aliado</div>
     <div class="ally-row">
       ${allyAd.image ? `<img class="ally-logo" src="${allyAd.image}" alt="" />` : ""}
       <div><div class="ally-name">${escapeHtml(allyAd.name)}</div>${allyAd.tagline ? `<div class="ally-tag">${escapeHtml(allyAd.tagline)}</div>` : ""}</div>
     </div>
-    <button class="btn" onclick="tapAllyAd()">💬 Escribir por WhatsApp</button>`;
+    <button class="btn ic-btn" onclick="tapAllyAd()"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.3-4.6A8 8 0 1 1 21 12z"/></svg>Escribir por WhatsApp</button>`;
   box.style.display = "block";
 }
 
@@ -3331,7 +3415,7 @@ function setupTaxiSearch(offerPrice, offers) {
   // "motocarro" solo en las comisarías de Progreso; en Tekax y demás, "mototaxi".
   const what = isDeliveryRide() ? "repartidor" : serviceType === "taxi" ? "taxi" : rideWord;
   document.getElementById("searchTitleText").textContent = offerPrice
-    ? `Buscando ${what} · tu oferta $${offerPrice}`
+    ? `Tu oferta $${offerPrice}`
     : `Buscando ${what}...`;
   document.getElementById("statusText").textContent = `Buscando ${what}...`;
   taxiOffers.clear();
@@ -3381,7 +3465,7 @@ function renderTaxiOffers() {
       const d = o.driver || {};
       const photo = d.photo
         ? `<img class="driverPhoto" src="${d.photo}" />`
-        : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`;
+        : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? MVVeh.taxiSide(46) : MVVeh.motoSide(42)}</div>`;
       return `
       <div class="card offer-card fade-in">
         <div class="offer-head">
@@ -3452,7 +3536,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
   document.getElementById("statusText").textContent = isDeliveryRide() ? "¡Tu repartidor va por tu pedido!" : "¡Chofer en camino!";
   const cancelBtnEl = document.getElementById("cancelBtn");
   cancelBtnEl.style.display = "inline-block";
-  cancelBtnEl.textContent = "🚪 Salir";
+  cancelBtnEl.textContent = "Salir";
   const card = document.getElementById("driverCard");
   card.style.display = "block";
   let badgeHtml = "";
@@ -3460,23 +3544,23 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
     const res = await fetch(API + "/api/drivers/ranking");
     const ranking = await res.json();
     const mine = ranking.find((r) => r.id === driver.id);
-    if (mine) badgeHtml = `<span class="chip chip-accent">${RANK_EMOJI[mine.rank]} Top #${mine.rank}</span>`;
+    if (mine) badgeHtml = `<span class="chip chip-accent">Top #${mine.rank}</span>`;
   } catch {
     // sin insignia si falla, no bloquea el resto del flujo
   }
   card.innerHTML = `
     <div class="eta-row"><div class="eta-txt"><b id="etaBig">${isDeliveryRide() ? "Tu repartidor va por tu pedido" : "Tu chofer va en camino"}</b><span id="etaSub">${isDeliveryRide() ? "Primero recoge tu pedido" : `${serviceType === "taxi" ? "Tu taxi" : `Tu ${rideWord}`} va por ti`}</span></div><div class="eta-badge" id="etaBadge" style="display:none;"><b id="etaMin"></b><small>min</small></div></div>
     <div class="driverInfo">
-      ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
+      ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? MVVeh.taxiSide(46) : MVVeh.motoSide(42)}</div>`}
       <div class="driverInfo-main">
         <div class="name">${escapeHtml(driver.name)}</div>
         <div class="driver-chips">
           ${badgeHtml}
-          ${driver.es_fundador ? `<span class="chip chip-accent">🏅 Fundador</span>` : ""}
+          ${driver.es_fundador ? `<span class="chip chip-accent">Fundador</span>` : ""}
           <span class="chip">${driver.vehicle ? escapeHtml(driver.vehicle) : (serviceType === "taxi" ? "Taxi" : "Mototaxi")}</span>
         </div>
         ${driver.grupo ? `<div class="meta">Agrupación: ${escapeHtml(driver.grupo)}</div>` : ""}
-        <div class="meta">Tel: ${driver.phone}</div>
+        <div class="meta meta-tel"><svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>${driver.phone}</div>
       </div>
       <div class="driverVeh">${serviceType === "taxi" ? MVVeh.taxiSide(92) : MVVeh.motoSide(88)}</div>
     </div>
@@ -3617,7 +3701,7 @@ function renderAgreedPrice(agreedPrice) {
     box.innerHTML = `
       <div class="agreed-box">
         <div class="lbl">Precio acordado</div>
-        <div class="amt">$${agreedPrice} <span style="font-size:12px;font-weight:500;color:var(--text-dim);">MXN</span></div>
+        <div class="amt">$${agreedPrice}<span class="mxn">MXN</span></div>
       </div>`;
   }
 }
@@ -3839,11 +3923,17 @@ function onDriverLocation({ lat, lng }) {
 }
 
 // 3 niveles nomás — con muchas insignias ninguna se siente especial.
+// Niveles: etiqueta dorada / plateada / bronce (14-oct, sin medallas emoji).
 const RIDER_TIERS = [
-  { min: 30, label: "🥇 Pasajero VIP" },
-  { min: 15, label: "🥈 Pasajero frecuente" },
-  { min: 5, label: "🥉 Cliente recurrente" },
+  { min: 30, label: "Pasajero VIP", cls: "gold" },
+  { min: 15, label: "Pasajero frecuente", cls: "silver" },
+  { min: 5, label: "Cliente recurrente", cls: "bronze" },
 ];
+const TIER_CROWN = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>';
+function tierPillHtml(count, extra) {
+  const t = RIDER_TIERS.find((x) => count >= x.min);
+  return t ? `<span class="tier-pill tier-${t.cls}">${TIER_CROWN}${t.label}${extra || ""}</span>` : "";
+}
 
 function riderTierLabel(count) {
   const tier = RIDER_TIERS.find((t) => count >= t.min);
@@ -3860,7 +3950,7 @@ function showTripCountBadge(count) {
   const el = document.getElementById("tripCountBadge");
   if (count == null) { el.style.display = "none"; return; }
   const tier = riderTierLabel(count);
-  el.textContent = `Llevas ${count} viaje${count === 1 ? "" : "s"} con MotoVecino ${resolvedCityLabel}${tier ? " · " + tier : ""}`;
+  el.innerHTML = `<span>Llevas ${count} viaje${count === 1 ? "" : "s"}</span>${tier ? tierPillHtml(count) : ""}`;
   el.style.display = "block";
 }
 
@@ -3882,8 +3972,8 @@ function saveRideToLocalHistory(rideId, token) {
 function badgeCardHtml(count) {
   const tier = riderTierLabel(count);
   const next = nextTierProgress(count);
-  const medal = tier ? tier.split(" ")[0] : MVVeh.motoSide(70);
-  const tierName = tier ? tier.slice(tier.indexOf(" ") + 1) : `Pasajero MotoVecino ${resolvedCityLabel}`;
+  const medal = tier ? `<span class="medal-ring tier-${RIDER_TIERS.find((x) => count >= x.min).cls}">${TIER_CROWN}</span>` : MVVeh.motoSide(70);
+  const tierName = tier || `Pasajero MotoVecino ${resolvedCityLabel}`;
   return `
     <div class="card badge-card">
       <div class="medal">${medal}</div>
@@ -4008,7 +4098,7 @@ function renderDrawerMe() {
   const initial = escapeHtml((rider.name || "?").trim().charAt(0).toUpperCase());
   const tier = riderTierLabel(count);
   box.innerHTML = `<div class="dm-av">${rider.photo ? `<img src="${rider.photo}" alt="" />` : initial}</div>
-    <div class="dm-txt"><b>${escapeHtml(rider.name || "")}</b>${tier ? `<span>${tier} · ${count} viajes</span>` : count ? `<span>${count} viajes con MotoVecino</span>` : ""}</div>`;
+    <div class="dm-txt"><b>${escapeHtml(rider.name || "")}</b>${tier ? `<span>${count} viajes · ${tier}</span>` : count ? `<span>${count} viajes con MotoVecino</span>` : ""}</div>`;
 }
 
 function closeDrawer() {
@@ -4073,11 +4163,11 @@ function renderAccHero(rider) {
   const count = raw == null ? null : Number(raw) || 0;
   const tier = count == null ? null : riderTierLabel(count);
   const tierEl = document.getElementById("accHeroTier");
-  tierEl.textContent = tier ? tier + " · " + count + " viaje" + (count === 1 ? "" : "s") : count ? count + " viaje" + (count === 1 ? "" : "s") + " con MotoVecino" : "";
-  tierEl.style.display = tierEl.textContent ? "inline-block" : "none";
+  tierEl.innerHTML = tier ? tierPillHtml(count, " · " + count + " viaje" + (count === 1 ? "" : "s")) : count ? `<span class="tier-pill">${count} viaje${count === 1 ? "" : "s"} con MotoVecino</span>` : "";
+  tierEl.style.display = tierEl.innerHTML ? "inline-block" : "none";
   const next = nextTierProgress(count || 0);
   document.getElementById("accLevelRight").textContent = next
-    ? "Te falta" + (next.remaining === 1 ? "" : "n") + " " + next.remaining + " para " + next.label.replace(/^\S+\s/, "")
+    ? "Te falta" + (next.remaining === 1 ? "" : "n") + " " + next.remaining + " para " + next.label
     : "VIP · el más alto";
   document.getElementById("accLevelFill").style.width = Math.min(100, Math.round(((count || 0) / 30) * 100)) + "%";
   document.getElementById("tileTrips").textContent = count ? count + " viaje" + (count === 1 ? "" : "s") : "Ver mis viajes";
@@ -4476,10 +4566,11 @@ function onCompleted() {
   localStorage.removeItem("motoya_active_ride");
   if (ride) saveRideToLocalHistory(ride.id, ride.share_token);
   document.getElementById("statusText").textContent = wasDelivery
-    ? `📦 Tu pedido fue entregado a las ${new Date().toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" })} · Gracias por usar MotoVecino ${resolvedCityLabel}`
+    ? `Tu pedido fue entregado a las ${new Date().toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" })} · Gracias por usar MotoVecino ${resolvedCityLabel}`
     : ride && ride.for_name
-    ? `✅ ${ride.for_name} ya llegó. Gracias por usar MotoVecino ${resolvedCityLabel}`
-    : `¡Buen viaje! Gracias por usar MotoVecino ${resolvedCityLabel} 🛵`;
+    ? `${ride.for_name} ya llegó. Gracias por usar MotoVecino ${resolvedCityLabel}`
+    : `¡Buen viaje!`;
+  if (!wasDelivery && !(ride && ride.for_name)) document.getElementById("statusText").insertAdjacentHTML("beforeend", `<small class="big-sub">Gracias por usar MotoVecino ${escapeHtml(resolvedCityLabel)}</small>`);
   document.getElementById("connWarning").style.display = "none";
   document.getElementById("driverCard").style.display = "none";
   hideChat();
@@ -4524,7 +4615,7 @@ async function rateRide(rating) {
     box.innerHTML = '<p class="ratingQuestion">No se pudo enviar tu calificación</p>';
     return;
   }
-  box.innerHTML = '<p class="ratingQuestion">¡Gracias por tu opinión! 🙏</p>';
+  box.innerHTML = '<p class="ratingQuestion">¡Gracias por tu opinión!</p>';
 }
 
 function onNoDriversAvailable() {
