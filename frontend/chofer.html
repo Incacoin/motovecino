@@ -694,14 +694,18 @@ function setDriverTheme(pref) {
   <div class="entry-veh" id="entryVehDriver"></div>
   <script>document.getElementById("entryVehDriver").innerHTML = MVVeh.motoSide(112) + MVVeh.taxiSide(124);</script>
   <div class="entry-title">Modo chofer</div>
-  <div class="entry-sub">Ingresa tu teléfono y tu PIN de chofer</div>
+  <div class="entry-sub" id="loginSub">Escribe tu teléfono y te mandamos un código por WhatsApp</div>
   <div class="entry-card">
-  <input id="phoneLoginInput" inputmode="numeric" maxlength="10" placeholder="Tu teléfono" />
-  <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="Tu PIN  ••••" />
-  <button class="btn" onclick="login()">Entrar</button>
+  <input id="phoneLoginInput" inputmode="numeric" maxlength="10" placeholder="Tu teléfono" oninput="this.value = this.value.replace(/\D/g, '')" />
+  <input id="codeLoginInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Código de 6 dígitos" style="display:none;" oninput="this.value = this.value.replace(/\D/g, '')" />
+  <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="Tu PIN  ••••" style="display:none;" />
+  <div id="loginHint" style="display:none;color:var(--text-dim);font-size:13px;line-height:1.45;text-align:center;padding:0 6px;"></div>
+  <button class="btn" id="loginBtn" onclick="login()">Mandarme el código</button>
   </div>
   <div id="loginError"></div>
-  <button class="btn-sm" id="forgotPinBtn" style="display:none;margin-top:4px;" onclick="forgotPin()">¿Olvidaste tu PIN?</button>
+  <button class="btn-sm" id="resendCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode()">Reenviar código</button>
+  <button class="btn-sm" id="pinModeBtn" style="margin-top:4px;" onclick="setLoginMode(loginMode === 'pin' ? 'code' : 'pin')">Entrar con mi PIN</button>
+  <button class="btn-sm" id="forgotPinBtn" style="display:none;margin-top:4px;" onclick="forgotPin()">¿No te llega el código? Escríbenos</button>
   <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">🆕 Quiero ser chofer</button>
   <button class="btn-sm" onclick="location.href='index.html'" style="margin-top:4px;">🧍 Modo Pasajero</button>
   <svg class="maya-motif" width="130" height="91" viewBox="0 0 200 140" fill="none" style="flex-shrink:0;margin-top:6px;">
@@ -1347,37 +1351,144 @@ function extraChipHtml(ride) {
 // Número de soporte para "¿Olvidaste tu PIN?". Vacío = el botón no aparece.
 // Cuando llegue la WhatsApp API, cambiar solo esta línea (y la de pasajero.html).
 const SOPORTE_WHATSAPP_NUMBER = "9979739422";
-if (SOPORTE_WHATSAPP_NUMBER) document.getElementById("forgotPinBtn").style.display = "inline-block";
 
 function forgotPin() {
   const phone = document.getElementById("phoneLoginInput").value.trim();
   const digits = SOPORTE_WHATSAPP_NUMBER.replace(/\D/g, "");
-  const text = `Hola, olvidé mi PIN de chofer en MotoVecino. Mi teléfono registrado es ${phone}.`;
+  const text = `Hola, no puedo entrar a la app de chofer de MotoVecino. Mi teléfono registrado es ${phone}.`;
   window.open(`https://api.whatsapp.com/send?phone=52${digits}&text=${encodeURIComponent(text)}`, "_blank");
+}
+
+// Entrar: por defecto con un código por WhatsApp (nadie tiene que recordar
+// nada); "Entrar con mi PIN" deja la forma de antes. Si el servidor no manda
+// códigos (OTP_MODE off) se pasa solo a PIN.
+let loginMode = "code";
+let loginCodePhone = null; // a qué teléfono se le mandó el código
+let resendTimer = null;
+
+function setLoginMode(mode) {
+  loginMode = mode;
+  const pin = mode === "pin";
+  document.getElementById("pinInput").style.display = pin ? "" : "none";
+  document.getElementById("codeLoginInput").style.display = !pin && loginCodePhone ? "" : "none";
+  document.getElementById("resendCodeBtn").style.display = !pin && loginCodePhone ? "" : "none";
+  document.getElementById("loginHint").style.display = !pin && loginCodePhone ? "" : "none";
+  document.getElementById("loginBtn").textContent = pin || loginCodePhone ? "Entrar" : "Mandarme el código";
+  document.getElementById("pinModeBtn").textContent = pin ? "Entrar con código por WhatsApp" : "Entrar con mi PIN";
+  document.getElementById("loginSub").textContent = pin ? "Ingresa tu teléfono y tu PIN de chofer" : "Escribe tu teléfono y te mandamos un código por WhatsApp";
+  document.getElementById("loginError").textContent = "";
+}
+
+function loginDeviceId() {
+  try {
+    let id = localStorage.getItem("mv_device");
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+      localStorage.setItem("mv_device", id);
+    }
+    return id;
+  } catch { return null; }
+}
+
+async function sendLoginCode() {
+  const phone = document.getElementById("phoneLoginInput").value.trim();
+  const err = document.getElementById("loginError");
+  err.textContent = "";
+  if (phone.length !== 10) {
+    err.textContent = "Escribe tu teléfono (10 dígitos)";
+    return;
+  }
+  try {
+    const res = await fetch(API + "/api/drivers/login-code/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, deviceId: loginDeviceId() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 400 && data.error === "Por ahora entra con tu PIN") {
+      setLoginMode("pin");
+      return;
+    }
+    if (!res.ok) {
+      err.textContent = data.error || "No se pudo mandar el código, intenta de nuevo";
+      if (data.retryIn) startLoginResendCountdown(data.retryIn);
+      return;
+    }
+    loginCodePhone = phone;
+    setLoginMode("code");
+    const pretty = phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3");
+    const via = data.channel === "sms" ? "mensaje de texto (SMS)" : "WhatsApp";
+    document.getElementById("loginHint").textContent = `Te mandamos un código por ${via} al ${pretty}. Escríbelo y toca Entrar.` +
+      (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
+    document.getElementById("forgotPinBtn").style.display = SOPORTE_WHATSAPP_NUMBER ? "inline-block" : "none";
+    const input = document.getElementById("codeLoginInput");
+    input.value = "";
+    input.focus();
+    startLoginResendCountdown(60);
+  } catch (e) {
+    err.textContent = "Sin conexión, intenta de nuevo";
+  }
+}
+
+function startLoginResendCountdown(seconds) {
+  const btn = document.getElementById("resendCodeBtn");
+  clearInterval(resendTimer);
+  let left = seconds;
+  btn.disabled = true;
+  btn.textContent = `Reenviar código (${left})`;
+  resendTimer = setInterval(() => {
+    left--;
+    if (left <= 0) {
+      clearInterval(resendTimer);
+      btn.disabled = false;
+      btn.textContent = "Reenviar código";
+    } else {
+      btn.textContent = `Reenviar código (${left})`;
+    }
+  }, 1000);
 }
 
 async function login() {
   const phone = document.getElementById("phoneLoginInput").value.trim();
-  const pin = document.getElementById("pinInput").value.trim();
-  document.getElementById("loginError").textContent = "";
-  if (!phone || !pin) {
-    document.getElementById("loginError").textContent = "Escribe tu teléfono y tu PIN";
-    return;
+  const err = document.getElementById("loginError");
+  err.textContent = "";
+  let url, body;
+  if (loginMode === "code") {
+    // Cambió el teléfono después de pedir el código: pedir uno nuevo.
+    if (loginCodePhone !== phone) return sendLoginCode();
+    const code = document.getElementById("codeLoginInput").value.trim();
+    if (code.length !== 6) {
+      err.textContent = "Escribe el código de 6 dígitos que te llegó";
+      return;
+    }
+    url = "/api/drivers/login-code";
+    body = { phone, code };
+  } else {
+    const pin = document.getElementById("pinInput").value.trim();
+    if (!phone || !pin) {
+      err.textContent = "Escribe tu teléfono y tu PIN";
+      return;
+    }
+    url = "/api/drivers/login";
+    body = { phone, pin };
   }
   try {
-    const res = await fetch(API + "/api/drivers/login", {
+    const res = await fetch(API + url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, pin }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error((await res.json()).error || "Error");
     driver = await res.json();
-    driver.pin = pin; // lo necesita "Mi perfil" para autenticarse igual que el login
+    // "Mi perfil" y lo demás se autentican con teléfono + PIN: con código, el
+    // servidor regresa el PIN; con PIN, es el que escribió.
+    if (body.pin) driver.pin = body.pin;
     todayCount = driver.todayCount || 0;
+    clearInterval(resendTimer);
     localStorage.setItem("motoya_driver", JSON.stringify(driver));
     startApp();
   } catch (e) {
-    document.getElementById("loginError").textContent = e.message;
+    err.textContent = e.message;
   }
 }
 

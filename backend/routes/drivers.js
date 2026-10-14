@@ -138,7 +138,61 @@ router.post("/drivers/login", async (req, res) => {
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
+  res.json(await driverLoginPayload(driver));
+});
 
+// Entrar sin PIN: paso 1, código por WhatsApp al teléfono del chofer (mismo
+// sistema que el registro). Solo si ese teléfono es chofer.
+router.post("/drivers/login-code/send", async (req, res) => {
+  const phone = String(req.body.phone || "").replace(/\D/g, "");
+  if (phone.length !== 10) {
+    return res.status(400).json({ error: "Escribe tu teléfono (10 dígitos)" });
+  }
+  if (!otpEnabled()) {
+    return res.status(400).json({ error: "Por ahora entra con tu PIN" });
+  }
+  if (!(await db.prepare("SELECT id FROM drivers WHERE phone = ? AND deleted_at IS NULL").get(phone))) {
+    return res.status(404).json({ error: "Ese teléfono no es chofer de MotoVecino" });
+  }
+  if (isSubmissionRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const result = await sendOtp(phone, "+52" + phone, false, req.body.deviceId);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
+  }
+  recordSubmission(req.ip);
+  res.json({ ok: true, channel: result.channel, ...(result.devCode ? { devCode: result.devCode } : {}) });
+});
+
+// Paso 2: con el código correcto entra igual que con /drivers/login, y se le
+// regresa su PIN para que el celular lo siga usando por dentro.
+router.post("/drivers/login-code", async (req, res) => {
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!otpEnabled()) {
+    return res.status(400).json({ error: "Por ahora entra con tu PIN" });
+  }
+  const phone = String(req.body.phone || "").replace(/\D/g, "");
+  const driver = phone.length === 10 && await db
+    .prepare(
+      "SELECT id, name, phone, pin, vehicle, vehicle_type, status, cooldown_until, deposit_account FROM drivers WHERE phone = ? AND deleted_at IS NULL"
+    )
+    .get(phone);
+  if (!driver) {
+    return res.status(404).json({ error: "Ese teléfono no es chofer de MotoVecino" });
+  }
+  const check = await verifyOtp(phone, req.body.code, "+52" + phone);
+  if (!check.ok) {
+    recordFailedAttempt(req.ip);
+    return res.status(check.status).json({ error: check.error });
+  }
+  clearAttempts(req.ip);
+  res.json(await driverLoginPayload(driver));
+});
+
+async function driverLoginPayload(driver) {
   const { count: todayCount } = await db
     .prepare(
       `SELECT COUNT(*) as count FROM rides WHERE driver_id = ? AND status = 'completado' AND ${LOCAL_DONE_DATE} = ${LOCAL_TODAY}`
@@ -154,8 +208,8 @@ router.post("/drivers/login", async (req, res) => {
   // El número de cuenta completo no hace falta en el login (se guarda en el
   // celular) — basta saber si ya tiene una para ofrecerle pedir anticipo.
   const { deposit_account, ...driverOut } = driver;
-  res.json({ ...driverOut, hasDepositAccount: !!deposit_account, todayCount, lifetimeTrips });
-});
+  return { ...driverOut, hasDepositAccount: !!deposit_account, todayCount, lifetimeTrips };
+}
 
 // La app de Google Play avisa que la abrieron (una vez por apertura, ver
 // isPlayApp() en chofer.html). Con teléfono + PIN, igual que el login.
@@ -401,7 +455,7 @@ router.post("/chofer-solicitudes/otp/send", async (req, res) => {
     return res.status(400).json({ error: "El teléfono debe tener 10 dígitos" });
   }
   if (await db.prepare("SELECT id FROM drivers WHERE phone = ? AND deleted_at IS NULL").get(phone)) {
-    return res.status(409).json({ error: "Ese teléfono ya es chofer de MotoVecino. Entra a la app del chofer con tu PIN." });
+    return res.status(409).json({ error: "Ese teléfono ya es chofer de MotoVecino. Entra a la app del chofer con tu número." });
   }
   if (await db.prepare("SELECT id FROM driver_applications WHERE phone = ? AND status = 'pendiente'").get(phone)) {
     return res.status(409).json({ error: "Ya recibimos tu solicitud con ese teléfono. Te escribimos pronto por WhatsApp." });

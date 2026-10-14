@@ -882,7 +882,7 @@ function toggleRiderTheme() {
   #form .entry-card .otp-hint { width: 100%; box-sizing: border-box; padding: 0 8px; text-align: center; font-size: 12.5px; line-height: 1.5; }
   #form .entry-card .otp-actions { width: 100%; box-sizing: border-box; gap: 8px; }
   #form .entry-card .otp-actions .btn-sm { flex: 1 1 0; min-width: 0; font-size: 13px; padding: 10px 8px; white-space: nowrap; }
-  #form .entry-card .otp-actions .btn-sm:last-child { flex-basis: 100%; }
+  #form .entry-card .otp-actions .btn-sm:nth-child(n+3) { flex-basis: 100%; }
   html[data-theme="dark"] #form .brand .brand-icon { box-shadow: 0 0 0 1px rgba(52,211,153,.35), 0 0 30px rgba(52,211,153,.22) !important; }
 
   #deliveryCodeBox { width: 280px; box-sizing: border-box; padding: 14px 16px 16px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-card); text-align: center; margin: 10px auto 0; }
@@ -947,6 +947,7 @@ function toggleRiderTheme() {
     <button class="btn-sm" id="otpResendBtn" onclick="resendOtp()" disabled>Reenviar código</button>
     <button class="btn-sm" id="otpCallBtn" onclick="resendOtp(true)" disabled>📞 Recibir llamada</button>
     <button class="btn-sm" onclick="otpHelp()">¿No te llegó? Escríbenos</button>
+    <button class="btn-sm" id="pinLoginBtn" style="display:none;" onclick="pinLoginInstead()">Entrar con mi PIN</button>
   </div>
   <button class="btn" onclick="goToMap()">Continuar</button>
   <div class="entry-legal">Al continuar aceptas nuestro <a href="aviso-privacidad.html">Aviso de privacidad</a>.</div>
@@ -2395,13 +2396,30 @@ async function goToMap() {
       return;
     }
     rider = await res.json();
-  } else {
-    if (!name) {
-      err.textContent = "Escribe tu nombre";
+  } else if (otpPhone === phone && otpIsLogin) {
+    // Ya tiene cuenta: entra con el código que le llegó, sin PIN.
+    const code = document.getElementById("otpInput").value.trim();
+    if (code.length !== 6) {
+      err.textContent = "Escribe el código de 6 dígitos que te llegó";
       return;
     }
+    const res = await fetch(API + "/api/riders/login-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, code }),
+    });
+    if (!res.ok) {
+      err.textContent = (await res.json().catch(() => ({}))).error || "No se pudo entrar, intenta de nuevo";
+      return;
+    }
+    rider = await res.json();
+    hideOtp();
+  } else {
     // Paso 1: pedir el código por WhatsApp (solo la primera vez para este
-    // teléfono). Si el servidor dice que no hace falta, se registra directo.
+    // teléfono). Si ya tiene cuenta, ese código sirve para entrar (arriba).
+    // Si el servidor dice que no hace falta, se registra directo.
+    // El nombre se pide hasta dar de alta: quien ya tiene cuenta no lo
+    // necesita para volver a entrar.
     let code;
     if (otpPhone !== phone) {
       const sent = await requestOtp(phone);
@@ -2413,6 +2431,10 @@ async function goToMap() {
         err.textContent = "Escribe el código de 6 dígitos que te llegó";
         return;
       }
+    }
+    if (!name) {
+      err.textContent = "Escribe tu nombre";
+      return;
     }
     const res = await fetch(API + "/api/riders/register", {
       method: "POST",
@@ -2436,20 +2458,16 @@ async function goToMap() {
   }));
   pingPlayOpen(rider);
 
-  if (rider.isNewPin) {
-    pendingNewRider = rider;
-    document.getElementById("newRiderPin").textContent = rider.pin;
-    document.getElementById("form").classList.remove("active");
-    document.getElementById("pinScreen").classList.add("active");
-    return;
-  }
-
+  // Ya no se le enseña el PIN al registrarse: si algún día tiene que volver a
+  // entrar, le llega un código por WhatsApp. El PIN queda guardado en el
+  // celular y se usa por dentro.
   enterMap();
 }
 
 function showPinLogin(phone) {
   hideOtp();
   pendingLoginPhone = phone;
+  document.getElementById("pinLoginBtn").style.display = "none";
   document.getElementById("riderPinRow").style.display = "flex";
   document.getElementById("riderPinHint").style.display = "block";
   if (SOPORTE_WHATSAPP_NUMBER) document.getElementById("forgotPinBtn").style.display = "inline-block";
@@ -2458,6 +2476,7 @@ function showPinLogin(phone) {
 
 // Código de verificación por WhatsApp (ver backend/whatsappOtp.js).
 let otpPhone = null; // a qué teléfono se le mandó el último código
+let otpIsLogin = false; // ese teléfono ya tiene cuenta: el código es para entrar
 let otpResendTimer = null;
 
 // Regresa "sent" (se mandó, hay que escribirlo), "skip" (el servidor no pide
@@ -2481,7 +2500,7 @@ async function requestOtp(phone, call = false) {
   const res = await fetch(API + "/api/riders/otp/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(call ? { phone, channel: "call", deviceId: otpDeviceId() } : { phone, deviceId: otpDeviceId() }),
+    body: JSON.stringify({ phone, login: true, deviceId: otpDeviceId(), ...(call ? { channel: "call" } : {}) }),
   });
   if (res.status === 409) return "login";
   const data = await res.json().catch(() => ({}));
@@ -2493,6 +2512,9 @@ async function requestOtp(phone, call = false) {
   if (data.required === false) return "skip";
 
   otpPhone = phone;
+  otpIsLogin = !!data.login;
+  // Quien ya tiene cuenta puede entrar con su PIN si lo recuerda.
+  document.getElementById("pinLoginBtn").style.display = otpIsLogin ? "inline-block" : "none";
   document.getElementById("otpRow").style.display = "flex";
   document.getElementById("otpActions").style.display = "flex";
   const hint = document.getElementById("otpHint");
@@ -2500,7 +2522,7 @@ async function requestOtp(phone, call = false) {
   const via = data.channel === "sms" ? "mensaje de texto (SMS)" : "WhatsApp";
   // 9971000000 → 997 100 0000 (se lee mejor); los de otro país quedan como están
   const prettyPhone = /^\d{10}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3") : phone;
-  hint.textContent = (data.channel === "call"
+  hint.textContent = (otpIsLogin ? "Ese teléfono ya tiene cuenta. " : "") + (data.channel === "call"
     ? `Te estamos llamando al ${prettyPhone}. Contesta y una voz te dirá tu código. Escríbelo y toca Continuar.`
     : `Te mandamos un código por ${via} al ${prettyPhone}. Escríbelo y toca Continuar. Si no te llega, escríbenos desde ese mismo número.`) +
     (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
@@ -2541,6 +2563,12 @@ async function resendOtp(call = false) {
   if (sent === "login") showPinLogin(phone);
 }
 
+function pinLoginInstead() {
+  const phone = otpPhone;
+  if (phone) showPinLogin(phone);
+  document.getElementById("formError").textContent = "Escribe tu PIN y toca Continuar.";
+}
+
 function otpHelp() {
   const phone = readRiderPhone() || document.getElementById("phoneInput").value.trim();
   const msg = `Hola, me estoy registrando en MotoVecino con el número ${phone} (les escribo desde ese mismo número) y no me llegó el código de verificación.`;
@@ -2549,6 +2577,8 @@ function otpHelp() {
 
 function hideOtp() {
   otpPhone = null;
+  otpIsLogin = false;
+  document.getElementById("pinLoginBtn").style.display = "none";
   clearInterval(otpResendTimer);
   ["otpRow", "otpActions", "otpHint"].forEach((id) => (document.getElementById(id).style.display = "none"));
 }
@@ -4410,9 +4440,23 @@ function waLink(phone, text) {
   return `https://api.whatsapp.com/send?phone=${full}&text=${encodeURIComponent(text)}`;
 }
 
-function forgotPin() {
-  const phone = readRiderPhone() || document.getElementById("phoneInput").value.trim();
-  const text = `Hola, olvidé mi PIN de pasajero en MotoVecino ${resolvedCityLabel}. Mi teléfono registrado es ${phone}.`;
+// Primero intenta mandarle un código por WhatsApp para entrar sin PIN; solo
+// si el servidor no manda códigos (OTP_MODE off) lo pasa con soporte.
+async function forgotPin() {
+  const phone = readRiderPhone();
+  if (phone) {
+    document.getElementById("formError").textContent = "";
+    const sent = await requestOtp(phone);
+    if (sent === "sent") {
+      pendingLoginPhone = null;
+      document.getElementById("riderPinRow").style.display = "none";
+      document.getElementById("riderPinHint").style.display = "none";
+      document.getElementById("forgotPinBtn").style.display = "none";
+      return;
+    }
+    if (sent === "error") return;
+  }
+  const text = `Hola, olvidé mi PIN de pasajero en MotoVecino ${resolvedCityLabel}. Mi teléfono registrado es ${phone || document.getElementById("phoneInput").value.trim()}.`;
   window.open(waLink(SOPORTE_WHATSAPP_NUMBER, text), "_blank");
 }
 

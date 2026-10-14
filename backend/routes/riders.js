@@ -23,9 +23,12 @@ async function generateRiderPin() {
 }
 
 // Primer paso del registro: manda el código de verificación por WhatsApp.
-// Si el teléfono ya tiene cuenta responde 409 (igual que /riders/register)
-// para que el frontend pida el PIN en vez de mandar un código. Con OTP_MODE
-// en "off" responde required:false y el frontend registra directo.
+// Si el teléfono ya tiene cuenta y el frontend manda login:true, el mismo
+// código sirve para volver a entrar sin PIN (responde login:true; se revisa
+// en /riders/login-code). Sin login:true (página vieja en caché) o con
+// OTP_MODE en "off" responde 409 y el frontend pide el PIN como antes.
+// Con OTP_MODE en "off" y teléfono nuevo responde required:false y el
+// frontend registra directo.
 router.post("/riders/otp/send", async (req, res) => {
   const parsed = parseRiderPhone(req.body.phone);
   if (!parsed) {
@@ -33,7 +36,8 @@ router.post("/riders/otp/send", async (req, res) => {
   }
   const { phone } = parsed;
   const existing = await db.prepare("SELECT pin FROM riders WHERE phone = ?").get(phone);
-  if (existing && existing.pin) {
+  const login = !!(existing && existing.pin);
+  if (login && (req.body.login !== true || !otpEnabled())) {
     return res.status(409).json({ error: "Ese teléfono ya tiene cuenta" });
   }
   if (!otpEnabled()) {
@@ -47,7 +51,39 @@ router.post("/riders/otp/send", async (req, res) => {
     return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
   }
   recordSubmission(req.ip);
-  res.json({ required: true, channel: result.channel, ...(result.devCode ? { devCode: result.devCode } : {}) });
+  res.json({ required: true, login, channel: result.channel, ...(result.devCode ? { devCode: result.devCode } : {}) });
+});
+
+// Volver a entrar con el código que llegó por WhatsApp, sin PIN (la mayoría
+// no lo apunta). El código solo le llega al dueño del número, así que vale lo
+// mismo que el PIN; regresa la cuenta igual que /riders/login, PIN incluido,
+// para que el celular lo guarde y lo siga usando por dentro.
+router.post("/riders/login-code", async (req, res) => {
+  if (isRateLimited(req.ip)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  if (!otpEnabled()) {
+    return res.status(400).json({ error: "Entra con tu PIN" });
+  }
+  const parsed = parseRiderPhone(req.body.phone);
+  if (!parsed) {
+    return res.status(400).json({ error: "Revisa tu teléfono (le faltan o sobran números)" });
+  }
+  const rider = await db
+    .prepare(
+      "SELECT id, name, phone, pin, photo, home_lat, home_lng, home_label, emergency_contact_name, emergency_contact_phone FROM riders WHERE phone = ?"
+    )
+    .get(parsed.phone);
+  if (!rider || !rider.pin) {
+    return res.status(404).json({ error: "Ese teléfono no tiene cuenta" });
+  }
+  const check = await verifyOtp(parsed.phone, req.body.code, parsed.e164);
+  if (!check.ok) {
+    recordFailedAttempt(req.ip);
+    return res.status(check.status).json({ error: check.error });
+  }
+  clearAttempts(req.ip);
+  res.json({ ...rider, ...photoUrls("r", rider.id, rider.photo) });
 });
 
 // Da de alta un teléfono nuevo (le genera PIN) o, si ese teléfono ya tiene
