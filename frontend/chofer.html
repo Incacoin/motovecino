@@ -56,6 +56,7 @@ function setDriverTheme(pref) {
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="vehiculos-mapa.js?v=3"></script>
+<script src="huella.js?v=1"></script>
 <style>
   #login {
     display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow-y: auto; gap: 16px; padding: 24px 24px 90px; text-align: center;
@@ -296,6 +297,7 @@ function setDriverTheme(pref) {
   .btn:disabled { background: #2a2a2a; color: #777; opacity: 1; }
   .btn-secondary { background: #262626; color: #fff; border: none; }
   .btn-secondary:hover { background: #303030; }
+  #login .btn-sm:disabled { opacity: 0.45; cursor: default; }
   .btn-sm { background: #1b1b1b; color: #fff; border: 1px solid #333; }
   .btn-sm:hover { background: #262626; }
   .btn-sm.wa { color: #fff; }
@@ -672,6 +674,7 @@ function setDriverTheme(pref) {
   .dlv-msg { color: var(--danger); font-size: 14px; font-weight: 700; margin-top: 8px; }
   .dlv-msg:empty { display: none; }
   .dlv-link { display: inline-block; margin-top: 10px; font-size: 13px; text-decoration: underline; cursor: pointer; color: var(--text-dim); }
+  #huellaLoginBtn { background: transparent !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -701,9 +704,11 @@ function setDriverTheme(pref) {
   <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="Tu PIN  ••••" style="display:none;" />
   <div id="loginHint" style="display:none;color:var(--text-dim);font-size:13px;line-height:1.45;text-align:center;padding:0 6px;"></div>
   <button class="btn" id="loginBtn" onclick="login()">Mandarme el código</button>
+  <button class="btn btn-secondary" id="huellaLoginBtn" style="display:none;" onclick="driverHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
   </div>
   <div id="loginError"></div>
   <button class="btn-sm" id="resendCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode()">Reenviar código</button>
+  <button class="btn-sm" id="callCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode(true)">📞 Recibir llamada</button>
   <button class="btn-sm" id="pinModeBtn" style="margin-top:4px;" onclick="setLoginMode(loginMode === 'pin' ? 'code' : 'pin')">Entrar con mi PIN</button>
   <button class="btn-sm" id="forgotPinBtn" style="display:none;margin-top:4px;" onclick="forgotPin()">¿No te llega el código? Escríbenos</button>
   <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">🆕 Quiero ser chofer</button>
@@ -924,6 +929,15 @@ function setDriverTheme(pref) {
       <div id="section-pin" class="section-body" style="display:none;">
         <div class="pin-box" id="profilePin">••••</div>
         <div class="profile-note">Con este PIN entras a la app. No se lo compartas a nadie: quien lo tenga puede recibir viajes a tu nombre.</div>
+      </div>
+
+      <button class="menu-row" onclick="toggleSection('huella'); renderDriverHuella()">
+        <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11a5 5 0 0 0 0 0v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg></span><span class="menu-label">Entrar con huella<small id="huellaSub">Sin código ni PIN</small></span><span class="menu-chev" id="chev-huella">›</span>
+      </button>
+      <div id="section-huella" class="section-body" style="display:none;">
+        <div class="profile-note" id="huellaStatus"></div>
+        <button class="btn-sm" id="huellaBtn" onclick="toggleDriverHuella()">Activar huella</button>
+        <div class="profile-note" id="huellaMsg"></div>
       </div>
     </div>
 
@@ -1372,6 +1386,7 @@ function setLoginMode(mode) {
   document.getElementById("pinInput").style.display = pin ? "" : "none";
   document.getElementById("codeLoginInput").style.display = !pin && loginCodePhone ? "" : "none";
   document.getElementById("resendCodeBtn").style.display = !pin && loginCodePhone ? "" : "none";
+  document.getElementById("callCodeBtn").style.display = !pin && loginCodePhone ? "" : "none";
   document.getElementById("loginHint").style.display = !pin && loginCodePhone ? "" : "none";
   document.getElementById("loginBtn").textContent = pin || loginCodePhone ? "Entrar" : "Mandarme el código";
   document.getElementById("pinModeBtn").textContent = pin ? "Entrar con código por WhatsApp" : "Entrar con mi PIN";
@@ -1390,7 +1405,8 @@ function loginDeviceId() {
   } catch { return null; }
 }
 
-async function sendLoginCode() {
+// call=true: el código se lo dicta una llamada (si no le llegó el WhatsApp).
+async function sendLoginCode(call = false) {
   const phone = document.getElementById("phoneLoginInput").value.trim();
   const err = document.getElementById("loginError");
   err.textContent = "";
@@ -1402,7 +1418,7 @@ async function sendLoginCode() {
     const res = await fetch(API + "/api/drivers/login-code/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, deviceId: loginDeviceId() }),
+      body: JSON.stringify({ phone, deviceId: loginDeviceId(), ...(call === true ? { channel: "call" } : {}) }),
     });
     const data = await res.json().catch(() => ({}));
     if (res.status === 400 && data.error === "Por ahora entra con tu PIN") {
@@ -1418,7 +1434,9 @@ async function sendLoginCode() {
     setLoginMode("code");
     const pretty = phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3");
     const via = data.channel === "sms" ? "mensaje de texto (SMS)" : "WhatsApp";
-    document.getElementById("loginHint").textContent = `Te mandamos un código por ${via} al ${pretty}. Escríbelo y toca Entrar.` +
+    document.getElementById("loginHint").textContent = (data.channel === "call"
+      ? `Te estamos llamando al ${pretty}. Contesta y una voz te dirá tu código. Escríbelo y toca Entrar.`
+      : `Te mandamos un código por ${via} al ${pretty}. Escríbelo y toca Entrar.`) +
       (data.devCode ? ` (Prueba: tu código es ${data.devCode})` : "");
     document.getElementById("forgotPinBtn").style.display = SOPORTE_WHATSAPP_NUMBER ? "inline-block" : "none";
     const input = document.getElementById("codeLoginInput");
@@ -1432,15 +1450,18 @@ async function sendLoginCode() {
 
 function startLoginResendCountdown(seconds) {
   const btn = document.getElementById("resendCodeBtn");
+  const callBtn = document.getElementById("callCodeBtn");
   clearInterval(resendTimer);
   let left = seconds;
   btn.disabled = true;
+  callBtn.disabled = true;
   btn.textContent = `Reenviar código (${left})`;
   resendTimer = setInterval(() => {
     left--;
     if (left <= 0) {
       clearInterval(resendTimer);
       btn.disabled = false;
+      callBtn.disabled = false;
       btn.textContent = "Reenviar código";
     } else {
       btn.textContent = `Reenviar código (${left})`;
@@ -1479,18 +1500,75 @@ async function login() {
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error((await res.json()).error || "Error");
-    driver = await res.json();
+    const d = await res.json();
     // "Mi perfil" y lo demás se autentican con teléfono + PIN: con código, el
     // servidor regresa el PIN; con PIN, es el que escribió.
-    if (body.pin) driver.pin = body.pin;
-    todayCount = driver.todayCount || 0;
-    clearInterval(resendTimer);
-    localStorage.setItem("motoya_driver", JSON.stringify(driver));
-    startApp();
+    if (body.pin) d.pin = body.pin;
+    finishDriverLogin(d);
   } catch (e) {
     err.textContent = e.message;
   }
 }
+
+// Guarda la sesión en el celular (no se cierra sola) y entra.
+function finishDriverLogin(d) {
+  driver = d;
+  delete driver.credentialId;
+  todayCount = driver.todayCount || 0;
+  clearInterval(resendTimer);
+  localStorage.setItem("motoya_driver", JSON.stringify(driver));
+  startApp();
+  setTimeout(offerDriverHuella, 1500);
+}
+
+async function driverHuellaLogin() {
+  const err = document.getElementById("loginError");
+  err.textContent = "";
+  const r = await MVHuella.login("driver");
+  if (!r.ok) { err.textContent = r.error; return; }
+  finishDriverLogin(r.user);
+}
+
+// Recién entró en un celular sin huella: se le ofrece una sola vez.
+async function offerDriverHuella() {
+  if (!driver || !MVHuella.shouldOffer("driver")) return;
+  if (!(await mvConfirm("¿Quieres entrar con tu huella la próxima vez? Así no necesitas código ni PIN. Tu huella no sale de tu celular.", "Activar huella"))) return;
+  const r = await MVHuella.activate("driver", driver.phone, driver.pin);
+  showToast(r.ok ? "✅ Huella activada" : r.error);
+}
+
+function renderDriverHuella() {
+  const status = document.getElementById("huellaStatus");
+  const btn = document.getElementById("huellaBtn");
+  const sub = document.getElementById("huellaSub");
+  if (!MVHuella.supported()) {
+    status.textContent = "Este celular no permite entrar con huella.";
+    btn.style.display = "none";
+    return;
+  }
+  const on = !!MVHuella.savedId("driver");
+  status.textContent = on ? "✅ Activada en este celular. Para entrar toca \"Entrar con mi huella\"." : "Actívala y entra solo con tu huella, sin código ni PIN. Tu huella no sale de tu celular.";
+  btn.style.display = "";
+  btn.textContent = on ? "Quitar huella" : "Activar huella";
+  sub.textContent = on ? "Activada" : "Sin código ni PIN";
+}
+
+async function toggleDriverHuella() {
+  if (!driver) return;
+  const msg = document.getElementById("huellaMsg");
+  msg.textContent = "";
+  if (MVHuella.savedId("driver")) {
+    if (!(await mvConfirm("Este celular ya no podrá entrar con tu huella (con el código por WhatsApp sí). ¿Quitarla?", "Quitar", true))) return;
+    const r = await MVHuella.remove("driver", driver.phone, driver.pin);
+    msg.textContent = r.ok ? "Huella quitada" : (r.error || "No se pudo quitar");
+  } else {
+    const r = await MVHuella.activate("driver", driver.phone, driver.pin);
+    msg.textContent = r.ok ? "✅ Listo. La próxima vez toca \"Entrar con mi huella\"." : r.error;
+  }
+  renderDriverHuella();
+}
+
+if (MVHuella.supported()) document.getElementById("huellaLoginBtn").style.display = "";
 
 async function logout() {
   if (currentRide) {

@@ -149,8 +149,9 @@ async function sendViaTwilio(e164, code) {
 
 // Genera y "manda" un código nuevo. `phone` es como se guarda en riders (la
 // llave del límite) y `e164` el número completo con "+" al que se manda.
-// `wantCall`: la persona pidió el código por llamada (solo en modo verify o
-// simulado; usa el mismo límite de reenvíos que el SMS).
+// `wantCall`: la persona pidió el código por llamada (modo verify o simulado,
+// y en modo twilio si está TWILIO_VERIFY_SID; usa el mismo límite de
+// reenvíos que los demás).
 // Regresa { ok, channel, devCode? } o { status, error }.
 async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
   const now = Date.now();
@@ -174,17 +175,23 @@ async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
   }
 
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+  // Llamada: en modo verify o simulado como siempre; en modo twilio (WhatsApp)
+  // es el respaldo para quien no recibió el WhatsApp, y la hace Twilio Verify
+  // (via_verify = 1: ese código también lo revisa Verify).
+  const mode = otpMode();
+  const call = wantCall && (["verify", "simulado"].includes(mode) || (mode === "twilio" && !!process.env.TWILIO_VERIFY_SID));
+  const viaVerify = mode === "verify" || (mode === "twilio" && call) ? 1 : 0;
   // Solo se guarda si nadie más mandó un código a este teléfono desde que lo
   // leímos arriba (last_sent_at sigue igual): dos toques al mismo tiempo en
   // "Mandar código" ya no mandan (ni cobran) dos mensajes.
   const saved = await db.prepare(`
-    INSERT INTO phone_otps (phone, code_hash, expires_at, attempts, last_sent_at, window_start, sends_in_window)
-    VALUES (?, ?, ?, 0, ?, ?, ?)
+    INSERT INTO phone_otps (phone, code_hash, expires_at, attempts, last_sent_at, window_start, sends_in_window, via_verify)
+    VALUES (?, ?, ?, 0, ?, ?, ?, ?)
     ON CONFLICT(phone) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at,
       attempts = 0, last_sent_at = excluded.last_sent_at, window_start = excluded.window_start,
-      sends_in_window = excluded.sends_in_window
+      sends_in_window = excluded.sends_in_window, via_verify = excluded.via_verify
     WHERE phone_otps.last_sent_at = ?
-  `).run(phone, hashCode(phone, code), now + CODE_TTL_MS, now, windowFresh ? now : row.window_start, sends + 1, row ? row.last_sent_at : -1);
+  `).run(phone, hashCode(phone, code), now + CODE_TTL_MS, now, windowFresh ? now : row.window_start, sends + 1, viaVerify, row ? row.last_sent_at : -1);
   if (saved.changes === 0) {
     await releaseDailySend();
     return { status: 429, error: "Espera unos segundos para pedir otro código", retryIn: 60 };
@@ -194,13 +201,12 @@ async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
   // para el límite por hora.
   await db.prepare("DELETE FROM phone_otps WHERE expires_at < ?").run(now - 24 * 60 * 60 * 1000);
 
-  const call = wantCall && ["verify", "simulado"].includes(otpMode());
-  if (otpMode() === "simulado") {
+  if (mode === "simulado") {
     console.log(`[OTP simulado${call ? " llamada" : ""}] ${phone} → ${code}`);
     return { ok: true, devCode: code, channel: call ? "call" : "whatsapp" };
   }
   try {
-    if (otpMode() === "verify") {
+    if (viaVerify) {
       // Twilio genera su propio código; el nuestro (guardado arriba) nunca se
       // manda y solo sirve para llevar el límite de envíos e intentos.
       const channel = call ? "call" : otpChannel();
@@ -235,7 +241,7 @@ async function verifyOtp(phone, code, e164) {
   }
   const given = typeof code === "string" ? code.trim() : "";
   let ok;
-  if (otpMode() === "verify") {
+  if (otpMode() === "verify" || (otpMode() === "twilio" && Number(row.via_verify) === 1)) {
     if (!/^\d{4,10}$/.test(given)) {
       ok = false;
     } else {

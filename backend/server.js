@@ -16,6 +16,7 @@ const adminRoutes = require("./routes/admin");
 const allyAdRoutes = require("./routes/allyAds");
 const businessRoutes = require("./routes/business");
 const orderRoutes = require("./routes/orders");
+const passkeyRoutes = require("./routes/passkeys");
 const menuImages = require("./menuImages");
 const familyRides = require("./routes/familyRides");
 const { router: photoRoutes } = require("./photos");
@@ -214,6 +215,7 @@ app.use("/api", orderRoutes);
 app.use("/api", menuImages.router);
 app.use("/api", familyRides.router);
 app.use("/api", photoRoutes);
+app.use("/api", passkeyRoutes);
 
 // Última red de seguridad: si algo revienta sin que la ruta lo haya
 // atrapado (un tipo de dato inesperado, un error de la base, etc.), esto

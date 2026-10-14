@@ -157,7 +157,7 @@ router.post("/drivers/login-code/send", async (req, res) => {
   if (isSubmissionRateLimited(req.ip)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
-  const result = await sendOtp(phone, "+52" + phone, false, req.body.deviceId);
+  const result = await sendOtp(phone, "+52" + phone, req.body.channel === "call", req.body.deviceId);
   if (!result.ok) {
     return res.status(result.status).json({ error: result.error, retryIn: result.retryIn });
   }
@@ -617,3 +617,4 @@ router.post("/drivers/push/unsubscribe", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.driverLoginPayload = driverLoginPayload;

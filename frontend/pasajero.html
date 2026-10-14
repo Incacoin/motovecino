@@ -65,6 +65,7 @@ function toggleRiderTheme() {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="vehiculos-mapa.js?v=3"></script>
 <script src="buscador.js?v=1"></script>
+<script src="huella.js?v=1"></script>
 <style>
   .screen { display: none; flex-direction: column; height: 100vh; overflow-y: auto; }
   .screen.active { display: flex; }
@@ -891,6 +892,7 @@ function toggleRiderTheme() {
   #deliveryCodeBox .dlv-code span { width: 50px; height: 60px; border-radius: 12px; border: 2px solid var(--text); display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: var(--text); }
   #deliveryCodeBox .dlv-txt { font-size: 13.5px; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px; }
   #deliveryCodeBox .btn { width: 100%; margin: 0; }
+  #huellaLoginBtn { background: transparent !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -950,6 +952,7 @@ function toggleRiderTheme() {
     <button class="btn-sm" id="pinLoginBtn" style="display:none;" onclick="pinLoginInstead()">Entrar con mi PIN</button>
   </div>
   <button class="btn" onclick="goToMap()">Continuar</button>
+  <button class="btn btn-secondary" id="huellaLoginBtn" style="display:none;" onclick="riderHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
   <div class="entry-legal">Al continuar aceptas nuestro <a href="aviso-privacidad.html">Aviso de privacidad</a>.</div>
   </div>
   <div id="formError"></div>
@@ -1029,8 +1032,8 @@ function toggleRiderTheme() {
   <div class="account-grid">
     <button class="account-card" onclick="toggleAccountSection('pin', this)">
       <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg></span>
-      <span class="account-card-label">Mi PIN</span>
-      <small class="acc-tile-sub">•••• · Ver</small>
+      <span class="account-card-label">Mi acceso</span>
+      <small class="acc-tile-sub" id="tileAccess">Huella y PIN</small>
     </button>
     <button class="account-card" onclick="toggleAccountSection('home', this)">
       <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg></span>
@@ -1050,6 +1053,11 @@ function toggleRiderTheme() {
   </div>
 
   <div id="accountSectionPin" class="account-detail">
+    <div style="width:260px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);">
+      <span style="color:var(--text-dim);font-size:14px;"><strong style="color:var(--text);">Huella</strong><br><span id="huellaStatus" style="font-size:13px;"></span></span>
+      <button class="btn-sm" id="huellaBtn" onclick="toggleRiderHuella()" style="padding:4px 10px;white-space:nowrap;">Activar huella</button>
+    </div>
+    <div id="huellaMsg" style="width:260px;font-size:13px;color:var(--text-dim);min-height:0;"></div>
     <div style="width:260px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);">
       <span style="color:var(--text-dim);font-size:14px;">PIN: <strong id="profilePinValue" style="letter-spacing:2px;color:var(--text);">••••</strong></span>
       <button class="btn-sm" onclick="togglePinVisibility()" style="padding:4px 10px;">Ver</button>
@@ -2450,6 +2458,14 @@ async function goToMap() {
     hideOtp();
   }
 
+  finishRiderLogin(rider);
+}
+
+// Guarda la cuenta en el celular (sesión que no se cierra sola) y entra.
+// Ya no se le enseña el PIN al registrarse: si algún día tiene que volver a
+// entrar, usa su huella o le llega un código por WhatsApp. El PIN queda
+// guardado en el celular y se usa por dentro.
+function finishRiderLogin(rider) {
   localStorage.setItem("motoya_rider", JSON.stringify({
     id: rider.id, name: rider.name, phone: rider.phone, pin: rider.pin, photo: rider.photo || null,
     home_lat: rider.home_lat ?? null, home_lng: rider.home_lng ?? null, home_label: rider.home_label || null,
@@ -2457,11 +2473,59 @@ async function goToMap() {
     emergency_contact_phone: rider.emergency_contact_phone || null,
   }));
   pingPlayOpen(rider);
-
-  // Ya no se le enseña el PIN al registrarse: si algún día tiene que volver a
-  // entrar, le llega un código por WhatsApp. El PIN queda guardado en el
-  // celular y se usa por dentro.
   enterMap();
+  setTimeout(() => offerRiderHuella(rider), 1200);
+}
+
+async function riderHuellaLogin() {
+  const err = document.getElementById("formError");
+  err.textContent = "";
+  const r = await MVHuella.login("rider");
+  if (!r.ok) { err.textContent = r.error; return; }
+  hideOtp();
+  finishRiderLogin(r.user);
+}
+
+// Recién entró en un celular sin huella: se le ofrece una sola vez.
+async function offerRiderHuella(rider) {
+  if (!MVHuella.shouldOffer("rider")) return;
+  if (!(await mvConfirm("¿Quieres entrar con tu huella la próxima vez? Así no necesitas código ni PIN. Tu huella no sale de tu celular.", "Activar huella"))) return;
+  const r = await MVHuella.activate("rider", rider.phone, rider.pin);
+  showToast(r.ok ? "✅ Huella activada" : r.error);
+}
+
+// "Mi acceso" en el perfil: activar o quitar la huella de este celular.
+function renderHuellaStatus() {
+  const box = document.getElementById("huellaStatus");
+  const btn = document.getElementById("huellaBtn");
+  if (!box || !btn) return;
+  if (!MVHuella.supported()) {
+    box.textContent = "Este celular no permite entrar con huella.";
+    btn.style.display = "none";
+    return;
+  }
+  const on = !!MVHuella.savedId("rider");
+  box.textContent = on ? "✅ Activada en este celular" : "Entra sin código ni PIN";
+  btn.style.display = "";
+  btn.textContent = on ? "Quitar huella" : "Activar huella";
+  const tile = document.getElementById("tileAccess");
+  if (tile) tile.textContent = on ? "Huella activada" : "Huella y PIN";
+}
+
+async function toggleRiderHuella() {
+  const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
+  if (!rider) return;
+  const msg = document.getElementById("huellaMsg");
+  msg.textContent = "";
+  if (MVHuella.savedId("rider")) {
+    if (!(await mvConfirm("Este celular ya no podrá entrar con tu huella (con el código por WhatsApp sí). ¿Quitarla?", "Quitar", true))) return;
+    const r = await MVHuella.remove("rider", rider.phone, rider.pin);
+    msg.textContent = r.ok ? "Huella quitada" : (r.error || "No se pudo quitar");
+  } else {
+    const r = await MVHuella.activate("rider", rider.phone, rider.pin);
+    msg.textContent = r.ok ? "✅ Listo. La próxima vez toca \"Entrar con mi huella\"." : r.error;
+  }
+  renderHuellaStatus();
 }
 
 function showPinLogin(phone) {
@@ -2562,6 +2626,11 @@ async function resendOtp(call = false) {
   const sent = await requestOtp(phone, call);
   if (sent === "login") showPinLogin(phone);
 }
+
+// "Entrar con mi huella" en la portada: en todo celular que lo permita (la
+// llave vive en la cuenta de Google, así que sirve aunque se hayan borrado
+// los datos de la app).
+if (MVHuella.supported()) document.getElementById("huellaLoginBtn").style.display = "";
 
 function pinLoginInstead() {
   const phone = otpPhone;
@@ -3893,6 +3962,8 @@ function openProfile() {
   renderHomeStatus(rider);
   renderEmergencyStatus(rider);
   renderAccHero(rider);
+  renderHuellaStatus();
+  document.getElementById("huellaMsg").textContent = "";
   const pinEl = document.getElementById("profilePinValue");
   pinEl.textContent = "••••";
   pinEl.dataset.pin = rider.pin || "";
@@ -4320,7 +4391,7 @@ function closeHistory() {
 }
 
 async function logoutRider() {
-  if (!(await mvConfirm("¿Cerrar sesión? Vas a necesitar tu teléfono y PIN para volver a entrar.", "Cerrar sesión", true))) return;
+  if (!(await mvConfirm("¿Cerrar sesión? Para volver a entrar usa tu huella o te mandamos un código por WhatsApp.", "Cerrar sesión", true))) return;
   localStorage.removeItem("motoya_rider");
   location.reload();
 }
