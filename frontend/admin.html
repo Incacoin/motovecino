@@ -1290,6 +1290,8 @@ const AUDIT_LABELS = {
   login_fallido: "Intento de entrada con PIN equivocado",
   passkey_login: "Entró al admin con huella",
   passkey_fallida: "Intento de entrada con huella que no pasó",
+  otp_limite_numero: "⚠️ Un número pidió demasiados códigos hoy (se frenó)",
+  otp_limite_conexion: "⚠️ Una conexión pidió demasiados códigos hoy (se frenó)",
   "/admin/passkey/register": "Activó la huella en un celular",
   "/admin/passkey/:id/delete": "Quitó la huella de un celular",
   "/admin/logout": "Cerró sesión",
@@ -1320,7 +1322,7 @@ const AUDIT_LABELS = {
 const ROLE_LABELS = { tekax: "Dueño", progreso: "Daniel (Progreso)", ticul: "Ticul" };
 
 // Solo lo que le sirve a una persona; lo técnico (lat, lng, casillas) no se enseña.
-const AUDIT_FIELDS = { device: "", name: "", phone: "Tel.", vehicleType: "", amount: "$", address: "", whatsapp: "WhatsApp", enabled: "", esPrueba: "", active: "" };
+const AUDIT_FIELDS = { device: "", name: "", phone: "Tel.", ip: "Conexión", vehicleType: "", amount: "$", address: "", whatsapp: "WhatsApp", enabled: "", esPrueba: "", active: "" };
 function auditDetailText(raw) {
   if (!raw) return "";
   try {

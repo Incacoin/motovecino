@@ -464,6 +464,17 @@ CREATE INDEX IF NOT EXISTS idx_user_passkeys_user ON user_passkeys(kind, user_id
 -- Verify aunque la app esté en modo WhatsApp; aquí se apunta cuál fue.
 ALTER TABLE phone_otps ADD COLUMN IF NOT EXISTS via_verify INTEGER NOT NULL DEFAULT 0;
 
+-- 14-oct-2026: límites por día contra quien pide códigos sin parar.
+-- key = 'phone:9971005145' o 'ip:1.2.3.4'; day en hora de Yucatán.
+-- flagged = ya se avisó en Movimientos del admin (una vez al día).
+CREATE TABLE IF NOT EXISTS otp_limits (
+  key TEXT NOT NULL,
+  day TEXT NOT NULL,
+  sends INTEGER NOT NULL DEFAULT 0,
+  flagged INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (key, day)
+);
+
 -- Solicitudes de chofer (6-oct-2026): teléfono confirmado con código por
 -- WhatsApp, y "rechazada" con su motivo cuando el admin contesta con amabilidad.
 ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS phone_verified INTEGER NOT NULL DEFAULT 0;

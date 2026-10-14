@@ -34,10 +34,17 @@ const MAX_WRONG_ATTEMPTS = 5; // por código; después hay que pedir otro
 // - Por celular: MAX_PHONES_PER_DEVICE números distintos al día.
 const MAX_PHONES_PER_DEVICE = 3;
 const HELP_TEXT = "Escríbenos por WhatsApp al 997 973 9422 y te ayudamos.";
+// 14-oct-2026: por día, por número y por conexión (IP). Una persona normal
+// nunca llega; un chistoso se topa rápido sin gastarse el tope de toda la
+// app (que antes podía dejar sin código a todos el resto del día).
+const MAX_SENDS_PER_PHONE_DAY = 8;
+// 30 y no menos: en los municipios muchos celulares salen a internet por la
+// misma IP de la compañía (Telcel, etc.); un límite bajo frenaría a gente real.
+const MAX_SENDS_PER_IP_DAY = 30;
 
 function otpDailyCap() {
   const n = parseInt(process.env.OTP_DAILY_CAP, 10);
-  return Number.isFinite(n) && n > 0 ? n : 20;
+  return Number.isFinite(n) && n > 0 ? n : 100;
 }
 
 // Día en hora de Yucatán (el contador se reinicia a medianoche de aquí).
@@ -51,6 +58,26 @@ async function reserveDailySend() {
   await db.prepare("INSERT INTO otp_daily (day, sends) VALUES (?, 0) ON CONFLICT(day) DO NOTHING").run(day);
   const r = await db.prepare("UPDATE otp_daily SET sends = sends + 1 WHERE day = ? AND sends < ?").run(day, otpDailyCap());
   return r.changes > 0;
+}
+
+// Aparta un envío del límite del día de esa llave (número o IP).
+// false = ya llegó a su límite; la primera vez del día se avisa en los
+// Movimientos del admin (zona vacía = lo ve el dueño).
+async function reserveLimit(key, max, action, detail) {
+  const day = todayYucatan();
+  await db.prepare("INSERT INTO otp_limits (key, day, sends) VALUES (?, ?, 0) ON CONFLICT(key, day) DO NOTHING").run(key, day);
+  const r = await db.prepare("UPDATE otp_limits SET sends = sends + 1 WHERE key = ? AND day = ? AND sends < ?").run(key, day, max);
+  if (r.changes > 0) return true;
+  const first = await db.prepare("UPDATE otp_limits SET flagged = 1 WHERE key = ? AND day = ? AND flagged = 0").run(key, day);
+  if (first.changes > 0) {
+    console.warn(`[OTP] límite del día: ${key}`);
+    await db.prepare("INSERT INTO admin_audit (action, detail, ok) VALUES (?, ?, 0)").run(action, JSON.stringify(detail)).catch(() => {});
+  }
+  return false;
+}
+
+async function releaseLimit(key) {
+  await db.prepare("UPDATE otp_limits SET sends = sends - 1 WHERE key = ? AND day = ? AND sends > 0").run(key, todayYucatan());
 }
 
 async function releaseDailySend() {
@@ -153,7 +180,7 @@ async function sendViaTwilio(e164, code) {
 // y en modo twilio si está TWILIO_VERIFY_SID; usa el mismo límite de
 // reenvíos que los demás).
 // Regresa { ok, channel, devCode? } o { status, error }.
-async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
+async function sendOtp(phone, e164, wantCall = false, deviceId = null, ip = null) {
   const now = Date.now();
   const row = await db.prepare("SELECT * FROM phone_otps WHERE phone = ?").get(phone);
 
@@ -169,7 +196,18 @@ async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
   if (!(await deviceAllows(cleanDeviceId(deviceId), phone))) {
     return { status: 429, error: "Desde este celular ya se pidieron códigos para varios números hoy. " + HELP_TEXT };
   }
+  const phoneKey = "phone:" + phone;
+  const ipKey = ip ? "ip:" + ip : null;
+  if (!(await reserveLimit(phoneKey, MAX_SENDS_PER_PHONE_DAY, "otp_limite_numero", { phone }))) {
+    return { status: 429, error: "Ya pediste muchos códigos hoy para este número. Si activaste tu huella, entra con ella; si no, " + HELP_TEXT.charAt(0).toLowerCase() + HELP_TEXT.slice(1) };
+  }
+  if (ipKey && !(await reserveLimit(ipKey, MAX_SENDS_PER_IP_DAY, "otp_limite_conexion", { ip, phone }))) {
+    await releaseLimit(phoneKey);
+    return { status: 429, error: "Desde esta conexión ya se pidieron muchos códigos hoy. " + HELP_TEXT };
+  }
+  const releaseLimits = async () => { await releaseLimit(phoneKey); if (ipKey) await releaseLimit(ipKey); };
   if (!(await reserveDailySend())) {
+    await releaseLimits();
     console.warn(`[OTP] Se llegó al tope de ${otpDailyCap()} códigos de hoy`);
     return { status: 429, error: "Por hoy no podemos mandar más códigos. " + HELP_TEXT, capReached: true };
   }
@@ -194,12 +232,14 @@ async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
   `).run(phone, hashCode(phone, code), now + CODE_TTL_MS, now, windowFresh ? now : row.window_start, sends + 1, viaVerify, row ? row.last_sent_at : -1);
   if (saved.changes === 0) {
     await releaseDailySend();
+    await releaseLimits();
     return { status: 429, error: "Espera unos segundos para pedir otro código", retryIn: 60 };
   }
 
   // Limpieza de paso: códigos vencidos hace más de un día ya no sirven ni
-  // para el límite por hora.
+  // para el límite por hora; los contadores por día de hace 3 días tampoco.
   await db.prepare("DELETE FROM phone_otps WHERE expires_at < ?").run(now - 24 * 60 * 60 * 1000);
+  await db.prepare("DELETE FROM otp_limits WHERE day < ?").run(new Date(now - 3 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA", { timeZone: "America/Merida" }));
 
   if (mode === "simulado") {
     console.log(`[OTP simulado${call ? " llamada" : ""}] ${phone} → ${code}`);
@@ -222,6 +262,7 @@ async function sendOtp(phone, e164, wantCall = false, deviceId = null) {
     // No cuenta como envío: que pueda reintentar sin esperar.
     await db.prepare("UPDATE phone_otps SET last_sent_at = 0, sends_in_window = sends_in_window - 1 WHERE phone = ?").run(phone);
     await releaseDailySend();
+    await releaseLimits();
     return { status: 502, error: "No pudimos mandarte el código. Revisa tu número o escríbenos." };
   }
 }
