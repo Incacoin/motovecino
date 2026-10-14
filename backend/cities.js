@@ -34,7 +34,11 @@ const CITIES = [
   // se dan de alta en "Quiero ser chofer" y cada solicitud cae en el cajón de su municipio.
   // 11-oct-2026: PRUEBA TEMPORAL — mototaxi prendido en Ticul, Oxkutzcab y Akil (sin motoSoon)
   // para probar con choferes dados de alta en el admin. Para apagar: volver a poner motoSoon: true.
-  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
+  // 14-oct-2026: Ticul vuelve a su tarifa por distancia (la acordada con el
+  // gremio): viaje corto (hasta shortTripKm en línea recta) mínimo
+  // minOfferShort de día; más largo, minOffer y el chofer pide más si quiere.
+  // De noche, minOfferNight sin importar la distancia.
+  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, labelRadiusKm: 7, offerOnly: true, minOffer: 15, minOfferShort: 10, shortTripKm: 0.5, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // Akil (6-oct-2026): municipio con cajón propio (su selector en el
   // admin). Registro de choferes cerrado por ahora (signupClosed) y el
@@ -237,17 +241,21 @@ function isWithinServiceRadius(cityId, lat, lng, rideType) {
 // app del pasajero (/api/cities/resolve). null si el pueblo tiene precio fijo.
 function cityOfferRules(city) {
   if (!city || !city.offerOnly || city.zones) return null;
-  const { minOffer, minOfferNight, minChild, minChildNight } = city;
-  return { minOffer, minOfferNight, minChild, minChildNight, serviceFee: SERVICE_FEE };
+  const { minOffer, minOfferNight, minChild, minChildNight, minOfferShort, shortTripKm } = city;
+  return { minOffer, minOfferNight, minChild, minChildNight, serviceFee: SERVICE_FEE, ...(minOfferShort ? { minOfferShort, shortTripKm } : {}) };
 }
 
 // Lo mínimo que puede ofrecer el pasajero en un pueblo offerOnly (con la
 // cuota de la app). El servidor usa siempre la tarifa de DÍA: el celular
 // decide si ya es de noche con su propia hora, y no queremos rechazar un
 // viaje pedido justo a las 10:00 p.m. por segundos de diferencia.
-function cityMinOffer(city, adults, kids) {
+// tripKm (recogida→destino en línea recta): en pueblos con tarifa por
+// distancia (Ticul), el viaje corto tiene su propio mínimo.
+function cityMinOffer(city, adults, kids, tripKm) {
   if (!city || !city.offerOnly || city.zones) return 0;
-  return city.minOffer * Math.max(1, adults || 1) + (city.minChild || 0) * Math.max(0, kids || 0) + SERVICE_FEE;
+  const short = city.minOfferShort && Number.isFinite(tripKm) && tripKm <= city.shortTripKm;
+  const adult = short ? city.minOfferShort : city.minOffer;
+  return adult * Math.max(1, adults || 1) + (city.minChild || 0) * Math.max(0, kids || 0) + SERVICE_FEE;
 }
 
 module.exports = {

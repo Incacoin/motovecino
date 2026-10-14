@@ -1558,8 +1558,12 @@ let cityOffer = { minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 1
 // ¿Aquí el mototaxi es solo con "Propón tu precio"?
 function motoOfferOnly() { return comisaria ? !!comisaria.offerOnly : !!cityOffer; }
 // Precio sugerido = mínimo del pueblo para los que van (con la cuota de la app).
+// Ticul: tarifa por distancia — el viaje corto (hasta shortTripKm en línea
+// recta) tiene su propio mínimo de día (ver backend/cities.js).
 function cityOfferMin(night) {
-  const adult = night ? cityOffer.minOfferNight : cityOffer.minOffer;
+  const short = !night && cityOffer.minOfferShort && pickup && dest &&
+    haversine(pickup.lat, pickup.lng, dest.lat, dest.lng) <= cityOffer.shortTripKm;
+  const adult = night ? cityOffer.minOfferNight : short ? cityOffer.minOfferShort : cityOffer.minOffer;
   const kid = night ? cityOffer.minChildNight : cityOffer.minChild;
   return adult * passengers + kid * children + SERVICE_FEE;
 }

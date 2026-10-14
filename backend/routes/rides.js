@@ -213,7 +213,8 @@ router.post("/rides", async (req, res) => {
     if (!(offerPrice >= 5) || offerPrice > 2000) {
       return res.status(400).json({ error: "Revisa el precio que ofreces" });
     }
-    const min = cityMinOffer(cityCfg, Number(passengers) || 1, Number(children) || 0);
+    const tripKm = haversineKm(Number(pickup_lat), Number(pickup_lng), Number(dest_lat), Number(dest_lng));
+    const min = cityMinOffer(cityCfg, Number(passengers) || 1, Number(children) || 0, tripKm);
     if (offerPrice < min) {
       return res.status(400).json({ error: `El precio mínimo es $${min}` });
     }
