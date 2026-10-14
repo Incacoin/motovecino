@@ -44,7 +44,7 @@ function applyRiderTheme() {
   if (meta) meta.setAttribute("content", theme === "light" ? "#ffffff" : "#000000");
   document.querySelectorAll(".theme-picker button").forEach((b) => b.classList.toggle("active", b.dataset.pref === pref));
   const quick = document.getElementById("themeQuickBtn");
-  if (quick) { quick.textContent = theme === "dark" ? "☀️" : "🌙"; quick.title = theme === "dark" ? "Tema claro" : "Tema oscuro"; }
+  if (quick) { quick.innerHTML = theme === "dark" ? '<svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>' : '<svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>'; quick.title = theme === "dark" ? "Tema claro" : "Tema oscuro"; }
 }
 applyRiderTheme();
 document.addEventListener("DOMContentLoaded", applyRiderTheme);
@@ -937,7 +937,7 @@ function toggleRiderTheme() {
   /* Buscando / en camino / terminado: todo del mismo ancho y alineado */
   #status > .card, #status > .share-cancel-row, #status > .chat-toggle-btn, #status > #allyAd, #status > #deliveryCodeBox, #status > #ratingBox, #status > #newRideBtn, #status > #reportBtn, #status > .status-header { width: min(360px, calc(100vw - 32px)) !important; max-width: none !important; box-sizing: border-box; }
   .status-header-text .big { font-size: 18px !important; line-height: 1.2; }
-  #tripCountBadge { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+  #tripCountBadge { flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 4px; }
   .status-icon { width: 64px !important; }
   .tier-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; font-style: normal; background: rgba(15,23,42,0.06); color: var(--text); white-space: nowrap; }
   .tier-pill svg { flex-shrink: 0; }
@@ -981,20 +981,24 @@ function toggleRiderTheme() {
   html[data-theme="dark"] .acc-edit { background: rgba(255,255,255,0.08); }
   .big-sub { display: block; font-size: 13px; font-weight: 500; color: var(--text-dim); letter-spacing: 0; margin-top: 2px; }
   .search-title { gap: 10px; }
+  .ic-in { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+  .locbn-ic { display: flex; color: inherit; }
+  #themeQuickBtn svg { display: block; margin: auto; }
+  .brand-icon svg { display: block; margin: auto; }
   .acc-private { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 </style>
 </head>
 <body>
 
 <div id="locationBanner" class="locationBanner" onclick="retryLocation()">
-  <span>📍</span>
+  <span class="locbn-ic"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg></span>
   <span class="locationBanner-text">La ubicación está desactivada. Toca aquí para activarla.</span>
   <span class="locationBanner-chevron">›</span>
 </div>
 <div id="toast" class="toast"></div>
 
 <div id="form" class="screen active">
-  <button id="themeQuickBtn" onclick="toggleRiderTheme()" title="Tema oscuro" aria-label="Cambiar tema">🌙</button>
+  <button id="themeQuickBtn" onclick="toggleRiderTheme()" title="Tema oscuro" aria-label="Cambiar tema"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
   <div id="installBanner" class="card installBanner" style="display:none;">
     <div id="installText"></div>
     <button class="btn-sm" id="installBtn" onclick="installApp()" style="display:none;">Instalar app</button>
@@ -1009,7 +1013,7 @@ function toggleRiderTheme() {
   <div class="entry-sub">Pasajes y domicilios para negocios</div>
   <div class="entry-card">
   <div class="wb-only" id="wbBox">
-    <div class="wb-hello">Hola de nuevo, <span id="wbName"></span> 👋</div>
+    <div class="wb-hello">Hola de nuevo, <span id="wbName"></span></div>
     <div class="wb-phone" id="wbPhone"></div>
   </div>
   <button class="btn wb-only" id="wbHuellaBtn" style="display:none;" onclick="riderHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
@@ -1042,7 +1046,7 @@ function toggleRiderTheme() {
   <div id="otpHint" class="otp-hint" style="display:none;"></div>
   <div id="otpActions" class="otp-actions" style="display:none;">
     <button class="btn-sm" id="otpResendBtn" onclick="resendOtp()" disabled>Reenviar código</button>
-    <button class="btn-sm" id="otpCallBtn" onclick="resendOtp(true)" disabled>📞 Recibir llamada</button>
+    <button class="btn-sm" id="otpCallBtn" onclick="resendOtp(true)" disabled><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg> Recibir llamada</button>
     <button class="btn-sm" onclick="otpHelp()">¿No te llegó? Escríbenos</button>
     <button class="btn-sm" id="pinLoginBtn" style="display:none;" onclick="pinLoginInstead()">Entrar con mi PIN</button>
   </div>
@@ -1081,7 +1085,7 @@ function toggleRiderTheme() {
 </div>
 
 <div id="pinScreen" class="screen" style="align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;">
-  <div class="brand"><span class="brand-icon">🔑</span>Tu PIN</div>
+  <div class="brand"><span class="brand-icon"><svg class="li" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg></span>Tu PIN</div>
   <div style="color:var(--text-dim);max-width:320px;">Apunta este PIN — lo vas a necesitar si algún día pides un viaje desde otro celular.</div>
   <div id="newRiderPin" style="font-family:ui-monospace,monospace;font-size:34px;letter-spacing:8px;font-weight:800;color:var(--accent);"></div>
   <button class="btn" onclick="dismissPinScreen()" style="max-width:260px;">Entendido, continuar</button>
@@ -1205,7 +1209,7 @@ function toggleRiderTheme() {
 <div id="appDrawer" class="app-drawer">
   <div class="drawer-header">
     <div class="brand brand-sm"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino</div>
-    <div class="drawer-city" id="drawerCityLabel">📍 <span></span></div>
+    <div class="drawer-city" id="drawerCityLabel"><span></span></div>
     <div class="drawer-me" id="drawerMe"></div>
   </div>
   <div class="drawer-nav">
@@ -1255,8 +1259,8 @@ function toggleRiderTheme() {
     </div>
     <div id="pickupStep" class="step-only step-block">
       <div class="row">
-        <button class="btn btn-secondary big" onclick="useMyLocation()">📍 Usar mi ubicación</button>
-        <button class="btn btn-secondary big" id="useHomeBtn" style="display:none;" onclick="useHomeLocation()">🏠 Mi casa</button>
+        <button class="btn btn-secondary big" onclick="useMyLocation()"><span class="ic-in"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg>Usar mi ubicación</span></button>
+        <button class="btn btn-secondary big" id="useHomeBtn" style="display:none;" onclick="useHomeLocation()"><span class="ic-in"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>Mi casa</span></button>
       </div>
       <button class="btn" id="confirmPickupBtn" onclick="confirmPickup()">Confirmar punto de encuentro</button>
     </div>
@@ -1402,7 +1406,7 @@ function toggleRiderTheme() {
     </div>
   </div>
   <button class="btn" id="newRideBtn" style="display:none;" onclick="location.reload()">Pedir otro viaje</button>
-  <button class="btn btn-secondary" id="reportBtn" style="display:none;" onclick="reportViaWhatsapp()">Quejas y sugerencias</button>
+  <button class="btn btn-secondary ic-btn" id="reportBtn" style="display:none;" onclick="reportViaWhatsapp()"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.6-4.6A9 9 0 1 1 8 19.6z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1.2-1.6-2.2-1-1 .8a5 5 0 0 1-2.7-2.7l.8-1-1-2.2z"/></svg>Quejas y sugerencias</button>
   <div class="credit">Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
 </div>
 
@@ -1483,18 +1487,18 @@ function initInstallBanner() {
   const banner = document.getElementById("installBanner");
   const text = document.getElementById("installText");
   if (isInAppBrowser()) {
-    text.textContent = `📲 Estás dentro del navegador de Facebook/Instagram, que no permite instalar apps. Toca ⋮ (arriba a la derecha) y elige "Abrir en Chrome" o "Abrir en el navegador" para poder instalar MotoVecino${resolvedCityLabel ? " " + resolvedCityLabel : ""}.`;
+    text.textContent = `Estás dentro del navegador de Facebook/Instagram, que no permite instalar apps. Toca ⋮ (arriba a la derecha) y elige "Abrir en Chrome" o "Abrir en el navegador" para poder instalar MotoVecino${resolvedCityLabel ? " " + resolvedCityLabel : ""}.`;
     banner.style.display = "flex";
     return;
   }
   if (isIOS()) {
-    text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel}: toca Compartir y luego "Agregar a pantalla de inicio".`;
+    text.textContent = `Instala MotoVecino ${resolvedCityLabel}: toca Compartir y luego "Agregar a pantalla de inicio".`;
     banner.style.display = "flex";
   } else {
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel} en tu celular para pedir tu ${rideWord} más rápido.`;
+      text.textContent = `Instala MotoVecino ${resolvedCityLabel} en tu celular para pedir tu ${rideWord} más rápido.`;
       document.getElementById("installBtn").style.display = "inline-block";
       banner.style.display = "flex";
     });
@@ -2026,7 +2030,7 @@ function setVehPrice(which, text) {
 function showExtraNote(extra) {
   const note = document.getElementById("extraNote");
   if (!note) return;
-  note.textContent = extra ? `💵 Le ofreciste +$${extra} extra al chofer` : "";
+  note.textContent = extra ? `Le ofreciste +$${extra} extra al chofer` : "";
   note.style.display = extra ? "block" : "none";
 }
 
@@ -2111,21 +2115,21 @@ function applyZone(zone, zoneLabel, com, soon, offer) {
     if (zoneForcedTaxi) { zoneForcedTaxi = false; setServiceType("moto"); }
   } else if (serviceZone === "taxi") {
     notice.innerHTML = motoSoon
-      ? `🛵 <strong>Mototaxi en ${escapeHtml(town)}: muy pronto.</strong> Por ahora pide 🚕 Taxi.`
-      : `📍 <strong>Fuera de la zona de mototaxi de ${escapeHtml(town)}:</strong> aquí solo hay 🚕 Taxi.`;
+      ? `<strong>Mototaxi en ${escapeHtml(town)}: muy pronto.</strong> Por ahora pide Taxi.`
+      : `<strong>Fuera de la zona de mototaxi de ${escapeHtml(town)}:</strong> aquí solo hay Taxi.`;
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
     renderVehCards(motoSoon ? "Muy pronto" : `Solo dentro de ${escapeHtml(town)}`);
     if (serviceType !== "taxi") { zoneForcedTaxi = true; setServiceType("taxi"); }
   } else if (motoSoon && comisaria) {
     // Comisaría de Progreso todavía cerrada (Chelem, Chicxulub...).
-    notice.innerHTML = `🛵 <strong>Motocarro en ${escapeHtml(town)}: ya estamos llegando.</strong> Estamos sumando choferes.`;
+    notice.innerHTML = `<strong>Motocarro en ${escapeHtml(town)}: ya estamos llegando.</strong> Estamos sumando choferes.`;
     notice.classList.remove("out"); // aviso amable, no de error
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
     renderVehCards("Ya estamos llegando");
   } else {
-    notice.innerHTML = "🗺️ <strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más municipios de Yucatán!";
+    notice.innerHTML = "<strong>MotoVecino todavía no llega a tu zona.</strong> ¡Pronto en más municipios de Yucatán!";
     if (pickup) document.getElementById("pickHint").textContent = "Todavía no llegamos a este punto";
     notice.style.display = "block";
     tabMoto.classList.add("unavailable");
@@ -2143,7 +2147,7 @@ function setSheetCollapsed(collapsed) {
   const people = serviceCategory === "pasaje"
     ? ` · ${passengers} adulto${passengers === 1 ? "" : "s"}${children ? ` + ${children} niño${children === 1 ? "" : "s"}` : ""}`
     : "";
-  document.getElementById("collapsedSum").textContent = (serviceType === "taxi" ? "🚕 Taxi" : rideWord === "motocarro" ? "🛵 Motocarro" : "🛵 Mototaxi") + " · " + kind + people;
+  document.getElementById("collapsedSum").textContent = (serviceType === "taxi" ? "Taxi" : rideWord === "motocarro" ? "Motocarro" : "Mototaxi") + " · " + kind + people;
   // El mapa cambia de alto: Leaflet necesita recalcular su tamaño, y de paso
   // se acomoda para que se vean la recogida y el destino.
   if (!map) return;
@@ -2185,9 +2189,9 @@ function setServiceType(type) {
   const wantMoto = type === "moto" || type === "oferta";
   if (wantMoto && serviceZone !== "in") {
     showToast(motoSoon
-      ? "El mototaxi llega muy pronto aquí. Por ahora pide 🚕 Taxi."
+      ? "El mototaxi llega muy pronto aquí. Por ahora pide Taxi."
       : serviceZone === "taxi"
-      ? "El mototaxi solo recoge en la zona urbana. Desde aquí pide 🚕 Taxi."
+      ? "El mototaxi solo recoge en la zona urbana. Desde aquí pide Taxi."
       : "MotoVecino todavía no llega a tu zona.");
     return;
   }
@@ -2250,7 +2254,7 @@ function showForOtherNote(r) {
   const note = document.getElementById("forOtherNote");
   if (!note) return;
   note.innerHTML = r && r.for_name
-    ? `👤 Viaje para ${escapeHtml(r.for_name)}${r.for_note ? `<span>${escapeHtml(r.for_note)}</span>` : ""}`
+    ? `Viaje para ${escapeHtml(r.for_name)}${r.for_note ? `<span>${escapeHtml(r.for_note)}</span>` : ""}`
     : "";
   note.style.display = r && r.for_name ? "block" : "none";
 }
@@ -2639,7 +2643,7 @@ async function offerRiderHuella(rider) {
   if (!MVHuella.shouldOffer("rider")) return;
   if (!(await mvConfirm("¿Quieres entrar con tu huella la próxima vez? Así no necesitas código ni PIN. Tu huella no sale de tu celular.", "Activar huella"))) return;
   const r = await MVHuella.activate("rider", rider.phone, rider.pin);
-  showToast(r.ok ? "✅ Huella activada" : r.error);
+  showToast(r.ok ? "Huella activada" : r.error);
 }
 
 // "Mi acceso" en el perfil: activar o quitar la huella de este celular.
@@ -2653,7 +2657,7 @@ function renderHuellaStatus() {
     return;
   }
   const on = !!MVHuella.savedId("rider");
-  box.textContent = on ? "✅ Activada en este celular" : "Entra sin código ni PIN";
+  box.textContent = on ? "Activada en este celular" : "Entra sin código ni PIN";
   btn.style.display = "";
   btn.textContent = on ? "Quitar huella" : "Activar huella";
   const tile = document.getElementById("tileAccess");
@@ -2671,7 +2675,7 @@ async function toggleRiderHuella() {
     msg.textContent = r.ok ? "Huella quitada" : (r.error || "No se pudo quitar");
   } else {
     const r = await MVHuella.activate("rider", rider.phone, rider.pin);
-    msg.textContent = r.ok ? "✅ Listo. La próxima vez toca \"Entrar con mi huella\"." : r.error;
+    msg.textContent = r.ok ? "Listo. La próxima vez toca \"Entrar con mi huella\"." : r.error;
   }
   renderHuellaStatus();
 }
@@ -3081,7 +3085,7 @@ function useMyLocation() {
     // el pasajero revisa dónde quedó el pin y él confirma.
     map.setView(L.latLng(pos.coords.latitude, pos.coords.longitude), 18);
     // (Un aviso flotante taparía el botón de confirmar: se cambia el texto del paso.)
-    document.getElementById("stepSub").textContent = "📍 Listo, te ubicamos. Revisa que el pin esté en tu puerta y confirma.";
+    document.getElementById("stepSub").textContent = "Listo, te ubicamos. Revisa que el pin esté en tu puerta y confirma.";
   }, () => showLocationBanner());
 }
 
@@ -3252,7 +3256,7 @@ async function acceptPushAsk() {
   if (perm !== "granted") { showToast("Sin permiso no te podemos avisar"); return; }
   try {
     if (!(await subscribeRidePush())) throw new Error("server");
-    showToast("✅ Listo. Te avisamos cuando tu chofer acepte y cuando llegue.");
+    showToast("Listo. Te avisamos cuando tu chofer acepte y cuando llegue.");
   } catch (e) {
     showToast("No se pudieron activar los avisos, intenta de nuevo");
   }
@@ -3471,12 +3475,12 @@ function renderTaxiOffers() {
         <div class="offer-head">
           ${photo}
           <div class="offer-who">
-            <div class="name">${escapeHtml(d.name || (serviceType === "taxi" ? "Taxista" : "Chofer"))}${d.es_fundador ? " 🏅" : ""}</div>
-            <div class="sub">${serviceType === "taxi" ? "🚕" : "🛵"} ${escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Motocarro"))} · te lleva por</div>
+            <div class="name">${escapeHtml(d.name || (serviceType === "taxi" ? "Taxista" : "Chofer"))}${d.es_fundador ? ` <span class="chip chip-accent" style="font-size:10.5px;padding:1px 7px;">Fundador</span>` : ""}</div>
+            <div class="sub">${escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Motocarro"))} · te lleva por</div>
           </div>
           <div class="offer-price">$${o.price}</div>
         </div>
-        ${o.depositAmount ? `<div class="sub" style="margin-top:6px;">💵 Pide anticipo de $${o.depositAmount} por depósito</div>` : ""}
+        ${o.depositAmount ? `<div class="sub" style="margin-top:6px;">Pide anticipo de $${o.depositAmount} por depósito</div>` : ""}
         <div class="offer-actions">
           <button class="btn" onclick="acceptTaxiOffer(${o.id})">Aceptar $${o.price}</button>
           <button class="btn btn-secondary" onclick="rejectTaxiOffer(${o.id})">No, gracias</button>
@@ -3583,8 +3587,8 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
 function onDriverArrived(arrivedAt) {
   currentRideStatus = "llegue";
   document.getElementById("statusText").textContent = isDeliveryRide()
-    ? "Tu repartidor está recogiendo tu pedido 📦"
-    : `Tu chofer ya llegó ${serviceType === "taxi" ? "🚕" : "🛵"} Sal cuando estés listo`;
+    ? "Tu repartidor está recogiendo tu pedido"
+    : `Tu chofer ya llegó · Sal cuando estés listo`;
   updateEtaCard(null);
   if (serviceType === "taxi") {
     pickupArrivedAt = arrivedAt || pickupArrivedAt || Date.now();
@@ -3597,8 +3601,8 @@ function onTripStarted(startedAt) {
   currentRideStatus = "en_curso";
   hideAllyAd();
   document.getElementById("statusText").textContent = isDeliveryRide()
-    ? "📦 Tu pedido va en camino"
-    : `En camino a tu destino ${serviceType === "taxi" ? "🚕" : "🛵"}`;
+    ? "Tu pedido va en camino"
+    : `En camino a tu destino`;
   if (serviceType === "taxi" && pickupArrivedAt) {
     pickupStartedAt = startedAt || pickupStartedAt || Date.now();
     renderPickupWaitBox();
@@ -3739,7 +3743,7 @@ function renderDepositBox() {
   if (d.status === "confirmado") {
     box.innerHTML = `
       <div class="dep-box ok">
-        <div class="dep-title">✅ Tu chofer confirmó tu anticipo de $${d.amount}</div>
+        <div class="dep-title">Tu chofer confirmó tu anticipo de $${d.amount}</div>
         ${restLine}
         <div class="dep-note">Tu chofer ya va por ti: si cancelas ahora, él se queda con el anticipo.</div>
       </div>`;
@@ -3751,7 +3755,7 @@ function renderDepositBox() {
       <div class="dep-row"><span>Banco</span><strong>${escapeHtml(d.bank)}</strong></div>
       <div class="dep-row stack"><span>${String(d.account).length === 18 ? "CLABE" : "Tarjeta"}</span><strong class="dep-num">${formatAccount(d.account)}</strong></div>
       <div class="dep-row"><span>Titular</span><strong>${escapeHtml(d.holder)}</strong></div>
-      <button class="btn btn-secondary dep-copy" onclick="copyDepositAccount()">📋 Copiar número</button>
+      <button class="btn btn-secondary dep-copy ic-btn" onclick="copyDepositAccount()"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Copiar número</button>
     </div>`;
   const uploadBtn = (label, secondary) => `
     <input type="file" id="receiptInput" accept="image/*" style="display:none;" onchange="handleReceiptFile(event)" />
@@ -3760,7 +3764,7 @@ function renderDepositBox() {
   if (d.status === "enviado") {
     box.innerHTML = `
       <div class="dep-box">
-        <div class="dep-title">📄 Comprobante enviado</div>
+        <div class="dep-title">Comprobante enviado</div>
         <div class="dep-note">Tu chofer lo está revisando en su banco. Cuando lo confirme sale por ti.</div>
         ${uploadBtn("Cambiar foto del comprobante", true)}
       </div>`;
@@ -3772,13 +3776,13 @@ function renderDepositBox() {
     : "";
   box.innerHTML = `
     <div class="dep-box">
-      <div class="dep-title">💵 Tu chofer pide un anticipo de $${d.amount} antes de salir</div>
+      <div class="dep-title">Tu chofer pide un anticipo de $${d.amount} antes de salir</div>
       <div class="dep-note">Como viene de lejos, deposita el anticipo directo a su cuenta (transferencia o en OXXO) y sube la foto del comprobante.</div>
       ${rejected}
       ${account}
       ${restLine}
       ${depositRuleHtml}
-      ${uploadBtn("📷 Subir comprobante")}
+      ${uploadBtn("Subir comprobante")}
     </div>`;
 }
 
@@ -3787,7 +3791,7 @@ function onDepositUpdate(deposit) {
   currentDeposit = deposit || null;
   renderDepositBox();
   if (!deposit && hadDeposit) showToast("Tu chofer quitó el anticipo · pagas todo al llegar");
-  else if (deposit && deposit.status === "confirmado") showToast("✅ Tu chofer confirmó tu anticipo y va en camino");
+  else if (deposit && deposit.status === "confirmado") showToast("Tu chofer confirmó tu anticipo y va en camino");
   else if (deposit && deposit.status === "rechazado") showToast("Tu chofer dice que todavía no le llega el depósito");
 }
 
@@ -3859,7 +3863,7 @@ async function uploadReceipt(dataUrl) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "No se pudo enviar");
     currentDeposit.status = "enviado";
-    showToast("📄 Comprobante enviado a tu chofer");
+    showToast("Comprobante enviado a tu chofer");
   } catch (e) {
     showToast(e.message);
   } finally {
@@ -3896,7 +3900,7 @@ function sendChatMessage() {
 
 function onDriverDisconnected() {
   const w = document.getElementById("connWarning");
-  w.textContent = "⚠️ Tu chofer perdió la conexión, esperando que regrese...";
+  w.textContent = "Tu chofer perdió la conexión, esperando que regrese...";
   w.style.display = "block";
   document.getElementById("cancelBtn").style.display = "inline-block";
 }
@@ -3907,7 +3911,7 @@ function onDriverReconnected() {
 
 function onDriverLost() {
   const w = document.getElementById("connWarning");
-  w.textContent = "😕 Perdimos contacto con tu chofer. Puedes cancelar y pedir otro viaje.";
+  w.textContent = "Perdimos contacto con tu chofer. Puedes cancelar y pedir otro viaje.";
   w.style.display = "block";
   document.getElementById("cancelBtn").style.display = "inline-block";
 }
@@ -3951,7 +3955,7 @@ function showTripCountBadge(count) {
   if (count == null) { el.style.display = "none"; return; }
   const tier = riderTierLabel(count);
   el.innerHTML = `<span>Llevas ${count} viaje${count === 1 ? "" : "s"}</span>${tier ? tierPillHtml(count) : ""}`;
-  el.style.display = "block";
+  el.style.display = "flex";
 }
 
 // Historial guardado en este celular (no en una cuenta) — cada quien solo ve
@@ -4016,8 +4020,8 @@ function historyCardHtml(r) {
         <div class="tc-body">
           <small>${fecha}${ok ? "" : " · <em>Cancelado</em>"}</small>
           <b>${desde} → ${hasta}</b>
-          <span>${r.ride_type === "taxi" ? "Taxi" : "Mototaxi"}${chofer ? ` · ${chofer}` : ""}${r.rating === 1 ? " · 👍" : ""}</span>
-          ${r.for_name ? `<i class="tc-for">👤 Viaje para ${escapeHtml(r.for_name)}</i>` : ""}
+          <span>${r.ride_type === "taxi" ? "Taxi" : "Mototaxi"}${chofer ? ` · ${chofer}` : ""}${r.rating === 1 ? " · Buen servicio" : ""}</span>
+          ${r.for_name ? `<i class="tc-for">Viaje para ${escapeHtml(r.for_name)}</i>` : ""}
         </div>
         <div class="tc-price">${precio}</div>
       </div>`;
@@ -4256,7 +4260,7 @@ async function uploadProfilePhoto(dataUrl, thumbUrl) {
     localStorage.setItem("motoya_rider", JSON.stringify({ ...rider, photo: thumbUrl }));
     renderProfilePhoto(thumbUrl);
     msg.style.color = "var(--success)";
-    msg.textContent = "✅ Foto actualizada";
+    msg.textContent = "Foto actualizada";
   } catch (e) {
     msg.style.color = "var(--danger)";
     msg.textContent = e.message;
@@ -4311,7 +4315,7 @@ function saveHomeLocation() {
       renderHomeStatus(updated);
       updateUseHomeBtn();
       msg.style.color = "var(--success)";
-      msg.textContent = "✅ Casa guardada";
+      msg.textContent = "Casa guardada";
     } catch (e) {
       msg.style.color = "var(--danger)";
       msg.textContent = e.message;
@@ -4439,7 +4443,7 @@ async function saveEmergencyContact() {
     localStorage.setItem("motoya_rider", JSON.stringify(updated));
     renderEmergencyStatus(updated);
     msg.style.color = "var(--success)";
-    msg.textContent = "✅ Contacto guardado";
+    msg.textContent = "Contacto guardado";
   } catch (e) {
     msg.style.color = "var(--danger)";
     msg.textContent = e.message;
@@ -4625,7 +4629,7 @@ function onNoDriversAvailable() {
   hideAllyAd();
   hideDeliveryCodeBox();
   localStorage.removeItem("motoya_active_ride");
-  document.getElementById("statusText").textContent = "😕 No hay choferes disponibles ahorita. Intenta de nuevo en unos minutos.";
+  document.getElementById("statusText").textContent = "No hay choferes disponibles ahorita. Intenta de nuevo en unos minutos.";
   document.getElementById("connWarning").style.display = "none";
   hideChat();
   document.getElementById("shareBtn").style.display = "none";
@@ -4650,7 +4654,7 @@ function onCancelledByDriver() {
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
   hidePushAsk();
-  document.getElementById("reportBtn").style.display = "inline-block";
+  document.getElementById("reportBtn").style.display = "inline-flex";
   stopRouteTracking();
   releaseWakeLock();
 }
@@ -4658,7 +4662,8 @@ function onCancelledByDriver() {
 // Pendiente: reemplazar con el número real que dé el líder del gremio de
 // Tekax (solo dígitos, sin "52" ni "+" — waLink() ya antepone el código de
 // país, igual que en admin.html).
-const QUEJAS_WHATSAPP_NUMBER = "";
+// Quejas y sugerencias van al WhatsApp de soporte (14-oct; antes estaba vacío y no abría nada).
+const QUEJAS_WHATSAPP_NUMBER = "9979739422";
 
 // Número de soporte para "¿Olvidaste tu PIN?". Vacío = el botón no aparece.
 // Cuando llegue la WhatsApp API, cambiar solo esta línea (y la de chofer.html).
@@ -4693,7 +4698,7 @@ async function forgotPin() {
 
 function reportViaWhatsapp() {
   const rideInfo = ride ? ` (viaje #${ride.id})` : "";
-  const text = `Hola, quiero reportar un problema con mi viaje en MotoVecino ${resolvedCityLabel}${rideInfo}: `;
+  const text = `Hola, quiero dejar una queja o sugerencia sobre mi viaje en MotoVecino ${resolvedCityLabel}${rideInfo}: `;
   window.open(waLink(QUEJAS_WHATSAPP_NUMBER, text), "_blank");
 }
 
