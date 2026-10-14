@@ -675,6 +675,13 @@ function setDriverTheme(pref) {
   .dlv-msg:empty { display: none; }
   .dlv-link { display: inline-block; margin-top: 10px; font-size: 13px; text-decoration: underline; cursor: pointer; color: var(--text-dim); }
   #huellaLoginBtn { background: transparent !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; font-weight: 600; }
+  /* "Hola de nuevo": el chofer que ya entró en este celular no vuelve a escribir su número. */
+  #login.wb .wb-hide { display: none !important; }
+  #login:not(.wb) .wb-only { display: none !important; }
+  .wb-hello { font-size: 20px; font-weight: 600; text-align: center; color: var(--text); }
+  .wb-phone { font-size: 14px; text-align: center; color: var(--text-dim); margin-top: 2px; letter-spacing: .04em; }
+  #form .entry-card .btn.wb-outline, #login .entry-card .btn.wb-outline, .wb-outline { background: transparent !important; background-image: none !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; }
+  .wb-other { background: none; border: none; color: var(--text-dim); font-size: 14px; text-decoration: underline; cursor: pointer; padding: 6px; font-family: inherit; }
 </style>
 </head>
 <body>
@@ -697,15 +704,21 @@ function setDriverTheme(pref) {
   <div class="entry-veh" id="entryVehDriver"></div>
   <script>document.getElementById("entryVehDriver").innerHTML = MVVeh.motoSide(112) + MVVeh.taxiSide(124);</script>
   <div class="entry-title">Modo chofer</div>
-  <div class="entry-sub" id="loginSub">Escribe tu teléfono y te mandamos un código por WhatsApp</div>
+  <div class="entry-sub wb-hide" id="loginSub">Escribe tu teléfono y te mandamos un código por WhatsApp</div>
   <div class="entry-card">
-  <input id="phoneLoginInput" inputmode="numeric" maxlength="10" placeholder="Tu teléfono" oninput="this.value = this.value.replace(/\D/g, '')" />
+  <div class="wb-only">
+    <div class="wb-hello">Hola de nuevo, <span id="wbName"></span> 👋</div>
+    <div class="wb-phone" id="wbPhone"></div>
+  </div>
+  <button class="btn wb-only" id="wbHuellaBtn" style="display:none;" onclick="driverHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
+  <input class="wb-hide" id="phoneLoginInput" inputmode="numeric" maxlength="10" placeholder="Tu teléfono" oninput="this.value = this.value.replace(/\D/g, '')" />
   <input id="codeLoginInput" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Código de 6 dígitos" style="display:none;" oninput="this.value = this.value.replace(/\D/g, '')" />
   <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="Tu PIN  ••••" style="display:none;" />
   <div id="loginHint" style="display:none;color:var(--text-dim);font-size:13px;line-height:1.45;text-align:center;padding:0 6px;"></div>
   <button class="btn" id="loginBtn" onclick="login()">Mandarme el código</button>
-  <button class="btn btn-secondary" id="huellaLoginBtn" style="display:none;" onclick="driverHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
+  <button class="btn btn-secondary wb-hide" id="huellaLoginBtn" style="display:none;" onclick="driverHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
   </div>
+  <button class="wb-other wb-only" onclick="wbOtherNumber()">¿No eres tú? Usar otro número</button>
   <div id="loginError"></div>
   <button class="btn-sm" id="resendCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode()">Reenviar código</button>
   <button class="btn-sm" id="callCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode(true)">📞 Recibir llamada</button>
@@ -1510,8 +1523,40 @@ async function login() {
   }
 }
 
+// "Hola de nuevo": el celular recuerda nombre y número (nunca el PIN) del
+// chofer que ya entró aquí; si se le cierra la sesión entra con su huella o
+// pide el código con un botón, sin volver a escribir su número.
+const DRIVER_ACCOUNT_KEY = "mv_cuenta_driver";
+function rememberDriverAccount(d) {
+  try { if (d && d.phone) localStorage.setItem(DRIVER_ACCOUNT_KEY, JSON.stringify({ name: d.name || "", phone: d.phone })); } catch {}
+}
+
+function showWelcomeBack() {
+  let a = null;
+  try { a = JSON.parse(localStorage.getItem(DRIVER_ACCOUNT_KEY) || "null"); } catch {}
+  if (!a || !/^\d{10}$/.test(a.phone || "")) return;
+  document.getElementById("phoneLoginInput").value = a.phone;
+  document.getElementById("wbName").textContent = (a.name || "").trim().split(/\s+/)[0] || "chofer";
+  document.getElementById("wbPhone").textContent = a.phone.slice(0, 3) + " ••• " + a.phone.slice(-4);
+  const huella = MVHuella.supported() && !!MVHuella.savedId("driver");
+  document.getElementById("wbHuellaBtn").style.display = huella ? "" : "none";
+  document.getElementById("loginBtn").classList.toggle("wb-outline", huella);
+  document.getElementById("login").classList.add("wb");
+}
+
+function wbOtherNumber() {
+  try { localStorage.removeItem(DRIVER_ACCOUNT_KEY); } catch {}
+  loginCodePhone = null;
+  document.getElementById("login").classList.remove("wb");
+  document.getElementById("loginBtn").classList.remove("wb-outline");
+  document.getElementById("phoneLoginInput").value = "";
+  document.getElementById("forgotPinBtn").style.display = "none";
+  setLoginMode("code");
+}
+
 // Guarda la sesión en el celular (no se cierra sola) y entra.
 function finishDriverLogin(d) {
+  rememberDriverAccount(d);
   driver = d;
   delete driver.credentialId;
   todayCount = driver.todayCount || 0;
@@ -3760,7 +3805,10 @@ const saved = localStorage.getItem("motoya_driver");
 if (saved) {
   driver = JSON.parse(saved);
   todayCount = driver.todayCount || 0;
+  rememberDriverAccount(driver);
   startApp();
+} else {
+  showWelcomeBack();
 }
 // Ventana de confirmación con el diseño de MotoVecino, en vez de confirm()
 // del navegador (que pone "motoyaapp.com dice" arriba). Devuelve true/false.

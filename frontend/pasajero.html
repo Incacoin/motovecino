@@ -893,6 +893,15 @@ function toggleRiderTheme() {
   #deliveryCodeBox .dlv-txt { font-size: 13.5px; color: var(--text-dim); line-height: 1.4; margin-bottom: 10px; }
   #deliveryCodeBox .btn { width: 100%; margin: 0; }
   #huellaLoginBtn { background: transparent !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; font-weight: 600; }
+  /* "Hola de nuevo": quien ya usó la app en este celular no vuelve a escribir nombre ni número. */
+  #form.wb .wb-hide { display: none !important; }
+  #form:not(.wb) .wb-only { display: none !important; }
+  #form.wb:not(.wb-code) .wb-cont { display: none !important; }
+  #form.wb.wb-code #wbCodeBtn { display: none !important; }
+  .wb-hello { font-size: 20px; font-weight: 600; text-align: center; color: var(--text); }
+  .wb-phone { font-size: 14px; text-align: center; color: var(--text-dim); margin-top: 2px; letter-spacing: .04em; }
+  #form .entry-card .btn.wb-outline, #login .entry-card .btn.wb-outline, .wb-outline { background: transparent !important; background-image: none !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; }
+  .wb-other { background: none; border: none; color: var(--text-dim); font-size: 14px; text-decoration: underline; cursor: pointer; padding: 6px; font-family: inherit; }
 </style>
 </head>
 <body>
@@ -919,11 +928,17 @@ function toggleRiderTheme() {
   <div class="entry-title">Pide tu mototaxi</div>
   <div class="entry-sub">Pasajes y domicilios para negocios</div>
   <div class="entry-card">
-  <div class="input-icon-row">
+  <div class="wb-only" id="wbBox">
+    <div class="wb-hello">Hola de nuevo, <span id="wbName"></span> 👋</div>
+    <div class="wb-phone" id="wbPhone"></div>
+  </div>
+  <button class="btn wb-only" id="wbHuellaBtn" style="display:none;" onclick="riderHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
+  <button class="btn wb-only" id="wbCodeBtn" onclick="goToMap()">Mandarme un código</button>
+  <div class="input-icon-row wb-hide">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="8" r="4"></circle></svg>
     <input id="nameInput" placeholder="Tu nombre" oninput="this.value = this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s'-]/g, '')" />
   </div>
-  <div class="input-icon-row">
+  <div class="input-icon-row wb-hide">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
     <select id="countrySelect" class="country-select" aria-label="País del teléfono" onchange="onCountryChange()">
       <option value="MX">🇲🇽 +52</option>
@@ -951,8 +966,9 @@ function toggleRiderTheme() {
     <button class="btn-sm" onclick="otpHelp()">¿No te llegó? Escríbenos</button>
     <button class="btn-sm" id="pinLoginBtn" style="display:none;" onclick="pinLoginInstead()">Entrar con mi PIN</button>
   </div>
-  <button class="btn" onclick="goToMap()">Continuar</button>
-  <button class="btn btn-secondary" id="huellaLoginBtn" style="display:none;" onclick="riderHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
+  <button class="btn wb-cont" onclick="goToMap()">Continuar</button>
+  <button class="btn btn-secondary wb-hide" id="huellaLoginBtn" style="display:none;" onclick="riderHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
+  <button class="wb-other wb-only" onclick="wbOtherNumber()">¿No eres tú? Usar otro número</button>
   <div class="entry-legal">Al continuar aceptas nuestro <a href="aviso-privacidad.html">Aviso de privacidad</a>.</div>
   </div>
   <div id="formError"></div>
@@ -2466,6 +2482,7 @@ async function goToMap() {
 // entrar, usa su huella o le llega un código por WhatsApp. El PIN queda
 // guardado en el celular y se usa por dentro.
 function finishRiderLogin(rider) {
+  rememberRiderAccount(rider);
   localStorage.setItem("motoya_rider", JSON.stringify({
     id: rider.id, name: rider.name, phone: rider.phone, pin: rider.pin, photo: rider.photo || null,
     home_lat: rider.home_lat ?? null, home_lng: rider.home_lng ?? null, home_label: rider.home_label || null,
@@ -2475,6 +2492,49 @@ function finishRiderLogin(rider) {
   pingPlayOpen(rider);
   enterMap();
   setTimeout(() => offerRiderHuella(rider), 1200);
+}
+
+// "Hola de nuevo": el celular recuerda nombre y número (nunca el PIN) de quien
+// ya entró aquí. Si cierra sesión o se le cierra, no vuelve a escribir nada:
+// entra con su huella, o pide el código con un botón (no se manda solo).
+const RIDER_ACCOUNT_KEY = "mv_cuenta_rider";
+function rememberRiderAccount(r) {
+  try { if (r && r.phone) localStorage.setItem(RIDER_ACCOUNT_KEY, JSON.stringify({ name: r.name || "", phone: r.phone })); } catch {}
+}
+function knownRiderAccount() {
+  try { return JSON.parse(localStorage.getItem(RIDER_ACCOUNT_KEY) || "null"); } catch { return null; }
+}
+
+function showWelcomeBack() {
+  const a = knownRiderAccount();
+  if (!a || !a.phone) return;
+  const pe = /^\+51(\d{9})$/.exec(a.phone);
+  if (!pe && !/^\d{10}$/.test(a.phone)) return; // otro país: formulario normal
+  document.getElementById("countrySelect").value = pe ? "PE" : "MX";
+  onCountryChange();
+  document.getElementById("phoneInput").value = pe ? pe[1] : a.phone;
+  document.getElementById("nameInput").value = a.name || "";
+  document.getElementById("wbName").textContent = (a.name || "").trim().split(/\s+/)[0] || "vecino";
+  const digits = pe ? pe[1] : a.phone;
+  document.getElementById("wbPhone").textContent = (pe ? "+51 " : "") + digits.slice(0, 3) + " ••• " + digits.slice(-4);
+  const huella = MVHuella.supported() && !!MVHuella.savedId("rider");
+  document.getElementById("wbHuellaBtn").style.display = huella ? "" : "none";
+  document.getElementById("wbCodeBtn").classList.toggle("wb-outline", huella);
+  document.getElementById("form").classList.add("wb");
+}
+
+// "¿No eres tú?": formulario normal y este celular olvida esa cuenta.
+function wbOtherNumber() {
+  try { localStorage.removeItem(RIDER_ACCOUNT_KEY); } catch {}
+  hideOtp();
+  pendingLoginPhone = null;
+  document.getElementById("riderPinRow").style.display = "none";
+  document.getElementById("riderPinHint").style.display = "none";
+  document.getElementById("forgotPinBtn").style.display = "none";
+  document.getElementById("form").classList.remove("wb", "wb-code");
+  document.getElementById("nameInput").value = "";
+  document.getElementById("phoneInput").value = "";
+  document.getElementById("formError").textContent = "";
 }
 
 async function riderHuellaLogin() {
@@ -2531,6 +2591,7 @@ async function toggleRiderHuella() {
 function showPinLogin(phone) {
   hideOtp();
   pendingLoginPhone = phone;
+  document.getElementById("form").classList.add("wb-code");
   document.getElementById("pinLoginBtn").style.display = "none";
   document.getElementById("riderPinRow").style.display = "flex";
   document.getElementById("riderPinHint").style.display = "block";
@@ -2577,6 +2638,7 @@ async function requestOtp(phone, call = false) {
 
   otpPhone = phone;
   otpIsLogin = !!data.login;
+  document.getElementById("form").classList.add("wb-code");
   // Quien ya tiene cuenta puede entrar con su PIN si lo recuerda.
   document.getElementById("pinLoginBtn").style.display = otpIsLogin ? "inline-block" : "none";
   document.getElementById("otpRow").style.display = "flex";
@@ -4391,7 +4453,10 @@ function closeHistory() {
 }
 
 async function logoutRider() {
-  if (!(await mvConfirm("¿Cerrar sesión? Para volver a entrar usa tu huella o te mandamos un código por WhatsApp.", "Cerrar sesión", true))) return;
+  const withHuella = MVHuella.savedId("rider");
+  if (!(await mvConfirm(withHuella
+    ? "¿Cerrar sesión? No hace falta: la app se queda abierta. Si la cierras, vuelves a entrar con tu huella."
+    : "¿Cerrar sesión? No hace falta: la app se queda abierta. Si la cierras, para volver a entrar te mandamos un código por WhatsApp.", "Cerrar sesión", true))) return;
   localStorage.removeItem("motoya_rider");
   location.reload();
 }
@@ -4675,7 +4740,10 @@ async function initSession() {
   const restored = await restoreActiveRide();
   if (restored) return;
   if (savedRider && savedRider.phone && savedRider.pin) {
+    rememberRiderAccount(savedRider);
     enterMap();
+  } else {
+    showWelcomeBack();
   }
 }
 initSession();
