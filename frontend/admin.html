@@ -818,6 +818,15 @@
   </div>
   </div>
   <div class="section-card">
+  <h1>Buscar viaje #</h1>
+  <p class="section-hint">Las quejas por WhatsApp llegan con "(viaje #840)". Escribe el número para ver de qué viaje se trata.</p>
+  <div style="display:flex;gap:8px;max-width:360px;">
+    <input id="rideSearchInput" type="number" inputmode="numeric" placeholder="Ej. 840" style="flex:1;" onkeydown="if(event.key==='Enter')searchRideById()" />
+    <button class="btn" onclick="searchRideById()">Buscar</button>
+  </div>
+  <div id="rideSearchResult" style="margin-top:14px;"></div>
+  </div>
+  <div class="section-card">
   <h1 class="rides-title"><span class="live-dot"></span>Viajes en vivo</h1>
   <p class="section-hint">Se actualiza solo cada 4 segundos. Últimos 50 viajes.</p>
   <div class="table-wrap">
@@ -2580,6 +2589,34 @@ async function loadRides() {
   });
   if (!res.ok) return;
   renderRideRows(await res.json());
+}
+
+// Buscar viaje por número (14-oct): quejas y sugerencias llegan con "(viaje #N)".
+async function searchRideById() {
+  const id = Number(document.getElementById("rideSearchInput").value);
+  const box = document.getElementById("rideSearchResult");
+  if (!id) { box.innerHTML = ""; return; }
+  box.innerHTML = '<p class="section-hint">Buscando…</p>';
+  const res = await fetch(API + `/api/admin/rides/${id}/detail`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  const r = await res.json().catch(() => ({}));
+  if (!res.ok) { box.innerHTML = `<p class="section-hint">${escapeHtml(r.error || "No se encontró")}</p>`; return; }
+  const row = (k, v) => v === null || v === undefined || v === "" ? "" : `<tr><td style="color:var(--text-dim);padding:5px 12px 5px 0;white-space:nowrap;">${k}</td><td style="padding:5px 0;">${v}</td></tr>`;
+  const price = r.agreed_price ?? r.offer_price;
+  const status = (typeof RIDE_STATUS_LABEL !== "undefined" && RIDE_STATUS_LABEL[r.status]) || r.status;
+  const rating = r.rating === 1 ? "Sí, buen servicio" : r.rating === 0 ? "No, mal servicio" : "Sin calificar";
+  box.innerHTML = `<table style="font-size:14px;border-collapse:collapse;">
+    ${row("Viaje", `#${r.id} · ${escapeHtml(r.city)} · ${r.ride_type === "taxi" ? "Taxi" : "Mototaxi"}${r.service_kind && r.service_kind !== "pasaje" ? " · " + escapeHtml(r.service_kind) : ""}`)}
+    ${row("Estado", escapeHtml(status) + (r.cancelled_by ? ` (canceló: ${escapeHtml(r.cancelled_by)}${r.cancel_reason ? " · " + escapeHtml(r.cancel_reason) : ""})` : ""))}
+    ${row("Fecha", escapeHtml(r.created_at || "") + " (hora UTC)")}
+    ${row("Pasajero", `${escapeHtml(r.rider_name || "")}${r.rider_phone ? " · " + escapeHtml(r.rider_phone) : ""}${r.rider_trips != null ? ` · ${r.rider_trips} viajes` : ""}`)}
+    ${row("Para", r.for_name ? escapeHtml(r.for_name) + (r.for_note ? " · " + escapeHtml(r.for_note) : "") : "")}
+    ${row("Chofer", r.driver_name ? `${escapeHtml(r.driver_name)}${r.driver_phone ? " · " + escapeHtml(r.driver_phone) : ""}${r.driver_vehicle ? " · " + escapeHtml(r.driver_vehicle) : ""}` : "Sin chofer")}
+    ${row("De", escapeHtml(r.pickup_label || "punto en el mapa"))}
+    ${row("A", r.dest_lat ? escapeHtml(r.dest_label || "punto en el mapa") : "Sin destino")}
+    ${row("Personas", `${r.passengers} adulto(s)${r.children ? ` + ${r.children} niño(s)` : ""}`)}
+    ${row("Precio", price != null ? `$${price}${r.extra ? ` (+$${r.extra} extra)` : ""}` : "")}
+    ${row("Calificación", rating)}
+  </table>`;
 }
 
 const DEPOSIT_STATUS_LABEL = {

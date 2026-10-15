@@ -692,6 +692,27 @@ router.post("/admin/rides/list", checkAdminPin, async (req, res) => {
   })));
 });
 
+// Buscar un viaje por su número (14-oct): las quejas por WhatsApp llegan con
+// "(viaje #840)". Solo de las zonas de este admin; Daniel no ve teléfonos.
+router.post("/admin/rides/:id/detail", checkAdminPin, async (req, res) => {
+  const r = await db.prepare(
+    `SELECT r.id, r.city, r.status, r.ride_type, r.service_kind, r.rider_name, r.rider_phone, r.rider_id,
+            r.pickup_label, r.dest_label, r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng,
+            r.passengers, r.children, r.offer_price, r.agreed_price, r.extra, r.driver_earnings,
+            r.rating, r.cancelled_by, r.cancel_reason, r.created_at, r.completed_at, r.updated_at,
+            r.for_name, r.for_note, r.deposit_amount, r.deposit_status, r.business_id,
+            d.id AS driver_id, d.name AS driver_name, d.phone AS driver_phone, d.vehicle AS driver_vehicle
+     FROM rides r LEFT JOIN drivers d ON d.id = r.driver_id WHERE r.id = ?`
+  ).get(Number(req.params.id));
+  if (!r || !req.adminZones.includes(r.city)) return res.status(404).json({ error: "No encontramos ese viaje en tu zona" });
+  const trips = r.rider_id
+    ? (await db.prepare("SELECT COUNT(*) AS n FROM rides WHERE rider_id = ? AND status = 'completado'").get(r.rider_id)).n
+    : null;
+  const out = { ...r, rider_trips: trips };
+  if (req.adminRole === "progreso") { delete out.rider_phone; delete out.driver_phone; }
+  res.json(out);
+});
+
 // Foto que tomó el chofer al entregar un domicilio sin clave.
 router.post("/admin/rides/:id/delivery-photo", checkAdminPin, async (req, res) => {
   const ride = await db.prepare("SELECT city, delivery_photo FROM rides WHERE id = ?").get(Number(req.params.id));
