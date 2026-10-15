@@ -111,7 +111,9 @@ async function publicOrder(o, viewer) {
   const ride = o.ride_id ? await db.prepare("SELECT id, status, share_token, agreed_price, offer_price, driver_id FROM rides WHERE id = ?").get(o.ride_id) : null;
   const driver = ride && ride.driver_id ? await db.prepare("SELECT name, vehicle FROM drivers WHERE id = ?").get(ride.driver_id) : null;
   const client = await db.prepare("SELECT name, phone FROM riders WHERE id = ?").get(o.rider_id);
+  const chatUnread = await unreadCount(o.business_id, o.rider_id, viewer === "business" ? "negocio" : "cliente");
   return {
+    chat_unread: chatUnread,
     id: o.id,
     status: o.status,
     kind: o.kind,
@@ -139,7 +141,7 @@ async function publicOrder(o, viewer) {
     // La cuenta solo se le enseña al cliente cuando ya puede pagar.
     pay_to: viewer === "client" && b && b.pay_account && [S.POR_ACEPTAR, S.NUEVO, S.ACEPTADO].includes(o.status)
       ? { bank: b.pay_bank, account: b.pay_account, holder: b.pay_holder } : null,
-    client: viewer === "business" && client ? { name: client.name } : undefined,
+    client: viewer === "business" && client ? { id: o.rider_id, name: client.name } : undefined,
     ride: ride ? {
       id: ride.id, status: ride.status,
       // El token es solo del cliente (con él ve su clave de entrega).
@@ -448,6 +450,91 @@ router.post("/business/orders/settings", async (req, res) => {
   );
   const s = await db.prepare("SELECT accepts_transfer, accepts_cash, cash_cap, catalog_enabled, special_enabled, pay_account FROM businesses WHERE id = ?").get(b.id);
   res.json({ transfer: !!s.accepts_transfer, has_account: !!s.pay_account, cash: !!s.accepts_cash, cash_cap: s.cash_cap, catalog: !!s.catalog_enabled, special: !!s.special_enabled });
+});
+
+// ---------- Mensajes cliente <-> negocio (14-oct-2026) ----------
+// Una conversación por par cliente-negocio. Nadie ve el teléfono del otro y
+// queda guardada (sirve si luego hay una queja). Máx. 500 letras por mensaje
+// y 60 mensajes al día por cada lado, para que nadie lo use para molestar.
+const CHAT_MAX = 500, CHAT_DAY_LIMIT = 60;
+async function unreadCount(businessId, riderId, viewerSender) {
+  const r = await db.prepare("SELECT COUNT(*) AS n FROM business_chat WHERE business_id = ? AND rider_id = ? AND sender <> ? AND read_at IS NULL")
+    .get(businessId, riderId, viewerSender);
+  return Number(r && r.n) || 0;
+}
+async function chatThread(businessId, riderId) {
+  const rows = await db.prepare("SELECT id, sender, text, created_at FROM business_chat WHERE business_id = ? AND rider_id = ? ORDER BY id DESC LIMIT 80")
+    .all(businessId, riderId);
+  return rows.reverse();
+}
+// Guarda el mensaje (si viene) y marca como leído lo que mandó el otro lado.
+async function chatExchange(req, res, businessId, riderId, sender) {
+  const text = clean(req.body.text, CHAT_MAX);
+  if (text) {
+    const day = await db.prepare("SELECT COUNT(*) AS n FROM business_chat WHERE business_id = ? AND rider_id = ? AND sender = ? AND created_at >= datetime('now', '-1 days')")
+      .get(businessId, riderId, sender);
+    if (Number(day.n) >= CHAT_DAY_LIMIT) { res.status(429).json({ error: "Ya mandaste muchos mensajes hoy. Intenta mañana." }); return null; }
+    await db.prepare("INSERT INTO business_chat (business_id, rider_id, sender, text) VALUES (?, ?, ?, ?)").run(businessId, riderId, sender, text);
+  }
+  await db.prepare("UPDATE business_chat SET read_at = datetime('now') WHERE business_id = ? AND rider_id = ? AND sender <> ? AND read_at IS NULL")
+    .run(businessId, riderId, sender);
+  return chatThread(businessId, riderId);
+}
+
+// Cliente: conversación con un negocio (antes de pedir o de un pedido).
+router.post("/orders/chat/:bid", async (req, res) => {
+  const rider = await authRider(req, res);
+  if (!rider) return;
+  const b = await db.prepare("SELECT id, name, whatsapp FROM businesses WHERE id = ? AND active = 1").get(Number(req.params.bid) || 0);
+  if (!b) return res.status(404).json({ error: "Negocio no encontrado" });
+  const messages = await chatExchange(req, res, b.id, rider.id, "cliente");
+  if (!messages) return;
+  res.json({ business: { id: b.id, name: b.name, whatsapp: b.whatsapp || null }, messages });
+});
+// Cliente: sus conversaciones con mensajes nuevos (para el puntito rojo).
+router.post("/orders/chats/mine", async (req, res) => {
+  const rider = await authRider(req, res);
+  if (!rider) return;
+  const rows = await db.prepare(
+    `SELECT c.business_id, b.name, MAX(c.id) AS last_id,
+            SUM(CASE WHEN c.sender = 'negocio' AND c.read_at IS NULL THEN 1 ELSE 0 END) AS unread
+     FROM business_chat c JOIN businesses b ON b.id = c.business_id
+     WHERE c.rider_id = ? AND c.created_at >= datetime('now', '-3 days')
+     GROUP BY c.business_id, b.name ORDER BY last_id DESC LIMIT 20`
+  ).all(rider.id);
+  res.json(rows.map((r) => ({ business_id: r.business_id, name: r.name, unread: Number(r.unread) || 0 })));
+});
+// Negocio: conversación con un cliente que ya le pidió o le escribió.
+router.post("/business/chat/:rid", async (req, res) => {
+  const b = await authOwner(req, res);
+  if (!b) return;
+  const riderId = Number(req.params.rid) || 0;
+  const known = await db.prepare(
+    "SELECT 1 AS ok FROM business_orders WHERE business_id = ? AND rider_id = ? UNION SELECT 1 AS ok FROM business_chat WHERE business_id = ? AND rider_id = ? AND sender = 'cliente'"
+  ).get(b.id, riderId, b.id, riderId);
+  if (!known) return res.status(404).json({ error: "Este cliente no te ha escrito ni pedido" });
+  const client = await db.prepare("SELECT name FROM riders WHERE id = ?").get(riderId);
+  const messages = await chatExchange(req, res, b.id, riderId, "negocio");
+  if (!messages) return;
+  res.json({ client: { id: riderId, name: client ? client.name : "Cliente" }, messages });
+});
+// Negocio: clientes que le escribieron estos días (aunque no hayan pedido).
+router.post("/business/chats/list", async (req, res) => {
+  const b = await authOwner(req, res);
+  if (!b) return;
+  const rows = await db.prepare(
+    `SELECT c.rider_id, r.name, MAX(c.id) AS last_id,
+            SUM(CASE WHEN c.sender = 'cliente' AND c.read_at IS NULL THEN 1 ELSE 0 END) AS unread
+     FROM business_chat c JOIN riders r ON r.id = c.rider_id
+     WHERE c.business_id = ? AND c.created_at >= datetime('now', '-3 days')
+     GROUP BY c.rider_id, r.name ORDER BY last_id DESC LIMIT 30`
+  ).all(b.id);
+  const out = [];
+  for (const r of rows) {
+    const last = await db.prepare("SELECT sender, text FROM business_chat WHERE id = ?").get(r.last_id);
+    out.push({ rider_id: r.rider_id, name: r.name, unread: Number(r.unread) || 0, last: last ? { sender: last.sender, text: last.text.slice(0, 80) } : null });
+  }
+  res.json(out);
 });
 
 module.exports = router;

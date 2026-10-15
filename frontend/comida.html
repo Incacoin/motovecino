@@ -106,6 +106,25 @@
   .sheet-bg.open { display: block; }
   .sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; background: var(--bg); border-radius: 22px 22px 0 0; padding: 18px 16px 22px; max-height: 92vh; overflow-y: auto; transform: translateY(105%); transition: transform 0.25s; }
   .sheet.open { transform: none; }
+  /* Mensajes cliente <-> negocio */
+  .chat-sheet { z-index: 61; } #chatBg { z-index: 60; }
+  .chat-sub { font-size: 12.5px; color: var(--text-dim); margin: -4px 0 10px; }
+  .chat-msgs { display: flex; flex-direction: column; gap: 6px; min-height: 120px; max-height: 46vh; overflow-y: auto; padding: 4px 0 8px; }
+  .chat-msgs .m { max-width: 80%; padding: 8px 12px; border-radius: 16px; font-size: 14.5px; line-height: 1.35; white-space: pre-wrap; word-wrap: break-word; }
+  .chat-msgs .m small { display: block; font-size: 10.5px; opacity: .6; margin-top: 2px; }
+  .chat-msgs .me { align-self: flex-end; background: #22c55e; color: #04130a; border-bottom-right-radius: 5px; }
+  .chat-msgs .them { align-self: flex-start; background: rgba(127,127,127,.12); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+  .chat-msgs .none { text-align: center; color: var(--text-dim); font-size: 13px; padding: 26px 8px; }
+  .chat-row { display: flex; gap: 8px; }
+  .chat-row .field { flex: 1; margin: 0; }
+  .chat-send { border: 0; border-radius: 14px; padding: 0 16px; font: inherit; font-weight: 800; background: #22c55e; color: #04130a; cursor: pointer; }
+  .chat-wa { text-align: center; font-size: 12.5px; margin-top: 10px; color: var(--text-dim); }
+  .chat-wa a { color: inherit; }
+  .chat-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .chat-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; }
+  .ask { cursor: pointer; font: inherit; }
+  .chat-news { margin: 0 0 12px; padding: 12px 14px; border-radius: 16px; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.35); display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
+  .chat-news button { border: 0; border-radius: 12px; padding: 8px 12px; font: inherit; font-weight: 700; background: #22c55e; color: #04130a; cursor: pointer; }
   .sheet h3 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.03em; }
   .lines { margin: 12px 0 0; font-size: 14px; }
   .ln { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
@@ -240,6 +259,17 @@
   <button class="cancel" onclick="closeQuote()">Ahora no</button>
 </div>
 
+<!-- Mensajes con el negocio (14-oct): dentro de la app, sin dar el teléfono -->
+<div class="sheet-bg" id="chatBg" onclick="closeChat()"></div>
+<div class="sheet chat-sheet" id="chatSheet">
+  <h3 id="chatTitle">Mensajes</h3>
+  <div class="chat-sub">El negocio te contesta aquí. Nadie ve tu número.</div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-row"><input id="chatInput" class="field" maxlength="500" placeholder="Escribe tu duda…" onkeydown="if(event.key==='Enter')sendChat()" /><button class="chat-send" onclick="sendChat()" aria-label="Enviar">Enviar</button></div>
+  <div class="chat-wa" id="chatWa"></div>
+  <button class="cancel" onclick="closeChat()">Cerrar</button>
+</div>
+
 <input type="file" id="receiptInput" accept="image/*" style="display:none" onchange="onReceipt(this)" />
 <div class="toast" id="toast"></div>
 
@@ -359,8 +389,8 @@ async function openDetail(b, items) {
   document.getElementById("dTagline").textContent = b.tagline || "";
   document.getElementById("dMeta").innerHTML = `<span class="pill ${b.is_open ? "open" : ""}">${b.is_open ? "● Abierto" : "Cerrado ahora"}</span>` +
     [b.category, b.hours, b.address].filter(Boolean).map((t) => `<span>${escapeHtml(t)}</span>`).join("<span>·</span>");
-  document.getElementById("pharmaNote").innerHTML = (b.whatsapp && !isPreview
-      ? `<a class="ask" target="_blank" href="https://wa.me/52${b.whatsapp}?text=${encodeURIComponent(`Hola ${b.name}, vi su negocio en MotoVecino y tengo una duda: `)}">💬 ¿Dudas? Escríbele</a>`
+  document.getElementById("pharmaNote").innerHTML = (!isPreview
+      ? `<button class="ask chat-btn" onclick="openChat(${b.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.3-4.6A8 8 0 1 1 21 12z"/></svg>¿Dudas? Escríbele</button>`
       : "") +
     (b.category === "Farmacia" ? `<div class="warn" style="margin:14px 16px 0">${FARMACIA_NOTE}</div>` : "");
   document.getElementById("specialBox").innerHTML = b.special && b.is_open
@@ -489,6 +519,7 @@ function payOptionsHtml(total, method, receiptOk, idPrefix) {
       ${!transferOk ? `<div class="sub">Este negocio no tiene cuenta para transferencia.</div>` : method === "transferencia" && acct ? `
         <div class="acct"><span>${escapeHtml(acct.pay_bank || "")} · ${kindTxt}<br><b>${escapeHtml(acct.pay_account.replace(/(\d{4})(?=\d)/g, "$1 "))}</b>${acct.pay_holder ? `<br>${escapeHtml(acct.pay_holder)}` : ""}</span><button class="mini" onclick="event.stopPropagation();copyAccount(this)">Copiar</button></div>
         <div class="sub" style="margin-top:6px">Transfiere <b>${money(total)}</b> y sube la foto del comprobante.</div>
+        <div class="sub" style="margin-top:6px">¿Dudas antes de pagar? <a href="#" onclick="event.preventDefault();event.stopPropagation();openChat(current.id)"><b>Escríbele al negocio</b></a></div>
         <label class="upload ${receiptOk ? "ok" : ""}" onclick="event.stopPropagation();pickReceipt('${idPrefix}')">${receiptOk ? "✅ Comprobante listo · cambiar" : "📎 Subir foto del comprobante"}</label>` : `<div class="sub">Ves la cuenta y subes tu comprobante.</div>`}
     </div></div>`;
   const cashSub = !o.cash ? "Este negocio no acepta efectivo."
@@ -612,10 +643,15 @@ function hideOrders() {
   document.getElementById("ordersScreen").classList.remove("active");
   document.getElementById(current && !isPreview ? "detailScreen" : "listScreen").classList.add("active");
 }
+let chats = [];
+async function refreshChats() {
+  try { chats = await post("/orders/chats/mine"); } catch { chats = []; }
+}
 async function refreshOrders(silent) {
+  await refreshChats();
   try { orders = await post("/orders/mine"); if (orders[0] && orders[0].server_now_ms) clockSkew = orders[0].server_now_ms - Date.now(); } catch { if (!silent) document.getElementById("ordersList").innerHTML = `<div class="empty">Sin conexión. Intenta de nuevo.</div>`; return; }
   const waiting = orders.some((o) => o.status === "por_aceptar_precio");
-  document.getElementById("mineDot").style.display = waiting || orders.some((o) => ["nuevo", "aceptado", "enviado", "cotizando"].includes(o.status)) ? "block" : "none";
+  document.getElementById("mineDot").style.display = waiting || chats.some((c) => c.unread) || orders.some((o) => ["nuevo", "aceptado", "enviado", "cotizando"].includes(o.status)) ? "block" : "none";
   if (document.getElementById("ordersScreen").classList.contains("active")) renderOrders();
 }
 function orderLines(o) {
@@ -637,7 +673,8 @@ setInterval(tickClientCountdowns, 1000);
 function minutesSince(t) { return t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"))) / 60000 : 0; }
 function renderOrders() {
   const el = document.getElementById("ordersList");
-  if (!orders.length) { el.innerHTML = `<div class="empty">Todavía no tienes pedidos.<br>Elige un negocio y pide lo que necesites.</div>`; return; }
+  const news = chats.filter((c) => c.unread).map((c) => `<div class="chat-news"><span><b>${escapeHtml(c.name)}</b> te contestó (${c.unread})</span><button onclick="openChat(${c.business_id})">Ver</button></div>`).join("");
+  if (!orders.length) { el.innerHTML = news + `<div class="empty">Todavía no tienes pedidos.<br>Elige un negocio y pide lo que necesites.</div>`; return; }
   el.innerHTML = orders.map((o) => {
     const [label, cls] = ORDER_STATUS[o.status] || [o.status, ""];
     const total = o.total != null ? money(o.total) : "";
@@ -654,7 +691,7 @@ function renderOrders() {
         : o.pay_method === "transferencia" && !o.paid_confirmed
         ? `El negocio está revisando tu pago.`
         : `Esperando que el negocio acepte tu pedido.`;
-      if (minutesSince(o.created_at) >= 5 && o.business && o.business.whatsapp) body += `<br>¿No contesta? <a href="https://wa.me/52${o.business.whatsapp}?text=${encodeURIComponent(`Hola ${o.business.name}, les mandé un pedido por MotoVecino (#${o.id}). ¿Lo recibieron?`)}" target="_blank">Avisarle por WhatsApp</a>`;
+      if (minutesSince(o.created_at) >= 5 && o.business) body += `<br>¿No contesta? <a href="#" onclick="event.preventDefault();openChat(${o.business.id})">Escríbele</a>`;
       btns = `<button class="r" onclick="cancelOrder(${o.id})">Cancelar</button>` +
         (o.pay_method === "transferencia" && o.payment_problem ? `<button class="g" onclick="pickReceipt('o${o.id}')">📎 Subir comprobante otra vez</button>` : "");
     } else if (o.status === "aceptado") {
@@ -678,10 +715,59 @@ function renderOrders() {
     return `<div class="ord">
       <div class="hd"><div><div class="nm">${escapeHtml(o.business ? o.business.name : "Negocio")}</div><div class="sm">Pedido #${o.id}${total ? " · " + total : ""} · ${o.pay_method === "efectivo" ? "💵 efectivo" : o.pay_method === "transferencia" ? "💳 transferencia" : "✍️ especial"}</div></div><span class="st ${cls}">${label}</span></div>
       <div class="body">${orderLines(o)}<div style="margin-top:8px">${body}</div></div>
-      ${btns ? `<div class="btns">${btns}</div>` : ""}
+      <div class="btns">${o.business ? `<button class="chat-btn" onclick="openChat(${o.business.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.3-4.6A8 8 0 1 1 21 12z"/></svg>Mensajes${o.chat_unread ? `<span class="chat-badge">${o.chat_unread}</span>` : ""}</button>` : ""}${btns}</div>
     </div>`;
   }).join("");
+  if (news) el.insertAdjacentHTML("afterbegin", news);
   tickClientCountdowns();
+}
+// ---------- Mensajes con el negocio (14-oct) ----------
+let chatBiz = null, chatTimer = null;
+function fmtHour(t) {
+  const d = new Date(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"));
+  return d.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+}
+function renderChat(d) {
+  document.getElementById("chatTitle").textContent = d.business.name;
+  const box = document.getElementById("chatMsgs");
+  const grew = Number(box.dataset.n || -1) !== d.messages.length;
+  box.innerHTML = d.messages.length
+    ? d.messages.map((m) => `<div class="m ${m.sender === "cliente" ? "me" : "them"}">${escapeHtml(m.text)}<small>${fmtHour(m.created_at)}</small></div>`).join("")
+    : `<div class="none">Escribe tu duda: si tienen algo, el precio, el horario…<br>El negocio te contesta aquí.</div>`;
+  if (grew) box.scrollTop = box.scrollHeight;
+  box.dataset.n = d.messages.length;
+  const wa = d.business.whatsapp;
+  document.getElementById("chatWa").innerHTML = wa
+    ? `¿Prefieres llamar o mandar audio? <a target="_blank" href="https://wa.me/52${wa}?text=${encodeURIComponent(`Hola ${d.business.name}, les escribo de MotoVecino: `)}">Escríbele por WhatsApp</a>`
+    : "";
+}
+async function loadChat(text) {
+  renderChat(await post(`/orders/chat/${chatBiz}`, text ? { text } : {}));
+}
+async function openChat(bid) {
+  if (!me || !me.pin) { location.href = "pasajero.html"; return; }
+  chatBiz = bid;
+  const box = document.getElementById("chatMsgs");
+  box.innerHTML = `<div class="none">Cargando…</div>`;
+  box.dataset.n = "";
+  document.getElementById("chatBg").classList.add("open");
+  document.getElementById("chatSheet").classList.add("open");
+  try { await loadChat(); } catch (e) { toast(e.message); }
+  clearInterval(chatTimer);
+  chatTimer = setInterval(() => { if (!document.hidden && chatBiz) loadChat().catch(() => {}); }, 4000);
+}
+function closeChat() {
+  clearInterval(chatTimer); chatBiz = null;
+  document.getElementById("chatBg").classList.remove("open");
+  document.getElementById("chatSheet").classList.remove("open");
+  if (document.getElementById("ordersScreen").classList.contains("active")) refreshOrders(true);
+}
+async function sendChat() {
+  const inp = document.getElementById("chatInput");
+  const text = inp.value.trim();
+  if (!text || !chatBiz) return;
+  inp.value = "";
+  try { await loadChat(text); } catch (e) { inp.value = text; toast(e.message); }
 }
 async function cancelOrder(id) {
   if (!confirm("¿Cancelar este pedido?")) return;
