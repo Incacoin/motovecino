@@ -682,12 +682,56 @@ function setDriverTheme(pref) {
   .wb-phone { font-size: 14px; text-align: center; color: var(--text-dim); margin-top: 2px; letter-spacing: .04em; }
   #form .entry-card .btn.wb-outline, #login .entry-card .btn.wb-outline, .wb-outline { background: transparent !important; background-image: none !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; }
   .wb-other { background: none; border: none; color: var(--text-dim); font-size: 14px; text-decoration: underline; cursor: pointer; padding: 6px; font-family: inherit; }
+
+  /* ===== Rediseño 14-oct (chofer): sin emojis, íconos de línea, encabezado y solicitud limpios ===== */
+  .ic-in { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+  .ic-in svg.li, .rq-l svg.li, .ic-chip svg.li { flex-shrink: 0; }
+  .locbn-ic { display: flex; }
+  .tier-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; background: rgba(15,23,42,0.06); color: var(--text); }
+  .tier-gold { background: linear-gradient(180deg, #fff6df, #fbecc6) !important; color: #7a5a12 !important; box-shadow: inset 0 0 0 1px #f1dca4; }
+  .tier-silver { background: linear-gradient(180deg, #f7f8fa, #e7eaee) !important; color: #4b5563 !important; box-shadow: inset 0 0 0 1px #d6dbe1; }
+  .tier-bronze { background: linear-gradient(180deg, #fbf1ea, #f2dccb) !important; color: #8a4b22 !important; box-shadow: inset 0 0 0 1px #e8c6ad; }
+  html[data-theme="dark"] .tier-gold { background: rgba(251,191,36,0.14) !important; color: #fcd34d !important; box-shadow: inset 0 0 0 1px rgba(251,191,36,0.35); }
+  html[data-theme="dark"] .tier-silver { background: rgba(203,213,225,0.12) !important; color: #e2e8f0 !important; box-shadow: inset 0 0 0 1px rgba(203,213,225,0.3); }
+  html[data-theme="dark"] .tier-bronze { background: rgba(217,119,6,0.14) !important; color: #fdba74 !important; box-shadow: inset 0 0 0 1px rgba(217,119,6,0.35); }
+  /* Encabezado más bajo: nombre, vehículo + viajes de hoy, etiqueta */
+  #topbar { padding: 10px 14px !important; align-items: flex-start !important; }
+  #topbar .name { font-size: 18px !important; }
+  #statusText { font-size: 12.5px !important; font-weight: 600; margin-top: 1px; }
+  #todayCountText { font-size: 12px !important; color: var(--text-dim) !important; }
+  #tierBadge, #rankBadge { background: none !important; padding: 0 !important; margin-top: 6px !important; }
+  #rankBadge { margin-top: 5px !important; }
+  #modePasajeroBtn .circle { color: var(--text); }
+  /* Solicitud */
+  .req-who { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+  .req-who img, .req-who > span { width: 40px !important; height: 40px !important; margin: 0 !important; flex-shrink: 0; }
+  .req-who-txt { min-width: 0; flex: 1; }
+  .req-who-txt b { display: flex; align-items: center; gap: 6px; font-size: 15.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .req-who-txt b .req-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin: 0 !important; }
+  .req-who-txt small { display: block; font-size: 12px; font-weight: 500; color: var(--text-dim); margin-top: 1px; }
+  .req-sub { display: flex; flex-direction: column; gap: 5px; line-height: 1.35 !important; }
+  .rq-l { display: flex; align-items: flex-start; gap: 8px; }
+  .rq-l svg.li { color: #16a34a; margin-top: 1px; }
+  html[data-theme="dark"] .rq-l svg.li { color: #4ade80; }
+  .ic-chip { display: inline-flex !important; align-items: center; gap: 5px; }
+  .req-note { text-align: center; font-size: 12px !important; }
+  /* Perfil */
+  .pf-cam { color: #0a0a0a; }
+  .pf-hero-txt .founder-badge { background: none !important; padding: 0 !important; color: inherit !important; border: 0 !important; box-shadow: none !important; }
+  .pf-tip { display: flex; align-items: flex-start; gap: 8px; }
+  .pf-tip svg.li { flex-shrink: 0; margin-top: 1px; color: var(--text-dim); }
+  .push-state .ico { color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 0 !important; }
+  .push-state:not(.on) .ico { color: var(--text-dim); }
+  html[data-theme="dark"] .push-state .ico { color: #4ade80; }
+  .inv-gift { display: inline-flex; vertical-align: -3px; margin-right: 6px; color: #16a34a; }
+  html[data-theme="dark"] .inv-gift { color: #4ade80; }
+  #inviteCard .invite-btn { background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800 !important; border-radius: 16px !important; font-family: inherit !important; letter-spacing: -0.01em; }
 </style>
 </head>
 <body>
 
 <div id="locationBanner" class="locationBanner" onclick="retryLocation()">
-  <span>📍</span>
+  <span class="locbn-ic"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg></span>
   <span class="locationBanner-text">La ubicación está desactivada. Toca aquí para activarla.</span>
   <span class="locationBanner-chevron">›</span>
 </div>
@@ -707,7 +751,7 @@ function setDriverTheme(pref) {
   <div class="entry-sub wb-hide" id="loginSub">Escribe tu teléfono y te mandamos un código por WhatsApp</div>
   <div class="entry-card">
   <div class="wb-only">
-    <div class="wb-hello">Hola de nuevo, <span id="wbName"></span> 👋</div>
+    <div class="wb-hello">Hola de nuevo, <span id="wbName"></span></div>
     <div class="wb-phone" id="wbPhone"></div>
   </div>
   <button class="btn wb-only" id="wbHuellaBtn" style="display:none;" onclick="driverHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
@@ -721,11 +765,11 @@ function setDriverTheme(pref) {
   <button class="wb-other wb-only" onclick="wbOtherNumber()">¿No eres tú? Usar otro número</button>
   <div id="loginError"></div>
   <button class="btn-sm" id="resendCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode()">Reenviar código</button>
-  <button class="btn-sm" id="callCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode(true)">📞 Recibir llamada</button>
+  <button class="btn-sm" id="callCodeBtn" style="display:none;margin-top:4px;" onclick="sendLoginCode(true)"><span class="ic-in"><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>Recibir llamada</span></button>
   <button class="btn-sm" id="pinModeBtn" style="margin-top:4px;" onclick="setLoginMode(loginMode === 'pin' ? 'code' : 'pin')">Entrar con mi PIN</button>
   <button class="btn-sm" id="forgotPinBtn" style="display:none;margin-top:4px;" onclick="forgotPin()">¿No te llega el código? Escríbenos</button>
-  <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">🆕 Quiero ser chofer</button>
-  <button class="btn-sm" onclick="location.href='index.html'" style="margin-top:4px;">🧍 Modo Pasajero</button>
+  <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">Quiero ser chofer</button>
+  <button class="btn-sm" onclick="location.href='index.html'" style="margin-top:4px;"><span class="ic-in"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5.5 21v-2.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V21"/></svg>Modo Pasajero</span></button>
   <svg class="maya-motif" width="130" height="91" viewBox="0 0 200 140" fill="none" style="flex-shrink:0;margin-top:6px;">
     <rect x="20" y="110" width="160" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
     <rect x="35" y="90" width="130" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
@@ -740,7 +784,7 @@ function setDriverTheme(pref) {
     <line x1="92" y1="105" x2="108" y2="105" stroke="var(--text-faint)" stroke-width="1.2" opacity="0.8"/>
     <line x1="10" y1="130" x2="190" y2="130" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
   </svg>
-  <div class="credit" style="position:absolute;bottom:18px;">⚡ Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
+  <div class="credit" style="position:absolute;bottom:18px;">Tecnología de <strong>Lealtad Digital</strong> · <a href="aviso-legal.html">Aviso legal</a> · <a href="aviso-privacidad.html">Privacidad</a></div>
 </div>
 
 <div id="app">
@@ -759,7 +803,7 @@ function setDriverTheme(pref) {
       </div>
       <div style="display:flex;gap:8px;">
         <button id="modePasajeroBtn" onclick="goPasajero()" title="Modo Pasajero">
-          <div class="circle">🧍</div>
+          <div class="circle"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></div>
         </button>
         <button id="profileAvatarBtn" onclick="openProfile()" title="Mi perfil">
           <div class="circle">
@@ -790,7 +834,7 @@ function setDriverTheme(pref) {
         <button class="btn-sm" onclick="sendChatMessage()">Enviar</button>
       </div>
     </div>
-    <div class="credit footer-credit">⚡ Tecnología de <strong>Lealtad Digital</strong></div>
+    <div class="credit footer-credit">Tecnología de <strong>Lealtad Digital</strong></div>
   </div>
 </div>
 
@@ -801,13 +845,13 @@ function setDriverTheme(pref) {
     <div class="pf-hero">
       <div class="pf-av" id="pfAv">
         <div id="profilePhotoSlot"></div>
-        <button class="pf-cam" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()" aria-label="Cambiar mi foto">📷</button>
+        <button class="pf-cam" id="profilePhotoBtn" onclick="document.getElementById('profilePhotoInput').click()" aria-label="Cambiar mi foto"><svg class="li" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></button>
         <input type="file" id="profilePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleProfilePhoto(event)" />
       </div>
       <div class="pf-hero-txt">
         <div class="profile-name" id="profileName"></div>
         <div class="profile-sub" id="profileSub"></div>
-        <div class="founder-badge" id="founderBadge" style="display:none;">🏅 Chofer fundador</div>
+        <div class="founder-badge" id="founderBadge" style="display:none;"><span class="tier-pill tier-gold"><svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/></svg>Chofer fundador</span></div>
       </div>
     </div>
     <div id="profilePhotoMsg" style="font-size:13px;min-height:0;text-align:center;"></div>
@@ -834,14 +878,14 @@ function setDriverTheme(pref) {
       </button>
       <div id="section-avisos" class="section-body" style="display:none;">
         <div id="pushProfileStatus"></div>
-        <div class="profile-note">💡 ¿Solo quieres descansar hoy? No hace falta desactivarlos: ponte «Desconectado» y no te llega nada. Cuando te pongas «Disponible», regresan solos.</div>
+        <div class="profile-note pf-tip"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>¿Solo quieres descansar hoy? No hace falta desactivarlos: ponte «Desconectado» y no te llega nada. Cuando te pongas «Disponible», regresan solos.</span></div>
       </div>
       <button class="menu-row" onclick="toggleSection('meta')">
         <span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg></span><span class="menu-label">Mi meta de hoy<small id="pfGoalSub">Sin meta</small></span><span class="menu-chev" id="chev-meta">›</span>
       </button>
       <div id="section-meta" class="section-body" style="display:none;">
   <div class="goal-box">
-        <div class="card-title" style="font-size:12.5px;">🎯 Mi meta de hoy</div>
+        <div class="card-title" style="font-size:12.5px;">Mi meta de hoy</div>
         <div class="goal-row">
           <input id="goalInput" type="number" inputmode="numeric" min="0" step="10" placeholder="Ej. 200" />
           <button class="btn-sm" onclick="saveGoal()">Guardar</button>
@@ -871,16 +915,16 @@ function setDriverTheme(pref) {
     </div>
 
     <div class="card profile-card" id="inviteCard" style="display:none;">
-      <div class="card-title">🤝 Invita a otro chofer</div>
+      <div class="card-title ic-in" style="justify-content:flex-start;"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Invita a otro chofer</div>
       <div class="profile-note" style="margin-top:0;">¿Conoces a alguien que maneje mototaxi o taxi? Mándale tu invitación por WhatsApp. Cuando se registre, sabremos que tú lo invitaste.</div>
       <div class="invite-promo" id="invitePromo"></div>
-      <button class="btn" onclick="shareInvite()">Invitar por WhatsApp</button>
+      <button class="btn invite-btn" onclick="shareInvite()"><span class="ic-in"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.6-4.6A9 9 0 1 1 8 19.6z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1.2-1.6-2.2-1-1 .8a5 5 0 0 1-2.7-2.7l.8-1-1-2.2z"/></svg>Invitar por WhatsApp</span></button>
       <div class="invite-stats" id="inviteStats"></div>
       <div class="invite-progress" id="inviteProgress" style="display:none;"></div>
     </div>
 
     <button class="pf-next" onclick="showPfPage('cuenta')"><span><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg></span><span class="menu-label">Pagos y cuenta<small>Mis pagos, anticipos, mis datos, PIN y apariencia</small></span><span class="menu-chev">›</span></button>
-    <div class="credit footer-credit" style="text-align:center;">⚡ Tecnología de <strong>Lealtad Digital</strong></div>
+    <div class="credit footer-credit" style="text-align:center;">Tecnología de <strong>Lealtad Digital</strong></div>
   </div>
 
   <div class="profile-inner pf-page" id="pfAccount" style="display:none;">
@@ -1061,18 +1105,18 @@ function initInstallBanner() {
   const banner = document.getElementById("installBanner");
   const text = document.getElementById("installText");
   if (isInAppBrowser()) {
-    text.textContent = `📲 Estás dentro del navegador de Facebook/Instagram, que no permite instalar apps. Toca ⋮ (arriba a la derecha) y elige "Abrir en Chrome" o "Abrir en el navegador" para poder instalar MotoVecino${resolvedCityLabel ? " " + resolvedCityLabel : ""} Chofer.`;
+    text.textContent = `Estás dentro del navegador de Facebook/Instagram, que no permite instalar apps. Toca ⋮ (arriba a la derecha) y elige "Abrir en Chrome" o "Abrir en el navegador" para poder instalar MotoVecino${resolvedCityLabel ? " " + resolvedCityLabel : ""} Chofer.`;
     banner.style.display = "flex";
     return;
   }
   if (isIOS()) {
-    text.textContent = `📲 Instala MotoVecino ${resolvedCityLabel} Chofer: toca Compartir y luego "Agregar a pantalla de inicio".`;
+    text.textContent = `Instala MotoVecino ${resolvedCityLabel} Chofer: toca Compartir y luego "Agregar a pantalla de inicio".`;
     banner.style.display = "flex";
   } else {
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
       deferredInstallPrompt = e;
-      text.textContent = "📲 Instala la app para recibir viajes más rápido, sin abrir el navegador.";
+      text.textContent = "Instala la app para recibir viajes más rápido, sin abrir el navegador.";
       document.getElementById("installBtn").style.display = "inline-block";
       banner.style.display = "flex";
     });
@@ -1135,8 +1179,7 @@ function initCityBrand(attempt) {
             // Y en la entrada solo el motocarro, sin dibujo de taxi (12-oct-2026).
             const entryVeh = document.getElementById("entryVehDriver");
             if (entryVeh) entryVeh.innerHTML = MVVeh.motoSide(112);
-            const nameEl = document.getElementById("driverName");
-            if (nameEl) nameEl.textContent = nameEl.textContent.replace("🛵 Mototaxi", "🛵 Motocarro");
+            if (driverVehWord === "Mototaxi") { driverVehWord = "Motocarro"; renderTodayCount(); }
           }
         })
         .catch(() => {});
@@ -1326,12 +1369,12 @@ function estimateFare(ride) {
   const children = ride.children || 0;
   const totalPeople = passengers + children;
   const childrenNote = children > 0 ? ` (${passengers} adulto${passengers === 1 ? "" : "s"} + ${children} niño${children === 1 ? "" : "s"})` : "";
-  const peopleTxt = isDeliveryRide(ride) ? "📦 Pedido" : `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
+  const peopleTxt = isDeliveryRide(ride) ? "Pedido" : `${totalPeople} pasajero${totalPeople > 1 ? "s" : ""}${childrenNote}`;
   // Motocarro con "Propón tu precio" (Progreso): el precio es el acordado.
   if (ride.ride_type !== "taxi" && (ride.agreed_price || ride.offer_price != null)) {
     const people = `${peopleTxt}`;
-    if (ride.agreed_price) return { total: ride.agreed_price, text: `🛵 Precio acordado $${ride.agreed_price} · ganas $${motoNet(ride.agreed_price)} · ${people}` };
-    return { total: null, text: `🛵 ${driverComisaria ? "Motocarro" : "Mototaxi"} · ${people}` };
+    if (ride.agreed_price) return { total: ride.agreed_price, text: `Precio acordado $${ride.agreed_price} · ganas $${motoNet(ride.agreed_price)} · ${people}` };
+    return { total: null, text: `${driverComisaria ? "Motocarro" : "Mototaxi"} · ${people}` };
   }
   // Moto Exprés (Progreso): tarifa fija de la comisaría por persona.
   if (ride.ride_type !== "taxi" && ride.city === "progreso" && driverComisaria) {
@@ -1342,8 +1385,8 @@ function estimateFare(ride) {
   }
   if (ride.ride_type === "taxi") {
     const people = `${peopleTxt}`;
-    if (ride.agreed_price) return { total: null, text: `🚕 Taxi · precio acordado $${ride.agreed_price} · ${people}` };
-    if (ride.offer_price != null) return { total: null, text: `🚕 Taxi · ${people}` };
+    if (ride.agreed_price) return { total: null, text: `Taxi · precio acordado $${ride.agreed_price} · ${people}` };
+    if (ride.offer_price != null) return { total: null, text: `Taxi · ${people}` };
     return { total: null, text: `Viaje foráneo · acuerda el precio con el pasajero · ${people}` };
   }
   const night = isNightFare();
@@ -1372,7 +1415,7 @@ function estimateFare(ride) {
 
 // Chip verde con el extra que ofreció el pasajero (mototaxi).
 function extraChipHtml(ride) {
-  return ride.extra ? `<span class="chip chip-extra">💵 +$${ride.extra} extra del pasajero</span>` : "";
+  return ride.extra ? `<span class="chip chip-extra">+$${ride.extra} extra del pasajero</span>` : "";
 }
 
 // Número de soporte para "¿Olvidaste tu PIN?". Vacío = el botón no aparece.
@@ -1579,7 +1622,7 @@ async function offerDriverHuella() {
   if (!driver || !MVHuella.shouldOffer("driver")) return;
   if (!(await mvConfirm("¿Quieres entrar con tu huella la próxima vez? Así no necesitas código ni PIN. Tu huella no sale de tu celular.", "Activar huella"))) return;
   const r = await MVHuella.activate("driver", driver.phone, driver.pin);
-  showToast(r.ok ? "✅ Huella activada" : r.error);
+  showToast(r.ok ? "Huella activada" : r.error);
 }
 
 function renderDriverHuella() {
@@ -1592,7 +1635,7 @@ function renderDriverHuella() {
     return;
   }
   const on = !!MVHuella.savedId("driver");
-  status.textContent = on ? "✅ Activada en este celular. Para entrar toca \"Entrar con mi huella\"." : "Actívala y entra solo con tu huella, sin código ni PIN. Tu huella no sale de tu celular.";
+  status.textContent = on ? "Activada en este celular. Para entrar toca \"Entrar con mi huella\"." : "Actívala y entra solo con tu huella, sin código ni PIN. Tu huella no sale de tu celular.";
   btn.style.display = "";
   btn.textContent = on ? "Quitar huella" : "Activar huella";
   sub.textContent = on ? "Activada" : "Sin código ni PIN";
@@ -1608,7 +1651,7 @@ async function toggleDriverHuella() {
     msg.textContent = r.ok ? "Huella quitada" : (r.error || "No se pudo quitar");
   } else {
     const r = await MVHuella.activate("driver", driver.phone, driver.pin);
-    msg.textContent = r.ok ? "✅ Listo. La próxima vez toca \"Entrar con mi huella\"." : r.error;
+    msg.textContent = r.ok ? "Listo. La próxima vez toca \"Entrar con mi huella\"." : r.error;
   }
   renderDriverHuella();
 }
@@ -1644,8 +1687,8 @@ function startApp() {
   document.getElementById("login").style.display = "none";
   document.getElementById("app").style.display = "flex";
   document.getElementById("driverName").textContent = driver.name;
-  document.getElementById("driverName").textContent += driver.vehicle_type === "taxi" ? " · 🚕 Taxi" : " · 🛵 Mototaxi";
-  document.getElementById("todayCountText").textContent = `Viajes hoy: ${todayCount}`;
+  driverVehWord = driver.vehicle_type === "taxi" ? "Taxi" : driverComisaria ? "Motocarro" : "Mototaxi";
+  renderTodayCount();
   if (driver.cooldown_until) applyCooldown(driver.cooldown_until);
   // Refleja en la pantalla el "disponible" que ya se restauró al cargar el
   // script (ver declaración de `available` arriba) — si no, el interruptor
@@ -1710,9 +1753,9 @@ async function refreshPushUi(resync) {
   if (resync && state === "on") currentPushSub().then((s) => s && sendPushSub(s)).catch(() => {});
   const card = document.getElementById("pushCard");
   const texts = {
-    off: ["🔔 Activa los avisos de viajes", "Te suena aunque tengas la app cerrada o la pantalla apagada.", "Activar"],
-    denied: ["🔕 Avisos bloqueados", "Actívalos: candado 🔒 → Permisos → Notificaciones.", ""],
-    iphone: ["🔔 Avisos en iPhone", "Primero instala la app: Safari → Compartir → «Agregar a pantalla de inicio». Luego ábrela desde el ícono.", ""],
+    off: ["Activa los avisos de viajes", "Te suena aunque tengas la app cerrada o la pantalla apagada.", "Activar"],
+    denied: ["Avisos bloqueados", "Actívalos: candado → Permisos → Notificaciones.", ""],
+    iphone: ["Avisos en iPhone", "Primero instala la app: Safari → Compartir → «Agregar a pantalla de inicio». Luego ábrela desde el ícono.", ""],
   };
   // Si él mismo los desactivó, no se le vuelve a insistir en el mapa (puede
   // activarlos otra vez desde Mi perfil).
@@ -1731,22 +1774,22 @@ async function refreshPushUi(resync) {
   if (prof) {
     const row = (cls, ico, title, text) => `<div class="push-state ${cls}"><div class="ico">${ico}</div><div><b>${title}</b><span>${text}</span></div></div>`;
     prof.innerHTML = state === "on"
-      ? row("on", "🔔", "Activados", "Te llega un aviso de cada viaje nuevo aunque tengas la app cerrada o la pantalla apagada, mientras estés «Disponible».") +
+      ? row("on", BELL_SVG, "Activados", "Te llega un aviso de cada viaje nuevo aunque tengas la app cerrada o la pantalla apagada, mientras estés «Disponible».") +
         `<button class="btn-secondary push-toggle" onclick="disablePush()">Desactivar avisos</button>`
       : state === "off"
-      ? row("", "🔕", "Desactivados", "No te llegan avisos. Solo verás los viajes nuevos si tienes la app abierta en la pantalla.") +
+      ? row("", BELLOFF_SVG, "Desactivados", "No te llegan avisos. Solo verás los viajes nuevos si tienes la app abierta en la pantalla.") +
         `<button class="btn push-toggle" onclick="enablePush()">Activar avisos</button>`
       : state === "denied"
-      ? row("", "🔕", "Bloqueados en el celular", "Para activarlos: toca el candado 🔒 junto a la dirección de arriba → Permisos → Notificaciones → Permitir.")
+      ? row("", BELLOFF_SVG, "Bloqueados en el celular", "Para activarlos: toca el candado junto a la dirección de arriba → Permisos → Notificaciones → Permitir.")
       : state === "iphone"
-      ? row("", "🔔", "Primero instala la app", "En iPhone: Safari → Compartir → «Agregar a pantalla de inicio». Ábrela desde el ícono y aquí te saldrá «Activar avisos».")
-      : row("", "🔕", "No disponibles", "Este celular o navegador no permite avisos. Prueba abriendo la app en Chrome.");
+      ? row("", BELL_SVG, "Primero instala la app", "En iPhone: Safari → Compartir → «Agregar a pantalla de inicio». Ábrela desde el ícono y aquí te saldrá «Activar avisos».")
+      : row("", BELLOFF_SVG, "No disponibles", "Este celular o navegador no permite avisos. Prueba abriendo la app en Chrome.");
   }
 }
 async function disablePush() {
   try { localStorage.setItem("motovecino_avisos_off", "1"); } catch {}
   await forgetPushOnThisPhone();
-  showToast("🔕 Avisos desactivados");
+  showToast("Avisos desactivados");
   refreshPushUi();
 }
 async function enablePush() {
@@ -1760,7 +1803,7 @@ async function enablePush() {
       (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) }));
     if (!(await sendPushSub(sub))) throw new Error("server");
     try { localStorage.removeItem("motovecino_avisos_off"); } catch {}
-    showToast("🔔 Avisos activados");
+    showToast("Avisos activados");
   } catch (e) {
     showToast("No se pudieron activar los avisos, intenta de nuevo");
   }
@@ -1860,7 +1903,7 @@ function connectWs() {
       currentRide.deposit_status = "enviado";
       currentRide.deposit_has_receipt = true;
       playNotificationSound();
-      showToast("📄 El pasajero subió su comprobante del anticipo");
+      showToast("El pasajero subió su comprobante del anticipo");
       renderRideList();
     }
   };
@@ -2071,7 +2114,7 @@ function myOffersShape() {
 // también al chofer para que sepa con quién está tratando.
 function riderTripText(r) {
   if (r.riderTripCount == null) return "";
-  return r.riderTripCount > 0 ? ` · ${r.riderTripCount} viaje${r.riderTripCount === 1 ? "" : "s"}` : isDeliveryRide(r) ? " · Cliente nuevo" : " · Pasajero nuevo";
+  return r.riderTripCount > 0 ? `${r.riderTripCount} viaje${r.riderTripCount === 1 ? "" : "s"}` : isDeliveryRide(r) ? "Cliente nuevo" : "Pasajero nuevo";
 }
 
 // Foto del pasajero, igual que ya se ve la del chofer en pasajero.html —
@@ -2085,7 +2128,7 @@ function riderAvatarHtml(photo) {
 // Qué es el viaje (mismo precio para los tres, ver riders.js) — sin
 // etiqueta para "pasaje" porque es el caso más común, no hay que
 // recargarle texto a la tarjeta por algo que ya se asume por default.
-const SERVICE_KIND_LABEL = { domicilio: "🍲 Domicilio", mandado: "📦 Mandado" };
+const SERVICE_KIND_LABEL = { domicilio: "Domicilio", mandado: "Mandado" };
 function serviceKindPrefix(r) {
   const label = SERVICE_KIND_LABEL[r.service_kind];
   return label ? `${label} · ` : "";
@@ -2098,7 +2141,7 @@ function serviceKindPrefix(r) {
 // confirme por el chat antes de ir. Va arriba de los datos de a quién recoger.
 function farRequestHtml(r, accepted) {
   if (!r.requested_from_km || r.business_id) return "";
-  return `<div class="far-req">⚠️ <b>Pedido desde lejos</b> (a unos ${r.requested_from_km} km del punto de encuentro).
+  return `<div class="far-req"><b class="ic-in"><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/></svg>Pedido desde lejos</b> (a unos ${r.requested_from_km} km del punto de encuentro).
     <div class="for-other-by">${accepted ? "Escríbele por el chat y confirma antes de salir." : "Si lo aceptas, confirma por el chat antes de salir."}</div></div>`;
 }
 
@@ -2119,15 +2162,15 @@ function forOtherBody(r, accepted) {
     const price = Number(r.agreed_price || r.offer_price) || 0;
     let pay;
     if (!r.order_id) pay = `<div class="for-other-by">Cobra solo el envío · el pedido lo cobra el negocio</div>`;
-    else if (!cash) pay = `<div class="for-other-by">✅ Pedido ya pagado · cobra solo el envío</div>`;
-    else pay = `<div class="for-other-cash">💵 <b>Necesitas $${cash} en efectivo</b> para pagarle el pedido al negocio al recoger.</div>` +
+    else if (!cash) pay = `<div class="for-other-by">Pedido ya pagado · cobra solo el envío</div>`;
+    else pay = `<div class="for-other-cash"><b>Necesitas $${cash} en efectivo</b> para pagarle el pedido al negocio al recoger.</div>` +
       (accepted && price ? `<div class="for-other-cash">Al entregar, <b>cobra $${cash + price}</b> ($${cash} del pedido + $${price} de envío)</div>` : "");
-    return `<div class="for-other">🏪 ${r.order_id ? "Pedido de" : "Envío de"} <b>${escapeHtml(bizName)}</b>${r.order_big ? ` · <b>📦📦 grande</b>` : ""}
+    return `<div class="for-other">${r.order_id ? "Pedido de" : "Envío de"} <b>${escapeHtml(bizName)}</b>${r.order_big ? ` · <b>pedido grande</b>` : ""}
       <div>Entregar a <b>${escapeHtml(r.for_name || "cliente")}</b>${r.for_note ? ` · ${escapeHtml(r.for_note)}` : ""}</div>
       ${pay}</div>`;
   }
   if (!r.for_name) return "";
-  return `<div class="for-other">👤 Vas por <b>${escapeHtml(r.for_name)}</b>
+  return `<div class="for-other">Vas por <b>${escapeHtml(r.for_name)}</b>
     ${r.for_note ? `<div>Seña: ${escapeHtml(r.for_note)}</div>` : ""}
     <div class="for-other-by">Lo pidió ${escapeHtml(r.rider_name)}${accepted ? " · escríbele por el chat" : ""}</div></div>`;
 }
@@ -2193,7 +2236,7 @@ function renderRideList() {
     renderedShape = shape;
 
     const destLine = currentRide.dest_lat
-      ? `<div class="ride-chips"><span class="chip">🏁 ${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · ${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde el punto de encuentro</span></div>`
+      ? `<div class="ride-chips"><span class="chip ic-chip"><svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · ${haversine(currentRide.pickup_lat, currentRide.pickup_lng, currentRide.dest_lat, currentRide.dest_lng).toFixed(1)} km desde el punto de encuentro</span></div>`
       : "";
     const fareLine = `<div class="meta fare">${estimateFare(currentRide).text}</div>`;
 
@@ -2201,11 +2244,11 @@ function renderRideList() {
       const dist = myPos ? haversine(myPos.lat, myPos.lng, currentRide.pickup_lat, currentRide.pickup_lng).toFixed(1) : "?";
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head">${isDeliveryRide(currentRide) ? `<small>Vas a recoger</small><b>📦 el pedido</b>` : `<small>Vas por</small><b>${escapeHtml(pickupWho(currentRide))}</b>`}</div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="act-head">${isDeliveryRide(currentRide) ? `<small>Vas a recoger</small><b>el pedido</b>` : `<small>Vas por</small><b>${escapeHtml(pickupWho(currentRide))}</b>`}</div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide) ? ` · ${riderTripText(currentRide)}` : ""}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
-            <span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>
+            <span class="chip ic-chip"><svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg>${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist}</span> km · <span id="eta-current"></span></span>
             ${extraChipHtml(currentRide)}
           </div>
           ${destLine}
@@ -2217,14 +2260,14 @@ function renderRideList() {
     } else if (currentRide.status === "llegue") {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
-          <div class="act-head">${isDeliveryRide(currentRide) ? `<small>Recogiendo</small><b>📦 el pedido</b>` : `<small>Esperando a</small><b>${escapeHtml(pickupWho(currentRide))}</b>`}</div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="act-head">${isDeliveryRide(currentRide) ? `<small>Recogiendo</small><b>el pedido</b>` : `<small>Esperando a</small><b>${escapeHtml(pickupWho(currentRide))}</b>`}</div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide) ? ` · ${riderTripText(currentRide)}` : ""}</div>
           ${forOtherHtml(currentRide, true)}
-          <div class="ride-chips"><span class="chip">📍 ${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"}</span></div>
+          <div class="ride-chips"><span class="chip ic-chip"><svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg>${escapeHtml(currentRide.pickup_label) || "punto marcado en el mapa"}</span></div>
           ${destLine}
           ${fareLine}
           ${currentRide.ride_type === "taxi" && currentRide.agreed_price
-            ? `<div class="ride-chips"><span class="chip">💰 Precio acordado: $${currentRide.agreed_price}</span></div>`
+            ? `<div class="ride-chips"><span class="chip">Precio acordado: $${currentRide.agreed_price}</span></div>`
             : ""}
           ${currentRide.ride_type === "taxi"
             ? `<div style="margin:8px 0;padding:10px;background:rgba(255,255,255,0.04);border-radius:10px;">
@@ -2241,11 +2284,11 @@ function renderRideList() {
       el.innerHTML = `
         <div class="card ride-card active fade-in">
           <div class="act-head"><small>${isDeliveryRide(currentRide) ? "Entregando a" : "Llevando a"}</small><b>${escapeHtml(currentRide.for_name || currentRide.rider_name)}</b></div>
-          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide)}</div>
+          <div class="meta">${riderAvatarHtml(currentRide.riderPhoto)}${serviceKindPrefix(currentRide)}${isDeliveryRide(currentRide) ? "Cliente" : "Pasajero"}: ${escapeHtml(currentRide.rider_name)} · ${currentRide.rider_phone}${riderTripText(currentRide) ? ` · ${riderTripText(currentRide)}` : ""}</div>
           ${forOtherHtml(currentRide, true)}
           <div class="ride-chips">
             ${currentRide.dest_lat
-              ? `<span class="chip">🏁 ${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist ?? "?"}</span> km · <span id="eta-current"></span></span>`
+              ? `<span class="chip ic-chip"><svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>${escapeHtml(currentRide.dest_label) || "punto marcado en el mapa"} · <span id="dist-current">${dist ?? "?"}</span> km · <span id="eta-current"></span></span>`
               : `<span class="chip">Sin destino marcado</span>`}
           </div>
           ${fareLine}
@@ -2317,7 +2360,7 @@ function updateDistances() {
       if (dist <= AUTO_ARRIVAL_KM && !autoArriving) {
         autoArriving = true;
         arriveAtPickup()
-          .then((ok) => { if (ok) showToast("📍 Detectamos que llegaste — lo marcamos automático"); })
+          .then((ok) => { if (ok) showToast("Detectamos que llegaste — lo marcamos automático"); })
           .finally(() => { autoArriving = false; });
       }
     } else if (currentRide.status === "en_curso" && currentRide.dest_lat) {
@@ -2396,12 +2439,12 @@ function depositRequestHtml(r) {
   const foraneo = isForaneo(r);
   if (driver.hasDepositAccount === false) {
     return foraneo
-      ? `<div class="deposit-hint">💵 Viaje foráneo. Para pedir anticipo, registra tu cuenta en <a href="#" onclick="openProfile();return false;">Mi perfil</a>.</div>`
+      ? `<div class="deposit-hint">Viaje foráneo. Para pedir anticipo, registra tu cuenta en <a href="#" onclick="openProfile();return false;">Mi perfil</a>.</div>`
       : "";
   }
   return `
     <div class="deposit-ask">
-      <label for="taxiDepositInput-${r.id}">💵 Anticipo por depósito ${foraneo ? "<strong>(recomendado: viaje foráneo)</strong>" : "(opcional)"}</label>
+      <label for="taxiDepositInput-${r.id}">Anticipo por depósito ${foraneo ? "<strong>(recomendado: viaje foráneo)</strong>" : "(opcional)"}</label>
       <input type="number" id="taxiDepositInput-${r.id}" inputmode="decimal" min="0" placeholder="${foraneo ? "Se llena solo al poner el precio" : "Déjalo vacío si no pides anticipo"}"
              value="${foraneo && r.offer_price != null ? suggestedDeposit(r.offer_price) : ""}"
              data-foraneo="${foraneo ? 1 : 0}" oninput="this.dataset.touched = 1">
@@ -2441,15 +2484,15 @@ function featuredRideHtml(r, allPending) {
     : `Solicitud · ${pos} de ${n}`;
   const head = `
       <div class="req-lbl">${lbl}</div>
-      <div class="label">${riderAvatarHtml(r.riderPhoto)}<span class="req-dot" style="background:${color};margin-right:7px;"></span>${serviceKindPrefix(r)}${escapeHtml(r.rider_name)}${riderTripText(r)}</div>
+      <div class="label req-who">${riderAvatarHtml(r.riderPhoto)}<div class="req-who-txt"><b><span class="req-dot" style="background:${color};"></span>${serviceKindPrefix(r)}${escapeHtml(r.rider_name)}</b>${riderTripText(r) ? `<small>${riderTripText(r)}</small>` : ""}</div></div>
       ${forOtherHtml(r)}`;
   if (r.ride_type !== "taxi" && r.offer_price != null) {
-    const trip = r.dest_lat ? `🏁 Viaje de ${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km${r.dest_label ? ` · ${escapeHtml(r.dest_label)}` : ""}<br>` : "";
+    const trip = r.dest_lat ? `<span class="rq-l"><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/></svg><span>Viaje de ${haversine(r.pickup_lat, r.pickup_lng, r.dest_lat, r.dest_lng).toFixed(1)} km${r.dest_label ? ` · ${escapeHtml(r.dest_label)}` : ""}</span></span>` : "";
     const extra = extraChipHtml(r);
     return `
     <div class="card ride-card pending req-feat fade-in">${head}
       <div class="req-row">
-        <div class="req-sub">📍 A <span id="dist-${r.id}">${dist}</span> km de ti${r.pickup_label ? ` · ${escapeHtml(r.pickup_label)}` : ""}<br>${trip}${fare.text.replace(/^🛵 /, "")}</div>
+        <div class="req-sub"><span class="rq-l"><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg><span>A <span id="dist-${r.id}">${dist}</span> km de ti${r.pickup_label ? ` · ${escapeHtml(r.pickup_label)}` : ""}</span></span>${trip}<span class="rq-l"><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg><span>${fare.text}</span></span></div>
         <div class="req-gana"><b>$${motoNet(r.offer_price)}</b><small>ganas</small></div>
       </div>
       ${extra ? `<div class="ride-chips">${extra}</div>` : ""}
@@ -2459,7 +2502,7 @@ function featuredRideHtml(r, allPending) {
   return `
     <div class="card ride-card pending req-feat fade-in">${head}
       <div class="ride-chips">
-        <span class="chip">📍 <span id="dist-${r.id}">${dist}</span> km</span>
+        <span class="chip ic-chip"><svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg><span id="dist-${r.id}">${dist}</span> km</span>
         ${extraChipHtml(r)}
         ${r.pickup_label ? `<span class="chip">${escapeHtml(r.pickup_label)}</span>` : ""}
       </div>
@@ -2589,7 +2632,7 @@ function motoOfferBlockHtml(r, mine) {
   }
   return `
     <button class="btn btn-go pedir" onclick="sendPickedCounter(${r.id})">Pedir +$${pick} · ganas $${net + pick}</button>${chips}
-    <div class="req-note">${firstName} ve tu precio: <b>$${r.offer_price + pick}</b> (con la cuota de la app). Decide si acepta. Toca otra vez +$${pick} para quitarlo.</div>`;
+    <div class="req-note">${firstName} ve <b>$${r.offer_price + pick}</b> con la cuota de la app. Toca +$${pick} otra vez para quitarlo.</div>`;
 }
 
 function fmtCountdown(ms) {
@@ -2678,7 +2721,7 @@ function onOfferAccepted(payload) {
   document.getElementById("statusText").textContent = "Disponible";
   requestWakeLock();
   playNotificationSound();
-  showToast(`✅ El pasajero aceptó tu oferta de $${payload.ride.agreed_price}`);
+  showToast(`El pasajero aceptó tu oferta de $${payload.ride.agreed_price}`);
   beginRide(payload.ride);
 }
 
@@ -2733,19 +2776,19 @@ function depositBoxHtml(r) {
   const rest = r.agreed_price ? Math.max(0, r.agreed_price - r.deposit_amount) : null;
   const restLine = rest != null ? `<div class="deposit-note">Al llegar cobras el resto: <strong>$${rest}</strong></div>` : "";
   if (r.deposit_status === "confirmado") {
-    return `<div class="deposit-box ok"><div class="deposit-title">✅ Anticipo recibido · ${amount}</div>${restLine}
+    return `<div class="deposit-box ok"><div class="deposit-title">Anticipo recibido · ${amount}</div>${restLine}
       <div class="deposit-note">Si el pasajero cancela, el anticipo es tuyo. Si cancelas tú, se lo devuelves completo.</div></div>`;
   }
-  const safety = `<div class="deposit-warn">⚠️ No salgas solo por ver la foto: revisa en la app de TU banco que el dinero sí llegó. Una captura se puede editar.</div>`;
+  const safety = `<div class="deposit-warn"><span class="ic-in" style="vertical-align:-3px;"><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/></svg></span> No salgas solo por ver la foto: revisa en la app de TU banco que el dinero sí llegó. Una captura se puede editar.</div>`;
   if (r.deposit_status === "enviado") {
     return `
       <div class="deposit-box">
-        <div class="deposit-title">📄 El pasajero subió su comprobante · ${amount}</div>
+        <div class="deposit-title">El pasajero subió su comprobante · ${amount}</div>
         <button class="btn-sm" onclick="viewDepositReceipt()">Ver comprobante</button>
         ${safety}
         <div class="deposit-actions">
-          <button class="btn" onclick="depositAction('confirm')">✅ Ya me llegó</button>
-          <button class="btn-secondary" onclick="depositAction('reject')">❌ No me ha llegado</button>
+          <button class="btn" onclick="depositAction('confirm')">Ya me llegó</button>
+          <button class="btn-secondary" onclick="depositAction('reject')">No me ha llegado</button>
         </div>
       </div>`;
   }
@@ -2754,7 +2797,7 @@ function depositBoxHtml(r) {
     : "Esperando que el pasajero te deposite. Cuando suba su comprobante te avisamos.";
   return `
     <div class="deposit-box">
-      <div class="deposit-title">💵 Anticipo pendiente · ${amount}</div>
+      <div class="deposit-title">Anticipo pendiente · ${amount}</div>
       <div class="deposit-note">${waitingText}</div>
       ${safety}
       <div class="deposit-actions">
@@ -2777,7 +2820,7 @@ async function depositAction(action) {
   const d = data.deposit;
   currentRide.deposit_status = d ? d.status : null;
   currentRide.deposit_amount = d ? d.amount : null;
-  showToast(action === "confirm" ? "✅ Anticipo confirmado · ya puedes salir" : action === "reject" ? "Le avisamos al pasajero" : "Anticipo quitado");
+  showToast(action === "confirm" ? "Anticipo confirmado · ya puedes salir" : action === "reject" ? "Le avisamos al pasajero" : "Anticipo quitado");
   renderRideList();
 }
 
@@ -3074,13 +3117,13 @@ async function completeRide(extra) {
     if (gained > 0) { showEarnPlus(gained); showTripDone(gained, data.todayEarned, data.todayCount); }
   }
   localStorage.setItem("motoya_driver", JSON.stringify(driver));
-  document.getElementById("todayCountText").textContent = `Viajes hoy: ${todayCount}`;
+  renderTodayCount();
   stopWaitTicker();
   clearWaitState(currentRide.id);
   currentRide = null;
   stopRouteTracking();
   hideChat();
-  showToast(extra && extra.deliveryCode ? "✅ ¡Entrega confirmada! El cliente recibió su pedido." : extra && extra.deliveryPhoto ? "✅ Entrega registrada con foto" : "Viaje completado ✅");
+  showToast(extra && extra.deliveryCode ? "¡Entrega confirmada! El cliente recibió su pedido." : extra && extra.deliveryPhoto ? "Entrega registrada con foto" : "Viaje completado");
   renderRideList();
   refreshRankBadge();
   showDriverTierBadge(data.lifetimeTrips);
@@ -3094,7 +3137,7 @@ async function completeRide(extra) {
 function deliveryCodeHtml() {
   return `
     <div class="dlv-box" id="dlvBox">
-      <div class="dlv-lbl">🔑 Pide la clave al cliente</div>
+      <div class="dlv-lbl">Pide la clave al cliente</div>
       <div id="dlvCodeArea">
         <input id="dlvCodeInput" class="dlv-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="••••"
           oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4); document.getElementById('dlvMsg').textContent='';"
@@ -3106,7 +3149,7 @@ function deliveryCodeHtml() {
       <a class="dlv-link" id="dlvNoCodeLink" onclick="document.getElementById('dlvNoCode').style.display='block';this.style.display='none';">¿El cliente no tiene la clave?</a>
       <div id="dlvNoCode" style="display:none;">
         <div class="dlv-hint">Pídele que abra su app de MotoVecino o escríbele por el chat. Si de verdad no la tiene, entrega con una foto del pedido entregado.</div>
-        <button class="btn btn-secondary" onclick="document.getElementById('dlvPhotoInput').click()">📷 Entregar sin clave (con foto)</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('dlvPhotoInput').click()"><span class="ic-in"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>Entregar sin clave (con foto)</span></button>
       </div>
       <input type="file" id="dlvPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="submitDeliveryPhoto(this)" />
     </div>`;
@@ -3126,7 +3169,7 @@ async function submitDeliveryCode() {
 function showDeliveryError(err) {
   const msg = document.getElementById("dlvMsg");
   if (!msg) return false;
-  let text = "✖ " + (err.error || "No se pudo confirmar la entrega");
+  let text = (err.error || "No se pudo confirmar la entrega");
   if (err.wrongCode && err.attemptsLeft > 0) text += ` (te quedan ${err.attemptsLeft})`;
   msg.textContent = text;
   const input = document.getElementById("dlvCodeInput");
@@ -3171,7 +3214,16 @@ async function submitDeliveryPhoto(input) {
   await completeRide({ deliveryPhoto: photo });
 }
 
-const RANK_EMOJI = { 1: "🥇", 2: "🥈", 3: "🥉" };
+// Encabezado (14-oct): vehículo y viajes de hoy en un renglón, sin emojis.
+let driverVehWord = "Mototaxi";
+const BELL_SVG = '<svg class="li" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>';
+const BELLOFF_SVG = '<svg class="li" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8c0 2.4.4 4.3 1 5.8M17 17H3s3-2 3-9a5.9 5.9 0 0 1 .4-2.1"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0M3 3l18 18"/></svg>';
+function renderTodayCount() {
+  const el = document.getElementById("todayCountText");
+  if (el) el.textContent = `${driverVehWord} · ${todayCount} viaje${todayCount === 1 ? "" : "s"} hoy`;
+}
+const TROPHY_SVG = '<svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3a3 3 0 0 1-3 4M7 5H4a3 3 0 0 0 3 4"/></svg>';
+const AWARD_SVG = '<svg class="li" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="6"/><path d="M8.5 14 7 22l5-3 5 3-1.5-8"/></svg>';
 
 async function refreshRankBadge() {
   try {
@@ -3180,7 +3232,7 @@ async function refreshRankBadge() {
     const mine = ranking.find((r) => r.id === driver.id);
     const el = document.getElementById("rankBadge");
     if (mine) {
-      el.textContent = `${RANK_EMOJI[mine.rank]} Top chofer #${mine.rank} · ${mine.ratingPct}%`;
+      el.innerHTML = `<span class="tier-pill tier-gold">${TROPHY_SVG}Top chofer #${mine.rank} · ${mine.ratingPct}%</span>`;
       el.style.display = "block";
     } else {
       el.style.display = "none";
@@ -3195,9 +3247,9 @@ async function refreshRankBadge() {
 // Números de arranque, sin datos reales de volumen todavía; ajustar cuando
 // se vea el ritmo real de viajes por chofer.
 const DRIVER_TIERS = [
-  { min: 300, label: "🥇 Chofer élite" },
-  { min: 150, label: "🥈 Chofer veterano" },
-  { min: 50, label: "🥉 Chofer con experiencia" },
+  { min: 300, label: "Chofer élite", cls: "gold" },
+  { min: 150, label: "Chofer veterano", cls: "silver" },
+  { min: 50, label: "Chofer con experiencia", cls: "bronze" },
 ];
 
 function showDriverTierBadge(lifetimeTrips) {
@@ -3205,7 +3257,7 @@ function showDriverTierBadge(lifetimeTrips) {
   if (lifetimeTrips == null) { el.style.display = "none"; return; }
   const tier = DRIVER_TIERS.find((t) => lifetimeTrips >= t.min);
   if (!tier) { el.style.display = "none"; return; }
-  el.textContent = `${tier.label} · ${lifetimeTrips} viajes`;
+  el.innerHTML = `<span class="tier-pill tier-${tier.cls}">${AWARD_SVG}${tier.label} · ${lifetimeTrips}</span>`;
   el.style.display = "block";
 }
 
@@ -3343,7 +3395,7 @@ function renderInvite(inv) {
   if (!inviteInfo) return;
   const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   document.getElementById("invitePromo").innerHTML = promo
-    ? `🎁 <b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de descuento en la cuota. Promoción hasta el ${fmtPromoEnd(promo.end)}.<small class="invite-fine">El saldo a favor se resta de tu cuota y lo que sobre se guarda para la próxima vez. No se cambia por efectivo.</small>`
+    ? `<span class="inv-gift"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8c-2-3-6-3-6 0h6zM12 8c2-3 6-3 6 0h-6z"/></svg></span><b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de descuento en la cuota. Promoción hasta el ${fmtPromoEnd(promo.end)}.<small class="invite-fine">El saldo a favor se resta de tu cuota y lo que sobre se guarda para la próxima vez. No se cambia por efectivo.</small>`
     : "";
   const parts = [];
   if (inviteInfo.registered) {
@@ -3448,7 +3500,7 @@ function renderEarnings(e) {
   document.getElementById("pfEarnSub").textContent = "Hoy " + fmtMoney(e.today.total) + " · semana " + fmtMoney(e.week.total);
   document.getElementById("earnRecent").innerHTML = (e.recent || [])
     .map((r) => {
-      const kind = r.rideType === "taxi" ? "🚕 Taxi" : "🛺 Mototaxi";
+      const kind = r.rideType === "taxi" ? "Taxi" : "Mototaxi";
       const dest = r.destLabel ? ` · ${escapeHtml(r.destLabel)}` : "";
       return `<div class="erow"><span class="when">${earnWhen(r.completedAt)}</span><span class="what">${kind}${dest}</span><span class="amt">${fmtMoney(r.earnings)}</span></div>`;
     })
@@ -3471,7 +3523,7 @@ function setEarnPill(total) {
   const lbl = document.getElementById("earnPillLbl");
   const bar = document.getElementById("earnPillBar");
   if (goal) {
-    lbl.textContent = todayEarned >= goal ? "¡meta cumplida! 🎉" : `de ${fmtMoney(goal)}`;
+    lbl.textContent = todayEarned >= goal ? "¡meta cumplida!" : `de ${fmtMoney(goal)}`;
     bar.style.display = "block";
     bar.firstElementChild.style.width = Math.min(100, (todayEarned / goal) * 100) + "%";
   } else {
@@ -3594,7 +3646,7 @@ function renderProfile(p) {
   document.getElementById("pfAv").classList.toggle("gold", !!p.esFundador);
   document.getElementById("pfUnitImg").innerHTML = p.vehicleType === "taxi" ? MVVeh.taxiSide(118) : MVVeh.motoSide(108);
   document.getElementById("profileSub").textContent =
-    (p.vehicleType === "taxi" ? "🚕 Taxi" : "🛵 Mototaxi") +
+    (p.vehicleType === "taxi" ? "Taxi" : "Mototaxi") +
     (p.grupo ? ` · ${p.grupo}` : "") +
     (p.createdAt ? ` · Desde ${fmtDate(p.createdAt)}` : "");
 
@@ -3655,7 +3707,7 @@ function renderProfile(p) {
     );
     // Saldo a favor por invitar choferes: se resta de lo que entrega.
     if (p.creditBalance > 0) {
-      rows.push(row("🎁 Saldo a favor por invitar", `−$${p.creditBalance}`, "accent"));
+      rows.push(row("Saldo a favor por invitar", `−$${p.creditBalance}`, "accent"));
       if (p.pendingRides) rows.push(row("Total a entregar", `$${p.pendingNet}`));
     }
     notes.push(
@@ -3733,7 +3785,7 @@ function saveBankAccount() {
     bank: document.getElementById("bankNameInput").value,
     account: document.getElementById("bankAccountInput").value,
     holder: document.getElementById("bankHolderInput").value,
-  }, "✅ Cuenta guardada · ya puedes pedir anticipo al aceptar un taxi");
+  }, "Cuenta guardada · ya puedes pedir anticipo al aceptar un taxi");
 }
 
 function removeBankAccount() {
@@ -3791,7 +3843,7 @@ async function uploadProfilePhoto(dataUrl, thumbUrl) {
     if (!res.ok) throw new Error((await res.json()).error || "No se pudo guardar");
     document.getElementById("profilePhotoSlot").innerHTML = `<img id="profilePhoto" src="${thumbUrl}" alt="Mi foto" />`;
     msg.style.color = "var(--success)";
-    msg.textContent = "✅ Foto actualizada";
+    msg.textContent = "Foto actualizada";
   } catch (e) {
     msg.style.color = "var(--danger)";
     msg.textContent = e.message;

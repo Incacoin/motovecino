@@ -4583,6 +4583,8 @@ function onCompleted() {
   document.getElementById("newRideBtn").style.display = "inline-block";
   hidePushAsk();
   document.getElementById("ratingBox").style.display = "block";
+  // Quejas y sugerencias también al terminar bien (14-oct), no solo si el chofer cancela.
+  document.getElementById("reportBtn").style.display = "inline-flex";
   stopRouteTracking();
   releaseWakeLock();
 }
