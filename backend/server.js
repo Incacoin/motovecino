@@ -132,6 +132,20 @@ app.get("/.well-known/assetlinks.json", (req, res) => {
   res.type("application/json").sendFile(path.join(__dirname, "..", "frontend", ".well-known", "assetlinks.json"));
 });
 
+// TEMPORAL: muestra al que llama sus propias cabeceras de IP, para medir
+// cuántos proxies pone Render delante y fijar "trust proxy" sin adivinar.
+// Solo devuelve datos de la misma petición. Quitar cuando quede medido.
+app.get("/api/_ip", (req, res) => {
+  res.set("Cache-Control", "no-store").json({
+    xff: req.get("x-forwarded-for") || null,
+    cf: req.get("cf-connecting-ip") || null,
+    tci: req.get("true-client-ip") || null,
+    xri: req.get("x-real-ip") || null,
+    socket: req.socket.remoteAddress || null,
+    ip: req.ip,
+  });
+});
+
 app.get("/api/health", async (req, res) => {
   try {
     await db.prepare("SELECT 1").get();
