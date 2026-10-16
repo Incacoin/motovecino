@@ -32,7 +32,22 @@ app.disable("x-powered-by");
 // Render (y cualquier proxy delante del server) reenvía la IP real del
 // cliente en X-Forwarded-For — sin esto, req.ip siempre sería la IP interna
 // del proxy y el límite de intentos de PIN no distinguiría a nadie.
-app.set("trust proxy", true);
+// Medido en producción 16-oct: X-Forwarded-For llega como
+// "<lo que mande el cel>, <IP real>, <IP de Cloudflare>" y el socket es una
+// IP interna 10.x de Render. Con `true` Express tomaba el primer valor, que
+// el cel puede inventar y así saltarse los límites de intentos. Solo se
+// confía en la red interna y en los rangos publicados de Cloudflare
+// (cloudflare.com/ips), así req.ip es la primera IP fuera de ellos (la real)
+// sin depender de cuántos saltos haya.
+const CLOUDFLARE_IPS = [
+  "173.245.48.0/20", "103.21.244.0/22", "103.22.200.0/22", "103.31.4.0/22",
+  "141.101.64.0/18", "108.162.192.0/18", "190.93.240.0/20", "188.114.96.0/20",
+  "197.234.240.0/22", "198.41.128.0/17", "162.158.0.0/15", "104.16.0.0/13",
+  "104.24.0.0/14", "172.64.0.0/13", "131.0.72.0/22",
+  "2400:cb00::/32", "2606:4700::/32", "2803:f800::/32", "2405:b500::/32",
+  "2405:8100::/32", "2a06:98c0::/29", "2c0f:f248::/32",
+];
+app.set("trust proxy", ["loopback", "linklocal", "uniquelocal", ...CLOUDFLARE_IPS]);
 
 // Cabeceras de seguridad del lado del navegador. El CSP no puede ir más
 // estricto que 'unsafe-inline' en script/style porque toda la app (admin,
