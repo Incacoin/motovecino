@@ -19,8 +19,15 @@
     "Palacio municipal de Tekax": "ayuntamiento presidencia municipal",
     "La Ermita": "ermita san diego",
     "Terminal de autobuses (Mayab)": "camiones terminal",
-    "Pemex": "gasolinera",
+    "Pemex": "gasolinera gasolina estacion de servicio",
     "Mercado de Tekax": "mercado municipal"
   },
-  "lugares": []
+  "lugares": [
+    { "n": "IMSS", "p": [20.200585, -89.290413], "b": "seguro social hospital clinica calle 52 x 61" },
+    { "n": "Oxxo (calle 55 x 42)", "p": [20.200564, -89.284196], "b": "tienda" },
+    { "n": "Gasolinera (calle 55 entre 42 y 40)", "p": [20.200301, -89.283749], "b": "estacion de servicio gasolina" },
+    { "n": "Oxxo San Diego (carretera, 51 x 76)", "p": [20.211487, -89.299899], "b": "tienda" },
+    { "n": "Campo de béisbol Franco Aguilar", "p": [20.2138, -89.2958], "b": "estadio beisbol campo deportivo" },
+    { "n": "Tiendas Six (calle 41 entre 70 y 68)", "p": [20.21345, -89.29445], "b": "six tienda cerveza" }
+  ]
 }

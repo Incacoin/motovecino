@@ -79,6 +79,9 @@ function aplicarExtra(data, fileId) {
   const file = path.join(__dirname, "../../frontend/lugares", fileId + "-extra.json");
   if (!fs.existsSync(file)) return data;
   const extra = JSON.parse(fs.readFileSync(file, "utf8"));
+  // "m" = vino del extra: se quitan y se vuelven a poner, para que un lugar
+  // corregido o borrado en el extra no se quede con su versión vieja.
+  data.lugares = data.lugares.filter((l) => !l.m);
   const key = (n) => n.toLowerCase().replace(/\s+/g, " ").trim();
   const quitar = new Set((extra.quitar || []).map(key));
   const renombrar = new Map(Object.entries(extra.renombrar || {}).map(([a, b]) => [key(a), b]));
@@ -89,7 +92,7 @@ function aplicarExtra(data, fileId) {
     if (palabras.has(key(l.n))) l.b = palabras.get(key(l.n));
   }
   // Los de a mano van primero y reemplazan a uno de OSM con el mismo nombre.
-  const propios = (extra.lugares || []).map((l) => ({ n: l.n, t: l.t || "lugar", p: l.p, ...(l.b ? { b: l.b } : {}) }));
+  const propios = (extra.lugares || []).map((l) => ({ n: l.n, t: l.t || "lugar", p: l.p, ...(l.b ? { b: l.b } : {}), m: 1 }));
   const nombres = new Set(propios.map((l) => key(l.n)));
   lugares = [...propios, ...lugares.filter((l) => !nombres.has(key(l.n)))];
   return { ...data, lugares };
