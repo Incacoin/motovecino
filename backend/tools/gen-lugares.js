@@ -9,7 +9,13 @@
 // Ciudad por comisarías (Progreso): un archivo por comisaría (<ciudad>-<zona>.json),
 // porque cada una repite los mismos números de calle y el motocarro no sale
 // de su comisaría (por eso tampoco lleva pueblos cercanos).
-// Los lugares que no estén en OSM se agregan a mano en frontend/lugares/<ciudad>-extra.json.
+// Correcciones a mano en frontend/lugares/<ciudad>-extra.json (se aplican al generar):
+//   "quitar": nombres de OSM que no sirven ("Áreas verdes"),
+//   "renombrar": { "nombre en OSM": "nombre como lo dice la gente" },
+//   "palabras": { "nombre": "otras formas de buscarlo" } ("centro zocalo"),
+//   "lugares": [{ "n": "IMSS", "p": [lat, lng], "b": "hospital clinica" }] los que faltan.
+// Solo reaplicar el extra sin volver a pedir OSM:
+//   node backend/tools/gen-lugares.js tekax --solo-extra
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -61,9 +67,45 @@ function streetNum(name) {
   return m ? m[1] : null;
 }
 
+// En Yucatán las calles pares cruzan con las impares; "56 x 58" es un error de
+// OSM (una calle mal numerada) y mandaría al pasajero a otro lado.
+const crucePosible = (k) => {
+  const [a, b] = k.split("x").map(Number);
+  return a % 2 !== b % 2;
+};
+
+function aplicarExtra(data, fileId) {
+  for (const k of Object.keys(data.cruces)) if (!crucePosible(k)) delete data.cruces[k];
+  const file = path.join(__dirname, "../../frontend/lugares", fileId + "-extra.json");
+  if (!fs.existsSync(file)) return data;
+  const extra = JSON.parse(fs.readFileSync(file, "utf8"));
+  const key = (n) => n.toLowerCase().replace(/\s+/g, " ").trim();
+  const quitar = new Set((extra.quitar || []).map(key));
+  const renombrar = new Map(Object.entries(extra.renombrar || {}).map(([a, b]) => [key(a), b]));
+  const palabras = new Map(Object.entries(extra.palabras || {}).map(([a, b]) => [key(a), b]));
+  let lugares = data.lugares.filter((l) => !quitar.has(key(l.n)));
+  for (const l of lugares) {
+    if (renombrar.has(key(l.n))) l.n = renombrar.get(key(l.n));
+    if (palabras.has(key(l.n))) l.b = palabras.get(key(l.n));
+  }
+  // Los de a mano van primero y reemplazan a uno de OSM con el mismo nombre.
+  const propios = (extra.lugares || []).map((l) => ({ n: l.n, t: l.t || "lugar", p: l.p, ...(l.b ? { b: l.b } : {}) }));
+  const nombres = new Set(propios.map((l) => key(l.n)));
+  lugares = [...propios, ...lugares.filter((l) => !nombres.has(key(l.n)))];
+  return { ...data, lugares };
+}
+
 async function main() {
   const id = process.argv[2] || "tekax";
-  const zoneId = process.argv[3];
+  const zoneId = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : null;
+  if (process.argv.includes("--solo-extra")) {
+    const fileId = zoneId ? `${id}-${zoneId}` : id;
+    const out = path.join(__dirname, "../../frontend/lugares", fileId + ".json");
+    const data = aplicarExtra(JSON.parse(fs.readFileSync(out, "utf8")), fileId);
+    fs.writeFileSync(out, JSON.stringify(data));
+    console.log(`${out}: ${Object.keys(data.cruces).length} cruces, ${data.lugares.length} lugares (solo extra)`);
+    return;
+  }
   const city = CITIES.find((c) => c.id === id);
   if (!city) throw new Error("Ciudad no encontrada en cities.js: " + id + (id === "progreso" ? " (corre con ENABLE_PROGRESO=1)" : ""));
   const zone = zoneId ? (city.zones || []).find((z) => z.id === zoneId) : null;
@@ -138,8 +180,9 @@ async function main() {
   const fileId = zone ? `${id}-${zone.id}` : id;
   const out = path.join(__dirname, "../../frontend/lugares", fileId + ".json");
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, JSON.stringify({ city: fileId, generado: new Date().toISOString().slice(0, 10), cruces, lugares }));
-  console.log(`${out}: ${Object.keys(cruces).length} cruces, ${lugares.length} lugares`);
+  const data = aplicarExtra({ city: fileId, generado: new Date().toISOString().slice(0, 10), cruces, lugares }, fileId);
+  fs.writeFileSync(out, JSON.stringify(data));
+  console.log(`${out}: ${Object.keys(data.cruces).length} cruces, ${data.lugares.length} lugares`);
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

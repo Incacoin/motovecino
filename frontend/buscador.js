@@ -25,7 +25,8 @@ function load(city) {
         (cruces[a] = cruces[a] || {})[b] = p;
         (cruces[b] = cruces[b] || {})[a] = p;
       }
-      const lugares = (data.lugares || []).map((l) => ({ ...l, k: normText(l.n) }));
+      // "b" = otras formas de buscarlo ("centro" encuentra el parque principal).
+      const lugares = (data.lugares || []).map((l) => ({ ...l, k: normText(l.n + (l.b ? " " + l.b : "")) }));
       const result = { cruces, lugares };
       if (placeDataLoading === loading) {
         placeData = result;

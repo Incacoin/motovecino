@@ -1,0 +1,26 @@
+{
+  "quitar": [
+    "concentradosbelmex",
+    "Áreas verdes",
+    "Capilla",
+    "Panadería"
+  ],
+  "renombrar": {
+    "Parque  del Quiosco": "Parque principal (Quiosco)",
+    "Iglesia": "Iglesia de San Juan Bautista",
+    "Áreas verdes de la Ermita": "La Ermita",
+    "Tienda Naturista La Flor de Tila (plantas medicinales y alimentos organicos)": "Tienda Naturista La Flor de Tila",
+    "Autobuses MAYAB": "Terminal de autobuses (Mayab)",
+    "Mi Bodega Aurrera": "Bodega Aurrera"
+  },
+  "palabras": {
+    "Parque principal (Quiosco)": "centro zocalo plaza kiosco",
+    "Iglesia de San Juan Bautista": "parroquia templo convento centro",
+    "Palacio municipal de Tekax": "ayuntamiento presidencia municipal",
+    "La Ermita": "ermita san diego",
+    "Terminal de autobuses (Mayab)": "camiones terminal",
+    "Pemex": "gasolinera",
+    "Mercado de Tekax": "mercado municipal"
+  },
+  "lugares": []
+}
