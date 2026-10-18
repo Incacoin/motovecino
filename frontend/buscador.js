@@ -26,7 +26,7 @@ function load(city) {
         (cruces[b] = cruces[b] || {})[a] = p;
       }
       // "b" = otras formas de buscarlo ("centro" encuentra el parque principal).
-      const lugares = (data.lugares || []).map((l) => ({ ...l, k: normText(l.n + (l.b ? " " + l.b : "")) }));
+      const lugares = (data.lugares || []).map((l) => ({ ...l, k: normText(l.n + (l.b ? " " + l.b : "")), kb: normText(l.b) }));
       const result = { cruces, lugares };
       if (placeDataLoading === loading) {
         placeData = result;
@@ -69,7 +69,9 @@ function placeMatches(query, data) {
   if (q.length >= 2 && !/^\d+$/.test(q)) {
     const words = q.split(" ");
     const hits = data.lugares.filter((l) => words.every((w) => l.k.includes(w)));
-    hits.sort((x, y) => (y.k.startsWith(q) - x.k.startsWith(q)) || x.n.length - y.n.length);
+    // Primero los que empiezan igual por nombre o por sus otras palabras ("centro" → parque principal).
+    const starts = (l) => l.k.startsWith(q) || l.kb.startsWith(q);
+    hits.sort((x, y) => (starts(y) - starts(x)) || x.n.length - y.n.length);
     for (const l of hits.slice(0, 8)) {
       out.push({ label: l.n, sub: l.t === "pueblo" ? "Comisaría o pueblo cercano" : l.t === "colonia" ? "Colonia" : "Lugar", t: l.t === "pueblo" ? "pueblo" : "lugar", p: l.p });
     }

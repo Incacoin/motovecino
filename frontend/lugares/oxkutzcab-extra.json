@@ -1,0 +1,31 @@
+{
+  "quitar": [
+    "Consultorio medico",
+    "Telcel distribuidor autorizado",
+    "FERROTLAPALERÍA LA PRINCIPAL",
+    "Maya Space",
+    "Columbus club",
+    "Un espacio verde",
+    "Salida de Grutas de Loltún",
+    "Estacionamiento Grutas de Loltún",
+    "Parque Santoyo"
+  ],
+  "renombrar": {
+    "Iglesia": "Iglesia de San Francisco de Asís",
+    "Autobuses del Oriente ADO": "Terminal ADO",
+    "Policia": "Policía municipal"
+  },
+  "palabras": {
+    "Parque principal de Oxkutzcab": "centro zocalo plaza",
+    "Iglesia de San Francisco de Asís": "parroquia templo convento centro",
+    "Terminal ADO": "camiones autobuses terminal",
+    "Mercado central": "mercado municipal 20 de noviembre",
+    "Pemex": "gasolinera gasolina estacion de servicio",
+    "Soriana": "super",
+    "Megasur": "super",
+    "Súper Heidi": "super",
+    "Grutas de Loltún": "loltun cuevas",
+    "Campo Deportivo J.J. Pacho": "unidad deportiva beisbol campo"
+  },
+  "lugares": []
+}

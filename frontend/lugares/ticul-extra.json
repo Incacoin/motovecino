@@ -1,0 +1,36 @@
+{
+  "quitar": [
+    "Laboratorio",
+    "Estetica",
+    "Electronica",
+    "Mormon",
+    "Cyber Full-Net",
+    "Casas en renta",
+    "Ticul - Muna",
+    "Sta Elena",
+    "Super Che"
+  ],
+  "renombrar": {
+    "Iglesia": "Iglesia de San Antonio de Padua",
+    "SIX": "Tiendas Six",
+    "Estadio De Beisbol: Br. Raúl Medina Un": "Estadio de béisbol Raúl Medina",
+    "Jardín Botánico El Alfarero (Georeferenciado: victormce)": "Jardín Botánico El Alfarero",
+    "Taxis Ticul-Merida": "Sitio de taxis a Mérida"
+  },
+  "palabras": {
+    "Parque principal de Ticul": "centro zocalo plaza",
+    "Iglesia de San Antonio de Padua": "parroquia templo convento centro",
+    "Palacio municipal de Ticul": "ayuntamiento presidencia municipal",
+    "Pemex": "gasolinera gasolina estacion de servicio",
+    "Bancomer": "banco cajero bbva",
+    "BBVA México": "banco cajero bancomer",
+    "HSBC": "banco cajero",
+    "Colegio de Bachilleres Plantel Ticul": "cobay prepa preparatoria",
+    "Estadio Manuel \"Pelele\" Coello": "beisbol estadio",
+    "Estadio de béisbol Raúl Medina": "beisbol estadio",
+    "Sitio de taxis a Mérida": "colectivos merida",
+    "Súper Che": "super",
+    "Bodega Aurrera": "super aurrera"
+  },
+  "lugares": []
+}

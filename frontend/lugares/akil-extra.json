@@ -1,0 +1,19 @@
+{
+  "quitar": [
+    "Cabañas El cedral",
+    "Fruteria la huerta",
+    "Consultorio medico",
+    "Miguel Hidalgo y Costilla",
+    "Monumento en Honor a la Antorcha de los Juegos de Verano"
+  ],
+  "renombrar": {
+    "IMSS Bienestar  UMR 12": "IMSS Bienestar (clínica)"
+  },
+  "palabras": {
+    "Parque principal de Akil": "centro zocalo plaza",
+    "Palacio Municipal de Akil": "ayuntamiento presidencia municipal",
+    "IMSS Bienestar (clínica)": "imss hospital clinica seguro centro de salud",
+    "Campo Deportivo Miguel Hidalgo": "unidad deportiva beisbol campo"
+  },
+  "lugares": []
+}
