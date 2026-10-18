@@ -456,6 +456,9 @@ function showComingSoon(comisariaLabel, surLabel, outsideYucatan) {
     document.getElementById("soonPlaces").innerHTML = `<span>Ya estamos llegando</span><br>${Object.values(SUR_SOON).join(" · ")}`;
     document.getElementById("soonWho").innerHTML = `<strong>¿Manejas mototaxi o taxi en ${surLabel}?</strong> Estamos sumando choferes. Escríbenos y te apartamos tu lugar; te avisamos en cuanto abramos en ${surLabel}.`;
   }
+  // La lista "Ya estamos llegando" solo a quien le toca: la costa (la del HTML)
+  // o el sur. Peto, Valladolid, otro estado...: sin lista (17-oct-2026).
+  document.getElementById("soonPlaces").style.display = costa || surLabel ? "" : "none";
   const btn = document.getElementById("interestWaBtn");
   btn.href = `https://api.whatsapp.com/send?phone=52${costa ? DANIEL_WHATSAPP_NUMBER : SOPORTE_WHATSAPP_NUMBER}&text=${encodeURIComponent(text)}`;
   if (costa) {
@@ -466,7 +469,6 @@ function showComingSoon(comisariaLabel, surLabel, outsideYucatan) {
   if (outsideYucatan) {
     document.getElementById("soonTitle").textContent = "¡MotoVecino está creciendo!";
     document.getElementById("soonWho").innerHTML = "<strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos cerca de ti.";
-    document.getElementById("soonPlaces").style.display = "none";
     document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = ""));
     document.title = "MotoVecino — Quiero ser chofer";
   } else {
