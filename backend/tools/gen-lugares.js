@@ -87,20 +87,31 @@ async function main() {
     }
   }
   // cruces[a][b] = [lat, lng] (se guarda en los dos sentidos al cargar).
-  const sums = {};
+  // Las comisarías de junto repiten los números (Pustunich también tiene
+  // 23 x 28): se agrupan los puntos que están a menos de CLUSTER_KM y se queda
+  // el grupo más cercano al centro. Antes se promediaban todos y la esquina
+  // caía en el monte, entre Ticul y Pustunich.
+  const CLUSTER_KM = 0.3;
+  const kmBetween = (a, b) => Math.hypot((a[0] - b[0]) * 111, (a[1] - b[1]) * 111 * Math.cos((a[0] * Math.PI) / 180));
+  const groups = {};
   for (const [n, set] of nodeStreets) {
     if (set.size < 2 || !nodes.has(n)) continue;
     const nums = [...set].sort((a, b) => a - b);
+    const p = nodes.get(n);
     for (let i = 0; i < nums.length; i++)
       for (let j = i + 1; j < nums.length; j++) {
-        const k = nums[i] + "x" + nums[j];
-        const [lat, lng] = nodes.get(n);
-        const s = sums[k] || (sums[k] = [0, 0, 0]);
-        s[0] += lat; s[1] += lng; s[2]++;
+        const list = groups[nums[i] + "x" + nums[j]] || (groups[nums[i] + "x" + nums[j]] = []);
+        const g = list.find((g) => kmBetween([g[0] / g[2], g[1] / g[2]], p) < CLUSTER_KM);
+        if (g) { g[0] += p[0]; g[1] += p[1]; g[2]++; } else list.push([p[0], p[1], 1]);
       }
   }
   const cruces = {};
-  for (const [k, [la, ln, c]] of Object.entries(sums)) cruces[k] = [round(la / c), round(ln / c)];
+  const c0 = [center.lat, center.lng];
+  for (const [k, list] of Object.entries(groups)) {
+    const pts = list.map(([la, ln, c]) => [la / c, ln / c]);
+    pts.sort((a, b) => kmBetween(a, c0) - kmBetween(b, c0));
+    cruces[k] = [round(pts[0][0]), round(pts[0][1])];
+  }
 
   const pois = await overpass(`[out:json][timeout:90];(
     nwr["name"]["amenity"](${bb});nwr["name"]["shop"](${bb});nwr["name"]["leisure"](${bb});
