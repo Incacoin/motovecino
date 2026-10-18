@@ -25,7 +25,7 @@ const livePos = require("./livePos");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
 const { migrateImagesToFiles } = require("./imageStore");
-const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP, cityOfferRules } = require("./cities");
+const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP, cityOfferRules, isInYucatan } = require("./cities");
 
 const app = express();
 app.disable("x-powered-by");
@@ -147,20 +147,6 @@ app.get("/.well-known/assetlinks.json", (req, res) => {
   res.type("application/json").sendFile(path.join(__dirname, "..", "frontend", ".well-known", "assetlinks.json"));
 });
 
-// TEMPORAL: muestra al que llama sus propias cabeceras de IP, para medir
-// cuántos proxies pone Render delante y fijar "trust proxy" sin adivinar.
-// Solo devuelve datos de la misma petición. Quitar cuando quede medido.
-app.get("/api/_ip", (req, res) => {
-  res.set("Cache-Control", "no-store").json({
-    xff: req.get("x-forwarded-for") || null,
-    cf: req.get("cf-connecting-ip") || null,
-    tci: req.get("true-client-ip") || null,
-    xri: req.get("x-real-ip") || null,
-    socket: req.socket.remoteAddress || null,
-    ip: req.ip,
-  });
-});
-
 app.get("/api/health", async (req, res) => {
   try {
     await db.prepare("SELECT 1").get();
@@ -229,9 +215,12 @@ app.get("/api/cities/resolve", async (req, res) => {
   // cityOffer: pueblo solo con "Propón tu precio" (Tekax y el sur): mínimo
   // de día/noche por adulto y niño. null = hay Mototaxi Exprés.
   const cityOffer = comisaria ? null : cityOfferRules(getCityById(zoneCityId));
+  // inYucatan: sin municipio cercano, ¿sigue en Yucatán o ya es otro
+  // estado/país? Fuera de Yucatán la app dice solo "MotoVecino" (17-oct-2026).
+  const inYucatan = isInYucatan(lat, lng) !== false;
   res.json(city
-    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon, cityOffer }
-    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false, cityOffer });
+    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon, cityOffer, inYucatan }
+    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false, cityOffer, inYucatan });
 });
 
 app.use("/api", driverRoutes);

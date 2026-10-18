@@ -345,7 +345,7 @@
 
   <div id="comingSoonScreen" class="card">
     <div class="big">🗺️</div>
-    <h2>¡MotoVecino está creciendo en Yucatán!</h2>
+    <h2 id="soonTitle">¡MotoVecino está creciendo en Yucatán!</h2>
     <p>Todavía no abrimos el registro en tu zona.</p>
     <p class="soon-places" id="soonPlaces"><span>Ya estamos llegando</span><br>Chicxulub · Chelem · Chuburná</p>
     <p id="soonWho"><strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos en tu zona.</p>
@@ -442,7 +442,8 @@ const DANIEL_WHATSAPP_NUMBER = "9992552383";
 // de la costa) y el botón a soporte con el municipio ya escrito (12-oct-2026).
 const SUR_SOON = { ticul: "Ticul", oxkutzcab: "Oxkutzcab", akil: "Akil" };
 
-function showComingSoon(comisariaLabel, surLabel) {
+// outsideYucatan: otro estado/país → sin "Yucatán" en el letrero (17-oct-2026).
+function showComingSoon(comisariaLabel, surLabel, outsideYucatan) {
   // Cada chofer de otro pueblo que escribe aquí es una señal real de demanda
   // para decidir a qué pueblo abrir después (p. ej. Akil).
   const costa = !!comisariaLabel;
@@ -462,8 +463,16 @@ function showComingSoon(comisariaLabel, surLabel) {
     document.getElementById("soonWho").innerHTML = `<strong>¿Manejas motocarro en ${comisariaLabel}?</strong> Estamos sumando choferes. Escríbele a Daniel, encargado de MotoVecino en la costa, y te aparta tu lugar.`;
     document.getElementById("soonDaniel").style.display = "block";
   }
-  document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));
-  document.title = "MotoVecino Yucatán — Quiero ser chofer";
+  if (outsideYucatan) {
+    document.getElementById("soonTitle").textContent = "¡MotoVecino está creciendo!";
+    document.getElementById("soonWho").innerHTML = "<strong>¿Manejas mototaxi, motocarro o taxi?</strong> Escríbenos y te apartamos tu lugar. Te avisamos en cuanto abramos cerca de ti.";
+    document.getElementById("soonPlaces").style.display = "none";
+    document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = ""));
+    document.title = "MotoVecino — Quiero ser chofer";
+  } else {
+    document.querySelectorAll("#cityLabel").forEach((el) => (el.textContent = " Yucatán"));
+    document.title = "MotoVecino Yucatán — Quiero ser chofer";
+  }
   document.getElementById("formScreen").style.display = "none";
   document.getElementById("comingSoonScreen").style.display = "block";
 }
@@ -488,7 +497,7 @@ function tryLocateCity(attempt) {
       fetch(`/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
         .then((data) => {
-          if (!data.city) { showComingSoon(); return; }
+          if (!data.city) { showComingSoon("", "", data.inYucatan === false); return; }
           if (data.rideStyle === "comisarias") {
             isComisaria = true;
             const sel = document.getElementById("vehicleType");

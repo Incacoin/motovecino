@@ -258,8 +258,33 @@ function cityMinOffer(city, adults, kids, tripKm) {
   return adult * Math.max(1, adults || 1) + (city.minChild || 0) * Math.max(0, kids || 0) + SERVICE_FEE;
 }
 
+// Contorno aproximado del estado de Yucatán (lat, lng), para que la app sepa
+// si alguien sin municipio cercano está en Yucatán ("MotoVecino Yucatán") o en
+// otro estado/país (solo "MotoVecino"). 17-oct-2026. Por el norte se va al
+// mar para no tener que dibujar la costa; las rayas con Campeche y Q. Roo son
+// a ojo (Halachó/Uxmal/Peto/Chemax/El Cuyo dentro; Calkiní/Hopelchén/JM
+// Morelos/Cobá fuera): justo en la raya puede salir el estado vecino.
+const YUCATAN_OUTLINE = [
+  [22.5, -90.6], [22.5, -87.5], [21.55, -87.53], [21.0, -87.54], [20.85, -87.58],
+  [20.55, -87.8], [20.3, -88.4], [19.95, -88.8], [19.55, -89.15], [19.95, -89.55],
+  [20.15, -89.65], [20.3, -89.8], [20.42, -90.15], [20.65, -90.35], [20.75, -90.42],
+  [20.75, -90.6],
+];
+
+function isInYucatan(lat, lng) {
+  if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) return null;
+  let inside = false;
+  for (let i = 0, j = YUCATAN_OUTLINE.length - 1; i < YUCATAN_OUTLINE.length; j = i++) {
+    const [yi, xi] = YUCATAN_OUTLINE[i];
+    const [yj, xj] = YUCATAN_OUTLINE[j];
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
 module.exports = {
   CITIES,
+  isInYucatan,
   cityOfferRules,
   cityMinOffer,
   DEFAULT_CITY_ID,
