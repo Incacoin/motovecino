@@ -137,7 +137,7 @@
   }
   .drawer-row:hover { background: var(--bg-card-hover); }
   .drawer-row.active { color: var(--accent); background: rgba(246, 166, 35, 0.08); border-left-color: var(--accent); }
-  .drawer-row .row-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
+  .drawer-row .row-icon { width: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
   .pct-badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
@@ -387,7 +387,6 @@
   .drawer-row { color: var(--text-dim); font-weight: 600; font-size: 14.5px; border-left: none; border-radius: 10px; padding: 12px 14px; }
   .drawer-row:hover { background: var(--bg-card); color: var(--text); }
   .drawer-row.active { color: var(--text); background: var(--accent-soft); font-weight: 700; box-shadow: inset 3px 0 0 var(--accent); }
-  .drawer-row .row-icon { filter: saturate(0.7); }
 
   /* Ventanas */
   .modal-overlay { background: rgba(3, 6, 15, 0.65); }
@@ -561,10 +560,10 @@
     <button class="btn" onclick="login()">Entrar</button>
     <div id="passkeyLoginWrap" style="display:none;">
       <div class="login-or">o</div>
-      <button class="btn btn-passkey" onclick="loginWithPasskey()">👆 Entrar con huella</button>
+      <button class="btn btn-passkey" onclick="loginWithPasskey()">Entrar con huella</button>
     </div>
     <div id="err"></div>
-    <div class="lx-secure">🔒 Conexión cifrada · acceso registrado</div>
+    <div class="lx-secure">Conexión cifrada · acceso registrado</div>
   </div>
   <div class="lx-foot">MotoVecino · Yucatán, México</div>
 </div>
@@ -573,20 +572,20 @@
 <div id="adminDrawer" class="admin-drawer">
   <div class="drawer-header">
     <div class="brand brand-sm"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino Admin</div>
-    <div class="drawer-city" id="adminCityBadge">📍 Tekax</div>
+    <div class="drawer-city" id="adminCityBadge">Tekax</div>
   </div>
   <div class="drawer-nav">
-    <button id="tabBtn-resumen" class="drawer-row active" onclick="switchTab('resumen')"><span class="row-icon">📊</span>Resumen</button>
-    <button id="tabBtn-choferes" class="drawer-row" onclick="switchTab('choferes')"><span class="row-icon">👥</span>Choferes</button>
-    <button id="tabBtn-pasajeros" class="drawer-row" onclick="switchTab('pasajeros')"><span class="row-icon">🧍</span>Pasajeros</button>
-    <button id="tabBtn-viajes" class="drawer-row" onclick="switchTab('viajes')"><span class="row-icon">🚗</span>Viajes</button>
-    <button id="tabBtn-alertas" class="drawer-row" onclick="switchTab('alertas')"><span class="row-icon">🚩</span>Alertas</button>
-    <button id="tabBtn-negocios" class="drawer-row" onclick="switchTab('negocios')"><span class="row-icon">🤝</span>Negocios</button>
-    <button id="tabBtn-movimientos" class="drawer-row" onclick="switchTab('movimientos')"><span class="row-icon">🛡️</span>Movimientos</button>
+    <button id="tabBtn-resumen" class="drawer-row active" onclick="switchTab('resumen')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>Resumen</button>
+    <button id="tabBtn-choferes" class="drawer-row" onclick="switchTab('choferes')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3.5 2.8 3.5 6"/></svg></span>Choferes</button>
+    <button id="tabBtn-pasajeros" class="drawer-row" onclick="switchTab('pasajeros')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg></span>Pasajeros</button>
+    <button id="tabBtn-viajes" class="drawer-row" onclick="switchTab('viajes')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/></svg></span>Viajes</button>
+    <button id="tabBtn-alertas" class="drawer-row" onclick="switchTab('alertas')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span>Alertas</button>
+    <button id="tabBtn-negocios" class="drawer-row" onclick="switchTab('negocios')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span>Negocios</button>
+    <button id="tabBtn-movimientos" class="drawer-row" onclick="switchTab('movimientos')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg></span>Movimientos</button>
   </div>
   <div class="drawer-foot">
     <div class="sess" id="sessionInfo">Sesión segura</div>
-    <button class="drawer-row logout" onclick="logoutAdmin()"><span class="row-icon">⏻</span>Cerrar sesión</button>
+    <button class="drawer-row logout" onclick="logoutAdmin()"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></span>Cerrar sesión</button>
   </div>
 </div>
 
@@ -610,37 +609,37 @@
   <div id="otpCapNotice" style="display:none;margin:10px 0 4px;padding:10px 14px;border-radius:12px;font-size:13.5px;line-height:1.45;"></div>
   <div class="stats-grid">
     <div class="card stat-tile accent">
-      <span class="icon">🚗</span>
+      <span class="icon"></span>
       <div class="label">Viajes hoy</div>
       <div class="value" id="statRidesToday">—</div>
     </div>
     <div class="card stat-tile accent">
-      <span class="icon">📅</span>
+      <span class="icon"></span>
       <div class="label">Viajes esta semana</div>
       <div class="value" id="statRidesWeek">—</div>
     </div>
     <div class="card stat-tile danger">
-      <span class="icon">🚫</span>
+      <span class="icon"></span>
       <div class="label">Cancelados hoy</div>
       <div class="value" id="statCancelledToday">—</div>
     </div>
     <div class="card stat-tile">
-      <span class="icon">🟢</span>
+      <span class="icon"></span>
       <div class="label">Choferes en línea</div>
       <div class="value" id="statDriversOnline">—</div>
     </div>
     <div class="card stat-tile accent">
-      <span class="icon">⭐</span>
+      <span class="icon"></span>
       <div class="label">Satisfacción</div>
       <div class="value" id="statSatisfaction">—</div>
     </div>
     <div class="card stat-tile accent">
-      <span class="icon">💰</span>
+      <span class="icon"></span>
       <div class="label">Cobrado esta semana</div>
       <div class="value owner-mark" id="statCollectedWeek">—</div>
     </div>
     <div class="card stat-tile accent">
-      <span class="icon">💵</span>
+      <span class="icon"></span>
       <div class="label">Cobrado este mes</div>
       <div class="value owner-mark" id="statCollectedMonth">—</div>
     </div>
@@ -659,19 +658,19 @@
   </div>
 
   <div class="section-card" id="onlineDriversWrap">
-    <h1 style="font-size:17px;">🟢 En línea ahora</h1>
+    <h1 style="font-size:17px;">En línea ahora</h1>
     <p class="section-hint" style="margin-bottom:10px;">Choferes conectados en este momento.</p>
     <div id="onlineDriversList"></div>
   </div>
 
   <div class="section-card" id="topDriversWrap">
-    <h1 style="font-size:17px;">📈 Choferes más activos</h1>
+    <h1 style="font-size:17px;">Choferes más activos</h1>
     <p class="section-hint" style="margin-bottom:10px;">Últimos 7 días.</p>
     <div class="top-drivers" id="topDrivers"></div>
   </div>
 
   <div class="section-card">
-  <h1>🏆 Ranking de lanzamiento</h1>
+  <h1>Ranking de lanzamiento</h1>
   <p class="section-hint">Desde el 14 de agosto. Los choferes con más viajes completados.</p>
   <div class="top-drivers" id="launchRanking" style="margin-bottom:0;"></div>
   </div>
@@ -680,7 +679,7 @@
   <div id="tabPanel-choferes" class="tab-panel">
   <div class="com-tabs" id="comTabsChoferes" style="display:none"></div>
   <div class="section-card">
-  <h1>🔗 Link / QR de registro</h1>
+  <h1>Link / QR de registro</h1>
   <p class="section-hint">Compártelo con quien quiera registrarse como chofer — cualquiera que se registre queda como independiente.</p>
   <div class="card" style="text-align:center; padding:18px;">
     <img id="qrImg" style="width:220px;height:220px;border-radius:8px;background:#fff;" />
@@ -690,13 +689,13 @@
   </div>
 
   <div class="section-card">
-  <h1>📋 Solicitudes de chofer</h1>
+  <h1>Solicitudes de chofer</h1>
   <p class="section-hint">Gente que se registró desde el link/QR de "Quiero ser chofer".</p>
   <div id="applicationsList"></div>
   </div>
 
   <div class="section-card">
-  <h1>➕ Dar de alta un chofer</h1>
+  <h1>Dar de alta un chofer</h1>
   <p class="section-hint">Genera su PIN y envíaselo directo por WhatsApp.</p>
   <div class="field">
     <label>Nombre</label>
@@ -736,8 +735,8 @@
   <div class="field" id="driverVehicleField">
     <label>Servicio</label>
     <select id="driverVehicleType" class="tipo-select">
-      <option value="moto">🛵 Mototaxi (viajes cortos)</option>
-      <option value="taxi">🚕 Taxi (viajes largos)</option>
+      <option value="moto">Mototaxi (viajes cortos)</option>
+      <option value="taxi">Taxi (viajes largos)</option>
     </select>
   </div>
   <div class="field">
@@ -763,8 +762,8 @@
   </div>
 
   <div class="section-card">
-  <h1>👥 Choferes registrados</h1>
-  <input type="text" id="driverSearch" class="admin-search" placeholder="🔎 Buscar por nombre o teléfono..." oninput="renderDriverRows()" />
+  <h1>Choferes registrados</h1>
+  <input type="text" id="driverSearch" class="admin-search" placeholder="Buscar por nombre o teléfono..." oninput="renderDriverRows()" />
   <div class="table-wrap">
     <table>
       <thead>
@@ -779,7 +778,7 @@
 
   <div id="tabPanel-pasajeros" class="tab-panel">
   <div class="section-card" id="playUsersCard" style="display:none;">
-  <h1>📲 App de Google Play</h1>
+  <h1>App de Google Play</h1>
   <p class="section-hint">Quién abrió MotoVecino desde la app instalada de Play Store y entró con su cuenta (todas las zonas). Quien la instaló pero nunca la abrió no aparece aquí.</p>
   <div id="playUsersSummary" style="margin:-6px 0 12px;font-size:14px;"></div>
   <div class="table-wrap">
@@ -792,9 +791,9 @@
   </div>
   </div>
   <div class="section-card">
-  <h1>🧍 Pasajeros registrados</h1>
+  <h1>Pasajeros registrados</h1>
   <p class="section-hint">Cuentas reales con PIN — si alguien pierde acceso (cambió de celular, olvidó su PIN), restablécelo aquí y pásaselo por su cuenta.</p>
-  <input type="text" id="riderSearch" class="admin-search" placeholder="🔎 Buscar por nombre o teléfono..." oninput="renderRiderRows()" />
+  <input type="text" id="riderSearch" class="admin-search" placeholder="Buscar por nombre o teléfono..." oninput="renderRiderRows()" />
   <div class="table-wrap">
     <table>
       <thead>
@@ -810,7 +809,7 @@
   <div id="tabPanel-viajes" class="tab-panel">
   <div class="com-tabs" id="comTabsViajes" style="display:none"></div>
   <div class="section-card">
-  <h1>👤 Pedir para otra persona</h1>
+  <h1>Pedir para otra persona</h1>
   <p class="section-hint">La mamá (o quien sea) pide el viaje desde su cuenta para otra persona: pone su nombre y una seña para reconocerla. El chofer habla con quien lo pidió por el chat. Prende esto solo cuando tengas choferes de noche.</p>
   <div class="ally-switch" id="familySwitch">
     <div><b id="familySwitchTitle">Apagado</b><span id="familySwitchHint">Los pasajeros todavía no ven la opción.</span></div>
@@ -842,14 +841,14 @@
 
   <div id="tabPanel-alertas" class="tab-panel">
   <div class="section-card">
-  <h1>🚩 Cancelaciones sospechosas</h1>
+  <h1>Cancelaciones sospechosas</h1>
   <p class="section-hint">
     Cuando un chofer acepta un viaje y luego el pasajero lo cancela en la app, no pasa nada —
     excepto que el viaje nunca cobra la cuota de $2. Esto no prueba nada por sí solo (una
     cancelación real se ve igual), pero si se repite mucho con el mismo chofer o con el mismo
     pasajero, vale la pena contactarlo directamente.
   </p>
-  <button class="btn-sm" onclick="loadAlertas()">🔄 Actualizar</button>
+  <button class="btn-sm" onclick="loadAlertas()">Actualizar</button>
   </div>
 
   <div class="section-card">
@@ -879,7 +878,7 @@
   </div>
 
   <div class="section-card">
-  <h1 style="font-size:17px;">🚫 Pasajeros que no llegaron</h1>
+  <h1 style="font-size:17px;">Pasajeros que no llegaron</h1>
   <p class="section-hint">
     Pasajeros donde un chofer canceló con el motivo exacto "El pasajero no llegó" 2 veces o más.
     No se bloquean solos — puede ser una broma repetida o el chofer equivocando la ubicación. Revisa
@@ -898,7 +897,7 @@
 
   <div id="tabPanel-movimientos" class="tab-panel">
   <div class="section-card">
-  <h1>👆 Entrar con huella</h1>
+  <h1>Entrar con huella</h1>
   <p class="section-hint">Entra al admin con la huella del celular en vez del PIN. Tu huella nunca sale del teléfono: MotoVecino solo guarda una llave que no sirve en ningún otro aparato. El PIN sigue sirviendo de respaldo.</p>
   <div id="passkeyRows" class="ago">Cargando…</div>
   <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -907,7 +906,7 @@
   <div id="passkeyMsg" class="section-hint" style="margin-top:8px;"></div>
   </div>
   <div class="section-card">
-  <h1>🛡️ Movimientos</h1>
+  <h1>Movimientos</h1>
   <p class="section-hint">Quién entró y quién cambió algo en esta zona (los últimos 200). Nunca se guardan PINs ni fotos.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Cuándo</th><th>Quién</th><th>Qué hizo</th></tr></thead>
@@ -922,7 +921,7 @@
 
   <div id="tabPanel-negocios" class="tab-panel">
   <div class="section-card">
-  <h1>🤝 Negocios aliados</h1>
+  <h1>Negocios aliados</h1>
   <p class="section-hint">Un anuncio por viaje en la app del pasajero, mientras busca chofer y mientras lo espera. El botón de WhatsApp lleva al número del negocio. Al negocio solo se le reportan cuántos lo vieron y cuántos le escribieron — nunca datos de pasajeros.</p>
 
   <div class="ally-switch" id="allySwitch">
@@ -944,7 +943,7 @@
     <div class="hint">Que sea el número que el negocio SÍ contesta (de preferencia su WhatsApp Business).</div>
     <label>Logo o foto</label>
     <input type="file" id="allyImageInput" accept="image/*" style="display:none;" onchange="handleAllyImage(event)" />
-    <button class="btn-sm" type="button" onclick="document.getElementById('allyImageInput').click()">📷 Elegir logo</button>
+    <button class="btn-sm" type="button" onclick="document.getElementById('allyImageInput').click()">Elegir logo</button>
     <div class="row2">
       <div><label for="allyStarts">Desde</label><input type="date" id="allyStarts" /></div>
       <div><label for="allyEnds">Hasta (opcional)</label><input type="date" id="allyEnds" /></div>
@@ -969,7 +968,7 @@
   <div class="ally-list" id="allyList"></div>
   </div>
   <div class="section-card">
-  <h1>🏪 Cuentas "Mi negocio"</h1>
+  <h1>Cuentas "Mi negocio"</h1>
   <p class="section-hint">El negocio pide chofer desde la app para entregar sus pedidos: recoge en el negocio y el chofer cobra solo el envío (la comida ya la pagó el cliente por transferencia). Primero el dueño se registra como pasajero en la app; aquí lo marcas como negocio y le aparece "Mi negocio" en su menú.</p>
   <div class="ally-switch" id="foodSwitch">
     <div><b id="foodSwitchTitle">Comida y negocios: apagada</b><span id="foodSwitchHint">Los clientes todavía no ven los menús. Los negocios sí pueden ir armando su menú desde "Mi negocio".</span></div>
@@ -986,7 +985,7 @@
     <input id="bizAddress" maxlength="80" placeholder="Ej. Calle 51 x 50, Centro" oninput="bizSearch()" />
     <div id="bizResults"></div>
     <label>Ubicación: mueve el mapa hasta la puerta del negocio</label>
-    <div id="bizMapWrap"><div id="bizMap"></div><div class="biz-pin">📍</div></div>
+    <div id="bizMapWrap"><div id="bizMap"></div><div class="biz-pin"><svg width="34" height="34" viewBox="0 0 24 24"><path d="M12 22s-7-6.3-7-12a7 7 0 0 1 14 0c0 5.7-7 12-7 12z" fill="#000" stroke="#fff" stroke-width="1.5"/><circle cx="12" cy="10" r="2.6" fill="#fff"/></svg></div></div>
     <div id="bizFormErr" style="color:var(--danger);font-size:13px;min-height:16px;margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button class="btn" style="flex:1" onclick="saveBiz()">Guardar</button>
@@ -1243,7 +1242,7 @@ async function activatePasskey() {
     const d = await res.json().catch(() => ({}));
     if (!res.ok) { if (msg) msg.textContent = d.error || "No se pudo activar"; return false; }
     setSavedPasskeyId(d.credentialId);
-    if (msg) msg.textContent = "✅ Listo. La próxima vez toca \"Entrar con huella\".";
+    if (msg) msg.textContent = "Listo. La próxima vez toca \"Entrar con huella\".";
     loadPasskeys();
     return true;
   } catch (e) {
@@ -1299,8 +1298,8 @@ const AUDIT_LABELS = {
   login_fallido: "Intento de entrada con PIN equivocado",
   passkey_login: "Entró al admin con huella",
   passkey_fallida: "Intento de entrada con huella que no pasó",
-  otp_limite_numero: "⚠️ Un número pidió demasiados códigos hoy (se frenó)",
-  otp_limite_conexion: "⚠️ Una conexión pidió demasiados códigos hoy (se frenó)",
+  otp_limite_numero: "Un número pidió demasiados códigos hoy (se frenó)",
+  otp_limite_conexion: "Una conexión pidió demasiados códigos hoy (se frenó)",
   "/admin/passkey/register": "Activó la huella en un celular",
   "/admin/passkey/:id/delete": "Quitó la huella de un celular",
   "/admin/logout": "Cerró sesión",
@@ -1709,12 +1708,12 @@ function applyAdminZone(id, label) {
   if (cityField) cityField.textContent = label;
   const wrap = document.getElementById("zoneSelectWrap");
   if (adminZones.length > 1) {
-    const opts = adminZones.map((z) => `<option value="${escapeHtml(z.id)}"${z.id === id ? " selected" : ""}>📍 ${escapeHtml(zoneTxt(z))}</option>`).join("");
+    const opts = adminZones.map((z) => `<option value="${escapeHtml(z.id)}"${z.id === id ? " selected" : ""}>${escapeHtml(zoneTxt(z))}</option>`).join("");
     if (wrap) wrap.innerHTML = `<select class="zone-select" aria-label="Zona" onchange="switchAdminZone(this.value)">${opts}</select>`;
     if (cityBadge) cityBadge.innerHTML = `<select class="zone-select" aria-label="Zona" onchange="switchAdminZone(this.value)">${opts}</select>`;
   } else {
     if (wrap) wrap.innerHTML = "";
-    if (cityBadge) cityBadge.textContent = "📍 " + label;
+    if (cityBadge) cityBadge.textContent = label;
   }
   if (typeof tickClocks === "function") tickClocks();
 }
@@ -1822,12 +1821,12 @@ function renderApplications(apps) {
           <div class="who">
             <span class="name">${escapeHtml(a.name)}</span>
             <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
-            <span class="meta">${a.phone_verified ? "✅ Teléfono verificado" : "⚠️ Teléfono sin verificar"}</span>
-            <span class="meta">📍 ${a.city ? cityLabel(a.city) : "ciudad no detectada"}${a.zone ? " · " + escapeHtml(comisariaLabel(a.zone)) : ""}</span>
+            <span class="meta">${a.phone_verified ? "Teléfono verificado" : "Teléfono sin verificar"}</span>
+            <span class="meta">${a.city ? cityLabel(a.city) : "ciudad no detectada"}${a.zone ? " · " + escapeHtml(comisariaLabel(a.zone)) : ""}</span>
             ${a.inviter_name
-              ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
-              : a.referred_by ? `<span class="meta">🤝 Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
-            ${a.emergency_contact_name ? `<span class="meta">🚨 Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
+              ? `<span class="meta">Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
+              : a.referred_by ? `<span class="meta">Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
+            ${a.emergency_contact_name ? `<span class="meta">Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
           </div>
         </div>
         <div class="row-actions" id="appActions${a.id}">
@@ -1999,8 +1998,8 @@ function renderOtpCap(o) {
   el.style.background = full ? "rgba(220,38,38,.14)" : "rgba(234,179,8,.14)";
   el.style.border = `1px solid ${full ? "rgba(220,38,38,.45)" : "rgba(234,179,8,.45)"}`;
   el.innerHTML = full
-    ? `⚠️ <b>Se llegó al tope de ${o.cap} códigos de verificación de hoy.</b> Nadie más puede registrarse hasta mañana. Si es gente real (reclutamiento), sube el tope.`
-    : `⚠️ Van <b>${o.sent} de ${o.cap}</b> códigos de verificación hoy.`;
+    ? `<b>Se llegó al tope de ${o.cap} códigos de verificación de hoy.</b> Nadie más puede registrarse hasta mañana. Si es gente real (reclutamiento), sube el tope.`
+    : `Van <b>${o.sent} de ${o.cap}</b> códigos de verificación hoy.`;
 }
 
 async function loadStats() {
@@ -2023,7 +2022,7 @@ async function loadStats() {
   renderOtpCap(s.otpToday);
 
   launchRankingCache = s.launchRanking || [];
-  const medals = ["🥇", "🥈", "🥉", "4.", "5."];
+  const medals = ["1.", "2.", "3.", "4.", "5."];
   const rankMax = Math.max(1, ...launchRankingCache.map((d) => d.rides));
   document.getElementById("launchRanking").innerHTML = launchRankingCache.length
     ? launchRankingCache.map((d, i) => `
@@ -2163,7 +2162,7 @@ function playAgo(sqliteUtc) {
 // Etiqueta junto al nombre: abre MotoVecino desde la app de Google Play.
 function playTag(x) {
   return x.play_last_open
-    ? ` <span title="Usa la app de Google Play · última vez ${playAgo(x.play_last_open)} · ${x.play_opens || 0} veces" style="font-size:11px;color:var(--success);font-weight:600;">📲 Play</span>`
+    ? ` <span title="Usa la app de Google Play · última vez ${playAgo(x.play_last_open)} · ${x.play_opens || 0} veces" style="font-size:11px;color:var(--success);font-weight:600;">Play</span>`
     : "";
 }
 
@@ -2186,9 +2185,9 @@ async function loadPlayUsers() {
     : `<span style="color:var(--text-dim);">Nadie la ha abierto todavía desde la app de Play.</span>`;
   document.getElementById("playUsersRows").innerHTML = rows.map((x) => `
     <tr>
-      <td>${escapeHtml(x.name) || "—"}${x.es_prueba ? ` <span style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>` : ""}</td>
+      <td>${escapeHtml(x.name) || "—"}${x.es_prueba ? ` <span style="font-size:11px;color:var(--text-dim);">prueba</span>` : ""}</td>
       <td>${escapeHtml(x.phone || "")}</td>
-      <td>${x.kind === "chofer" ? "🛵 Chofer" : "🧍 Pasajero"}</td>
+      <td>${x.kind === "chofer" ? "Chofer" : "Pasajero"}</td>
       <td>${escapeHtml((x.city || "").replace(/^./, (c) => c.toUpperCase()))}</td>
       <td>${playAgo(x.play_first_open)}</td>
       <td>${playAgo(x.play_last_open)}</td>
@@ -2214,15 +2213,15 @@ function renderRiderRows() {
   const visible = applyPreviewCap(filtered, query, showAllRiders, "riderShowMore", "toggleShowAllRiders");
   document.getElementById("riderRows").innerHTML = visible.map((r) => `
     <tr>
-      <td>${escapeHtml(r.name) || "—"}${playTag(r)}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>` : ""}</td>
+      <td>${escapeHtml(r.name) || "—"}${playTag(r)}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">prueba</span>` : ""}</td>
       <td>${r.phone}</td>
       <td>${r.trips}</td>
-      <td>${r.no_show_count >= 2 ? `<span style="color:var(--danger);font-weight:600;">${r.no_show_count} ⚠️</span>` : (r.no_show_count || 0)}</td>
+      <td>${r.no_show_count >= 2 ? `<span style="color:var(--danger);font-weight:600;">${r.no_show_count}</span>` : (r.no_show_count || 0)}</td>
       <td>${r.created_at ? r.created_at.slice(0, 10) : ""}</td>
       <td>${r.last_ride_at ? r.last_ride_at.slice(0, 10) : "—"}</td>
       <td class="row-actions">
         <button class="btn-sm" onclick="resetRiderPin(${r.id})">Restablecer PIN</button>
-        <button class="btn-sm" onclick="toggleRiderTestAccount(${r.id})">${r.es_prueba ? "🧪 Quitar prueba" : "🧪 Es prueba"}</button>
+        <button class="btn-sm" onclick="toggleRiderTestAccount(${r.id})">${r.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
         <button class="btn-sm danger" onclick="deleteRider(${r.id})">Eliminar</button>
       </td>
     </tr>`).join("") || (query
@@ -2372,7 +2371,7 @@ function vehicleTypeBadge(vehicleType) {
   const t = vehicleType === "taxi" ? "taxi" : "moto";
   // En Progreso (comisarías) son motocarros.
   const moto = adminCity === "progreso" ? "Motocarro" : "Mototaxi";
-  return t === "taxi" ? `<span class="badge-tipo formal">🚕 Taxi</span>` : `<span class="badge-tipo informal">🛵 ${moto}</span>`;
+  return t === "taxi" ? `<span class="badge-tipo formal">Taxi</span>` : `<span class="badge-tipo informal">${moto}</span>`;
 }
 
 function cancelCountCell(d) {
@@ -2386,8 +2385,8 @@ function vehicleTypeSelect(id, vehicleType) {
   const t = vehicleType === "taxi" ? "taxi" : "moto";
   return `
     <select id="edit-vehicletype-${id}" class="tipo-select">
-      <option value="moto" ${t === "moto" ? "selected" : ""}>🛵 Mototaxi</option>
-      <option value="taxi" ${t === "taxi" ? "selected" : ""}>🚕 Taxi</option>
+      <option value="moto" ${t === "moto" ? "selected" : ""}>Mototaxi</option>
+      <option value="taxi" ${t === "taxi" ? "selected" : ""}>Taxi</option>
     </select>`;
 }
 
@@ -2407,8 +2406,8 @@ const INACTIVE_AFTER_DAYS = 7;
 function activityBadge(lastConnectedAt) {
   if (!lastConnectedAt) return `<span class="ago">nunca conectado</span>`;
   const days = Math.floor((Date.now() - new Date(`${lastConnectedAt.replace(" ", "T")}Z`).getTime()) / 86400000);
-  if (days < INACTIVE_AFTER_DAYS) return `<span style="color:var(--success);font-weight:600;">🟢 Activo</span>`;
-  return `<span style="color:var(--danger);font-weight:600;">🔴 Inactivo (${days}d)</span>`;
+  if (days < INACTIVE_AFTER_DAYS) return `<span style="color:var(--success);font-weight:600;">● Activo</span>`;
+  return `<span style="color:var(--danger);font-weight:600;">● Inactivo (${days}d)</span>`;
 }
 
 // Filtra por nombre o teléfono, ignorando mayúsculas y espacios en el número
@@ -2520,7 +2519,7 @@ function renderDriverRows() {
     // Saldo a favor por invitaciones: se resta solo al registrar el cobro.
     const credit = Math.round((d.credit_balance || 0) * 100) / 100;
     const creditLabel = credit > 0
-      ? `<div class="lastPayment">🎁 saldo a favor por invitar: $${credit}${pendingFeeAmount > 0 ? ` → a pagar <strong>$${Math.max(0, pendingFeeAmount - credit)}</strong>` : ""}</div>`
+      ? `<div class="lastPayment">saldo a favor por invitar: $${credit}${pendingFeeAmount > 0 ? ` → a pagar <strong>$${Math.max(0, pendingFeeAmount - credit)}</strong>` : ""}</div>`
       : "";
     const pendingFeesLabel = (pendingRides > 0
       ? `<div class="lastPayment">viajes sin cobrar: ${pendingRides} · ${pendingFeeRate} = <strong>$${pendingFeeAmount}</strong></div>`
@@ -2532,15 +2531,15 @@ function renderDriverRows() {
       ? `<img class="thumb" style="background:#fff" src="${d.signature}" onclick="viewImage('${d.signature}')" title="Firma del contrato" />`
       : "";
     const founderTag = d.es_fundador
-      ? ` <span title="Chofer fundador" style="font-size:11px;">🏅</span>`
+      ? ` <span title="Chofer fundador" style="font-size:10.5px;font-weight:700;border:1px solid currentColor;border-radius:999px;padding:1px 6px;opacity:.8;">Fundador</span>`
       : d.es_prueba
-      ? ` <span title="Cuenta de prueba: no cuenta para fundador, ranking ni resumen" style="font-size:11px;color:var(--text-dim);">🧪 prueba</span>`
+      ? ` <span title="Cuenta de prueba: no cuenta para fundador, ranking ni resumen" style="font-size:11px;color:var(--text-dim);">prueba</span>`
       : "";
     // "Invita a otro chofer": quién lo trajo (con su link, o lo que escribió
     // a mano) y a cuántos ha traído él.
     const referralLines = [
-      d.inviter_name ? `🤝 Lo invitó ${escapeHtml(d.inviter_name)} (chofer)` : d.referred_by ? `🤝 ${escapeHtml(d.referred_by)}` : "",
-      d.invited_count ? `📨 Ha invitado a ${d.invited_count} chofer${d.invited_count === 1 ? "" : "es"}` : "",
+      d.inviter_name ? `Lo invitó ${escapeHtml(d.inviter_name)} (chofer)` : d.referred_by ? `Invitado por ${escapeHtml(d.referred_by)}` : "",
+      d.invited_count ? `Ha invitado a ${d.invited_count} chofer${d.invited_count === 1 ? "" : "es"}` : "",
     ].filter(Boolean).map((t) => `<div class="meta" style="color:var(--text-dim);font-size:11.5px;">${t}</div>`).join("");
     const nameWithReferral = `<span>${escapeHtml(d.name)}${founderTag}${playTag(d)}</span>${referralLines}`;
     const nameCell = d.photo
@@ -2566,7 +2565,7 @@ function renderDriverRows() {
         ${pendingRides > 0 ? `<button class="btn-sm" id="feesBtn-${d.id}" onclick="registerTripFees(${d.id})">Cobrar viajes ($${Math.max(0, pendingFeeAmount - credit)})</button>` : ""}
         <button class="histLink" onclick="showPaymentsModal(${d.id})">Ver historial</button>
         <div class="payRow">
-          <button class="btn-sm wa" onclick="sendPaymentReminder(${d.id})">📱 Recordatorio pago</button>
+          <button class="btn-sm wa" onclick="sendPaymentReminder(${d.id})">Recordatorio pago</button>
         </div>
       </td>
       <td>${cancelCountCell(d)}</td>
@@ -2574,7 +2573,7 @@ function renderDriverRows() {
         <button class="btn-sm wa" onclick="sendWhatsappFor(${d.id})">WhatsApp</button>
         <button class="btn-sm" onclick="startEdit(${d.id})">Editar</button>
         <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
-        <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "🧪 Quitar prueba" : "🧪 Es prueba"}</button>
+        <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
         <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
       </td>
     </tr>`;
@@ -2622,7 +2621,7 @@ async function searchRideById() {
 const DEPOSIT_STATUS_LABEL = {
   pendiente: "esperando depósito",
   enviado: "comprobante enviado",
-  confirmado: "recibido ✅",
+  confirmado: "recibido",
   rechazado: "no le llegó al chofer",
 };
 
@@ -2642,9 +2641,9 @@ function renderRideRows(rides) {
   rides = ridesCacheAll.filter((r) => inComisaria(r.zone));
   document.getElementById("rideRows").innerHTML = rides.map((r) => {
     const disconnected = r.driver_disconnected_at
-      ? `<br><span class="ago" style="color:var(--danger);">⚠ desconectado ${timeAgo(r.driver_disconnected_at)}</span>`
+      ? `<br><span class="ago" style="color:var(--danger);">desconectado ${timeAgo(r.driver_disconnected_at)}</span>`
       : "";
-    const rating = r.rating === 1 ? " 👍" : r.rating === 0 ? " 👎" : "";
+    const rating = r.rating === 1 ? " · le gustó" : r.rating === 0 ? " · no le gustó" : "";
     const cancelledByLabel = r.cancelled_by === "driver" ? "canceló el chofer" : r.cancelled_by === "system" ? "cancelado automático" : "canceló el pasajero";
     const cancelNote = r.status === "cancelado" && r.cancelled_by
       ? `<br><span class="ago">${cancelledByLabel}${r.cancel_reason ? " · " + r.cancel_reason : ""}</span>`
@@ -2652,20 +2651,20 @@ function renderRideRows(rides) {
     // Anticipo del taxi foráneo: el dinero va directo al chofer, esto es
     // solo para que el admin vea si hubo anticipo y en qué quedó.
     const depositNote = r.deposit_status
-      ? `<br><span class="ago">💵 Anticipo $${r.deposit_amount}${r.agreed_price ? ` de $${r.agreed_price}` : ""} · ${DEPOSIT_STATUS_LABEL[r.deposit_status] || r.deposit_status}</span>`
+      ? `<br><span class="ago">Anticipo $${r.deposit_amount}${r.agreed_price ? ` de $${r.agreed_price}` : ""} · ${DEPOSIT_STATUS_LABEL[r.deposit_status] || r.deposit_status}</span>`
       : "";
     // Domicilio con clave de entrega (10-oct-2026).
     const deliveryNote = r.delivery_confirmed === "clave"
-      ? `<br><span class="ago" style="color:var(--success);font-weight:700;">🔑 Entrega confirmada con clave</span>`
+      ? `<br><span class="ago" style="color:var(--success);font-weight:700;">Entrega confirmada con clave</span>`
       : r.delivery_confirmed === "sin_clave"
-      ? `<br><span class="ago" style="color:var(--danger);font-weight:700;">📷 Entregado SIN clave</span>${r.has_delivery_photo ? ` <a href="#" onclick="viewDeliveryPhoto(${r.id});return false;">ver foto</a>` : ""}`
+      ? `<br><span class="ago" style="color:var(--danger);font-weight:700;">Entregado SIN clave</span>${r.has_delivery_photo ? ` <a href="#" onclick="viewDeliveryPhoto(${r.id});return false;">ver foto</a>` : ""}`
       : r.delivery_code_required && r.delivery_code_attempts > 0
-      ? `<br><span class="ago" style="color:var(--danger);">⚠ ${r.delivery_code_attempts} clave(s) mal</span>`
+      ? `<br><span class="ago" style="color:var(--danger);">${r.delivery_code_attempts} clave(s) mal</span>`
       : "";
     return `
     <tr>
       <td>${escapeHtml(r.rider_name)}<br><span class="ago">${r.rider_phone || ""}</span></td>
-      <td>${vehicleTypeBadge(r.ride_type)}${r.extra ? `<br><span class="ago" style="color:#0e8345;font-weight:700;">💵 +$${r.extra} extra</span>` : ""}</td>
+      <td>${vehicleTypeBadge(r.ride_type)}${r.extra ? `<br><span class="ago" style="color:#0e8345;font-weight:700;">+$${r.extra} extra</span>` : ""}</td>
       <td>${escapeHtml(r.driver_name) || "—"}${disconnected}</td>
       <td>${escapeHtml(r.pickup_label) || "—"}</td>
       <td>${escapeHtml(r.dest_label) || "—"}</td>
@@ -2863,7 +2862,7 @@ async function loadBusinesses() {
   bizCache = await res.json();
   const el = document.getElementById("bizList");
   el.innerHTML = bizCache.length ? bizCache.map((b) => `<div class="ally-item">
-      <div class="ally-item-top"><div class="noimg" style="display:flex;align-items:center;justify-content:center;font-size:24px;">🏪</div>
+      <div class="ally-item-top"><div class="noimg" style="display:flex;align-items:center;justify-content:center;font-size:24px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></div>
         <div><b>${escapeHtml(b.name)}</b><div class="sub">${escapeHtml(b.address || "")} · Dueño: ${escapeHtml(b.owner_name || "")} (${escapeHtml(b.phone)})</div>
         <div class="ally-chips"><span class="${b.active ? "on" : "off"}">${b.active ? "Activo" : "Pausado"}</span><span>${b.deliveries} entregas</span></div></div></div>
       <div class="ally-actions" style="margin-top:10px;">
@@ -2897,7 +2896,7 @@ function bizSearch() {
   if (!q.trim()) { box.classList.remove("open"); return; }
   MVBuscador.load(adminCity || "tekax").then((data) => {
     bizFound = MVBuscador.matches(q, data).slice(0, 5);
-    box.innerHTML = bizFound.map((r, i) => `<button type="button" onclick="bizPick(${i})">📍 ${escapeHtml(r.label)}</button>`).join("");
+    box.innerHTML = bizFound.map((r, i) => `<button type="button" onclick="bizPick(${i})">${escapeHtml(r.label)}</button>`).join("");
     box.classList.toggle("open", bizFound.length > 0);
   });
 }
@@ -2973,9 +2972,9 @@ async function toggleAllyEnabled() {
 
 function allyCardHtml(ad) {
   const img = ad.image ? `<img class="ally-logo" src="${ad.image}" alt="" />` : `<div class="ally-logo"></div>`;
-  return `<div class="ally-label">🤝 Negocio aliado</div>
+  return `<div class="ally-label">Negocio aliado</div>
     <div class="ally-row">${img}<div><div class="ally-name">${escapeHtml(ad.name || "Nombre del negocio")}</div>${ad.tagline ? `<div class="ally-tag">${escapeHtml(ad.tagline)}</div>` : ""}</div></div>
-    <div class="ally-btn">💬 Escribir por WhatsApp</div>`;
+    <div class="ally-btn">Escribir por WhatsApp</div>`;
 }
 
 function renderAllyPreview() {
@@ -3109,15 +3108,15 @@ function renderAllyList() {
         </div>
       </div>
       <div class="ally-stats">
-        <div><b>${a.views7}</b><span>👁 lo vieron (7 días) · ${a.views} en total</span></div>
-        <div><b>${a.taps7}</b><span>💬 le escribieron (7 días) · ${a.taps} en total</span></div>
+        <div><b>${a.views7}</b><span>lo vieron (7 días) · ${a.views} en total</span></div>
+        <div><b>${a.taps7}</b><span>le escribieron (7 días) · ${a.taps} en total</span></div>
       </div>
       <div class="ally-actions">
-        <button class="btn-sm" onclick="openAllyForm(${a.id})">✏️ Editar</button>
-        <button class="btn-sm" onclick="setAllyActive(${a.id}, ${!a.active})">${a.active ? "⏸ Pausar" : "▶️ Activar"}</button>
-        <button class="btn-sm" onclick="downloadAllyArt(${a.id}, 'historia')">📲 Imagen para historia</button>
-        <button class="btn-sm" onclick="downloadAllyArt(${a.id}, 'mostrador')">🏪 Letrero de mostrador</button>
-        <button class="btn-sm wa" onclick="sendAllyReport(${a.id})">📊 Enviar reporte</button>
+        <button class="btn-sm" onclick="openAllyForm(${a.id})">Editar</button>
+        <button class="btn-sm" onclick="setAllyActive(${a.id}, ${!a.active})">${a.active ? "Pausar" : "Activar"}</button>
+        <button class="btn-sm" onclick="downloadAllyArt(${a.id}, 'historia')">Imagen para historia</button>
+        <button class="btn-sm" onclick="downloadAllyArt(${a.id}, 'mostrador')">Letrero de mostrador</button>
+        <button class="btn-sm wa" onclick="sendAllyReport(${a.id})">Enviar reporte</button>
         <button class="btn-sm danger" onclick="deleteAllyAd(${a.id})">Quitar</button>
       </div>
     </div>`;
@@ -3189,7 +3188,7 @@ async function downloadAllyArt(id, kind) {
     ctx.fillStyle = "#000"; ctx.font = `800 ${NAME}px Inter`;
     y = wrapText(ctx, a.name, W / 2, y + NAME * 0.8, W - 140, NAME * 1.1) + 44 * G;
     ctx.font = "600 34px Inter";
-    const pillText = story ? "🤝 Somos negocio aliado de MotoVecino" : "🤝 Aquí somos aliados de MotoVecino";
+    const pillText = story ? "Somos negocio aliado de MotoVecino" : "Aquí somos aliados de MotoVecino";
     const pw = ctx.measureText(pillText).width + 64;
     ctx.fillStyle = "#000"; roundRect(ctx, (W - pw) / 2, y, pw, 72, 36); ctx.fill();
     ctx.fillStyle = "#fff"; ctx.fillText(pillText, W / 2, y + 48);
