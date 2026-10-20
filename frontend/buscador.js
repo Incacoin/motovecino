@@ -45,6 +45,9 @@ const PS_ICONS = {
   pueblo: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-5 7 5v11M10 21v-5h4v5"/></svg>',
 };
 
+// Esquinas calculadas con la cuadrícula (gen-lugares.js): llevan un 1 al final.
+const esquina = (p) => (p && p[2] ? "Esquina aproximada: revisa el mapa" : "Esquina");
+
 function placeMatches(query, data) {
   const q = normText(query);
   if (!q) return [];
@@ -59,10 +62,10 @@ function placeMatches(query, data) {
       const p1 = row[b], p2 = row[c];
       out.push({ label: `Calle ${a} entre ${b} y ${c}`, sub: "A media cuadra", t: "cruce", p: [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2] });
     }
-    if (b && row[b]) out.push({ label: `Calle ${a} x ${b}`, sub: "Esquina", t: "cruce", p: row[b] });
+    if (b && row[b]) out.push({ label: `Calle ${a} x ${b}`, sub: esquina(row[b]), t: "cruce", p: row[b] });
     if (!c) {
       const others = Object.keys(row).filter((o) => o !== b && (!b || o.startsWith(b))).sort((x, y) => x - y);
-      for (const o of others.slice(0, 8)) out.push({ label: `Calle ${a} x ${o}`, sub: "Esquina", t: "cruce", p: row[o] });
+      for (const o of others.slice(0, 8)) out.push({ label: `Calle ${a} x ${o}`, sub: esquina(row[o]), t: "cruce", p: row[o] });
     }
   }
   // Lugares por nombre: todas las palabras deben aparecer; primero los que empiezan igual.

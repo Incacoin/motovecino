@@ -16,6 +16,11 @@
 //   "lugares": [{ "n": "IMSS", "p": [lat, lng], "b": "hospital clinica" }] los que faltan.
 // Solo reaplicar el extra sin volver a pedir OSM:
 //   node backend/tools/gen-lugares.js tekax --solo-extra
+// Solo agregar las esquinas aproximadas al archivo que ya existe (una sola consulta a OSM):
+//   node backend/tools/gen-lugares.js tekax --solo-esquinas
+// Esquinas aproximadas (20-oct): en las orillas OSM tiene calles SIN nombre, así
+// que "25 x 50" no salía. Se calculan con la cuadrícula (ver completarCruces) y
+// llevan un 1 al final ([lat, lng, 1]); el buscador dice "Esquina aproximada".
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -98,6 +103,61 @@ function aplicarExtra(data, fileId) {
   return { ...data, lugares };
 }
 
+// Las calles de aquí son una cuadrícula: las pares cruzan con las nones y el
+// número sube de 2 en 2 por cuadra. Con las esquinas conocidas más cercanas
+// (en números) se ajusta un plano lat/lng = a + b·par + c·non y se estima la
+// esquina que falta; solo se acepta si ahí hay un cruce real de calles en OSM
+// (a ≤ SNAP_KM) que no sea ya otra esquina. Probado en Tekax quitando cada
+// esquina conocida y volviéndola a calcular: error típico 14 m, 80% ≤ 32 m.
+const SNAP_KM = 0.045;
+function completarCruces(cruces, todas) {
+  const kmBetween = (a, b) => Math.hypot((a[0] - b[0]) * 111, (a[1] - b[1]) * 111 * Math.cos((a[0] * Math.PI) / 180));
+  const known = Object.entries(cruces).filter(([k]) => crucePosible(k)).map(([k, p]) => {
+    const [a, b] = k.split("x").map(Number);
+    return a % 2 ? { e: b, o: a, p } : { e: a, o: b, p };
+  });
+  if (known.length < 12) return cruces;
+  const nodes = new Map(), uses = new Map();
+  for (const e of todas) if (e.type === "node") nodes.set(e.id, [e.lat, e.lon]);
+  for (const w of todas) if (w.type === "way") for (const n of new Set(w.nodes)) uses.set(n, (uses.get(n) || 0) + 1);
+  const reales = [...uses].filter(([, c]) => c >= 2).map(([n]) => nodes.get(n)).filter(Boolean);
+  // Mínimos cuadrados de 3 incógnitas (regla de Cramer).
+  const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+  function ajuste(filas, v) {
+    const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], y = [0, 0, 0];
+    filas.forEach((r, i) => { for (let j = 0; j < 3; j++) { y[j] += r[j] * v[i]; for (let k = 0; k < 3; k++) A[j][k] += r[j] * r[k]; } });
+    const d = det(A);
+    if (Math.abs(d) < 1e-9) return null;
+    return [0, 1, 2].map((c) => det(A.map((row, i) => row.map((x, j) => (j === c ? y[i] : x)))) / d);
+  }
+  function estimar(e, o) {
+    const cerca = known.map((k) => ({ k, d: Math.abs(k.e - e) + Math.abs(k.o - o) })).sort((a, b) => a.d - b.d).slice(0, 8);
+    if (!cerca.length || cerca[0].d > 8) return null; // máximo 4 cuadras más allá de lo conocido
+    if (new Set(cerca.map((c) => c.k.e)).size < 2 || new Set(cerca.map((c) => c.k.o)).size < 2) return null;
+    const filas = cerca.map((c) => [1, c.k.e, c.k.o]);
+    const la = ajuste(filas, cerca.map((c) => c.k.p[0])), ln = ajuste(filas, cerca.map((c) => c.k.p[1]));
+    return la && ln ? [la[0] + la[1] * e + la[2] * o, ln[0] + ln[1] * e + ln[2] * o] : null;
+  }
+  const es = known.map((k) => k.e), os = known.map((k) => k.o);
+  const out = { ...cruces };
+  let nuevos = 0;
+  for (let e = Math.max(2, Math.min(...es) - 6); e <= Math.max(...es) + 6; e += 2) {
+    for (let o = Math.max(1, Math.min(...os) - 8) | 1; o <= Math.max(...os) + 6; o += 2) {
+      const k = e < o ? e + "x" + o : o + "x" + e;
+      if (out[k]) continue;
+      const est = estimar(e, o);
+      if (!est) continue;
+      let mejor = null, dist = Infinity;
+      for (const p of reales) { const d = kmBetween(p, est); if (d < dist) { dist = d; mejor = p; } }
+      if (dist > SNAP_KM || known.some((x) => kmBetween(x.p, mejor) < 0.025)) continue;
+      out[k] = [round(mejor[0]), round(mejor[1]), 1];
+      nuevos++;
+    }
+  }
+  console.log(`  esquinas aproximadas agregadas: ${nuevos}`);
+  return out;
+}
+
 async function main() {
   const id = process.argv[2] || "tekax";
   const zoneId = process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : null;
@@ -110,6 +170,19 @@ async function main() {
     return;
   }
   const city = CITIES.find((c) => c.id === id);
+  if (process.argv.includes("--solo-esquinas")) {
+    if (!city || city.zones) throw new Error("--solo-esquinas es para municipios sin comisarías: " + id);
+    const out = path.join(__dirname, "../../frontend/lugares", id + ".json");
+    const data = JSON.parse(fs.readFileSync(out, "utf8"));
+    const bb = bbox(city.lat, city.lng, Math.min(Math.max(STREET_KM, city.serviceRadiusKm || 0), STREET_KM_MAX));
+    const todas = await overpass(`[out:json][timeout:90];way["highway"~"^(residential|unclassified|tertiary|secondary|primary|living_street|service|track|road)$"](${bb});out body;>;out skel qt;`);
+    // Las aproximadas de antes se vuelven a calcular.
+    for (const [k, p] of Object.entries(data.cruces)) if (p[2]) delete data.cruces[k];
+    data.cruces = completarCruces(data.cruces, todas);
+    fs.writeFileSync(out, JSON.stringify(aplicarExtra(data, id)));
+    console.log(`${out}: ${Object.keys(data.cruces).length} cruces`);
+    return;
+  }
   if (!city) throw new Error("Ciudad no encontrada en cities.js: " + id + (id === "progreso" ? " (corre con ENABLE_PROGRESO=1)" : ""));
   const zone = zoneId ? (city.zones || []).find((z) => z.id === zoneId) : null;
   if (zoneId && !zone) throw new Error("Comisaría no encontrada: " + zoneId);
@@ -150,13 +223,16 @@ async function main() {
         if (g) { g[0] += p[0]; g[1] += p[1]; g[2]++; } else list.push([p[0], p[1], 1]);
       }
   }
-  const cruces = {};
+  let cruces = {};
   const c0 = [center.lat, center.lng];
   for (const [k, list] of Object.entries(groups)) {
     const pts = list.map(([la, ln, c]) => [la / c, ln / c]);
     pts.sort((a, b) => kmBetween(a, c0) - kmBetween(b, c0));
     cruces[k] = [round(pts[0][0]), round(pts[0][1])];
   }
+
+  const todas = await overpass(`[out:json][timeout:90];way["highway"~"^(residential|unclassified|tertiary|secondary|primary|living_street|service|track|road)$"](${bb});out body;>;out skel qt;`);
+  cruces = completarCruces(cruces, todas);
 
   const pois = await overpass(`[out:json][timeout:90];(
     nwr["name"]["amenity"](${bb});nwr["name"]["shop"](${bb});nwr["name"]["leisure"](${bb});
