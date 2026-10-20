@@ -136,8 +136,39 @@
   .top .grow { flex: 1; min-width: 0; }
   .open-tg { border: none; border-radius: 20px; padding: 8px 12px; font-weight: 800; font-size: 12.5px; cursor: pointer; background: var(--bg-card); color: var(--dim); white-space: nowrap; }
   .open-tg.on { background: #22c55e; color: #04210f; }
-  .tabs { display: flex; gap: 6px; padding: 12px 14px 0; }
-  .tab { flex: 1; padding: 10px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--dim); font-weight: 700; font-size: 13.5px; cursor: pointer; }
+  .tabs { display: flex; gap: 5px; padding: 12px 12px 0; }
+  .tab { flex: 1; min-width: 0; padding: 10px 0; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--dim); font-weight: 700; font-size: 12.5px; cursor: pointer; }
+  /* Mis ventas (20-oct) */
+  .vt { padding: 6px 14px 40px; }
+  .vt-range { display: flex; gap: 6px; margin: 8px 0 14px; }
+  .vt-range button { flex: 1; padding: 9px 0; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--dim); font-weight: 700; font-size: 13px; cursor: pointer; }
+  .vt-range button.on { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
+  .vt-hero { padding: 4px 2px 14px; }
+  .vt-hero small { display: block; font-size: 13px; color: var(--dim); font-weight: 600; }
+  .vt-hero b { display: block; font-size: 38px; font-weight: 800; letter-spacing: -0.03em; margin-top: 2px; }
+  .vt-hero .dl { font-size: 13px; font-weight: 600; color: var(--dim); margin-top: 2px; }
+  .vt-hero .dl.up { color: var(--green); }
+  .vt-kpis { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .vt-kpi { background: var(--bg-card); border-radius: 12px; padding: 11px 12px; }
+  .vt-kpi small { display: block; font-size: 11.5px; color: var(--dim); font-weight: 600; }
+  .vt-kpi b { display: block; font-size: 19px; font-weight: 800; margin-top: 3px; }
+  .vt-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-top: 12px; }
+  .vt-card h4 { font-size: 14.5px; font-weight: 800; margin: 0 0 2px; }
+  .vt-card .sub { font-size: 12.5px; color: var(--dim); margin-bottom: 10px; }
+  .vt-chart { position: relative; }
+  .vt-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .vt-chart .ax { font-size: 10.5px; fill: var(--faint); }
+  .vt-tip { position: absolute; top: 0; transform: translateX(-50%); background: var(--btn); color: var(--btn-ink); border-radius: 8px; padding: 5px 8px; font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; display: none; }
+  .vt-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13.5px; }
+  .vt-row .nm { flex: 0 0 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vt-row .bar { flex: 1; height: 10px; border-radius: 0 4px 4px 0; background: var(--bg-card); overflow: hidden; }
+  .vt-row .bar i { display: block; height: 100%; background: var(--text); border-radius: 0 4px 4px 0; }
+  .vt-row .v { flex: 0 0 auto; min-width: 64px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .vt-row .v small { display: block; font-size: 11px; color: var(--dim); font-weight: 600; }
+  .vt-split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .vt-split div { background: var(--bg-card); border-radius: 12px; padding: 10px 12px; font-size: 12.5px; color: var(--dim); font-weight: 600; }
+  .vt-split b { display: block; font-size: 18px; color: var(--text); font-weight: 800; margin-top: 2px; }
+  .vt-empty { text-align: center; color: var(--dim); font-size: 14px; line-height: 1.5; padding: 30px 10px; }
   .tab.on { background: var(--btn); color: var(--btn-ink); border-color: var(--btn); }
   .panel { display: none; }
   .panel.on { display: block; }
@@ -183,7 +214,7 @@
   .st.wait { background: #fef3c7; color: #b45309; }
   .st.ok { background: var(--green-bg); color: var(--green); }
   .okbox { margin-top: 9px; border-radius: 10px; padding: 10px 11px; background: var(--green-bg); color: var(--text); font-size: 13.5px; line-height: 1.45; }
-  .push-card { display: flex; gap: 12px; align-items: center; margin: 4px 0 14px; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); }
+  .push-card { display: flex; gap: 12px; align-items: center; margin: 12px 14px 2px; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); }
   .push-card .ico { width: 40px; height: 40px; border-radius: 50%; background: var(--text); color: var(--bg); display: grid; place-items: center; flex-shrink: 0; }
   .push-card .txt { flex: 1; font-size: 13px; line-height: 1.4; color: var(--dim); }
   .push-card .txt b { display: block; font-size: 14.5px; color: var(--text); margin-bottom: 2px; }
@@ -229,6 +260,7 @@
     <button class="tab on" data-tab="pedidos" onclick="setTab('pedidos')">Pedidos<span class="cnt" id="ordCnt" style="display:none"></span></button>
     <button class="tab" data-tab="envios" onclick="setTab('envios')">Envíos</button>
     <button class="tab" data-tab="menu" onclick="setTab('menu')">Productos</button>
+    <button class="tab" data-tab="ventas" onclick="setTab('ventas')">Ventas</button>
     <button class="tab" data-tab="perfil" onclick="setTab('perfil')">Perfil</button>
   </div>
   <div class="panel on" id="panel-pedidos">
@@ -245,6 +277,14 @@
   <div class="panel" id="panel-menu">
     <div class="list" id="menuList" style="padding-top:6px"></div>
     <button class="bigbtn" onclick="openItem()">＋ Agregar producto</button>
+  </div>
+  <div class="panel" id="panel-ventas">
+    <div class="vt">
+      <div class="vt-range" id="vtRange">
+        <button data-d="1" onclick="loadVentas(1)">Hoy</button><button data-d="7" class="on" onclick="loadVentas(7)">7 días</button><button data-d="30" onclick="loadVentas(30)">30 días</button>
+      </div>
+      <div id="vtBody"><div class="vt-empty">Cargando…</div></div>
+    </div>
   </div>
   <div class="panel" id="panel-perfil">
     <div class="pf">
@@ -493,6 +533,16 @@ const ORD_ST = {
 };
 const RIDE_ST = { buscando: "Buscando chofer…", aceptado: "Va a tu negocio", llegue: "Está en tu negocio", en_curso: "En camino al cliente", completado: "Entregado", cancelado: "Nadie lo tomó" };
 function money(n) { return "$" + Number(n || 0).toLocaleString("es-MX"); }
+// Fecha y hora del pedido en hora de Yucatán: "Hoy 9:41 pm", "Ayer 8:15 pm", "lun 18 oct · 2:30 pm".
+function whenLabel(t) {
+  const d = new Date(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"));
+  const opts = { timeZone: "America/Merida" };
+  const day = (x) => x.toLocaleDateString("en-CA", opts);
+  const hora = d.toLocaleTimeString("es-MX", { ...opts, hour: "numeric", minute: "2-digit" }).replace(/\s?a\.?\s?m\.?/i, " am").replace(/\s?p\.?\s?m\.?/i, " pm");
+  if (day(d) === day(new Date())) return "Hoy " + hora;
+  if (day(d) === day(new Date(Date.now() - 86400000))) return "Ayer " + hora;
+  return d.toLocaleDateString("es-MX", { ...opts, weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "") + " · " + hora;
+}
 function ago(t) {
   const m = Math.max(0, Math.round((Date.now() - Date.parse(String(t).replace(" ", "T") + "Z")) / 60000));
   return m < 1 ? "ahorita" : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`;
@@ -717,7 +767,7 @@ function renderOrders() {
     const hot = ["nuevo", "cotizando"].includes(o.status);
     const done = ["rechazado", "cancelado", "entregado"].includes(o.status) || (o.ride && o.ride.status === "completado");
     return `<div class="ord ${hot ? "hot" : ""} ${done ? "done" : ""}">
-      <div class="hd"><div><div class="ttl">#${o.id} · ${escapeHtml(who)}</div><div class="when">${escapeHtml(o.dest_label || "")}${o.big ? " · grande" : ""} · ${ago(o.created_at)}</div></div><span class="st ${cls}">${label}</span></div>
+      <div class="hd"><div><div class="ttl">#${o.id} · ${escapeHtml(who)}</div><div class="when">${escapeHtml(o.dest_label || "")}${o.big ? " · grande" : ""}</div><div class="when">${whenLabel(o.created_at)} · ${ago(o.created_at)}</div></div><span class="st ${cls}">${label}</span></div>
       <div class="lines">${orderLines(o)}</div>${o.client_note ? `<div class="cnote"><b>Nota del cliente:</b> ${escapeHtml(o.client_note)}</div>` : ""}${body}
       <div class="btns">${o.client && o.client.id ? `<button class="b chat" onclick="openChat(${o.client.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.3-4.6A8 8 0 1 1 21 12z"/></svg>Mensajes${o.chat_unread ? `<span class="cbadge">${o.chat_unread}</span>` : ""}</button>` : ""}${acts}</div>
     </div>`;
@@ -849,12 +899,109 @@ async function sendRide() {
   }
 }
 
+// ---------- Mis ventas (20-oct) ----------
+let vtDays = 7, vtData = null;
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function dayLabel(iso) { const [, m, d] = iso.split("-").map(Number); return d + " " + MESES[m - 1]; }
+function hourLabel(h) { h = Number(h); return (h % 12 || 12) + (h < 12 ? " am" : " pm"); }
+function deltaLine(now, before, what) {
+  if (!before && !now) return "";
+  if (!before) return `<div class="dl up">Primeras ventas del periodo</div>`;
+  const pct = Math.round(((now - before) / before) * 100);
+  const txt = vtDays === 1 ? "que ayer" : `que los ${vtDays} días anteriores`;
+  return `<div class="dl ${pct > 0 ? "up" : ""}">${pct > 0 ? "+" : ""}${pct}% ${what} ${txt}</div>`;
+}
+async function loadVentas(days) {
+  vtDays = days;
+  document.querySelectorAll("#vtRange button").forEach((b) => b.classList.toggle("on", Number(b.dataset.d) === days));
+  const body = document.getElementById("vtBody");
+  try { vtData = await post("/business/stats", { days }); }
+  catch (e) { body.innerHTML = `<div class="vt-empty">${escapeHtml(e.message)}</div>`; return; }
+  renderVentas();
+}
+function renderVentas() {
+  const d = vtData, body = document.getElementById("vtBody");
+  const periodo = d.days === 1 ? "hoy" : `en los últimos ${d.days} días`;
+  if (!d.pedidos) {
+    body.innerHTML = `<div class="vt-empty">Todavía no tienes ventas ${periodo}.<br>Aquí vas a ver cuánto vendes, tus productos estrella y tus horas fuertes.${d.en_curso ? `<br><br>Tienes <b>${d.en_curso}</b> pedido${d.en_curso === 1 ? "" : "s"} en curso.` : ""}</div>`;
+    return;
+  }
+  const maxProd = Math.max(...d.productos.map((p) => p.total), 1);
+  const horasTop = d.horas.map((n, h) => ({ h, n })).filter((x) => x.n).sort((a, b) => b.n - a.n).slice(0, 4).sort((a, b) => a.h - b.h);
+  const maxH = Math.max(...horasTop.map((x) => x.n), 1);
+  const perdidos = d.perdidos.rechazados + d.perdidos.cancelados;
+  body.innerHTML = `
+    <div class="vt-hero"><small>Vendido ${periodo}</small><b>${money(d.vendido)}</b>${deltaLine(d.vendido, d.vendido_antes, "más")}</div>
+    <div class="vt-kpis">
+      <div class="vt-kpi"><small>Pedidos</small><b>${d.pedidos}</b></div>
+      <div class="vt-kpi"><small>Ticket promedio</small><b>${money(d.ticket)}</b></div>
+      <div class="vt-kpi"><small>Clientes</small><b>${d.clientes.total}</b></div>
+    </div>
+    <div class="vt-card"><h4>${d.days === 1 ? "Ventas por hora" : "Ventas por día"}</h4><div class="sub">Toca la línea para ver cada ${d.days === 1 ? "hora" : "día"}.</div>
+      <div class="vt-chart" id="vtChart"></div></div>
+    <div class="vt-card"><h4>Productos más vendidos</h4><div class="sub">Lo que más dinero te deja.</div>
+      ${d.productos.map((p) => `<div class="vt-row"><span class="nm">${escapeHtml(p.name)}</span><span class="bar"><i style="width:${Math.max(3, (p.total / maxProd) * 100)}%"></i></span><span class="v">${money(p.total)}<small>${p.piezas} ${p.name === "Pedido especial" ? "pedido" + (p.piezas === 1 ? "" : "s") : "pza" + (p.piezas === 1 ? "" : "s")}</small></span></div>`).join("")}</div>
+    <div class="vt-card"><h4>Tus horas fuertes</h4><div class="sub">Cuándo te piden más: ten todo listo a esa hora.</div>
+      ${horasTop.map((x) => `<div class="vt-row"><span class="nm">${hourLabel(x.h)} a ${hourLabel((x.h + 1) % 24)}</span><span class="bar"><i style="width:${(x.n / maxH) * 100}%"></i></span><span class="v">${x.n} pedido${x.n === 1 ? "" : "s"}</span></div>`).join("")}</div>
+    <div class="vt-card"><h4>Cómo te pagan</h4><div class="sub">Pedidos entregados.</div>
+      <div class="vt-split"><div>Transferencia<b>${d.pago.transferencia}</b></div><div>Efectivo<b>${d.pago.efectivo}</b></div></div></div>
+    <div class="vt-card"><h4>Quién entrega</h4><div class="sub">Pedidos entregados.</div>
+      <div class="vt-split"><div>Tu repartidor<b>${d.entrega.propio}</b></div><div>Choferes MotoVecino<b>${d.entrega.chofer}</b></div></div></div>
+    <div class="vt-card"><h4>Tus clientes</h4><div class="sub">Quién te compró ${periodo}.</div>
+      <div class="vt-split"><div>Nuevos<b>${d.clientes.nuevos}</b></div><div>Te pidieron 2 veces o más<b>${d.clientes.repiten}</b></div></div></div>
+    <div class="vt-card"><h4>Pedidos que no se vendieron</h4><div class="sub">${perdidos ? "Revisa por qué se te escaparon." : "Ninguno. ¡Bien!"}</div>
+      <div class="vt-split"><div>Rechazaste<b>${d.perdidos.rechazados}</b></div><div>El cliente canceló<b>${d.perdidos.cancelados}</b></div></div></div>`;
+  drawVentasChart();
+}
+// Línea de ventas (una sola serie, sin colores: la tinta del tema). Tocar o
+// pasar el dedo muestra el valor de ese día u hora.
+function drawVentasChart() {
+  const box = document.getElementById("vtChart");
+  const s = vtData.serie, n = s.length;
+  const W = 340, H = 150, L = 6, R = 6, T = 14, B = 22;
+  const max = Math.max(...s.map((p) => p.total), 1);
+  const x = (i) => L + (n === 1 ? (W - L - R) / 2 : (i * (W - L - R)) / (n - 1));
+  const y = (v) => T + (H - T - B) * (1 - v / max);
+  const pts = s.map((p, i) => [x(i), y(p.total)]);
+  const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const area = line + ` L${x(n - 1).toFixed(1)} ${H - B} L${x(0).toFixed(1)} ${H - B} Z`;
+  const label = (i) => (vtData.days === 1 ? hourLabel(s[i].label) : dayLabel(s[i].label));
+  const ticks = vtData.days === 1 ? [0, 6, 12, 18, 23] : vtData.days === 7 ? [...Array(7).keys()] : [0, 7, 14, 21, 29];
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Ventas ${vtData.days === 1 ? "por hora" : "por día"}">
+      <line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="var(--border)" stroke-width="1"/>
+      <path d="${area}" fill="var(--text)" opacity="0.07"/>
+      <path d="${line}" fill="none" stroke="var(--text)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${ticks.map((i) => `<text class="ax" x="${x(i)}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}">${label(i)}</text>`).join("")}
+      <line id="vtCross" y1="${T}" y2="${H - B}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 3" style="display:none"/>
+      <circle id="vtDot" r="4.5" fill="var(--text)" stroke="var(--bg)" stroke-width="2" style="display:none"/>
+      <rect x="0" y="0" width="${W}" height="${H}" fill="transparent" id="vtHit"/>
+    </svg><div class="vt-tip" id="vtTip"></div>`;
+  const svg = box.querySelector("svg"), tip = document.getElementById("vtTip");
+  const show = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) * (W / r.width);
+    const i = Math.max(0, Math.min(n - 1, Math.round(((px - L) / (W - L - R)) * (n - 1))));
+    const [cx, cy] = pts[i];
+    const cross = document.getElementById("vtCross"), dot = document.getElementById("vtDot");
+    cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.style.display = "";
+    dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.style.display = "";
+    tip.textContent = `${label(i)} · ${money(s[i].total)} · ${s[i].pedidos} pedido${s[i].pedidos === 1 ? "" : "s"}`;
+    tip.style.left = Math.max(60, Math.min(r.width - 60, (cx / W) * r.width)) + "px";
+    tip.style.display = "block";
+  };
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerdown", show);
+  svg.addEventListener("touchmove", show, { passive: true });
+  svg.addEventListener("pointerleave", () => { tip.style.display = "none"; document.getElementById("vtCross").style.display = "none"; document.getElementById("vtDot").style.display = "none"; });
+}
+
 // --- Pestañas ---
 function setTab(tab) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
   document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("on", p.id === "panel-" + tab));
   if (tab === "envios") loadRides();
   if (tab === "pedidos") loadOrders();
+  if (tab === "ventas") loadVentas(vtDays);
   window.scrollTo(0, 0);
 }
 

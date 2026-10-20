@@ -481,6 +481,91 @@ router.post("/business/orders/:id/delivered", async (req, res) => {
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(got.o.id), "business"));
 });
 
+// ---------- "Mis ventas" (20-oct) ----------
+// Solo cuenta lo que le pidieron por la app. Venta = pedido entregado (por su
+// repartidor, o el chofer de MotoVecino terminó el viaje). Las fechas y horas
+// van en hora de Yucatán (UTC-6 todo el año).
+const YUC_MS = 6 * 3600 * 1000;
+const yucDay = (ms) => new Date(ms - YUC_MS).toISOString().slice(0, 10);
+const utcText = (ms) => new Date(ms).toISOString().slice(0, 19).replace("T", " ");
+const parseUtc = (t) => Date.parse(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"));
+
+router.post("/business/stats", async (req, res) => {
+  const b = await authOwner(req, res);
+  if (!b) return;
+  const days = [1, 7, 30].includes(Number(req.body.days)) ? Number(req.body.days) : 7;
+  const now = Date.now();
+  // Inicio del periodo: medianoche de Yucatán de hace (days - 1) días.
+  const todayStart = Date.parse(yucDay(now) + "T00:00:00Z") + YUC_MS;
+  const from = todayStart - (days - 1) * 86400000;
+  const prevFrom = from - days * 86400000;
+  const rows = await db.prepare(
+    `SELECT o.id, o.rider_id, o.kind, o.items, o.total, o.pay_method, o.status, o.created_at, r.status AS ride_status
+     FROM business_orders o LEFT JOIN rides r ON r.id = o.ride_id
+     WHERE o.business_id = ? AND o.created_at >= ? ORDER BY o.id LIMIT 5000`
+  ).all(b.id, utcText(prevFrom));
+  const sold = (o) => o.status === S.ENTREGADO || (o.status === S.ENVIADO && o.ride_status === "completado");
+  const cur = [], prev = [];
+  for (const o of rows) (parseUtc(o.created_at) >= from ? cur : prev).push(o);
+  const ventas = cur.filter(sold), ventasPrev = prev.filter(sold);
+  const sum = (list) => list.reduce((a, o) => a + (Number(o.total) || 0), 0);
+
+  // Tendencia: por día (o por hora si es "Hoy").
+  const serie = [];
+  if (days === 1) {
+    for (let h = 0; h < 24; h++) serie.push({ label: String(h), total: 0, pedidos: 0 });
+    for (const o of ventas) { const s = serie[new Date(parseUtc(o.created_at) - YUC_MS).getUTCHours()]; s.total += Number(o.total) || 0; s.pedidos++; }
+  } else {
+    const idx = new Map();
+    for (let i = 0; i < days; i++) { const d = yucDay(from + i * 86400000 + 3600000); idx.set(d, serie.length); serie.push({ label: d, total: 0, pedidos: 0 }); }
+    for (const o of ventas) { const s = serie[idx.get(yucDay(parseUtc(o.created_at)))]; if (s) { s.total += Number(o.total) || 0; s.pedidos++; } }
+  }
+
+  // Productos más vendidos (piezas y dinero). El pedido especial va aparte.
+  const prods = new Map();
+  for (const o of ventas) {
+    if (o.kind === "especial") {
+      const p = prods.get("Pedido especial") || { name: "Pedido especial", piezas: 0, total: 0 };
+      p.piezas++; p.total += Number(o.total) || 0; prods.set(p.name, p);
+      continue;
+    }
+    for (const i of parseItems(o)) {
+      const p = prods.get(i.name) || { name: i.name, piezas: 0, total: 0 };
+      p.piezas += i.n; p.total += i.n * i.price; prods.set(i.name, p);
+    }
+  }
+  const horas = Array.from({ length: 24 }, () => 0);
+  for (const o of ventas) horas[new Date(parseUtc(o.created_at) - YUC_MS).getUTCHours()]++;
+
+  // Clientes: nuevos = su primer pedido a este negocio cae en el periodo.
+  const ids = [...new Set(ventas.map((o) => o.rider_id))];
+  let nuevos = 0;
+  for (const id of ids) {
+    const first = await db.prepare("SELECT MIN(created_at) AS t FROM business_orders WHERE business_id = ? AND rider_id = ?").get(b.id, id);
+    if (first && first.t && parseUtc(first.t) >= from) nuevos++;
+  }
+  const porCliente = new Map();
+  for (const o of ventas) porCliente.set(o.rider_id, (porCliente.get(o.rider_id) || 0) + 1);
+
+  res.json({
+    days,
+    desde: yucDay(from),
+    vendido: sum(ventas),
+    vendido_antes: sum(ventasPrev),
+    pedidos: ventas.length,
+    pedidos_antes: ventasPrev.length,
+    ticket: ventas.length ? Math.round(sum(ventas) / ventas.length) : 0,
+    serie,
+    productos: [...prods.values()].sort((a, b) => b.total - a.total).slice(0, 8),
+    horas,
+    pago: { transferencia: ventas.filter((o) => o.pay_method === "transferencia").length, efectivo: ventas.filter((o) => o.pay_method === "efectivo").length },
+    entrega: { propio: ventas.filter((o) => o.status === S.ENTREGADO).length, chofer: ventas.filter((o) => o.status === S.ENVIADO).length },
+    clientes: { total: ids.length, nuevos, repiten: [...porCliente.values()].filter((n) => n >= 2).length },
+    perdidos: { rechazados: cur.filter((o) => o.status === S.RECHAZADO).length, cancelados: cur.filter((o) => o.status === S.CANCELADO).length },
+    en_curso: cur.filter((o) => !sold(o) && ![S.RECHAZADO, S.CANCELADO].includes(o.status)).length,
+  });
+});
+
 // Avisos al celular del negocio (20-oct). La llave pública sale de
 // GET /push/public-key (la misma de choferes y pasajeros).
 router.post("/business/push/subscribe", async (req, res) => {

@@ -709,6 +709,16 @@ function tickClientCountdowns() {
 }
 setInterval(tickClientCountdowns, 1000);
 
+// Fecha y hora del pedido en hora de Yucatán: "Hoy 9:41 pm", "Ayer 8:15 pm", "lun 18 oct · 2:30 pm".
+function whenLabel(t) {
+  const d = new Date(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"));
+  const opts = { timeZone: "America/Merida" };
+  const day = (x) => x.toLocaleDateString("en-CA", opts);
+  const hora = d.toLocaleTimeString("es-MX", { ...opts, hour: "numeric", minute: "2-digit" }).replace(/s?a.?s?m.?/i, " am").replace(/s?p.?s?m.?/i, " pm");
+  if (day(d) === day(new Date())) return "Hoy " + hora;
+  if (day(d) === day(new Date(Date.now() - 86400000))) return "Ayer " + hora;
+  return d.toLocaleDateString("es-MX", { ...opts, weekday: "short", day: "numeric", month: "short" }).replace(/./g, "") + " · " + hora;
+}
 function minutesSince(t) { return t ? (Date.now() - Date.parse(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"))) / 60000 : 0; }
 function renderOrders() {
   const el = document.getElementById("ordersList");
@@ -759,7 +769,7 @@ function renderOrders() {
       body = `El negocio no pudo atenderlo${o.reject_reason ? `: <i>“${escapeHtml(o.reject_reason)}”</i>` : "."}`;
     }
     return `<div class="ord">
-      <div class="hd"><div><div class="nm">${escapeHtml(o.business ? o.business.name : "Negocio")}</div><div class="sm">Pedido #${o.id}${total ? " · " + total : ""} · ${o.pay_method === "efectivo" ? "efectivo" : o.pay_method === "transferencia" ? "transferencia" : "especial"}</div></div><span class="st ${cls}">${label}</span></div>
+      <div class="hd"><div><div class="nm">${escapeHtml(o.business ? o.business.name : "Negocio")}</div><div class="sm">Pedido #${o.id}${total ? " · " + total : ""} · ${o.pay_method === "efectivo" ? "efectivo" : o.pay_method === "transferencia" ? "transferencia" : "especial"}</div><div class="sm">${whenLabel(o.created_at)}</div></div><span class="st ${cls}">${label}</span></div>
       <div class="body">${orderLines(o)}<div style="margin-top:8px">${body}</div></div>
       <div class="btns">${o.business ? `<button class="chat-btn" onclick="openChat(${o.business.id})"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.3-4.6A8 8 0 1 1 21 12z"/></svg>Mensajes${o.chat_unread ? `<span class="chat-badge">${o.chat_unread}</span>` : ""}</button>` : ""}${btns}</div>
     </div>`;
