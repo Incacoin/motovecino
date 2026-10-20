@@ -147,6 +147,7 @@
   .ps-row .ps-k { flex: 0 0 30px; height: 30px; border-radius: 8px; background: var(--bg-card); display: flex; align-items: center; justify-content: center; color: var(--dim); }
   .ps-row b { display: block; font-weight: 600; }
   .ps-row small { display: block; font-size: 12px; color: var(--dim); margin-top: 1px; }
+  .ps-empty { padding: 12px; font-size: 13.5px; line-height: 1.45; color: var(--dim); }
   .hint { font-size: 12.5px; color: var(--faint); margin-top: 6px; line-height: 1.4; }
   .stepper { display: flex; align-items: center; justify-content: space-between; border: 2px solid var(--text); border-radius: 14px; padding: 8px 10px; }
   .stepper button { width: 42px; height: 42px; border-radius: 50%; border: none; background: var(--bg-card); color: var(--text); font-size: 24px; font-weight: 900; cursor: pointer; }
@@ -252,7 +253,7 @@
   <div class="hint">Elige tu calle de la lista o mueve el mapa: el pin marca dónde se entrega. Después puedes agregar una seña, ej. "casa azul".</div>
   <div class="lab">Propón tu precio de envío</div>
   <div class="stepper"><button onclick="stepOffer(-1)" aria-label="Menos">−</button><div class="v"><b id="offerV">$17</b><div id="offerHint">Sugerido (es el mínimo)</div></div><button onclick="stepOffer(1)" aria-label="Más">+</button></div>
-  <div class="hint">El envío se lo pagas al mototaxista al recibir. Si ofreces más, lo toman más rápido.</div>
+  <div class="hint">El envío se lo pagas al repartidor al recibir. Si ofreces más, lo toman más rápido.</div>
   <div id="sPay"></div>
   <div class="err" id="sErr"></div>
   <button class="go" id="sGo" onclick="sendOrder()">Enviar pedido</button>
@@ -514,8 +515,10 @@ function onDestInput() {
   MVBuscador.load(current.city || "tekax").then((data) => {
     if (input.value !== text) return;
     destResults = MVBuscador.matches(text, data);
-    box.innerHTML = destResults.map((r, i) => `<button type="button" class="ps-row" onclick="chooseDest(${i})"><span class="ps-k">${MVBuscador.ICONS[r.t]}</span><span><b>${escapeHtml(r.label)}</b><small>${r.sub}</small></span></button>`).join("");
-    box.classList.toggle("open", destResults.length > 0);
+    box.innerHTML = destResults.length
+      ? destResults.map((r, i) => `<button type="button" class="ps-row" onclick="chooseDest(${i})"><span class="ps-k">${MVBuscador.ICONS[r.t]}</span><span><b>${escapeHtml(r.label)}</b><small>${r.sub}</small></span></button>`).join("")
+      : `<div class="ps-empty">No encontramos esa esquina en el mapa. Mueve el mapa con el dedo hasta tu casa y deja escrita tu dirección.</div>`;
+    box.classList.add("open");
   });
 }
 function chooseDest(i) {
@@ -558,7 +561,7 @@ function payOptionsHtml(total, method, receiptOk, idPrefix) {
     </div></div>`;
   const cashSub = !o.cash ? "Este negocio no acepta efectivo."
     : total != null && total > o.cash_cap ? `En efectivo, máximo ${money(o.cash_cap)}.`
-    : "Le pagas todo al mototaxista cuando llegue.";
+    : "Le pagas todo al repartidor cuando llegue.";
   const cash = `<div class="opt ${method === "efectivo" ? "sel" : ""} ${cashOk ? "" : "off"}" onclick="${cashOk ? `setPay('efectivo','${idPrefix}')` : ""}"><div class="radio"></div><div style="flex:1">
       <b>Efectivo al recibir</b><div class="sub">${cashSub}</div>
       ${method === "efectivo" && cashOk ? `<div class="warn"><b>Pagarás en efectivo al repartidor:</b><br>${money(total)} del pedido + ${money(offer)} de envío = <b>${money(total + offer)}</b>.<br>Ten el dinero listo, de preferencia exacto: el repartidor no siempre trae cambio.</div>
