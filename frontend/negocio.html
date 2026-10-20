@@ -482,6 +482,7 @@ const alarmed = new Set();
 const ORD_ST = {
   cotizando: ["Pide precio", "new"], nuevo: ["Nuevo", "new"], por_aceptar_precio: ["Esperando al cliente", "wait"],
   aceptado: ["Preparando", "ok"], enviado: ["Con repartidor", "ok"], rechazado: ["Rechazado", ""], cancelado: ["Cancelado", ""],
+  propio: ["Con tu repartidor", "ok"], entregado: ["Entregado", ""],
 };
 const RIDE_ST = { buscando: "🔎 Buscando chofer…", aceptado: "🛵 Va a tu negocio", llegue: "📍 Está en tu negocio", en_curso: "📦 En camino al cliente", completado: "✅ Entregado", cancelado: "Nadie lo tomó" };
 function money(n) { return "$" + Number(n || 0).toLocaleString("es-MX"); }
@@ -604,7 +605,7 @@ function payLine(o) {
 }
 function renderOrders() {
   const el = document.getElementById("ordList");
-  const live = orders.filter((o) => !["rechazado", "cancelado"].includes(o.status) && !(o.status === "enviado" && o.ride && o.ride.status === "completado"));
+  const live = orders.filter((o) => !["rechazado", "cancelado", "entregado"].includes(o.status) && !(o.status === "enviado" && o.ride && o.ride.status === "completado"));
   document.getElementById("ordTitle").textContent = live.length ? `Pedidos activos · ${live.length}` : "Pedidos de hoy";
   if (!orders.length) {
     el.innerHTML = `<div class="empty">Todavía no hay pedidos.<br>Cuando un cliente te pida desde la app, te llega aquí con sonido. Deja <b>Abierto</b> mientras atiendes.</div>`;
@@ -634,17 +635,24 @@ function renderOrders() {
       acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="acceptOrder(${o.id})">Aceptar · arranca el cronómetro</button>`;
     } else if (o.status === "aceptado") {
       body = payLine(o) + (o.ready_at_ms ? `<div class="cd" data-ready="${o.ready_at_ms}" data-id="${o.id}"></div>` : "") +
-        `<div class="note" style="margin-top:8px">💡 Pide el chofer unos 5 min antes de que esté listo. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
-      acts = `<button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer</button>`;
+        `<div class="note" style="margin-top:8px">💡 Pide el chofer unos 5 min antes de que esté listo, o llévalo con tu propio repartidor. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
+      acts = `<button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer</button>`;
+    } else if (o.status === "propio") {
+      const cobrar = o.pay_method === "efectivo" ? o.total + o.delivery_offer : o.delivery_offer;
+      body = `<div class="okbox">📦 Lo lleva <b>tu repartidor</b> a ${escapeHtml(o.dest_label || "la dirección del cliente")}.</div>` +
+        `<div class="warnbox" style="margin-top:8px">💵 Tu repartidor le cobra al cliente <b>${money(cobrar)}</b>${o.pay_method === "efectivo" ? ` (${money(o.total)} del pedido + ${money(o.delivery_offer)} de envío)` : " de envío (el pedido ya está pagado)"}.</div>`;
+      acts = `<button class="b" onclick="requestDriver(${o.id})">Mejor pedir chofer</button><button class="b green" onclick="markDelivered(${o.id})">✅ Ya se entregó</button>`;
     } else if (o.status === "enviado") {
       const r = o.ride || {};
       body = payLine(o) + `<div class="okbox">${RIDE_ST[r.status] || "🛵"}${r.driver ? ` · <b>${escapeHtml(r.driver.name)}</b>${r.driver.vehicle ? " · " + escapeHtml(r.driver.vehicle) : ""}` : ""}${r.price ? ` · envío ${money(r.price)}` : ""}</div>`;
-      if (r.status === "cancelado") acts = `<button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer otra vez</button>`;
+      if (r.status === "cancelado") acts = `<button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer otra vez</button>`;
+    } else if (o.status === "entregado") {
+      body = `<div class="okbox">✅ Entregado por tu repartidor.</div>`;
     } else if (o.status === "rechazado") {
       body = o.reject_reason ? `<div class="note" style="margin-top:6px">Motivo: ${escapeHtml(o.reject_reason)}</div>` : "";
     }
     const hot = ["nuevo", "cotizando"].includes(o.status);
-    const done = ["rechazado", "cancelado"].includes(o.status) || (o.ride && o.ride.status === "completado");
+    const done = ["rechazado", "cancelado", "entregado"].includes(o.status) || (o.ride && o.ride.status === "completado");
     return `<div class="ord ${hot ? "hot" : ""} ${done ? "done" : ""}">
       <div class="hd"><div><div class="ttl">#${o.id} · ${escapeHtml(who)}</div><div class="when">${escapeHtml(o.dest_label || "")}${o.big ? " · 📦📦 grande" : ""} · ${ago(o.created_at)}</div></div><span class="st ${cls}">${label}</span></div>
       <div class="lines">${orderLines(o)}</div>${o.client_note ? `<div class="cnote">📝 <b>Nota del cliente:</b> ${escapeHtml(o.client_note)}</div>` : ""}${body}
@@ -670,6 +678,11 @@ function rejectOrder(id) {
   orderAction(id, "reject", { reason }, "Pedido rechazado");
 }
 function requestDriver(id) { orderAction(id, "request-driver", {}, "Listo, buscando chofer 🛵"); }
+function ownDelivery(id) { orderAction(id, "own-delivery", {}, "Listo: lo lleva tu repartidor 📦"); }
+function markDelivered(id) {
+  if (!confirm("¿Tu repartidor ya entregó el pedido?")) return;
+  orderAction(id, "delivered", {}, "Pedido entregado ✅");
+}
 async function openReceipt(id) {
   rcpOrder = orders.find((o) => o.id === id);
   try {

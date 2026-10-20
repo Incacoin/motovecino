@@ -7,6 +7,8 @@
 //   → el negocio acepta con tiempo de preparación → si fue transferencia,
 //   confirma que le llegó → "Pedir chofer": sale un domicilio normal con
 //   "Propón tu precio" (el envío que propuso el cliente) y clave de entrega.
+//   O "Lo entrego yo" (19-oct): lo lleva el repartidor del negocio y el
+//   negocio marca "Entregado"; el envío se lo paga el cliente a ese repartidor.
 //
 // El dinero NUNCA pasa por MotoVecino: transferencia directa al negocio, o
 // efectivo — el chofer le paga el pedido al negocio al recoger y se lo cobra
@@ -35,6 +37,8 @@ const S = {
   NUEVO: "nuevo",                    // listo para que el negocio lo acepte
   ACEPTADO: "aceptado",              // preparando
   ENVIADO: "enviado",                // ya se pidió chofer
+  PROPIO: "propio",                  // lo lleva el repartidor del negocio
+  ENTREGADO: "entregado",            // el negocio confirmó que su repartidor lo entregó
   RECHAZADO: "rechazado",
   CANCELADO: "cancelado",
 };
@@ -311,8 +315,8 @@ router.post("/business/orders/list", async (req, res) => {
   const b = await authOwner(req, res);
   if (!b) return;
   const rows = await db.prepare(
-    `SELECT * FROM business_orders WHERE business_id = ? AND (created_at >= datetime('now', '-1 days') OR status IN ('${S.COTIZANDO}', '${S.NUEVO}', '${S.ACEPTADO}'))
-     ORDER BY CASE WHEN status IN ('${S.COTIZANDO}', '${S.NUEVO}') THEN 0 WHEN status = '${S.ACEPTADO}' THEN 1 ELSE 2 END, id DESC LIMIT 60`
+    `SELECT * FROM business_orders WHERE business_id = ? AND (created_at >= datetime('now', '-1 days') OR status IN ('${S.COTIZANDO}', '${S.NUEVO}', '${S.ACEPTADO}', '${S.PROPIO}'))
+     ORDER BY CASE WHEN status IN ('${S.COTIZANDO}', '${S.NUEVO}') THEN 0 WHEN status IN ('${S.ACEPTADO}', '${S.PROPIO}') THEN 1 ELSE 2 END, id DESC LIMIT 60`
   ).all(b.id);
   res.json(await Promise.all(rows.map((o) => publicOrder(o, "business"))));
 });
@@ -400,7 +404,8 @@ router.post("/business/orders/:id/request-driver", async (req, res) => {
   const got = await ownerOrder(req, res);
   if (!got) return;
   const { b, o } = got;
-  let canRequest = o.status === S.ACEPTADO;
+  // Desde "Lo entrego yo" también: si su repartidor no puede, pide chofer.
+  let canRequest = o.status === S.ACEPTADO || o.status === S.PROPIO;
   if (o.status === S.ENVIADO && o.ride_id) {
     // Si nadie lo tomó (o se canceló el envío), se puede volver a pedir.
     const prev = await db.prepare("SELECT status FROM rides WHERE id = ?").get(o.ride_id);
@@ -429,6 +434,36 @@ router.post("/business/orders/:id/request-driver", async (req, res) => {
   await realtime.broadcastNewRide(ride);
   realtime.startNoDriverTimer(ride.id, ride.ride_type, true);
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "business"));
+});
+
+// "Lo entrego yo": el repartidor del negocio lleva el pedido; no sale viaje.
+// Mismas reglas que "Pedir chofer" (aceptado y, si es transferencia, pagado).
+router.post("/business/orders/:id/own-delivery", async (req, res) => {
+  const got = await ownerOrder(req, res);
+  if (!got) return;
+  const { o } = got;
+  let can = o.status === S.ACEPTADO;
+  if (o.status === S.ENVIADO && o.ride_id) {
+    const prev = await db.prepare("SELECT status FROM rides WHERE id = ?").get(o.ride_id);
+    can = !prev || prev.status === "cancelado";
+  }
+  if (!can) return res.status(409).json({ error: o.status === S.ENVIADO ? "Ya hay un chofer con este pedido" : "Primero acepta el pedido" });
+  if (o.pay_method === "transferencia" && !o.paid_confirmed_at) {
+    return res.status(409).json({ error: "Primero confirma que te llegó la transferencia" });
+  }
+  if (!await moveOrder(o, o.status, "status = ?, ride_id = NULL", [S.PROPIO])) {
+    return res.status(409).json({ error: "Este pedido ya cambió" });
+  }
+  res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "business"));
+});
+
+router.post("/business/orders/:id/delivered", async (req, res) => {
+  const got = await ownerOrder(req, res);
+  if (!got) return;
+  if (!await moveOrder(got.o, S.PROPIO, "status = ?", [S.ENTREGADO])) {
+    return res.status(409).json({ error: "Este pedido no lo lleva tu repartidor" });
+  }
+  res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(got.o.id), "business"));
 });
 
 // Formas de pago y de pedido que acepta el negocio (su perfil).

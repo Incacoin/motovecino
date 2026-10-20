@@ -182,6 +182,43 @@ async function main() {
   const cancel = await post(`/orders/${e2.data.id}/cancel`, N);
   check("el cliente cancela antes de que acepten", cancel.status === 200, cancel);
 
+  // "Lo entrego yo" (19-oct): el repartidor del negocio lo lleva, sin chofer.
+  const p1 = await post("/orders", { ...N, business_id: bizId, items: [{ id: para.id, n: 1 }], pay_method: "transferencia", receipt: JPG, delivery_offer: 20, ...dest });
+  const ownEarly = await post(`/business/orders/${p1.data.id}/own-delivery`, O);
+  check("propio: no antes de aceptar", ownEarly.status === 409, ownEarly);
+  await post(`/business/orders/${p1.data.id}/payment`, { ...O, received: true });
+  await post(`/business/orders/${p1.data.id}/accept`, { ...O, minutes: 10 });
+  const deliveredEarly = await post(`/business/orders/${p1.data.id}/delivered`, O);
+  check("propio: no se marca entregado sin 'Lo entrego yo'", deliveredEarly.status === 409, deliveredEarly);
+  ws.msgs = [];
+  const ownRes = await post(`/business/orders/${p1.data.id}/own-delivery`, O);
+  check("propio: 'Lo entrego yo'", ownRes.status === 200 && ownRes.data.status === "propio" && !ownRes.data.ride, ownRes);
+  await sleep(400);
+  check("propio: no le llega nada a los choferes", !ws.msgs.some((m) => m.type === "new_ride" && m.payload.order_id === p1.data.id), ws.msgs.map((m) => m.type));
+  const ownAgain = await post(`/business/orders/${p1.data.id}/own-delivery`, O);
+  check("propio: no se repite", ownAgain.status === 409, ownAgain);
+  const stranger = await post(`/business/orders/${p1.data.id}/delivered`, { phone: other.phone, pin: other.pin });
+  check("propio: otra cuenta no lo marca entregado", stranger.status === 403 || stranger.status === 404, stranger);
+  const pm = (await post("/orders/mine", N)).data.find((o) => o.id === p1.data.id);
+  check("propio: el cliente lo ve en camino", pm && pm.status === "propio", pm);
+  const listOwn = (await post("/business/orders/list", O)).data.find((o) => o.id === p1.data.id);
+  check("propio: sigue en la lista del negocio", listOwn && listOwn.status === "propio", listOwn);
+  const dlv = await post(`/business/orders/${p1.data.id}/delivered`, O);
+  check("propio: 'Ya se entregó'", dlv.status === 200 && dlv.data.status === "entregado", dlv);
+  const pm2 = (await post("/orders/mine", N)).data.find((o) => o.id === p1.data.id);
+  check("propio: el cliente lo ve entregado", pm2 && pm2.status === "entregado", pm2);
+
+  // Su repartidor no puede: de "Lo entrego yo" a "Pedir chofer".
+  const p2 = await post("/orders", { ...N, business_id: bizId, items: [{ id: suero.id, n: 2 }], pay_method: "transferencia", receipt: JPG, delivery_offer: 20, ...dest });
+  await post(`/business/orders/${p2.data.id}/payment`, { ...O, received: true });
+  await post(`/business/orders/${p2.data.id}/accept`, { ...O, minutes: 5 });
+  await post(`/business/orders/${p2.data.id}/own-delivery`, O);
+  const switchDr = await post(`/business/orders/${p2.data.id}/request-driver`, O);
+  check("propio → pedir chofer", switchDr.status === 200 && switchDr.data.status === "enviado" && switchDr.data.ride, switchDr);
+  const ownAfterRide = await post(`/business/orders/${p2.data.id}/own-delivery`, O);
+  check("con chofer buscando ya no pasa a propio", ownAfterRide.status === 409, ownAfterRide);
+  await post(`/rides/${switchDr.data.ride.id}/cancel`, { riderPhone: N.phone, riderPin: N.pin, reason: "prueba" });
+
   // Negocio cerrado.
   await post("/business/open", { ...O, open: false });
   const closed = await post("/orders", { ...N, business_id: bizId, items: [{ id: para.id, n: 1 }], pay_method: "transferencia", receipt: JPG, delivery_offer: 17, ...dest });

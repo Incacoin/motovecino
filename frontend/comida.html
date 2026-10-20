@@ -220,7 +220,7 @@
   <div id="pharmaNote"></div>
   <div id="specialBox"></div>
   <div id="menu"></div>
-  <div class="note">🛵 Pides aquí y el negocio te confirma. <b>El pedido</b> lo pagas por transferencia o en efectivo, y <b>el envío</b> lo propones tú y se lo pagas al mototaxista al recibir.</div>
+  <div class="note">🛵 Pides aquí y el negocio te confirma. <b>El pedido</b> lo pagas por transferencia o en efectivo, y <b>el envío</b> lo propones tú y se lo pagas al repartidor al recibir.</div>
   <button class="bar" id="orderBar" onclick="openCheckout('catalogo')" disabled><span id="barLeft">Elige tus productos</span><span id="barRight"></span></button>
 </div>
 
@@ -617,6 +617,8 @@ const ORDER_STATUS = {
   nuevo: ["Esperando al negocio", "new"],
   aceptado: ["Preparando", "ok"],
   enviado: ["Con repartidor", "ok"],
+  propio: ["En camino", "ok"],
+  entregado: ["Entregado", "ok"],
   rechazado: ["Rechazado", "bad"],
   cancelado: ["Cancelado", ""],
 };
@@ -651,7 +653,7 @@ async function refreshOrders(silent) {
   await refreshChats();
   try { orders = await post("/orders/mine"); if (orders[0] && orders[0].server_now_ms) clockSkew = orders[0].server_now_ms - Date.now(); } catch { if (!silent) document.getElementById("ordersList").innerHTML = `<div class="empty">Sin conexión. Intenta de nuevo.</div>`; return; }
   const waiting = orders.some((o) => o.status === "por_aceptar_precio");
-  document.getElementById("mineDot").style.display = waiting || chats.some((c) => c.unread) || orders.some((o) => ["nuevo", "aceptado", "enviado", "cotizando"].includes(o.status)) ? "block" : "none";
+  document.getElementById("mineDot").style.display = waiting || chats.some((c) => c.unread) || orders.some((o) => ["nuevo", "aceptado", "enviado", "propio", "cotizando"].includes(o.status)) ? "block" : "none";
   if (document.getElementById("ordersScreen").classList.contains("active")) renderOrders();
 }
 function orderLines(o) {
@@ -709,6 +711,13 @@ function renderOrders() {
       body = `${RIDE_TXT[r.status] || "🛵 Buscando repartidor…"}${r.driver ? `<br>${escapeHtml(r.driver.name)}${r.driver.vehicle ? " · " + escapeHtml(r.driver.vehicle) : ""}` : ""}`;
       if (o.pay_method === "efectivo" && r.status !== "completado") body += `<div class="warn">💵 Ten listos <b>${money(o.total + (r.price || o.delivery_offer))}</b> para el repartidor.</div>`;
       if (r.share_token && !["completado", "cancelado"].includes(r.status)) btns = `<button class="g" onclick="trackRide(${r.id}, '${r.share_token}')">🗺️ Ver en el mapa y mi clave</button>`;
+    } else if (o.status === "propio") {
+      body = `📦 Tu pedido va en camino con el repartidor del negocio.`;
+      body += o.pay_method === "efectivo"
+        ? `<div class="warn">💵 Ten listos <b>${money(o.total + o.delivery_offer)}</b> (${total} del pedido + ${money(o.delivery_offer)} de envío) para el repartidor.</div>`
+        : `<div class="warn">💵 El envío (<b>${money(o.delivery_offer)}</b>) se lo pagas al repartidor al recibir.</div>`;
+    } else if (o.status === "entregado") {
+      body = `✅ Entregado`;
     } else if (o.status === "rechazado") {
       body = `El negocio no pudo atenderlo${o.reject_reason ? `: <i>“${escapeHtml(o.reject_reason)}”</i>` : "."}`;
     }
