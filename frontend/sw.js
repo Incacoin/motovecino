@@ -10,6 +10,25 @@ self.addEventListener("push", (event) => {
   // ya está en pantalla no se muestra, porque ahí ya lo está viendo.
   let msg = null;
   try { msg = event.data ? event.data.json() : null; } catch (e) {}
+  // Aviso al negocio (pedido nuevo, mensaje de un cliente). Si tiene "Mi
+  // negocio" en pantalla no se muestra: ahí ya le sonó.
+  if (msg && msg.kind === "negocio") {
+    event.waitUntil((async () => {
+      const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (wins.some((c) => c.visibilityState === "visible" && new URL(c.url).pathname.endsWith("/negocio.html"))) return;
+      await self.registration.showNotification(msg.title, {
+        body: msg.body,
+        icon: "icons/icon-192.png?v=2",
+        badge: "icons/icon-192.png?v=2",
+        tag: msg.tag,
+        renotify: true,
+        requireInteraction: true,
+        vibrate: [300, 120, 300, 120, 300],
+        data: { url: "/negocio.html" },
+      });
+    })());
+    return;
+  }
   if (msg && msg.kind === "rider") {
     event.waitUntil((async () => {
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

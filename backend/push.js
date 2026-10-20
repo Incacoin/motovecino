@@ -279,7 +279,49 @@ async function saveRiderSubscription(rideId, endpoint, p256dh, auth) {
   ).run(rideId, endpoint, p256dh, auth);
 }
 
+// ---- Avisos al negocio ("Nuevo pedido", "Te escribió un cliente") (20-oct) ----
+// Con la pantalla apagada la página no puede sonar (el navegador la duerme),
+// así que el aviso llega por push, cifrado igual que el del pasajero (trae el
+// nombre del cliente y lo que pidió). La suscripción es por celular: un
+// celular avisa a un solo negocio (el último que la activó ahí).
+async function sendToBusiness(sub, message) {
+  try {
+    const res = await fetch(sub.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: await vapidHeader(sub.endpoint),
+        TTL: "1800",
+        Urgency: "high",
+        "Content-Encoding": "aes128gcm",
+        "Content-Type": "application/octet-stream",
+      },
+      body: encryptPayload(sub.p256dh, sub.auth, JSON.stringify({ kind: "negocio", ...message })),
+    });
+    if (res.status === 404 || res.status === 410) {
+      await db.prepare("DELETE FROM business_push_subs WHERE id = ?").run(sub.id);
+    } else if (!res.ok) {
+      console.warn("[push] respuesta", res.status, "negocio", sub.business_id);
+    }
+  } catch (e) {
+    console.warn("[push] error", e.message);
+  }
+}
+async function notifyBusiness(businessId, message) {
+  const subs = await db.prepare("SELECT id, business_id, endpoint, p256dh, auth FROM business_push_subs WHERE business_id = ?").all(businessId);
+  await Promise.allSettled(subs.map((s) => sendToBusiness(s, message)));
+}
+async function saveBusinessSubscription(businessId, endpoint, p256dh, auth) {
+  await db.prepare(
+    `INSERT INTO business_push_subs (business_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET business_id = excluded.business_id, p256dh = excluded.p256dh, auth = excluded.auth`
+  ).run(businessId, endpoint, p256dh, auth);
+}
+async function removeBusinessSubscription(businessId, endpoint) {
+  await db.prepare("DELETE FROM business_push_subs WHERE business_id = ? AND endpoint = ?").run(businessId, endpoint);
+}
+
 module.exports = {
   getKeys, notifyNewRide, setWantsRides, saveSubscription, removeSubscription, isValidEndpoint,
   notifyRider, saveRiderSubscription, isValidRiderKeys, encryptPayload,
+  notifyBusiness, saveBusinessSubscription, removeBusinessSubscription,
 };

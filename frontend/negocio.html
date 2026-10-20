@@ -183,6 +183,11 @@
   .st.wait { background: #fef3c7; color: #b45309; }
   .st.ok { background: var(--green-bg); color: var(--green); }
   .okbox { margin-top: 9px; border-radius: 10px; padding: 10px 11px; background: var(--green-bg); color: var(--text); font-size: 13.5px; line-height: 1.45; }
+  .push-card { display: flex; gap: 12px; align-items: center; margin: 4px 0 14px; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--bg-card); }
+  .push-card .ico { width: 40px; height: 40px; border-radius: 50%; background: var(--text); color: var(--bg); display: grid; place-items: center; flex-shrink: 0; }
+  .push-card .txt { flex: 1; font-size: 13px; line-height: 1.4; color: var(--dim); }
+  .push-card .txt b { display: block; font-size: 14.5px; color: var(--text); margin-bottom: 2px; }
+  .push-card button { flex-shrink: 0; padding: 10px 14px; border-radius: 10px; border: 0; background: #22c55e; color: #04210f; font-weight: 800; font-size: 13.5px; cursor: pointer; }
   .warnbox { margin-top: 9px; border-radius: 10px; padding: 10px 11px; background: #fff7e0; border: 1px solid #f5d27a; color: #000; font-size: 13.5px; line-height: 1.45; }
   html[data-theme="dark"] .warnbox { background: #2a2410; border-color: #6b5a1d; color: #ffe9a8; }
   .mins { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -227,6 +232,7 @@
     <button class="tab" data-tab="perfil" onclick="setTab('perfil')">Perfil</button>
   </div>
   <div class="panel on" id="panel-pedidos">
+    <div id="pushCard" class="push-card" style="display:none"></div>
     <div id="chatList"></div>
     <div class="sec" id="ordTitle">Pedidos</div>
     <div class="list" id="ordList"><div class="empty">Cargando…</div></div>
@@ -243,8 +249,8 @@
   <div class="panel" id="panel-perfil">
     <div class="pf">
       <div class="cover" id="coverBox"><span id="coverHint">Foto de portada (tu local o un platillo)</span>
-        <button class="mini chg" onclick="pickPhoto('cover')">📷 Cambiar portada</button>
-        <div class="logo" id="logoBox" onclick="pickPhoto('logo')"><span id="logoHint">🏪</span><span class="chg-ico">📷</span></div>
+        <button class="mini chg" onclick="pickPhoto('cover')">Cambiar portada</button>
+        <div class="logo" id="logoBox" onclick="pickPhoto('logo')"><span id="logoHint" style="display:flex"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z"/><path d="M5 12.5V20h14v-7.5"/><path d="M10 20v-5h4v5"/></svg></span><span class="chg-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></span></div>
       </div>
       <div class="lab">Frase corta</div>
       <input id="pfTagline" maxlength="70" placeholder="Ej. Cochinita, panuchos y salbutes" />
@@ -264,16 +270,16 @@
       <div class="lab">Nombre del titular</div>
       <input id="pfHolder" maxlength="60" placeholder="Como aparece en el banco" />
       <div class="cat-h" style="margin:14px 0 0">Cómo recibes pedidos</div>
-      <label class="sw-row"><div><b>🗂️ Catálogo con precios</b><small>El cliente elige de tus productos.</small></div><span class="sw"><input type="checkbox" id="setCatalog"><span></span></span></label>
-      <label class="sw-row"><div><b>✍️ Pedido especial</b><small>El cliente escribe lo que necesita y tú le mandas el precio.</small></div><span class="sw"><input type="checkbox" id="setSpecial"><span></span></span></label>
+      <label class="sw-row"><div><b>Catálogo con precios</b><small>El cliente elige de tus productos.</small></div><span class="sw"><input type="checkbox" id="setCatalog"><span></span></span></label>
+      <label class="sw-row"><div><b>Pedido especial</b><small>El cliente escribe lo que necesita y tú le mandas el precio.</small></div><span class="sw"><input type="checkbox" id="setSpecial"><span></span></span></label>
       <div class="cat-h" style="margin:14px 0 0">Cómo te pagan</div>
-      <label class="sw-row"><div><b>💳 Transferencia</b><small id="setTransferHint">Necesitas poner tu CLABE o tarjeta arriba.</small></div><span class="sw"><input type="checkbox" id="setTransfer"><span></span></span></label>
-      <label class="sw-row"><div><b>💵 Efectivo al recibir</b><small>El repartidor te paga el pedido al recogerlo y se lo cobra al cliente.</small></div><span class="sw"><input type="checkbox" id="setCash" onchange="document.getElementById('capBox').style.display=this.checked?'':'none'"><span></span></span></label>
+      <label class="sw-row"><div><b>Transferencia</b><small id="setTransferHint">Necesitas poner tu CLABE o tarjeta arriba.</small></div><span class="sw"><input type="checkbox" id="setTransfer"><span></span></span></label>
+      <label class="sw-row"><div><b>Efectivo al recibir</b><small>El repartidor te paga el pedido al recogerlo y se lo cobra al cliente.</small></div><span class="sw"><input type="checkbox" id="setCash" onchange="document.getElementById('capBox').style.display=this.checked?'':'none'"><span></span></span></label>
       <div id="capBox"><div class="lab">Tope en efectivo por pedido</div>
         <select id="setCap"><option value="150">$150</option><option value="250">$250</option><option value="400">$400</option><option value="600">$600</option></select>
         <div class="note" style="margin-top:6px">Pedidos más grandes, solo por transferencia. El efectivo solo aparece a clientes que ya terminaron un viaje.</div></div>
       <div class="tip" id="pfStatus"></div>
-      <button class="b" onclick="previewPublic()">👀 Ver cómo lo ven mis clientes</button>
+      <button class="b" onclick="previewPublic()">Ver cómo lo ven mis clientes</button>
     </div>
     <button class="bigbtn" id="pfSaveBtn" onclick="saveProfile()">Guardar perfil</button>
   </div>
@@ -287,7 +293,7 @@
     <div class="grow"><div class="kick">MOTOVECINO · MI MENÚ</div><div class="title" id="itemTitle">Nuevo producto</div></div>
   </div>
   <div class="form">
-    <div class="photo-pick" id="itemPhoto" onclick="pickPhoto('item')">📷 Tomar o elegir foto</div>
+    <div class="photo-pick" id="itemPhoto" onclick="pickPhoto('item')">Tomar o elegir foto</div>
     <div class="lab">Nombre</div>
     <input id="itemName" maxlength="50" placeholder="Ej. Panuchos de cochinita (3)" />
     <div class="lab">Precio</div>
@@ -311,7 +317,7 @@
   <div id="mapBox"><div id="map"></div><div id="centerPin"><div class="lbl">Aquí se entrega</div><div class="dot"></div></div></div>
   <div class="form">
     <div class="lab">Recoger en</div>
-    <div class="from"><span>📍</span><div><b id="fromName"></b><small id="fromAddr"></small></div></div>
+    <div class="from"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg></span><div><b id="fromName"></b><small id="fromAddr"></small></div></div>
     <div class="lab">Entregar en</div>
     <div id="placeSearch"><div class="ps-field">
       <svg class="ps-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
@@ -326,7 +332,7 @@
     <div class="lab">WhatsApp del cliente (opcional)</div>
     <input id="clientPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 dígitos, para mandarle el seguimiento" autocomplete="off" />
     <div class="note">Solo se guarda en este celular, para abrir su WhatsApp al compartir.</div>
-    <div class="paid">ℹ️ Para pedidos que te llegaron por WhatsApp o teléfono. El chofer solo cobra el envío: <b>el pedido cóbralo tú</b>. (Los pedidos que llegan en la app se mandan desde la pestaña <b>Pedidos</b>.)</div>
+    <div class="paid">Para pedidos que te llegaron por WhatsApp o teléfono. El chofer solo cobra el envío: <b>el pedido cóbralo tú</b>. (Los pedidos que llegan en la app se mandan desde la pestaña <b>Pedidos</b>.)</div>
   </div>
   <button class="bigbtn" id="sendBtn" onclick="sendRide()">Buscar chofer</button>
 </div>
@@ -344,8 +350,8 @@
 <!-- Comprobante de transferencia -->
 <div class="overlay" id="rcpOverlay">
   <img id="rcpImg" alt="Comprobante" />
-  <div class="warnbox">⚠️ <b>Antes de confirmar, entra a tu app del banco</b> y revisa que de verdad te llegaron <b id="rcpAmt"></b>. Hay comprobantes falsos.</div>
-  <div class="btns"><button class="b" onclick="closeReceipt()">Cerrar</button><button class="b red" onclick="confirmPay(false)">No me ha llegado</button><button class="b green" onclick="confirmPay(true)">✅ Sí me llegó</button></div>
+  <div class="warnbox"><b>Antes de confirmar, entra a tu app del banco</b> y revisa que de verdad te llegaron <b id="rcpAmt"></b>. Hay comprobantes falsos.</div>
+  <div class="btns"><button class="b" onclick="closeReceipt()">Cerrar</button><button class="b red" onclick="confirmPay(false)">No me ha llegado</button><button class="b green" onclick="confirmPay(true)">Sí me llegó</button></div>
 </div>
 
 <script>
@@ -403,6 +409,7 @@ async function start() {
     loadProfile();
     await loadOrders();
     loadRides();
+    refreshBizPush(true);
     pollTimer = setInterval(() => {
       if (document.hidden || !document.getElementById("homeScreen").classList.contains("active")) return;
       loadOrders();
@@ -484,11 +491,67 @@ const ORD_ST = {
   aceptado: ["Preparando", "ok"], enviado: ["Con repartidor", "ok"], rechazado: ["Rechazado", ""], cancelado: ["Cancelado", ""],
   propio: ["Con tu repartidor", "ok"], entregado: ["Entregado", ""],
 };
-const RIDE_ST = { buscando: "🔎 Buscando chofer…", aceptado: "🛵 Va a tu negocio", llegue: "📍 Está en tu negocio", en_curso: "📦 En camino al cliente", completado: "✅ Entregado", cancelado: "Nadie lo tomó" };
+const RIDE_ST = { buscando: "Buscando chofer…", aceptado: "Va a tu negocio", llegue: "Está en tu negocio", en_curso: "En camino al cliente", completado: "Entregado", cancelado: "Nadie lo tomó" };
 function money(n) { return "$" + Number(n || 0).toLocaleString("es-MX"); }
 function ago(t) {
   const m = Math.max(0, Math.round((Date.now() - Date.parse(String(t).replace(" ", "T") + "Z")) / 60000));
   return m < 1 ? "ahorita" : m < 60 ? `hace ${m} min` : `hace ${Math.round(m / 60)} h`;
+}
+// ---------- Avisos con la pantalla apagada (20-oct, ver backend/push.js) ----------
+// Con el celular bloqueado la página no puede sonar; el aviso llega por push.
+function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+function isIphone() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
+function b64ToBytes(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+async function bizPushSub() {
+  if (!pushSupported()) return null;
+  return (await navigator.serviceWorker.ready).pushManager.getSubscription();
+}
+function sendBizSub(sub) {
+  const j = sub.toJSON();
+  return post("/business/push/subscribe", { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+}
+async function refreshBizPush(resync) {
+  const card = document.getElementById("pushCard");
+  let state = "unsupported";
+  if (pushSupported()) {
+    state = Notification.permission === "denied" ? "denied" : "off";
+    const sub = await bizPushSub().catch(() => null);
+    if (sub && Notification.permission === "granted") {
+      state = "on";
+      // Al abrir se vuelve a mandar: si el servidor la borró, se recupera sola.
+      if (resync) sendBizSub(sub).catch(() => {});
+    }
+  } else if (isIphone()) state = "iphone";
+  const texts = {
+    off: ["Activa los avisos de pedidos", "Te suena aunque tengas el celular bloqueado o la app cerrada.", "Activar"],
+    denied: ["Avisos bloqueados", "Actívalos: candado junto a la dirección → Permisos → Notificaciones → Permitir.", ""],
+    iphone: ["Avisos en iPhone", "Primero instala la app: Safari → Compartir → Agregar a pantalla de inicio. Luego ábrela desde el ícono.", ""],
+    unsupported: ["Avisos no disponibles", "Abre esta página en Chrome para que te suenen los pedidos con el celular bloqueado.", ""],
+  };
+  if (!texts[state]) { card.style.display = "none"; return; }
+  const [title, body, btn] = texts[state];
+  card.innerHTML = `<div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div><div class="txt"><b>${title}</b>${body}</div>${btn ? `<button onclick="enableBizPush()">${btn}</button>` : ""}`;
+  card.style.display = "flex";
+}
+async function enableBizPush() {
+  if (!pushSupported()) { refreshBizPush(); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { toast("Sin permiso no te podemos avisar"); refreshBizPush(); return; }
+  try {
+    const { publicKey } = await (await fetch(API + "/api/push/public-key")).json();
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) }));
+    await sendBizSub(sub);
+    toast("Avisos activados: te sonará cada pedido");
+  } catch (e) {
+    toast("No se pudieron activar los avisos, intenta de nuevo");
+  }
+  refreshBizPush();
 }
 function beep() {
   try {
@@ -558,7 +621,7 @@ async function loadOrders() {
   loadChats();
   if (orders[0] && orders[0].server_now_ms) clockSkew = orders[0].server_now_ms - Date.now();
   const fresh = orders.filter((o) => ["nuevo", "cotizando"].includes(o.status)).map((o) => o.id);
-  if (seenNew && fresh.some((id) => !seenNew.has(id))) { beep(); toast("🔔 ¡Te llegó un pedido!"); }
+  if (seenNew && fresh.some((id) => !seenNew.has(id))) { beep(); toast("¡Te llegó un pedido!"); }
   seenNew = new Set(fresh);
   const cnt = document.getElementById("ordCnt");
   cnt.textContent = fresh.length; cnt.style.display = fresh.length ? "" : "none";
@@ -578,13 +641,13 @@ function tickCountdowns() {
     const id = el.dataset.id;
     el.classList.toggle("soon", left > 0 && left <= 5 * 60000);
     el.classList.toggle("late", left <= 0);
-    if (left > 5 * 60000) el.innerHTML = `<span>⏱️ Listo en</span><b>${fmtLeft(left)}</b>`;
-    else if (left > 0) el.innerHTML = `<span>⏰ ¡Pide tu chofer ahora!</span><b>${fmtLeft(left)}</b>`;
-    else el.innerHTML = `<span>⚠️ Ya pasó el tiempo que prometiste</span><b>+${fmtLeft(left)}</b>`;
+    if (left > 5 * 60000) el.innerHTML = `<span>Listo en</span><b>${fmtLeft(left)}</b>`;
+    else if (left > 0) el.innerHTML = `<span>¡Pide tu chofer ahora!</span><b>${fmtLeft(left)}</b>`;
+    else el.innerHTML = `<span>Ya pasó el tiempo que prometiste</span><b>+${fmtLeft(left)}</b>`;
     if (left <= 5 * 60000 && !alarmed.has(id)) {
       alarmed.add(id);
       beep();
-      toast("⏰ Faltan 5 min: pide tu chofer");
+      toast("Faltan 5 min: pide tu chofer");
     }
   });
 }
@@ -596,10 +659,10 @@ function orderLines(o) {
     `<div class="tot"><span>Total del pedido</span><span>${money(o.total)}</span></div>`;
 }
 function payLine(o) {
-  if (o.pay_method === "efectivo") return `<div class="warnbox">💵 <b>Efectivo:</b> el repartidor te paga <b>${money(o.total)}</b> al recoger el pedido.</div>`;
+  if (o.pay_method === "efectivo") return `<div class="warnbox"><b>Efectivo:</b> el repartidor te paga <b>${money(o.total)}</b> al recoger el pedido.</div>`;
   if (o.pay_method === "transferencia") {
-    if (o.paid_confirmed) return `<div class="okbox">💳 Pagado por transferencia · el repartidor no te paga nada.</div>`;
-    return `<div class="okbox">💳 Pagó por <b>transferencia</b> · subió comprobante${o.payment_problem ? " · ⚠️ marcaste que no te ha llegado" : ""}</div>`;
+    if (o.paid_confirmed) return `<div class="okbox">Pagado por transferencia · el repartidor no te paga nada.</div>`;
+    return `<div class="okbox">Pagó por <b>transferencia</b> · subió comprobante${o.payment_problem ? " · marcaste que no te ha llegado" : ""}</div>`;
   }
   return "";
 }
@@ -625,9 +688,9 @@ function renderOrders() {
     } else if (o.status === "nuevo" && o.pay_method === "transferencia" && !o.paid_confirmed) {
       // Primero el pago: no se acepta ni arranca el cronómetro sin confirmar.
       body = payLine(o) + (o.payment_problem
-        ? `<div class="note" style="margin-top:8px">⏳ Le avisamos al cliente que no te ha llegado. Espera su nuevo comprobante.</div>`
+        ? `<div class="note" style="margin-top:8px">Le avisamos al cliente que no te ha llegado. Espera su nuevo comprobante.</div>`
         : `<div class="note" style="margin-top:8px">Paso 1: revisa que te llegó el dinero. Después eliges en cuánto está listo.</div>`);
-      acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="openReceipt(${o.id})">📎 Revisar el pago</button>`;
+      acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="openReceipt(${o.id})">Revisar el pago</button>`;
     } else if (o.status === "nuevo") {
       const sel = pickMin[o.id] || 20;
       body = payLine(o) + `<div class="lab" style="margin:10px 0 0">¿En cuánto está listo?</div>
@@ -635,27 +698,27 @@ function renderOrders() {
       acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="acceptOrder(${o.id})">Aceptar · arranca el cronómetro</button>`;
     } else if (o.status === "aceptado") {
       body = payLine(o) + (o.ready_at_ms ? `<div class="cd" data-ready="${o.ready_at_ms}" data-id="${o.id}"></div>` : "") +
-        `<div class="note" style="margin-top:8px">💡 Pide el chofer unos 5 min antes de que esté listo, o llévalo con tu propio repartidor. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
-      acts = `<button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer</button>`;
+        `<div class="note" style="margin-top:8px">Pide el chofer unos 5 min antes de que esté listo, o llévalo con tu propio repartidor. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
+      acts = `<button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">Pedir chofer</button>`;
     } else if (o.status === "propio") {
       const cobrar = o.pay_method === "efectivo" ? o.total + o.delivery_offer : o.delivery_offer;
-      body = `<div class="okbox">📦 Lo lleva <b>tu repartidor</b> a ${escapeHtml(o.dest_label || "la dirección del cliente")}.</div>` +
-        `<div class="warnbox" style="margin-top:8px">💵 Tu repartidor le cobra al cliente <b>${money(cobrar)}</b>${o.pay_method === "efectivo" ? ` (${money(o.total)} del pedido + ${money(o.delivery_offer)} de envío)` : " de envío (el pedido ya está pagado)"}.</div>`;
-      acts = `<button class="b" onclick="requestDriver(${o.id})">Mejor pedir chofer</button><button class="b green" onclick="markDelivered(${o.id})">✅ Ya se entregó</button>`;
+      body = `<div class="okbox">Lo lleva <b>tu repartidor</b> a ${escapeHtml(o.dest_label || "la dirección del cliente")}.</div>` +
+        `<div class="warnbox" style="margin-top:8px">Tu repartidor le cobra al cliente <b>${money(cobrar)}</b>${o.pay_method === "efectivo" ? ` (${money(o.total)} del pedido + ${money(o.delivery_offer)} de envío)` : " de envío (el pedido ya está pagado)"}.</div>`;
+      acts = `<button class="b" onclick="requestDriver(${o.id})">Mejor pedir chofer</button><button class="b green" onclick="markDelivered(${o.id})">Ya se entregó</button>`;
     } else if (o.status === "enviado") {
       const r = o.ride || {};
-      body = payLine(o) + `<div class="okbox">${RIDE_ST[r.status] || "🛵"}${r.driver ? ` · <b>${escapeHtml(r.driver.name)}</b>${r.driver.vehicle ? " · " + escapeHtml(r.driver.vehicle) : ""}` : ""}${r.price ? ` · envío ${money(r.price)}` : ""}</div>`;
-      if (r.status === "cancelado") acts = `<button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">🛵 Pedir chofer otra vez</button>`;
+      body = payLine(o) + `<div class="okbox">${RIDE_ST[r.status] || "Buscando chofer…"}${r.driver ? ` · <b>${escapeHtml(r.driver.name)}</b>${r.driver.vehicle ? " · " + escapeHtml(r.driver.vehicle) : ""}` : ""}${r.price ? ` · envío ${money(r.price)}` : ""}</div>`;
+      if (r.status === "cancelado") acts = `<button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">Pedir chofer otra vez</button>`;
     } else if (o.status === "entregado") {
-      body = `<div class="okbox">✅ Entregado por tu repartidor.</div>`;
+      body = `<div class="okbox">Entregado por tu repartidor.</div>`;
     } else if (o.status === "rechazado") {
       body = o.reject_reason ? `<div class="note" style="margin-top:6px">Motivo: ${escapeHtml(o.reject_reason)}</div>` : "";
     }
     const hot = ["nuevo", "cotizando"].includes(o.status);
     const done = ["rechazado", "cancelado", "entregado"].includes(o.status) || (o.ride && o.ride.status === "completado");
     return `<div class="ord ${hot ? "hot" : ""} ${done ? "done" : ""}">
-      <div class="hd"><div><div class="ttl">#${o.id} · ${escapeHtml(who)}</div><div class="when">${escapeHtml(o.dest_label || "")}${o.big ? " · 📦📦 grande" : ""} · ${ago(o.created_at)}</div></div><span class="st ${cls}">${label}</span></div>
-      <div class="lines">${orderLines(o)}</div>${o.client_note ? `<div class="cnote">📝 <b>Nota del cliente:</b> ${escapeHtml(o.client_note)}</div>` : ""}${body}
+      <div class="hd"><div><div class="ttl">#${o.id} · ${escapeHtml(who)}</div><div class="when">${escapeHtml(o.dest_label || "")}${o.big ? " · grande" : ""} · ${ago(o.created_at)}</div></div><span class="st ${cls}">${label}</span></div>
+      <div class="lines">${orderLines(o)}</div>${o.client_note ? `<div class="cnote"><b>Nota del cliente:</b> ${escapeHtml(o.client_note)}</div>` : ""}${body}
       <div class="btns">${o.client && o.client.id ? `<button class="b chat" onclick="openChat(${o.client.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1.3-4.6A8 8 0 1 1 21 12z"/></svg>Mensajes${o.chat_unread ? `<span class="cbadge">${o.chat_unread}</span>` : ""}</button>` : ""}${acts}</div>
     </div>`;
   }).join("");
@@ -669,19 +732,19 @@ async function orderAction(id, path, body, okMsg) {
 function sendQuote(id) {
   const total = Number(document.getElementById("qt" + id).value);
   if (!(total > 0)) { toast("Escribe el total"); return; }
-  orderAction(id, "quote", { total, note: document.getElementById("qn" + id).value.trim() }, "Precio enviado al cliente ✅");
+  orderAction(id, "quote", { total, note: document.getElementById("qn" + id).value.trim() }, "Precio enviado al cliente");
 }
-function acceptOrder(id) { orderAction(id, "accept", { minutes: pickMin[id] || 20 }, "Pedido aceptado ✅ El cronómetro ya corre"); }
+function acceptOrder(id) { orderAction(id, "accept", { minutes: pickMin[id] || 20 }, "Pedido aceptado El cronómetro ya corre"); }
 function rejectOrder(id) {
   const reason = prompt("¿Por qué no puedes atenderlo? (el cliente lo verá)", "Se acabó / no lo tengo");
   if (reason === null) return;
   orderAction(id, "reject", { reason }, "Pedido rechazado");
 }
-function requestDriver(id) { orderAction(id, "request-driver", {}, "Listo, buscando chofer 🛵"); }
-function ownDelivery(id) { orderAction(id, "own-delivery", {}, "Listo: lo lleva tu repartidor 📦"); }
+function requestDriver(id) { orderAction(id, "request-driver", {}, "Listo, buscando chofer"); }
+function ownDelivery(id) { orderAction(id, "own-delivery", {}, "Listo: lo lleva tu repartidor"); }
 function markDelivered(id) {
   if (!confirm("¿Tu repartidor ya entregó el pedido?")) return;
-  orderAction(id, "delivered", {}, "Pedido entregado ✅");
+  orderAction(id, "delivered", {}, "Pedido entregado");
 }
 async function openReceipt(id) {
   rcpOrder = orders.find((o) => o.id === id);
@@ -695,7 +758,7 @@ async function openReceipt(id) {
 function closeReceipt() { document.getElementById("rcpOverlay").classList.remove("open"); }
 async function confirmPay(received) {
   closeReceipt();
-  await orderAction(rcpOrder.id, "payment", { received }, received ? "Pago confirmado ✅ Ahora elige en cuánto está listo" : "Le avisamos al cliente que no te ha llegado");
+  await orderAction(rcpOrder.id, "payment", { received }, received ? "Pago confirmado Ahora elige en cuánto está listo" : "Le avisamos al cliente que no te ha llegado");
 }
 
 // --- Pedir chofer ---
@@ -776,7 +839,7 @@ async function sendRide() {
       client_name: clientName, order_note: document.getElementById("orderNote").value.trim(),
     });
     if (phone) savePhone(r.id, phone);
-    toast("Listo, buscando chofer 🛵");
+    toast("Listo, buscando chofer");
     showHome();
   } catch (e) {
     toast(e.message);
@@ -894,9 +957,9 @@ function renderProfilePhotos() {
 function renderProfileStatus() {
   const items = menu.filter((i) => i.available).length;
   const ready = items || biz.special;
-  const noPay = biz.pay_account ? "" : "<br>💳 Te recomendamos poner tus datos para que te paguen por transferencia.";
+  const noPay = biz.pay_account ? "" : "<br>Te recomendamos poner tus datos para que te paguen por transferencia.";
   document.getElementById("pfStatus").innerHTML = (ready
-    ? `✅ Tu negocio está listo para aparecer en <b>Negocios</b>${items ? ` con ${items} producto${items === 1 ? "" : "s"}` : " con pedido especial"}.`
+    ? `Tu negocio está listo para aparecer en <b>Negocios</b>${items ? ` con ${items} producto${items === 1 ? "" : "s"}` : " con pedido especial"}.`
     : `Para aparecer en <b>Negocios</b> te falta: al menos un producto o prender <b>Pedido especial</b>.`) + noPay;
 }
 async function saveProfile() {
@@ -928,7 +991,7 @@ async function saveProfile() {
     });
     Object.assign(biz, { catalog: st.catalog, special: st.special, accepts_transfer: st.transfer, accepts_cash: st.cash, cash_cap: st.cash_cap });
     fillProfile();
-    toast("Perfil guardado ✅");
+    toast("Perfil guardado");
   } catch (e) { toast(e.message); }
   finally { btn.disabled = false; btn.textContent = "Guardar perfil"; }
 }
@@ -947,7 +1010,7 @@ function renderMenu() {
   for (const i of menu) (groups[i.category || "Otros"] = groups[i.category || "Otros"] || []).push(i);
   el.innerHTML = Object.entries(groups).map(([cat, items]) => `<div class="cat-h">${escapeHtml(cat)}</div>` + items.map((i) => `
     <div class="item ${i.available ? "" : "off"}">
-      <div class="ph" style="${i.photo ? `background-image:url('${i.photo}')` : ""}">${i.photo ? "" : "🍽️"}</div>
+      <div class="ph" style="${i.photo ? `background-image:url('${i.photo}')` : ""}">${i.photo ? "" : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/></svg>'}</div>
       <div class="info"><div class="nm">${escapeHtml(i.name)}</div>${i.description ? `<div class="ds">${escapeHtml(i.description)}</div>` : ""}<div class="pr">$${i.price}</div></div>
       <div class="acts">
         <button class="mini ${i.available ? "ok" : "no"}" onclick="toggleItem(${i.id}, ${i.available ? 0 : 1})">${i.available ? "Disponible" : "Agotado"}</button>
@@ -998,7 +1061,7 @@ async function saveItem() {
     menu = d.menu;
     renderMenu();
     closeItem();
-    toast("Producto guardado ✅");
+    toast("Producto guardado");
   } catch (e) { toast(e.message); }
   finally { btn.disabled = false; btn.textContent = "Guardar producto"; }
 }

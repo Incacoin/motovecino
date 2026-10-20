@@ -20,6 +20,7 @@ const realtime = require("../realtime");
 const { getCityById } = require("../cities");
 const { cityMinOffer } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
+const push = require("../push");
 
 const router = express.Router();
 
@@ -102,6 +103,14 @@ function validReceipt(r) {
 function parseItems(o) {
   try { return JSON.parse(o.items || "[]"); } catch { return []; }
 }
+
+// Aviso al celular del negocio (le suena aunque tenga la pantalla apagada).
+// Nunca detiene la respuesta al cliente si el aviso falla.
+function tellBusiness(businessId, tag, title, body) {
+  push.notifyBusiness(businessId, { tag, title, body: String(body || "").slice(0, 140) })
+    .catch((e) => console.warn("[push] negocio:", e.message));
+}
+const firstName = (name) => String(name || "").trim().split(/s+/)[0] || "Un cliente";
 
 function summary(o) {
   if (o.kind === "especial") return clean(o.special_text, 80).replace(/\s*\n\s*/g, ", ");
@@ -240,6 +249,9 @@ router.post("/orders", async (req, res) => {
     offer, destLat, destLng, clean(req.body.dest_label) || null, status, clean(req.body.client_note, 140) || null
   );
   const o = await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(r.lastInsertRowid);
+  tellBusiness(b.id, `pedido-${o.id}`,
+    kind === "especial" ? `${firstName(rider.name)} te pide precio` : `Nuevo pedido de ${firstName(rider.name)}`,
+    `#${o.id} · ${summary(o)}`);
   res.status(201).json(await publicOrder(o, "client"));
 });
 
@@ -281,6 +293,7 @@ router.post("/orders/:id/accept-price", async (req, res) => {
     `UPDATE business_orders SET status = ?, pay_method = ?, receipt = ?, receipt_at = ?, updated_at = datetime('now') WHERE id = ? AND status = ?`
   ).run(S.NUEVO, payMethod, receipt, receipt ? new Date().toISOString() : null, o.id, S.POR_ACEPTAR);
   if (!r.changes) return res.status(409).json({ error: "Este pedido ya cambió" });
+  tellBusiness(o.business_id, `pedido-${o.id}`, `${firstName(rider.name)} aceptó tu precio`, `#${o.id} · Ya puedes aceptar el pedido`);
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "client"));
 });
 
@@ -295,6 +308,7 @@ router.post("/orders/:id/receipt", async (req, res) => {
   if (!validReceipt(req.body.receipt)) return res.status(400).json({ error: "La foto no es válida" });
   await db.prepare("UPDATE business_orders SET receipt = ?, receipt_at = ?, payment_problem_at = NULL, updated_at = datetime('now') WHERE id = ?")
     .run(req.body.receipt, new Date().toISOString(), o.id);
+  tellBusiness(o.business_id, `pedido-${o.id}`, "Nuevo comprobante de pago", `#${o.id} · Revisa que te haya llegado`);
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "client"));
 });
 
@@ -306,6 +320,7 @@ router.post("/orders/:id/cancel", async (req, res) => {
     `UPDATE business_orders SET status = ?, updated_at = datetime('now') WHERE id = ? AND status IN (${OPEN_FOR_CLIENT_CANCEL.map(() => "?").join(", ")})`
   ).run(S.CANCELADO, o.id, ...OPEN_FOR_CLIENT_CANCEL);
   if (!r.changes) return res.status(409).json({ error: "El negocio ya aceptó tu pedido: escríbele si necesitas cambiar algo" });
+  tellBusiness(o.business_id, `pedido-${o.id}`, "Pedido cancelado", `El cliente canceló el pedido #${o.id}`);
   res.json({ ok: true });
 });
 
@@ -466,6 +481,25 @@ router.post("/business/orders/:id/delivered", async (req, res) => {
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(got.o.id), "business"));
 });
 
+// Avisos al celular del negocio (20-oct). La llave pública sale de
+// GET /push/public-key (la misma de choferes y pasajeros).
+router.post("/business/push/subscribe", async (req, res) => {
+  const b = await authOwner(req, res);
+  if (!b) return;
+  const { endpoint, p256dh, auth } = req.body || {};
+  if (!push.isValidEndpoint(endpoint) || !push.isValidRiderKeys(p256dh, auth)) {
+    return res.status(400).json({ error: "Suscripción no válida" });
+  }
+  await push.saveBusinessSubscription(b.id, endpoint, p256dh, auth);
+  res.json({ ok: true });
+});
+router.post("/business/push/unsubscribe", async (req, res) => {
+  const b = await authOwner(req, res);
+  if (!b) return;
+  if (typeof req.body.endpoint === "string") await push.removeBusinessSubscription(b.id, req.body.endpoint);
+  res.json({ ok: true });
+});
+
 // Formas de pago y de pedido que acepta el negocio (su perfil).
 router.post("/business/orders/settings", async (req, res) => {
   const b = await authOwner(req, res);
@@ -524,6 +558,8 @@ router.post("/orders/chat/:bid", async (req, res) => {
   if (!b) return res.status(404).json({ error: "Negocio no encontrado" });
   const messages = await chatExchange(req, res, b.id, rider.id, "cliente");
   if (!messages) return;
+  const text = clean(req.body.text, CHAT_MAX);
+  if (text) tellBusiness(b.id, `chat-${rider.id}`, `Te escribió ${firstName(rider.name)}`, text);
   res.json({ business: { id: b.id, name: b.name, whatsapp: b.whatsapp || null }, messages });
 });
 // Cliente: sus conversaciones con mensajes nuevos (para el puntito rojo).
