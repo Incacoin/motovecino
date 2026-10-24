@@ -283,7 +283,7 @@ async function start() {
   // (Tekax) para que el dueño se entere — ver pinRateLimit.js.
   setOnAccountLocked(({ account, ip }) => {
     db.prepare("INSERT INTO admin_audit (role, zone, action, target_id, detail, ip, ok) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(null, null, "cuenta_bloqueada", null, account, ip || null, 0)
+      .run(null, null, "cuenta_bloqueada", null, account.replace(/^tel:/, "Teléfono ").replace(/^chofer:/, "Chofer #"), ip || null, 0)
       .catch((err) => console.error("[cuenta_bloqueada]", err));
   });
 

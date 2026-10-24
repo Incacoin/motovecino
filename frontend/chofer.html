@@ -3637,6 +3637,7 @@ async function refreshTodayEarnings() {
     });
     if (!res.ok) return;
     const p = await res.json();
+    checkBankChange(p.bankChangedAt);
     if (!p.earnings) return;
     setEarnPill(p.earnings.today.total);
   } catch (e) {}
@@ -3772,6 +3773,26 @@ function renderBankAccount(acc) {
   renderRideList();
 }
 
+// 23-oct-2026: si la cuenta para anticipos cambió desde OTRO celular en los
+// últimos 7 días, se avisa una vez (si alguien le adivinó el PIN y puso su
+// propia cuenta, el chofer se entera). Los cambios hechos aquí ya se marcan
+// como vistos al guardar.
+const BANK_SEEN_KEY = "mv_cuenta_anticipos_visto";
+function markBankChangeSeen(at) {
+  try { if (at) localStorage.setItem(BANK_SEEN_KEY, at); } catch (e) {}
+}
+function checkBankChange(at) {
+  if (!at) return;
+  let seen = null;
+  try { seen = localStorage.getItem(BANK_SEEN_KEY); } catch (e) {}
+  if (seen === at) return;
+  markBankChangeSeen(at);
+  const when = new Date(at.replace(" ", "T") + "Z");
+  if (!(Date.now() - when.getTime() < 7 * 24 * 3600 * 1000)) return;
+  const fecha = when.toLocaleString("es-MX", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  mvConfirm(`Tu cuenta para recibir anticipos se cambió (${fecha}). Si no fuiste tú, avisa a soporte y cierra sesión.`, "Entendido");
+}
+
 async function postBankAccount(body, okText) {
   const msg = document.getElementById("bankMsg");
   msg.style.color = "var(--text-dim)";
@@ -3784,6 +3805,7 @@ async function postBankAccount(body, okText) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || "No se pudo guardar");
+    markBankChangeSeen(data.changedAt);
     renderBankAccount(data.bankAccount);
     msg.style.color = "var(--success)";
     msg.textContent = okText;

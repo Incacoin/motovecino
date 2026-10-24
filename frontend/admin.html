@@ -1297,6 +1297,7 @@ const AUDIT_LABELS = {
   "/admin/login": "Entró al admin",
   login_fallido: "Intento de entrada con PIN equivocado",
   cuenta_bloqueada: "Cuenta bloqueada 30 min por muchos PIN equivocados",
+  cuenta_bancaria_chofer: "Un chofer cambió su cuenta para anticipos",
   passkey_login: "Entró al admin con huella",
   passkey_fallida: "Intento de entrada con huella que no pasó",
   otp_limite_numero: "Un número pidió demasiados códigos hoy (se frenó)",
@@ -1328,7 +1329,7 @@ const AUDIT_LABELS = {
   "/admin/businesses/save": "Guardó un negocio",
   "/admin/businesses/:id/active": "Activó/desactivó un negocio",
 };
-const ROLE_LABELS = { tekax: "Dueño", progreso: "Daniel (Progreso)", ticul: "Ticul" };
+const ROLE_LABELS = { chofer: "Chofer", tekax: "Dueño", progreso: "Daniel (Progreso)", ticul: "Ticul" };
 
 // Solo lo que le sirve a una persona; lo técnico (lat, lng, casillas) no se enseña.
 const AUDIT_FIELDS = { device: "", name: "", phone: "Tel.", ip: "Conexión", vehicleType: "", amount: "$", address: "", whatsapp: "WhatsApp", enabled: "", esPrueba: "", active: "" };
@@ -1346,7 +1347,11 @@ function auditDetailText(raw) {
         return AUDIT_FIELDS[k] ? `${AUDIT_FIELDS[k]} ${v}` : v;
       })
       .join(" · ");
-  } catch { return ""; }
+  } catch {
+    // Avisos del servidor (cuenta bloqueada, cuenta bancaria de un chofer)
+    // ya vienen escritos como texto.
+    return String(raw);
+  }
 }
 
 async function loadAudit() {

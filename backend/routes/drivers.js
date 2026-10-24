@@ -255,7 +255,7 @@ router.post("/drivers/profile", async (req, res) => {
   const driver = await db
     .prepare(
       `SELECT id, name, phone, vehicle, vehicle_type, grupo, photo, tipo, pin, created_at,
-              paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, city
+              paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, deposit_changed_at, city
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
     .get(phone, pin);
@@ -360,6 +360,7 @@ router.post("/drivers/profile", async (req, res) => {
     bankAccount: driver.deposit_account
       ? { bank: driver.deposit_bank, account: driver.deposit_account, holder: driver.deposit_holder }
       : null,
+    bankChangedAt: driver.deposit_changed_at || null,
     deposits: { ...depositTotals, recent: recentDeposits },
     earnings: await earningsSummary(db, driver.id),
     invite: {
@@ -393,7 +394,7 @@ router.post("/drivers/bank-account", async (req, res) => {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
   const driver = await db
-    .prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
+    .prepare("SELECT id, name, city, deposit_bank, deposit_account FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
     .get(phone, pin);
   if (!driver) {
     recordFailedAttempt(req.ip, req.body);
@@ -403,7 +404,8 @@ router.post("/drivers/bank-account", async (req, res) => {
 
   if (!String(account ?? "").trim()) {
     await db.prepare("UPDATE drivers SET deposit_bank = NULL, deposit_account = NULL, deposit_holder = NULL WHERE id = ?").run(driver.id);
-    return res.json({ ok: true, bankAccount: null });
+    const changedAt = await bankChanged(driver, null, null, req.ip);
+    return res.json({ ok: true, bankAccount: null, changedAt });
   }
 
   const normalized = normalizeAccount(account);
@@ -416,8 +418,29 @@ router.post("/drivers/bank-account", async (req, res) => {
   await db.prepare("UPDATE drivers SET deposit_bank = ?, deposit_account = ?, deposit_holder = ? WHERE id = ?").run(
     cleanBank, normalized.account, cleanHolder, driver.id
   );
-  res.json({ ok: true, bankAccount: { bank: cleanBank, account: normalized.account, holder: cleanHolder } });
+  const changedAt = await bankChanged(driver, cleanBank, normalized.account, req.ip);
+  res.json({ ok: true, bankAccount: { bank: cleanBank, account: normalized.account, holder: cleanHolder }, changedAt });
 });
+
+// 23-oct-2026: a esta cuenta le depositan los pasajeros, así que si cambia
+// (o se quita) queda en el registro del admin de su zona y la app del
+// chofer se lo avisa la próxima vez que la abra en OTRO celular — si alguien
+// le adivinó el PIN y puso su propia cuenta, se nota rápido. Solo los
+// últimos 4 dígitos van al registro. Regresa la fecha del cambio (o la
+// anterior si en realidad no cambió nada).
+async function bankChanged(driver, newBank, newAccount, ip) {
+  const tail = (a) => (a ? "••" + String(a).slice(-4) : "sin cuenta");
+  if ((driver.deposit_account || null) === (newAccount || null) && (driver.deposit_bank || null) === (newBank || null)) {
+    const row = await db.prepare("SELECT deposit_changed_at FROM drivers WHERE id = ?").get(driver.id);
+    return row ? row.deposit_changed_at : null;
+  }
+  await db.prepare("UPDATE drivers SET deposit_changed_at = datetime('now') WHERE id = ?").run(driver.id);
+  const detail = `${driver.name}: ${driver.deposit_bank || ""} ${tail(driver.deposit_account)} → ${newBank || ""} ${tail(newAccount)}`.replace(/\s+/g, " ").trim();
+  await db.prepare("INSERT INTO admin_audit (role, zone, action, target_id, detail, ip, ok) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run("chofer", driver.city || null, "cuenta_bancaria_chofer", driver.id, detail.slice(0, 400), ip || null, 1);
+  const row = await db.prepare("SELECT deposit_changed_at FROM drivers WHERE id = ?").get(driver.id);
+  return row ? row.deposit_changed_at : null;
+}
 
 // La foto es lo único que el chofer puede cambiar de su propio perfil.
 // Nombre, placa, agrupación y tipo de vehículo los avaló su líder y solo se

@@ -509,6 +509,8 @@ ALTER TABLE riders ADD COLUMN IF NOT EXISTS play_opens INTEGER NOT NULL DEFAULT 
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS play_first_open TEXT;
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS play_last_open TEXT;
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS play_opens INTEGER NOT NULL DEFAULT 0;
+-- 23-oct-2026: cuándo cambió por última vez la cuenta para anticipos (aviso al chofer).
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS deposit_changed_at TEXT;
 -- Clave de entrega (10-oct-2026): solo domicilios pedidos desde la app. El
 -- cliente la ve y se la da al chofer al recibir; el chofer no la puede ver.
 ALTER TABLE rides ADD COLUMN IF NOT EXISTS delivery_code TEXT;
