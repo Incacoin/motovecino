@@ -65,7 +65,7 @@ function toggleRiderTheme() {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="vehiculos-mapa.js?v=3"></script>
 <script src="buscador.js?v=4"></script>
-<script src="huella.js?v=1"></script>
+<script src="huella.js?v=2"></script>
 <style>
   .screen { display: none; flex-direction: column; height: 100vh; overflow-y: auto; }
   .screen.active { display: flex; }
@@ -901,6 +901,8 @@ function toggleRiderTheme() {
   .wb-hello { font-size: 20px; font-weight: 600; text-align: center; color: var(--text); }
   .wb-phone { font-size: 14px; text-align: center; color: var(--text-dim); margin-top: 2px; letter-spacing: .04em; }
   #form .entry-card .btn.wb-outline, #login .entry-card .btn.wb-outline, .wb-outline { background: transparent !important; background-image: none !important; color: var(--text) !important; border: 1.5px solid var(--border) !important; box-shadow: none !important; }
+  .wb-tip { font-size: 13px; line-height: 1.4; text-align: center; color: var(--text-dim); padding: 0 6px; }
+  #form.wb.wb-code .wb-tip { display: none !important; }
   .wb-other { background: none; border: none; color: var(--text-dim); font-size: 14px; text-decoration: underline; cursor: pointer; padding: 6px; font-family: inherit; }
   /* ===== Rediseño 14-oct: sin emojis, íconos de línea y espacios más finos ===== */
   .ic-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
@@ -1048,10 +1050,10 @@ function toggleRiderTheme() {
     <button class="btn-sm" id="otpResendBtn" onclick="resendOtp()" disabled>Reenviar código</button>
     <button class="btn-sm" id="otpCallBtn" onclick="resendOtp(true)" disabled><svg class="li" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg> Recibir llamada</button>
     <button class="btn-sm" onclick="otpHelp()">¿No te llegó? Escríbenos</button>
-    <button class="btn-sm" id="pinLoginBtn" style="display:none;" onclick="pinLoginInstead()">Entrar con mi PIN</button>
   </div>
   <button class="btn wb-cont" onclick="goToMap()">Continuar</button>
   <button class="btn btn-secondary wb-hide" id="huellaLoginBtn" style="display:none;" onclick="riderHuellaLogin()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:8px;"><path d="M12 11v3a8 8 0 0 1-1.5 4.7"/><path d="M8.5 7.5A5 5 0 0 1 17 11v2"/><path d="M7 11v1a12 12 0 0 1-1 4.5"/><path d="M12 3a8 8 0 0 1 8 8v1"/><path d="M4 11a8 8 0 0 1 2.3-5.6"/><path d="M16 15a14 14 0 0 1-1 5"/></svg>Entrar con mi huella</button>
+  <div class="wb-tip wb-only" id="wbHuellaTip" style="display:none;">Activa tu huella en Mi cuenta y la próxima vez entras sin esperar código.</div>
   <button class="wb-other wb-only" onclick="wbOtherNumber()">¿No eres tú? Usar otro número</button>
   <div class="entry-legal">Al continuar aceptas nuestro <a href="aviso-privacidad.html">Aviso de privacidad</a>.</div>
   </div>
@@ -1133,7 +1135,7 @@ function toggleRiderTheme() {
     <button class="account-card" onclick="toggleAccountSection('pin', this)">
       <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3 20 3"/><path d="m16 7 3 3"/><path d="m18 5 2 2"/></svg></span>
       <span class="account-card-label">Mi acceso</span>
-      <small class="acc-tile-sub" id="tileAccess">Huella y PIN</small>
+      <small class="acc-tile-sub" id="tileAccess">Huella</small>
     </button>
     <button class="account-card" onclick="toggleAccountSection('home', this)">
       <span class="account-card-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg></span>
@@ -1218,7 +1220,6 @@ function toggleRiderTheme() {
     <button class="drawer-row" id="bizRow" style="display:none" onclick="location.href='negocio.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span>Mi negocio</button>
     <button class="drawer-row" onclick="openHistory()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Mis viajes</button>
     <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></span>Modo chofer</button>
-    <button class="drawer-row danger" onclick="logoutRider()"><span class="row-icon" style="color:#ef4444"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>Cerrar sesión</button>
   </div>
 </div>
 
@@ -2617,6 +2618,7 @@ function showWelcomeBack() {
   document.getElementById("wbPhone").textContent = (pe ? "+51 " : "") + digits.slice(0, 3) + " ••• " + digits.slice(-4);
   const huella = MVHuella.supported() && !!MVHuella.savedId("rider");
   document.getElementById("wbHuellaBtn").style.display = huella ? "" : "none";
+  document.getElementById("wbHuellaTip").style.display = MVHuella.supported() && !huella ? "" : "none";
   document.getElementById("wbCodeBtn").classList.toggle("wb-outline", huella);
   document.getElementById("form").classList.add("wb");
 }
@@ -2644,7 +2646,7 @@ async function riderHuellaLogin() {
   finishRiderLogin(r.user);
 }
 
-// Recién entró en un celular sin huella: se le ofrece una sola vez.
+// Entró con código en un celular sin huella: se le ofrece cada vez.
 async function offerRiderHuella(rider) {
   if (!MVHuella.shouldOffer("rider")) return;
   if (!(await mvConfirm("¿Quieres entrar con tu huella la próxima vez? Así no necesitas código ni PIN. Tu huella no sale de tu celular.", "Activar huella"))) return;
@@ -2667,7 +2669,7 @@ function renderHuellaStatus() {
   btn.style.display = "";
   btn.textContent = on ? "Quitar huella" : "Activar huella";
   const tile = document.getElementById("tileAccess");
-  if (tile) tile.textContent = on ? "Huella activada" : "Huella y PIN";
+  if (tile) tile.textContent = on ? "Huella activada" : "Activa tu huella";
 }
 
 async function toggleRiderHuella() {
@@ -2690,7 +2692,6 @@ function showPinLogin(phone) {
   hideOtp();
   pendingLoginPhone = phone;
   document.getElementById("form").classList.add("wb-code");
-  document.getElementById("pinLoginBtn").style.display = "none";
   document.getElementById("riderPinRow").style.display = "flex";
   document.getElementById("riderPinHint").style.display = "block";
   if (SOPORTE_WHATSAPP_NUMBER) document.getElementById("forgotPinBtn").style.display = "inline-block";
@@ -2737,8 +2738,6 @@ async function requestOtp(phone, call = false) {
   otpPhone = phone;
   otpIsLogin = !!data.login;
   document.getElementById("form").classList.add("wb-code");
-  // Quien ya tiene cuenta puede entrar con su PIN si lo recuerda.
-  document.getElementById("pinLoginBtn").style.display = otpIsLogin ? "inline-block" : "none";
   document.getElementById("otpRow").style.display = "flex";
   document.getElementById("otpActions").style.display = "flex";
   const hint = document.getElementById("otpHint");
@@ -2792,12 +2791,6 @@ async function resendOtp(call = false) {
 // los datos de la app).
 if (MVHuella.supported()) document.getElementById("huellaLoginBtn").style.display = "";
 
-function pinLoginInstead() {
-  const phone = otpPhone;
-  if (phone) showPinLogin(phone);
-  document.getElementById("formError").textContent = "Escribe tu PIN y toca Continuar.";
-}
-
 function otpHelp() {
   const phone = readRiderPhone() || document.getElementById("phoneInput").value.trim();
   const msg = `Hola, me estoy registrando en MotoVecino con el número ${phone} (les escribo desde ese mismo número) y no me llegó el código de verificación.`;
@@ -2807,7 +2800,6 @@ function otpHelp() {
 function hideOtp() {
   otpPhone = null;
   otpIsLogin = false;
-  document.getElementById("pinLoginBtn").style.display = "none";
   clearInterval(otpResendTimer);
   ["otpRow", "otpActions", "otpHint"].forEach((id) => (document.getElementById(id).style.display = "none"));
 }

@@ -7,7 +7,6 @@ window.MVHuella = (function () {
   const bufToB64u = (b) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const credList = (l) => (l || []).map((c) => ({ ...c, id: b64uToBuf(c.id) }));
   const key = (kind) => "mv_huella_" + kind;
-  const askedKey = (kind) => "mv_huella_ofrecida_" + kind;
 
   const supported = () => !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext);
   function savedId(kind) { try { return localStorage.getItem(key(kind)); } catch { return null; } }
@@ -100,14 +99,10 @@ window.MVHuella = (function () {
     return { ok: res.ok, error: res.data.error };
   }
 
-  // Ya entró en un celular sin huella: se le ofrece una sola vez.
+  // Ya entró en un celular sin huella: se le ofrece cada vez que entra con
+  // código (antes era una sola vez y casi nadie la activaba; 23-oct).
   function shouldOffer(kind) {
-    if (!supported() || savedId(kind)) return false;
-    try {
-      if (localStorage.getItem(askedKey(kind))) return false;
-      localStorage.setItem(askedKey(kind), "1");
-      return true;
-    } catch { return false; }
+    return supported() && !savedId(kind);
   }
 
   return { supported, savedId, activate, login, remove, shouldOffer, errorText };
