@@ -1828,9 +1828,9 @@ function forgetPushOnThisPhone() {
 
 async function loadOtherDrivers() {
   const refQuery = myPos ? `&lat=${myPos.lat}&lng=${myPos.lng}` : "";
-  const res = await fetch(API + `/api/drivers/available?type=${driver.vehicle_type}${refQuery}`);
+  const res = await fetch(API + `/api/drivers/available?type=${driver.vehicle_type}${refQuery}&me=${driver.id}`);
   if (!res.ok) return;
-  const drivers = (await res.json()).filter((d) => d.id !== driver.id);
+  const drivers = await res.json();
   const seen = new Set();
   for (const d of drivers) {
     seen.add(d.id);

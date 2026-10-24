@@ -119,7 +119,9 @@ async function main() {
   ws3.send(JSON.stringify({ type: "status", status: "disponible" }));
   await sleep(600);
   const av = await get(`/drivers/available?type=moto&lat=${Z.chelem.lat}&lng=${Z.chelem.lng}`);
-  check("mapa en Chelem solo ve choferes de Chelem", av.data.some((d) => d.id === dChelem.id) && !av.data.some((d) => d.id === dChix.id), av.data);
+  // El mapa ya no trae el número de chofer (24-oct): se reconoce por posición (~1 cuadra).
+  const onMap = (pos) => av.data.some((d) => Math.abs(d.lat - pos.lat) < 0.0011 && Math.abs(d.lng - pos.lng) < 0.0011);
+  check("mapa en Chelem solo ve choferes de Chelem", onMap(off(Z.chelem, -0.002)) && !onMap(off(Z.chicxulub, 0.001)), av.data);
 
   // ---------- Pasajero ----------
   const phone = `97700${stamp}`.slice(0, 10);

@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const livePos = require("../livePos");
@@ -51,6 +52,25 @@ function availableDriverRows(type) {
   return rows;
 }
 
+// Lo que ve el mapa de los choferes libres es "de ambiente" (Uber/DiDi hacen
+// igual): esta lista es pública (sin cuenta), así que con la posición exacta
+// y el número de chofer cualquiera podía seguir a un chofer en vivo hasta
+// donde se estaciona o a su casa (24-oct-2026). Ahora:
+//   - la posición sale redondeada a una cuadrícula de ~100 m (una cuadra);
+//     el filtro de distancia de arriba sigue usando la exacta, y el viaje se
+//     sigue mandando con la exacta (eso no pasa por aquí);
+//   - en vez del número de chofer va un código que cambia cada día (y si se
+//     reinicia el server), solo para que el mapa sepa qué motito mover.
+// El mapa del chofer manda &me=<su id> para no verse a sí mismo.
+const MAP_GRID_DEG = 0.001; // ~111 m norte-sur, ~104 m este-oeste en Yucatán
+const mapCodeKey = crypto.randomBytes(32);
+const LOCAL_OFFSET_MS = -6 * 60 * 60 * 1000; // día de Yucatán (igual que LOCAL_OFFSET)
+const snapToGrid = (v) => Number((Math.round(v / MAP_GRID_DEG) * MAP_GRID_DEG).toFixed(3));
+function mapCode(driverId) {
+  const day = new Date(Date.now() + LOCAL_OFFSET_MS).toISOString().slice(0, 10);
+  return crypto.createHmac("sha256", mapCodeKey).update(`${day}|${driverId}`).digest("base64url").slice(0, 12);
+}
+
 router.get("/drivers/available", async (req, res) => {
   const type = req.query.type === "taxi" ? "taxi" : "moto";
   const refLat = Number(req.query.lat);
@@ -73,8 +93,13 @@ router.get("/drivers/available", async (req, res) => {
     (d) => haversineKm(ref.lat, ref.lng, d.lat, d.lng) <= maxDistance &&
       sameCityForRide(type, rideCity, d.city) &&
       (!refCity || sameComisaria(refCity.id, ref.lat, ref.lng, d.lat, d.lng, d.zone))
-  ).map(({ city, zone, ...d }) => d);
-  res.json(nearby);
+  );
+  const me = Number(req.query.me);
+  res.json(
+    nearby
+      .filter((d) => d.id !== me)
+      .map((d) => ({ id: mapCode(d.id), lat: snapToGrid(d.lat), lng: snapToGrid(d.lng), vehicle_type: d.vehicle_type }))
+  );
 });
 
 // Insignia de "top chofer": los 3 con más viajes en los últimos 30 días,

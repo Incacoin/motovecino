@@ -118,9 +118,17 @@ async function main() {
   const ws2 = await driverSocket(moto2.id, moto2.pin);
   ws2.send(JSON.stringify({ type: "location", ...near(0.003) }));
   ws2.send(JSON.stringify({ type: "status", status: "disponible" }));
-  await sleep(600);
+  // Un chofer recién dado de alta no tiene last_seen hasta que el pizarrón
+  // (livePos.js) guarda en la base, cada 10 s: antes de eso no sale en el mapa.
+  await sleep(11000);
   const avail = await get(`/drivers/available?lat=${TEKAX.lat}&lng=${TEKAX.lng}`);
-  check("choferes disponibles (mensajes tempranos del socket)", avail.status === 200 && avail.data.some((d) => d.id === moto.id) && avail.data.some((d) => d.id === moto2.id), avail.data);
+  // El mapa ya no trae el número de chofer ni la posición exacta (24-oct): se
+  // reconoce cada uno por estar a menos de ~1 cuadra de donde se reportó.
+  const onMap = (pos) => avail.data.some((d) => Math.abs(d.lat - pos.lat) < 0.0011 && Math.abs(d.lng - pos.lng) < 0.0011);
+  check("choferes disponibles (mensajes tempranos del socket)", avail.status === 200 && avail.data.length >= 2 && onMap(near(0.002)) && onMap(near(0.003)), avail.data);
+  const availMe = await get(`/drivers/available?lat=${TEKAX.lat}&lng=${TEKAX.lng}&me=${moto.id}`);
+  check("el chofer no se ve a sí mismo en su mapa", availMe.data.length === avail.data.length - 1, availMe.data);
+  check("mapa sin número de chofer ni posición exacta", avail.data.every((d) => typeof d.id === "string" && !/^\d+$/.test(d.id) && Number(d.lat.toFixed(3)) === d.lat), avail.data);
 
   const wsBad = new WebSocket(`${BASE.replace("http", "ws")}/ws?role=driver&driverId=${moto.id}&pin=0000`);
   const closeCode = await new Promise((r) => wsBad.on("close", (c) => r(c)));
