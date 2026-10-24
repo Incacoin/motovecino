@@ -10,6 +10,7 @@ if (fs.existsSync(path.join(__dirname, ".env"))) {
 
 const db = require("./db");
 const { setOnAccountLocked } = require("./pinRateLimit");
+const { recordError, errorsHealth, isBadInput } = require("./errorAlerts");
 const driverRoutes = require("./routes/drivers");
 const riderRoutes = require("./routes/riders");
 const rideRoutes = require("./routes/rides");
@@ -157,6 +158,13 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+// Para UptimeRobot: 500 si hubo 3+ errores del servidor en 15 min (ver
+// errorAlerts.js). Solo el número; el detalle está en Movimientos del admin.
+app.get("/api/errors-health", (req, res) => {
+  const { alert, count } = errorsHealth();
+  res.status(alert ? 500 : 200).json({ status: alert ? "errores" : "ok", count });
+});
+
 app.get("/api/backup-health", (req, res) => {
   const status = getBackupStatus();
   if (!status.configured) {
@@ -245,6 +253,15 @@ app.use("/api", passkeyRoutes);
 // lo deja garantizado pase lo que pase.
 app.use((err, req, res, next) => {
   console.error("[error]", err);
+  // Dato basura (ver isBadInput en errorAlerts.js): 400, no es falla de la app.
+  if (isBadInput(err)) {
+    return res.status(400).json({ error: "Datos no válidos" });
+  }
+  // Un JSON mal formado o una foto demasiado grande (4xx) es culpa de quien
+  // lo mandó, no un error de la app: no cuenta para los avisos.
+  if (!(err && err.status >= 400 && err.status < 500)) {
+    recordError(`${req.method} ${req.path.replace(/\/\d+/g, "/:id")}`, err);
+  }
   res.status(500).json({ error: "Algo salió mal, intenta de nuevo" });
 });
 
@@ -252,6 +269,7 @@ app.use((err, req, res, next) => {
 // en el registro en vez de tumbar el servidor completo.
 process.on("unhandledRejection", (err) => {
   console.error("[sin atrapar]", err);
+  recordError("tarea de fondo", err);
 });
 
 async function start() {

@@ -3,6 +3,7 @@ const url = require("node:url");
 const proxyAddr = require("proxy-addr");
 const db = require("./db");
 const { isRateLimited, recordFailedAttempt, clearAttempts } = require("./pinRateLimit");
+const { recordError } = require("./errorAlerts");
 const { photoUrls } = require("./photos");
 const push = require("./push");
 const livePos = require("./livePos");
@@ -63,7 +64,10 @@ const SWEEP_INTERVAL_MS = 30000;
 // Corre algo "por su cuenta" (un timer, un mensaje del socket): si falla, se
 // anota en el registro y ya — no hay petición a la que contestarle el error.
 function bg(label, promise) {
-  promise.catch((err) => console.error(`[${label}] error:`, err));
+  promise.catch((err) => {
+    console.error(`[${label}] error:`, err);
+    recordError(`en vivo (${label})`, err);
+  });
 }
 
 async function activeRideForDriver(driverId) {
@@ -291,9 +295,16 @@ function serialHandler(label, handle) {
     } catch {
       return;
     }
-    queue = queue.then(() => handle(msg)).catch((err) => console.error(`[${label}] error:`, err));
+    queue = queue.then(() => handle(msg)).catch((err) => {
+      console.error(`[${label}] error:`, err);
+      recordError(`en vivo (${label})`, err);
+    });
   };
 }
+
+// Un id que no es entero positivo de Postgres (ej. 14 dígitos) hacía tronar
+// la consulta y la conexión se quedaba abierta colgando: se rechaza antes.
+const validId = (n) => Number.isInteger(n) && n > 0 && n <= 2147483647;
 
 async function setupConnection(ws, req, early, keepEarly) {
   const { query } = url.parse(req.url, true);
@@ -312,7 +323,7 @@ async function setupConnection(ws, req, early, keepEarly) {
     // PIN (igual que cualquier ruta REST de chofer), cualquiera podía
     // conectarse "como" otro chofer sin credenciales: mandar su ubicación
     // falsa, tumbarle la sesión real, o escribirle a sus pasajeros.
-    const driver = driverId && query.pin
+    const driver = validId(driverId) && query.pin
       ? await db.prepare("SELECT id FROM drivers WHERE id = ? AND pin = ? AND deleted_at IS NULL").get(driverId, query.pin)
       : null;
     if (!driver) {
@@ -407,7 +418,7 @@ async function setupConnection(ws, req, early, keepEarly) {
     // (ver db.js/rides.js) es lo que de verdad limita esto a quien de
     // verdad tiene el viaje o recibió el enlace "Compartir", no a
     // cualquiera que pruebe ids seguidos.
-    const ride = rideId && query.t
+    const ride = validId(rideId) && query.t
       ? await db.prepare("SELECT id FROM rides WHERE id = ? AND share_token = ?").get(rideId, query.t)
       : null;
     if (!ride) {
