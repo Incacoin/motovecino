@@ -259,7 +259,7 @@ function recordDriverFailure(ip, driverId, pin) {
     for (const [k, until] of recentFailed) if (until <= now) recentFailed.delete(k);
   }
   recentFailed.set(key, now + FAILED_REPEAT_MS);
-  recordFailedAttempt(ip);
+  recordFailedAttempt(ip, { driverId, pin });
 }
 
 function attach(httpServer, trustFn) {
@@ -304,7 +304,7 @@ async function setupConnection(ws, req, early, keepEarly) {
     // tope (ids consecutivos + PIN de 4 dígitos) aunque las rutas REST sí lo
     // tuvieran. Comparte el contador por IP de pinRateLimit.js.
     const ip = clientIp(req);
-    if (isRateLimited(ip)) {
+    if (isRateLimited(ip, { driverId: query.driverId })) {
       ws.close(4029, "too many attempts");
       return;
     }

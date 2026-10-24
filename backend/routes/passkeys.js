@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
+const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { photoUrls } = require("../photos");
 const { driverLoginPayload } = require("./drivers");
 const {
@@ -88,11 +88,11 @@ async function loginPayload(kind, userId) {
 
 // Activar, paso 1: el servidor manda las opciones (con el reto).
 router.post("/passkey/register-options", async (req, res) => {
-  if (isRateLimited(req.ip)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  if (isRateLimited(req.ip, req.body)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   const kind = kindOf(req);
   const user = kind && (await findUser(kind, req.body.phone, req.body.pin));
   if (!user) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "Vuelve a entrar para activar la huella." });
   }
   const existing = await db.prepare("SELECT credential_id, transports FROM user_passkeys WHERE kind = ? AND user_id = ?").all(kind, user.id);
@@ -114,11 +114,11 @@ router.post("/passkey/register-options", async (req, res) => {
 
 // Activar, paso 2: el celular manda su llave pública firmada.
 router.post("/passkey/register", async (req, res) => {
-  if (isRateLimited(req.ip)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  if (isRateLimited(req.ip, req.body)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   const kind = kindOf(req);
   const user = kind && (await findUser(kind, req.body.phone, req.body.pin));
   if (!user) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "Vuelve a entrar para activar la huella." });
   }
   const failMsg = "No se pudo activar la huella. Inténtalo otra vez.";
@@ -145,11 +145,11 @@ router.post("/passkey/register", async (req, res) => {
 
 // Quitar la huella de este celular (con teléfono + PIN de la cuenta).
 router.post("/passkey/remove", async (req, res) => {
-  if (isRateLimited(req.ip)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  if (isRateLimited(req.ip, req.body)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   const kind = kindOf(req);
   const user = kind && (await findUser(kind, req.body.phone, req.body.pin));
   if (!user || !isCredId(req.body.credentialId)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "No autorizado" });
   }
   await db.prepare("DELETE FROM user_passkeys WHERE kind = ? AND user_id = ? AND credential_id = ?").run(kind, user.id, req.body.credentialId);
@@ -211,6 +211,7 @@ router.post("/passkey/login", async (req, res) => {
   const payload = await loginPayload(kind, row.user_id);
   if (!payload) return fail("Esta cuenta ya no está activa.");
   clearAttempts(req.ip);
+  clearAccount({ phone: payload.phone, driverId: kind === "driver" ? payload.id : undefined });
   await db.prepare("UPDATE user_passkeys SET counter = ?, last_used_ms = ? WHERE id = ?").run(v.authenticationInfo.newCounter || 0, Date.now(), row.id);
   res.json({ ...payload, credentialId: row.credential_id });
 });

@@ -122,14 +122,14 @@ router.post("/rides", async (req, res) => {
   // El nombre y el teléfono del viaje salen de la cuenta ya autenticada, no
   // de lo que mande el navegador — así nadie puede pedir un viaje "como si
   // fuera" el teléfono de alguien más sin saber su PIN.
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const rider = await db
     .prepare("SELECT id, name, phone FROM riders WHERE phone = ? AND pin = ?")
     .get(rider_phone, rider_pin);
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
@@ -374,11 +374,11 @@ async function driverForRide(driverId) {
 router.post("/rides/active", async (req, res) => {
   const { driverId, pin } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   if (!await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
@@ -398,11 +398,11 @@ router.post("/rides/:id/accept", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, agreedPrice, depositAmount } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   if (!await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
@@ -591,9 +591,9 @@ router.post("/rides/:id/offer", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, price, depositAmount } = req.body || {};
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
-  if (isRateLimited(req.ip)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  if (isRateLimited(req.ip, req.body)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   if (!await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
@@ -730,7 +730,7 @@ router.post("/rides/:id/offers/:offerId/reject", async (req, res) => {
 // Carga el viaje y confirma que quien llama es el pasajero de ESE viaje.
 async function riderOwnsRide(req, res, rideId) {
   const { riderPhone, riderPin } = req.body || {};
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     res.status(429).json({ error: RATE_LIMIT_MESSAGE });
     return null;
   }
@@ -743,7 +743,7 @@ async function riderOwnsRide(req, res, rideId) {
     ? await db.prepare("SELECT id FROM riders WHERE phone = ? AND pin = ?").get(riderPhone, riderPin)
     : null;
   if (!riderMatch || ride.rider_phone !== riderPhone) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     res.status(401).json({ error: "Teléfono o PIN incorrectos" });
     return null;
   }
@@ -754,12 +754,12 @@ async function riderOwnsRide(req, res, rideId) {
 // Igual, pero para el chofer asignado a ese viaje.
 async function driverOwnsRide(req, res, rideId) {
   const { driverId, pin } = req.body || {};
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     res.status(429).json({ error: RATE_LIMIT_MESSAGE });
     return null;
   }
   if (!driverId || !pin || !await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     res.status(401).json({ error: "PIN incorrecto" });
     return null;
   }
@@ -853,11 +853,11 @@ router.post("/rides/:id/arrived", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   if (!await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
@@ -881,11 +881,11 @@ router.post("/rides/:id/start", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   if (!await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
@@ -915,11 +915,11 @@ router.post("/rides/:id/wait", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, totalMs, runningForMs } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   if (!await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
@@ -949,11 +949,11 @@ router.post("/rides/:id/complete", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, agreedPrice, deliveryCode, deliveryPhoto } = req.body;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   if (!await driverPinValid(driverId, pin)) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
@@ -1056,7 +1056,7 @@ router.post("/rides/:id/cancel", async (req, res) => {
   const ride = await db.prepare("SELECT * FROM rides WHERE id = ?").get(rideId);
   if (!ride) return res.status(404).json({ error: "Viaje no encontrado" });
 
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
 
@@ -1068,14 +1068,14 @@ router.post("/rides/:id/cancel", async (req, res) => {
   let cancelledBy;
   if (driverId) {
     if (!await driverPinValid(driverId, pin) || ride.driver_id !== Number(driverId)) {
-      recordFailedAttempt(req.ip);
+      recordFailedAttempt(req.ip, req.body);
       return res.status(401).json({ error: "PIN incorrecto" });
     }
     cancelledBy = "driver";
   } else if (riderPhone) {
     const riderMatch = await db.prepare("SELECT id FROM riders WHERE phone = ? AND pin = ?").get(riderPhone, riderPin);
     if (!riderMatch || ride.rider_phone !== riderPhone) {
-      recordFailedAttempt(req.ip);
+      recordFailedAttempt(req.ip, req.body);
       return res.status(401).json({ error: "Teléfono o PIN incorrectos" });
     }
     cancelledBy = "rider";
@@ -1137,7 +1137,7 @@ router.post("/rides/:id/rate", async (req, res) => {
   if (rating !== 0 && rating !== 1) {
     return res.status(400).json({ error: "Calificación inválida" });
   }
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
 
@@ -1148,7 +1148,7 @@ router.post("/rides/:id/rate", async (req, res) => {
   if (!ride) return res.status(404).json({ error: "Viaje no encontrado" });
   const riderMatch = await db.prepare("SELECT id FROM riders WHERE phone = ? AND pin = ?").get(riderPhone, riderPin);
   if (!riderMatch || ride.rider_phone !== riderPhone) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(401).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);

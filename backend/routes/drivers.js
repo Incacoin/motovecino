@@ -5,7 +5,7 @@ const { MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
 const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, TAXI_WAIT_RATE_PER_MIN, TAXI_PICKUP_GRACE_MIN, MONTHLY_FEE, TRIAL_END_DATE, DEPOSIT_SUGGESTED_RATE } = require("../constants");
 const { normalizeAccount } = require("../bankAccount");
 const { haversineKm } = require("../geo");
-const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
+const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide, openZoneAt } = require("../cities");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
@@ -115,8 +115,14 @@ router.get("/drivers/ranking", async (req, res) => {
 });
 
 router.post("/drivers/login", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  // 23-oct-2026: con el código por WhatsApp funcionando, ya no se entra con
+  // PIN (4 dígitos) — la app tampoco enseña ese botón. Solo sirve si el
+  // servidor no manda códigos (OTP_MODE off), para que nadie se quede fuera.
+  if (otpEnabled()) {
+    return res.status(403).json({ error: "Ahora se entra con el código por WhatsApp o con tu huella. Cierra la app y vuelve a abrirla." });
   }
   // Antes se entraba solo con el PIN (4 dígitos, 10,000 combinaciones) sin
   // decir de quién es — a quien adivinara CUALQUIER PIN válido le servía,
@@ -134,7 +140,7 @@ router.post("/drivers/login", async (req, res) => {
     .get(phone, pin);
 
   if (!driver) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
@@ -189,6 +195,7 @@ router.post("/drivers/login-code", async (req, res) => {
     return res.status(check.status).json({ error: check.error });
   }
   clearAttempts(req.ip);
+  clearAccount({ phone: driver.phone, driverId: driver.id });
   res.json(await driverLoginPayload(driver));
 });
 
@@ -214,7 +221,7 @@ async function driverLoginPayload(driver) {
 // La app de Google Play avisa que la abrieron (una vez por apertura, ver
 // isPlayApp() en chofer.html). Con teléfono + PIN, igual que el login.
 router.post("/drivers/app-open", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin } = req.body || {};
@@ -227,7 +234,7 @@ router.post("/drivers/app-open", async (req, res) => {
     )
     .run(phone, pin);
   if (!r.changes) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "No autorizado" });
   }
   clearAttempts(req.ip);
@@ -238,7 +245,7 @@ router.post("/drivers/app-open", async (req, res) => {
 // propio teléfono + PIN — nunca con un id que mande el cliente, para que
 // nadie pueda pedir el perfil (ni el estado de cuenta) de otro chofer.
 router.post("/drivers/profile", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin } = req.body;
@@ -254,7 +261,7 @@ router.post("/drivers/profile", async (req, res) => {
     .get(phone, pin);
 
   if (!driver) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
@@ -378,7 +385,7 @@ router.get("/drivers/invite/:code", async (req, res) => {
 // chofer — a diferencia de nombre/placa, esto no lo avala nadie: es SU
 // dinero y SU cuenta. Mandar account vacío la borra (deja de pedir anticipos).
 router.post("/drivers/bank-account", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin, bank, account, holder } = req.body;
@@ -389,7 +396,7 @@ router.post("/drivers/bank-account", async (req, res) => {
     .prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
     .get(phone, pin);
   if (!driver) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
@@ -416,7 +423,7 @@ router.post("/drivers/bank-account", async (req, res) => {
 // Nombre, placa, agrupación y tipo de vehículo los avaló su líder y solo se
 // tocan desde el admin — si el chofer pudiera cambiarlos, el aval no valdría.
 router.post("/drivers/photo", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin, photo, thumb } = req.body;
@@ -428,7 +435,7 @@ router.post("/drivers/photo", async (req, res) => {
     .get(phone, pin);
 
   if (!driver) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
@@ -583,7 +590,7 @@ router.get("/push/public-key", async (req, res) => {
 
 // Igual que "Mi perfil": se autentica con su teléfono + PIN, nunca con un id.
 async function driverFromPhonePin(req, res) {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     res.status(429).json({ error: RATE_LIMIT_MESSAGE });
     return null;
   }
@@ -592,7 +599,7 @@ async function driverFromPhonePin(req, res) {
     ? await db.prepare("SELECT id FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL").get(phone, pin)
     : null;
   if (!driver) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     res.status(404).json({ error: "Teléfono o PIN incorrectos" });
     return null;
   }

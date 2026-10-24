@@ -1,6 +1,6 @@
 const express = require("express");
 const db = require("../db");
-const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
+const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const { photoUrls, cleanThumb } = require("../photos");
 const { toStored } = require("../imageStore");
 const { otpEnabled, sendOtp, verifyOtp, sendWelcome } = require("../whatsappOtp");
@@ -83,6 +83,7 @@ router.post("/riders/login-code", async (req, res) => {
     return res.status(check.status).json({ error: check.error });
   }
   clearAttempts(req.ip);
+  clearAccount({ phone: rider.phone });
   res.json({ ...rider, ...photoUrls("r", rider.id, rider.photo) });
 });
 
@@ -146,7 +147,7 @@ router.post("/riders/register", async (req, res) => {
 });
 
 router.post("/riders/:id/update-name", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin, name } = req.body;
@@ -157,7 +158,7 @@ router.post("/riders/:id/update-name", async (req, res) => {
     .prepare("SELECT id FROM riders WHERE id = ? AND phone = ? AND pin = ?")
     .get(req.params.id, phone, pin);
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "No autorizado" });
   }
   clearAttempts(req.ip);
@@ -167,7 +168,7 @@ router.post("/riders/:id/update-name", async (req, res) => {
 });
 
 router.post("/riders/:id/change-pin", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin } = req.body;
@@ -175,7 +176,7 @@ router.post("/riders/:id/change-pin", async (req, res) => {
     .prepare("SELECT id FROM riders WHERE id = ? AND phone = ? AND pin = ?")
     .get(req.params.id, phone, pin);
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "No autorizado" });
   }
   clearAttempts(req.ip);
@@ -185,8 +186,14 @@ router.post("/riders/:id/change-pin", async (req, res) => {
 });
 
 router.post("/riders/login", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  // 23-oct-2026: con el código por WhatsApp funcionando, ya no se entra con
+  // PIN (4 dígitos) — la app tampoco enseña ese botón. Solo sirve si el
+  // servidor no manda códigos (OTP_MODE off), para que nadie se quede fuera.
+  if (otpEnabled()) {
+    return res.status(403).json({ error: "Ahora se entra con el código por WhatsApp o con tu huella. Cierra la app y vuelve a abrirla." });
   }
   const { phone, pin } = req.body || {};
   if (!phone || !pin) {
@@ -199,7 +206,7 @@ router.post("/riders/login", async (req, res) => {
     .get(phone, pin);
 
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
@@ -209,7 +216,7 @@ router.post("/riders/login", async (req, res) => {
 // La app de Google Play avisa que la abrieron (una vez por apertura, ver
 // isPlayApp() en pasajero.html). Con teléfono + PIN, igual que el login.
 router.post("/riders/app-open", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin } = req.body || {};
@@ -222,7 +229,7 @@ router.post("/riders/app-open", async (req, res) => {
     )
     .run(phone, pin);
   if (!r.changes) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "No autorizado" });
   }
   clearAttempts(req.ip);
@@ -233,7 +240,7 @@ router.post("/riders/app-open", async (req, res) => {
 // que con el chofer (ver routes/drivers.js) — mismo límite de tamaño y mismo
 // formato esperado (data URL ya recortada/comprimida por el navegador).
 router.post("/riders/:id/photo", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin, photo, thumb } = req.body;
@@ -241,7 +248,7 @@ router.post("/riders/:id/photo", async (req, res) => {
     .prepare("SELECT id FROM riders WHERE id = ? AND phone = ? AND pin = ?")
     .get(req.params.id, phone, pin);
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "No autorizado" });
   }
   clearAttempts(req.ip);
@@ -260,7 +267,7 @@ router.post("/riders/:id/photo", async (req, res) => {
 // de cero en cada mandado/viaje repetido. clear:true la borra; si no, exige
 // lat/lng numéricos (el label es opcional, ej. "casa azul, portón negro").
 router.post("/riders/:id/home", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin, lat, lng, label, clear } = req.body;
@@ -268,7 +275,7 @@ router.post("/riders/:id/home", async (req, res) => {
     .prepare("SELECT id FROM riders WHERE id = ? AND phone = ? AND pin = ?")
     .get(req.params.id, phone, pin);
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "No autorizado" });
   }
   clearAttempts(req.ip);
@@ -294,7 +301,7 @@ router.post("/riders/:id/home", async (req, res) => {
 // viaje activo. clear:true lo borra; si no, exige un teléfono con al menos
 // 8 dígitos (el nombre es opcional, solo para personalizar el mensaje).
 router.post("/riders/:id/emergency-contact", async (req, res) => {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const { phone, pin, name, contactPhone, clear } = req.body;
@@ -302,7 +309,7 @@ router.post("/riders/:id/emergency-contact", async (req, res) => {
     .prepare("SELECT id FROM riders WHERE id = ? AND phone = ? AND pin = ?")
     .get(req.params.id, phone, pin);
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "No autorizado" });
   }
   clearAttempts(req.ip);

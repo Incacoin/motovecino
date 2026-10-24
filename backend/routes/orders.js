@@ -51,14 +51,14 @@ async function foodEnabled(city) {
 }
 
 async function authRider(req, res) {
-  if (isRateLimited(req.ip)) {
+  if (isRateLimited(req.ip, req.body)) {
     res.status(429).json({ error: RATE_LIMIT_MESSAGE });
     return null;
   }
   const { phone, pin } = req.body || {};
   const rider = phone && pin ? await db.prepare("SELECT id, name, phone FROM riders WHERE phone = ? AND pin = ?").get(phone, pin) : null;
   if (!rider) {
-    recordFailedAttempt(req.ip);
+    recordFailedAttempt(req.ip, req.body);
     res.status(401).json({ error: "Teléfono o PIN incorrectos" });
     return null;
   }

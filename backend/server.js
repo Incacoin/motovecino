@@ -9,6 +9,7 @@ if (fs.existsSync(path.join(__dirname, ".env"))) {
 }
 
 const db = require("./db");
+const { setOnAccountLocked } = require("./pinRateLimit");
 const driverRoutes = require("./routes/drivers");
 const riderRoutes = require("./routes/riders");
 const rideRoutes = require("./routes/rides");
@@ -276,6 +277,14 @@ async function start() {
     livePos.flush()
       .catch((err) => console.error("[livePos] al apagar:", err))
       .finally(() => process.exit(0));
+  });
+
+  // Cuenta bloqueada por PINs equivocados: queda en el registro del admin
+  // (Tekax) para que el dueño se entere — ver pinRateLimit.js.
+  setOnAccountLocked(({ account, ip }) => {
+    db.prepare("INSERT INTO admin_audit (role, zone, action, target_id, detail, ip, ok) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(null, null, "cuenta_bloqueada", null, account, ip || null, 0)
+      .catch((err) => console.error("[cuenta_bloqueada]", err));
   });
 
   const server = http.createServer(app);
