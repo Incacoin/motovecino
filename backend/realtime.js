@@ -1,6 +1,8 @@
 const { WebSocketServer } = require("ws");
 const url = require("node:url");
+const proxyAddr = require("proxy-addr");
 const db = require("./db");
+const { isRateLimited, recordFailedAttempt, clearAttempts } = require("./pinRateLimit");
 const { photoUrls } = require("./photos");
 const push = require("./push");
 const livePos = require("./livePos");
@@ -235,7 +237,33 @@ async function sweepStaleRides() {
   }
 }
 
-function attach(httpServer) {
+// IP real de quien se conecta, con las mismas reglas de proxy (Cloudflare)
+// que usa Express para req.ip — así el límite de intentos de PIN cuenta igual
+// aquí que en las rutas REST.
+let trustProxy = null;
+function clientIp(req) {
+  return trustProxy ? proxyAddr(req, trustProxy) : req.socket.remoteAddress;
+}
+
+// Una app vieja con un PIN que ya no sirve (se lo cambiaron o lo dieron de
+// baja) reintenta cada 2 s con el mismo PIN: eso cuenta como UN intento, no
+// uno por reintento — si no, en 30 s bloqueaba la IP (que en México suelen
+// compartir varios celulares). Probar PINs distintos sí cuenta cada uno.
+const recentFailed = new Map(); // "ip|driverId|pin" -> vence (ms)
+const FAILED_REPEAT_MS = 15 * 60 * 1000;
+function recordDriverFailure(ip, driverId, pin) {
+  const now = Date.now();
+  const key = `${ip}|${driverId}|${pin}`;
+  if ((recentFailed.get(key) || 0) > now) return;
+  if (recentFailed.size > 5000) {
+    for (const [k, until] of recentFailed) if (until <= now) recentFailed.delete(k);
+  }
+  recentFailed.set(key, now + FAILED_REPEAT_MS);
+  recordFailedAttempt(ip);
+}
+
+function attach(httpServer, trustFn) {
+  trustProxy = trustFn || null;
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
   setInterval(sweepStaleRides, SWEEP_INTERVAL_MS);
 
@@ -272,6 +300,14 @@ async function setupConnection(ws, req, early, keepEarly) {
 
   if (query.role === "driver") {
     const driverId = Number(query.driverId);
+    // 23-oct: sin este límite, la conexión en vivo dejaba probar PINs sin
+    // tope (ids consecutivos + PIN de 4 dígitos) aunque las rutas REST sí lo
+    // tuvieran. Comparte el contador por IP de pinRateLimit.js.
+    const ip = clientIp(req);
+    if (isRateLimited(ip)) {
+      ws.close(4029, "too many attempts");
+      return;
+    }
     // El id de chofer es consecutivo y adivinable — sin exigir también su
     // PIN (igual que cualquier ruta REST de chofer), cualquiera podía
     // conectarse "como" otro chofer sin credenciales: mandar su ubicación
@@ -280,9 +316,11 @@ async function setupConnection(ws, req, early, keepEarly) {
       ? await db.prepare("SELECT id FROM drivers WHERE id = ? AND pin = ? AND deleted_at IS NULL").get(driverId, query.pin)
       : null;
     if (!driver) {
+      recordDriverFailure(ip, query.driverId, query.pin);
       ws.close(4004, "unknown driver");
       return;
     }
+    clearAttempts(ip);
     // Se desconectó mientras se revisaba el PIN: no hay nada que abrir.
     if (ws.readyState !== ws.OPEN) return;
 

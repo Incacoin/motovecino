@@ -1920,6 +1920,15 @@ function connectWs() {
       document.getElementById("loginError").textContent = "Tu cuenta se abrió en otro dispositivo, esta sesión se cerró.";
       return;
     }
+    // El servidor ya no acepta este PIN (se cambió o la cuenta se dio de
+    // baja): reintentar no sirve, hay que volver a entrar.
+    if (ev.code === 4004) {
+      localStorage.removeItem("motoya_driver");
+      document.getElementById("app").style.display = "none";
+      document.getElementById("login").style.display = "flex";
+      document.getElementById("loginError").textContent = "Tu sesión ya no es válida. Vuelve a entrar con el código por WhatsApp.";
+      return;
+    }
     setTimeout(connectWs, 2000);
   };
 }

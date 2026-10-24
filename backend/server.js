@@ -279,7 +279,7 @@ async function start() {
   });
 
   const server = http.createServer(app);
-  realtime.attach(server);
+  realtime.attach(server, app.get("trust proxy fn"));
 
   const PORT = process.env.PORT || 3003;
   server.listen(PORT, () => {
