@@ -8,7 +8,7 @@ const { photoUrls } = require("./photos");
 const push = require("./push");
 const livePos = require("./livePos");
 const { sameComisaria, sameCityForRide } = require("./cities");
-const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC } = require("./constants");
+const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC, DRIVER_STALE_SECONDS } = require("./constants");
 
 // driverId -> WebSocket
 const driverSockets = new Map();
@@ -341,6 +341,7 @@ async function setupConnection(ws, req, early, keepEarly) {
     }
 
     driverSockets.set(driverId, ws);
+    notePeak();
 
     ws.on("close", () => {
       if (driverSockets.get(driverId) === ws) {
@@ -457,6 +458,45 @@ async function setupConnection(ws, req, early, keepEarly) {
   }
 
   ws.close(4000, "missing role");
+}
+
+// ---- Medidor del servidor (25-oct) ----
+// Cuántos choferes tienen la app abierta AHORA en todo el servidor (todas las
+// zonas, cuentas de prueba incluidas: es la carga real). La prueba de carga
+// del 13-oct aguantó 500 motos en viaje sin errores con la base de $6; arriba
+// de ~300 toca subir el plan de la base. El récord del día vive en memoria
+// (se reinicia si el servidor se reinicia).
+let peak = { day: null, n: 0, at: null };
+const mxDay = () => new Date(Date.now() - 6 * 3600 * 1000).toISOString().slice(0, 10);
+function notePeak() {
+  const day = mxDay();
+  if (peak.day !== day) peak = { day, n: 0, at: null };
+  if (driverSockets.size > peak.n) peak = { day, n: driverSockets.size, at: new Date().toISOString() };
+}
+
+async function liveCapacity() {
+  notePeak();
+  const rows = await db
+    .prepare(
+      `SELECT status, COUNT(*) AS n FROM drivers
+       WHERE deleted_at IS NULL
+         AND (status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))
+       GROUP BY status`
+    )
+    .all();
+  const byStatus = Object.fromEntries(rows.map((r) => [r.status, Number(r.n)]));
+  let ridersWatching = 0;
+  for (const set of rideSubscribers.values()) ridersWatching += set.size;
+  return {
+    driversConnected: driverSockets.size,
+    available: byStatus.disponible || 0,
+    inRide: byStatus.en_viaje || 0,
+    ridersWatching,
+    peakToday: peak.n,
+    peakAt: peak.at,
+    warnAt: 300,
+    testedOk: 500,
+  };
 }
 
 function send(ws, type, payload) {
@@ -616,4 +656,5 @@ module.exports = {
   startNoDriverTimer,
   clearNoDriverTimer,
   closeOpenOffers,
+  liveCapacity,
 };

@@ -808,8 +808,11 @@ router.post("/admin/stats", checkAdminPin, async (req, res) => {
   // Códigos de verificación de hoy (toda la app, no por zona): el dueño ve si
   // se llegó al tope. Ver whatsappOtp.js.
   const otpToday = req.adminRole === "tekax" ? await otpDailyStatus() : null;
+  // Medidor del servidor (todas las zonas): solo el dueño. Ver realtime.js.
+  const capacity = req.adminRole === "tekax" ? await require("../realtime").liveCapacity() : null;
 
   res.json({
+    capacity,
     ridesToday, ridesWeek, cancelledToday, driversOnline, topDrivers, satisfactionPct, ratedCount: ratings.total,
     collectedWeek, collectedMonth, launchRanking, ridesByDay, trialEndDate: TRIAL_END_DATE, otpToday,
   });

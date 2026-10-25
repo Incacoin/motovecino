@@ -607,6 +607,21 @@
     <div class="rx-clock" id="rxClock"></div>
   </div>
   <div id="otpCapNotice" style="display:none;margin:10px 0 4px;padding:10px 14px;border-radius:12px;font-size:13.5px;line-height:1.45;"></div>
+  <div id="capacityCard" style="display:none;margin:10px 0 6px;padding:12px 14px;border-radius:12px;border:1px solid var(--border, rgba(255,255,255,.12));font-size:13.5px;line-height:1.45;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+      <b>Medidor del servidor</b>
+      <span style="color:var(--text-dim);font-size:12px;">todas las zonas · solo tú lo ves</span>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:8px;margin:6px 0 4px;">
+      <span id="capNow" style="font-size:30px;font-weight:800;letter-spacing:-.03em;">—</span>
+      <span>choferes con la app abierta ahora</span>
+    </div>
+    <div style="height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;">
+      <div id="capBar" style="height:100%;width:0;border-radius:99px;transition:width .4s;"></div>
+    </div>
+    <div id="capDetail" style="margin-top:6px;color:var(--text-dim);font-size:12.5px;"></div>
+    <div id="capMsg" style="margin-top:4px;"></div>
+  </div>
   <div class="stats-grid">
     <div class="card stat-tile accent">
       <span class="icon"></span>
@@ -2009,6 +2024,30 @@ function renderOtpCap(o) {
     : `Van <b>${o.sent} de ${o.cap}</b> códigos de verificación hoy.`;
 }
 
+// Medidor del servidor (solo el dueño). La barra llega al 100% en 500, lo que
+// aguantó la prueba de carga del 13-oct; desde 300 avisa que toca subir el plan.
+function renderCapacity(c) {
+  const card = document.getElementById("capacityCard");
+  if (!card) return;
+  if (!c) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  const n = c.driversConnected;
+  const level = n >= c.testedOk ? "red" : n >= c.warnAt ? "yellow" : "green";
+  const color = { green: "#22c55e", yellow: "#eab308", red: "#dc2626" }[level];
+  document.getElementById("capNow").textContent = n;
+  const bar = document.getElementById("capBar");
+  bar.style.width = `${Math.min(100, (n / c.testedOk) * 100)}%`;
+  bar.style.background = color;
+  const peakTime = c.peakAt ? new Date(c.peakAt).toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" }) : "";
+  document.getElementById("capDetail").textContent =
+    `${c.available} libres · ${c.inRide} en viaje · ${c.ridersWatching} pasajeros siguiendo su viaje · récord de hoy: ${c.peakToday}${peakTime ? ` (${peakTime})` : ""}`;
+  document.getElementById("capMsg").innerHTML = {
+    green: `<span style="color:${color};">Todo bien.</span> El servidor aguanta hasta unos ${c.testedOk} a la vez.`,
+    yellow: `<b style="color:${color};">Ya van más de ${c.warnAt}.</b> Toca subir el plan de la base de datos en Render (de ~$6 a ~$19 al mes).`,
+    red: `<b style="color:${color};">Llegaste a ${c.testedOk} o más: el límite que probamos.</b> Sube el plan HOY o la app se puede poner lenta.`,
+  }[level];
+}
+
 async function loadStats() {
   const res = await fetch(API + "/api/admin/stats", {
     method: "POST",
@@ -2027,6 +2066,7 @@ async function loadStats() {
   document.getElementById("statCollectedMonth").textContent = `$${s.collectedMonth}`;
   renderRidesChart(s.ridesByDay);
   renderOtpCap(s.otpToday);
+  renderCapacity(s.capacity);
 
   launchRankingCache = s.launchRanking || [];
   const medals = ["1.", "2.", "3.", "4.", "5."];
