@@ -73,7 +73,7 @@ async function createSession(role, req) {
 
 // ---- Registro de movimientos ----
 // Lo que solo consulta no se anota (listas, resumen, reportes...).
-const READ_ONLY_ACTION = /\/(list|stats|status|reports|payments|activity|pending-fees|session|audit|register-options)(\/|$)|^\/admin\/family-rides$/;
+const READ_ONLY_ACTION = /\/(list|stats|status|reports|payments|activity|pending-fees|session|audit|register-options)(\/|$)|^\/admin\/family-rides$|^\/admin\/support\/:id$/;
 // Campos que nunca se guardan en el detalle (PINs, fotos, firmas).
 const SECRET_FIELDS = new Set(["adminPin", "adminZone", "photo", "photoPlaca", "signature", "image", "logo", "cover", "pin"]);
 

@@ -19,6 +19,7 @@ const allyAdRoutes = require("./routes/allyAds");
 const businessRoutes = require("./routes/business");
 const orderRoutes = require("./routes/orders");
 const passkeyRoutes = require("./routes/passkeys");
+const supportRoutes = require("./routes/support");
 const menuImages = require("./menuImages");
 const familyRides = require("./routes/familyRides");
 const { router: photoRoutes } = require("./photos");
@@ -116,7 +117,7 @@ const PUBLIC_PAGES = new Set([
   "/quiero-ser-chofer/",
 ]);
 // Pantallas internas que no deben salir en Google en ningún dominio.
-const NOINDEX_PATHS = new Set(["/admin.html", "/seguir.html", "/contrato-prestacion-servicios.html"]);
+const NOINDEX_PATHS = new Set(["/admin.html", "/seguir.html", "/contrato-prestacion-servicios.html", "/ayuda.html"]);
 const isLocalHost = (h) => h === "localhost" || h === "127.0.0.1" || h === "::1";
 
 app.use((req, res, next) => {
@@ -243,6 +244,7 @@ app.use("/api", menuImages.router);
 app.use("/api", familyRides.router);
 app.use("/api", photoRoutes);
 app.use("/api", passkeyRoutes);
+app.use("/api", supportRoutes);
 
 // Última red de seguridad: si algo revienta sin que la ruta lo haya
 // atrapado (un tipo de dato inesperado, un error de la base, etc.), esto

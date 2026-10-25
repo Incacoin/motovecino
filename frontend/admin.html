@@ -541,6 +541,19 @@
     .stat-tile .value { font-size: 46px; }
     #tabPanel-resumen.active > .rx-chart-card { grid-column: 1 / -1; }
   }
+  /* Soporte (24-oct-2026): pláticas de Ayuda de pasajeros y choferes. */
+  .sup-item { display: flex; justify-content: space-between; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .sup-item:last-child { border-bottom: 0; }
+  .sup-item .sup-who { font-weight: 700; }
+  .sup-item .sup-last { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+  .sup-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: rgba(127,127,127,.15); margin-left: 6px; }
+  .sup-tag.wait { background: #ef4444; color: #fff; }
+  .sup-msgs { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; padding: 8px 0; }
+  .sup-m { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; background: rgba(127,127,127,.12); align-self: flex-start; }
+  .sup-m.equipo { align-self: flex-end; background: #22c55e; color: #04130a; }
+  .sup-m.asistente { align-self: flex-end; background: rgba(34,197,94,.15); }
+  .sup-m small { display: block; font-size: 10.5px; opacity: .65; margin-top: 2px; }
+  #supportBadge { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; align-items: center; justify-content: center; margin-left: auto; }
 </style>
 </head>
 <body>
@@ -580,6 +593,7 @@
     <button id="tabBtn-pasajeros" class="drawer-row" onclick="switchTab('pasajeros')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg></span>Pasajeros</button>
     <button id="tabBtn-viajes" class="drawer-row" onclick="switchTab('viajes')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/></svg></span>Viajes</button>
     <button id="tabBtn-alertas" class="drawer-row" onclick="switchTab('alertas')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span>Alertas</button>
+    <button id="tabBtn-soporte" class="drawer-row" style="display:none" onclick="switchTab('soporte')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/></svg></span>Soporte<span id="supportBadge"></span></button>
     <button id="tabBtn-negocios" class="drawer-row" onclick="switchTab('negocios')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span>Negocios</button>
     <button id="tabBtn-movimientos" class="drawer-row" onclick="switchTab('movimientos')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg></span>Movimientos</button>
   </div>
@@ -907,6 +921,27 @@
       <tbody id="alertaNoShowRows"></tbody>
     </table>
   </div>
+  </div>
+  </div>
+
+  <div id="tabPanel-soporte" class="tab-panel">
+  <div class="section-card" id="supportListCard">
+  <h1>Soporte</h1>
+  <p class="section-hint" id="supportHint">Pláticas de "Ayuda" de pasajeros y choferes.</p>
+  <div id="supportList" class="ago">Cargando…</div>
+  </div>
+  <div class="section-card" id="supportThreadCard" style="display:none">
+  <button class="btn-sm" onclick="closeSupportThread()">‹ Volver</button>
+  <h1 id="supportThreadTitle" style="margin-top:12px;"></h1>
+  <p class="section-hint" id="supportThreadInfo"></p>
+  <div class="sup-msgs" id="supportMsgs"></div>
+  <textarea id="supportReply" rows="3" maxlength="1000" placeholder="Escribe tu respuesta…" style="width:100%;margin-top:8px;padding:10px;font:inherit;"></textarea>
+  <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn-sm" onclick="replySupport()">Enviar respuesta</button>
+    <button class="btn-sm" onclick="resolveSupport()">Resuelto (vuelve el asistente)</button>
+  </div>
+  <p class="section-hint" style="margin-top:8px;">La persona ve tu respuesta en Ayuda la próxima vez que la abra (sale como "Equipo MotoVecino").</p>
+  <p class="section-hint" id="supportMsg" style="margin-top:4px;"></p>
   </div>
   </div>
 
@@ -1371,6 +1406,80 @@ function auditDetailText(raw) {
   }
 }
 
+// ---------- Soporte (24-oct-2026): pláticas de Ayuda ----------
+let supportOpenId = null;
+async function supportPost(path, extra) {
+  const res = await fetch(API + "/api/admin/support" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, ...extra }) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(d.error || "No se pudo");
+  return d;
+}
+function supportWhen(t) {
+  return new Date(String(t).replace(" ", "T") + "Z").toLocaleString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+const SUPPORT_TYPE = { pasajero: "Pasajero", chofer: "Chofer" };
+async function loadSupport() {
+  let d;
+  try { d = await supportPost("/list"); } catch { return; }
+  const badge = document.getElementById("supportBadge");
+  badge.textContent = d.waiting;
+  badge.style.display = d.waiting ? "inline-flex" : "none";
+  document.getElementById("supportHint").innerHTML = d.bot
+    ? 'Pláticas de "Ayuda" de pasajeros y choferes. Contesta el Asistente MotoVecino; las que dicen <b>Espera respuesta</b> son para ti.'
+    : '<b>El asistente está apagado</b> (falta ANTHROPIC_API_KEY en Render, o SUPPORT_BOT=off): todas las pláticas te llegan a ti.';
+  const list = document.getElementById("supportList");
+  list.classList.toggle("ago", !d.threads.length);
+  list.innerHTML = d.threads.length ? d.threads.map((t) => `
+    <div class="sup-item" onclick="openSupportThread(${t.id})">
+      <div>
+        <div class="sup-who">${escapeHtml(t.user.name || "Sin nombre")}<span class="sup-tag">${SUPPORT_TYPE[t.user.type] || escapeHtml(t.user.type)}</span>${t.waiting ? '<span class="sup-tag wait">Espera respuesta</span>' : ""}</div>
+        <div class="sup-last">${t.last ? escapeHtml((t.last.sender === "usuario" ? "" : t.last.sender === "equipo" ? "Tú: " : "Asistente: ") + t.last.text) : ""}</div>
+        ${t.waiting && t.reason ? `<div class="sup-last"><b>Motivo:</b> ${escapeHtml(t.reason)}</div>` : ""}
+      </div>
+      <div class="ago" style="white-space:nowrap;">${t.last ? escapeHtml(supportWhen(t.last.created_at)) : ""}</div>
+    </div>`).join("") : "Todavía no hay pláticas.";
+}
+function renderSupportThread(t) {
+  const u = t.user;
+  document.getElementById("supportThreadTitle").textContent = `${u.name || "Sin nombre"} · ${SUPPORT_TYPE[u.type] || u.type}`;
+  document.getElementById("supportThreadInfo").innerHTML = `${u.phone ? `Tel. ${escapeHtml(u.phone)} · ` : ""}${escapeHtml(u.city || "")}` +
+    (t.mode === "humano" ? " · <b>La atiendes tú</b> (el asistente no contesta)" : " · Contesta el asistente") +
+    (t.waiting && t.reason ? `<br><b>Motivo:</b> ${escapeHtml(t.reason)}` : "");
+  const who = { usuario: u.name ? u.name.split(/\s+/)[0] : "Persona", asistente: "Asistente", equipo: "Tú" };
+  const box = document.getElementById("supportMsgs");
+  box.innerHTML = t.messages.map((m) => `<div class="sup-m ${m.sender}">${escapeHtml(m.text)}<small>${escapeHtml(who[m.sender] || m.sender)} · ${escapeHtml(supportWhen(m.created_at))}</small></div>`).join("");
+  box.scrollTop = box.scrollHeight;
+}
+async function openSupportThread(id) {
+  supportOpenId = id;
+  document.getElementById("supportListCard").style.display = "none";
+  document.getElementById("supportThreadCard").style.display = "";
+  document.getElementById("supportMsgs").innerHTML = '<div class="ago">Cargando…</div>';
+  document.getElementById("supportMsg").textContent = "";
+  try { renderSupportThread(await supportPost(`/${id}`)); } catch (e) { document.getElementById("supportMsg").textContent = e.message; }
+}
+function closeSupportThread() {
+  supportOpenId = null;
+  document.getElementById("supportThreadCard").style.display = "none";
+  document.getElementById("supportListCard").style.display = "";
+  loadSupport();
+}
+async function replySupport() {
+  const box = document.getElementById("supportReply");
+  const text = box.value.trim();
+  if (!text || !supportOpenId) return;
+  try {
+    renderSupportThread(await supportPost(`/${supportOpenId}/reply`, { text }));
+    box.value = "";
+    document.getElementById("supportMsg").textContent = "Enviado ✓";
+  } catch (e) { document.getElementById("supportMsg").textContent = e.message; }
+}
+async function resolveSupport() {
+  if (!supportOpenId) return;
+  try { await supportPost(`/${supportOpenId}/resolve`); closeSupportThread(); }
+  catch (e) { document.getElementById("supportMsg").textContent = e.message; }
+}
+
 async function loadAudit() {
   const tbody = document.getElementById("auditRows");
   const res = await fetch(API + "/api/admin/audit/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
@@ -1459,6 +1568,7 @@ const ADMIN_POLL_MS = 20000;
 function adminPollTick() {
   if (document.hidden) return;
   loadRides(); loadStats(); loadApplications(); loadDrivers();
+  if (adminRoleNow === "tekax") loadSupport();
 }
 function startAdminPoll() {
   clearInterval(ridesPollTimer);
@@ -1468,16 +1578,17 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && document.getElementById("app").classList.contains("active")) adminPollTick();
 });
 
-const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas", negocios: "Negocios aliados", movimientos: "Movimientos" };
+const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas", soporte: "Soporte", negocios: "Negocios aliados", movimientos: "Movimientos" };
 
 function switchTab(tab) {
-  ["resumen", "choferes", "pasajeros", "viajes", "alertas", "negocios", "movimientos"].forEach((t) => {
+  ["resumen", "choferes", "pasajeros", "viajes", "alertas", "soporte", "negocios", "movimientos"].forEach((t) => {
     document.getElementById(`tabPanel-${t}`).classList.toggle("active", t === tab);
     document.getElementById(`tabBtn-${t}`).classList.toggle("active", t === tab);
   });
   document.getElementById("appTopbarTitle").textContent = TAB_TITLES[tab] || "";
   try { localStorage.setItem("motoyaAdminTab", tab); } catch {}
   if (tab === "movimientos") { loadAudit(); loadPasskeys(); }
+  if (tab === "soporte") loadSupport();
   closeDrawer();
 }
 
@@ -1707,6 +1818,8 @@ async function login(withSavedToken) {
   adminRoleNow = loginData.role || null;
   comisarias = loginData.comisarias || [];
   document.body.classList.toggle("role-progreso", adminRoleNow === "progreso");
+  document.getElementById("tabBtn-soporte").style.display = adminRoleNow === "tekax" ? "" : "none";
+  if (adminRoleNow === "tekax") loadSupport();
   applyAdminZone(loginData.city || "tekax", loginData.cityLabel || "Tekax");
   tickClocks();
   document.getElementById("login").classList.remove("active");

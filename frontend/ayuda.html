@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Ayuda · MotoVecino</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#ffffff" />
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>
+// Ayuda (24-oct-2026): la abren el pasajero (ayuda.html) y el chofer
+// (ayuda.html?como=chofer). Mismo tema que la app de cada uno.
+const COMO = new URLSearchParams(location.search).get("como") === "chofer" ? "chofer" : "pasajero";
+(function () {
+  let pref = COMO === "chofer" ? "auto" : "light";
+  try { pref = localStorage.getItem(COMO === "chofer" ? "motovecino_tema_chofer" : "motovecino_tema_pasajero") || pref; } catch {}
+  const h = new Date().getHours();
+  const theme = pref === "dark" ? "dark" : pref === "auto" ? (h >= 6 && h < 19 ? "light" : "dark") : "light";
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", theme === "light" ? "#ffffff" : "#000000");
+})();
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&display=swap" />
+<style>
+  :root {
+    --bg: #ffffff; --bg-card: #f6f6f6; --border: #e2e2e2; --text: #000; --dim: #545454; --faint: #8a8a8a;
+    --green: #16a34a; --btn: #000; --btn-ink: #fff; --me: #22c55e; --me-ink: #04130a;
+    --warn-bg: #fff7e0; --warn-bd: #f5d27a;
+  }
+  html[data-theme="dark"] {
+    --bg: #000; --bg-card: #1a1a1a; --border: #2a2a2a; --text: #fff; --dim: #a8a8a8; --faint: #6b6b6b;
+    --green: #4ade80; --btn: #fff; --btn-ink: #000;
+    --warn-bg: #2a2410; --warn-bd: #6b5a1d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); letter-spacing: -0.005em; display: flex; flex-direction: column; }
+  button { font-family: inherit; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+  .back { border: 0; background: var(--bg-card); color: var(--text); width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; flex: none; }
+  .top h1 { margin: 0; font-size: 19px; font-weight: 800; }
+  .top small { display: block; font-size: 12.5px; font-weight: 500; color: var(--dim); margin-top: 1px; }
+  .msgs { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .m { max-width: 82%; padding: 9px 13px; border-radius: 17px; font-size: 15px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; }
+  .m small { display: block; font-size: 10.5px; opacity: .6; margin-top: 3px; }
+  .m .who { display: block; font-size: 11px; font-weight: 700; opacity: .75; margin-bottom: 2px; }
+  .me { align-self: flex-end; background: var(--me); color: var(--me-ink); border-bottom-right-radius: 5px; }
+  .them { align-self: flex-start; background: var(--bg-card); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
+  .typing { align-self: flex-start; color: var(--dim); font-size: 13.5px; padding: 6px 4px; }
+  .typing span { animation: blink 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+  .hello { text-align: center; color: var(--dim); font-size: 14px; line-height: 1.45; padding: 18px 8px 6px; }
+  .hello b { color: var(--text); font-size: 16px; display: block; margin-bottom: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 6px 0 4px; }
+  .chip { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 8px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .notice { margin: 0 16px 8px; padding: 10px 12px; border-radius: 14px; background: var(--warn-bg); border: 1px solid var(--warn-bd); font-size: 13px; line-height: 1.4; }
+  .bar { padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
+  .row { display: flex; gap: 8px; }
+  .row textarea { flex: 1; resize: none; height: 46px; max-height: 120px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); border-radius: 14px; padding: 12px 13px; font: inherit; font-size: 15px; }
+  .send { border: 0; border-radius: 14px; padding: 0 16px; font: inherit; font-weight: 800; background: var(--me); color: var(--me-ink); cursor: pointer; }
+  .send:disabled { opacity: .5; }
+  .human { display: block; width: 100%; margin-top: 8px; border: 0; background: none; color: var(--dim); font-size: 13px; text-decoration: underline; cursor: pointer; padding: 4px; }
+  .out { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 12px; color: var(--dim); }
+  .out a { background: var(--btn); color: var(--btn-ink); text-decoration: none; font-weight: 700; padding: 12px 18px; border-radius: 14px; }
+  #toast { position: fixed; left: 16px; right: 16px; bottom: 90px; background: var(--btn); color: var(--btn-ink); padding: 12px 14px; border-radius: 14px; font-size: 14px; display: none; text-align: center; }
+</style>
+</head>
+<body>
+<div class="top">
+  <button class="back" onclick="goBack()" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <div><h1>Ayuda</h1><small id="sub">Asistente MotoVecino · te contesta al momento</small></div>
+</div>
+<div class="msgs" id="msgs"></div>
+<div class="notice" id="notice" style="display:none"></div>
+<div class="bar" id="bar" style="display:none">
+  <div class="row">
+    <textarea id="input" maxlength="500" placeholder="Escribe tu duda…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"></textarea>
+    <button class="send" id="sendBtn" onclick="send()" aria-label="Enviar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></button>
+  </div>
+  <button class="human" id="humanBtn" onclick="askHuman()">Hablar con una persona</button>
+</div>
+<div id="toast"></div>
+<script>
+const API = "";
+// Para quien no puede entrar a la app (no le llega el código, etc.).
+const SOPORTE_WHATSAPP_NUMBER = "9979739422";
+const QUICK = COMO === "chofer"
+  ? ["¿Cuánto le pago a la app?", "No me llegan viajes", "¿Cómo veo mis ganancias?"]
+  : ["¿Cuánto cuesta un viaje?", "¿Cómo pido un taxi?", "Quiero ser chofer"];
+
+let me = null;
+try { me = JSON.parse(localStorage.getItem(COMO === "chofer" ? "motoya_driver" : "motoya_rider") || "null"); } catch {}
+let state = null, busy = false, pollTimer = null;
+
+function escapeHtml(t) {
+  return String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function goBack() { if (history.length > 1) history.back(); else location.href = COMO === "chofer" ? "chofer.html" : "pasajero.html"; }
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = "none"), 3200);
+}
+function fmtHour(t) {
+  const d = new Date(String(t).replace(" ", "T") + (String(t).includes("Z") ? "" : "Z"));
+  return d.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit" });
+}
+async function post(path, extra) {
+  const r = await fetch(API + "/api" + path, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ as: COMO, phone: me.phone, pin: me.pin, ...extra }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "No se pudo, intenta de nuevo");
+  return d;
+}
+
+function render(typing) {
+  const box = document.getElementById("msgs");
+  const first = (me.name || "").trim().split(/\s+/)[0];
+  let html = "";
+  if (!state.messages.length) {
+    html += `<div class="hello"><b>Hola${first ? `, ${escapeHtml(first)}` : ""} 👋</b>Pregúntame lo que necesites de MotoVecino.<br>Si hace falta, te paso con una persona del equipo.</div>`;
+    html += `<div class="chips">${QUICK.map((q) => `<button class="chip" onclick="send(this.textContent)">${escapeHtml(q)}</button>`).join("")}</div>`;
+  }
+  html += state.messages.map((m) => {
+    if (m.sender === "usuario") return `<div class="m me">${escapeHtml(m.text)}<small>${fmtHour(m.created_at)}</small></div>`;
+    const who = m.sender === "equipo" ? "Equipo MotoVecino" : "Asistente MotoVecino";
+    return `<div class="m them"><span class="who">${who}</span>${escapeHtml(m.text)}<small>${fmtHour(m.created_at)}</small></div>`;
+  }).join("");
+  if (typing) html += `<div class="typing">Escribiendo<span>.</span><span>.</span><span>.</span></div>`;
+  box.innerHTML = html;
+  box.scrollTop = box.scrollHeight;
+
+  const human = state.mode === "humano";
+  document.getElementById("sub").textContent = human ? "Te atiende el equipo de MotoVecino" : "Asistente MotoVecino · te contesta al momento";
+  document.getElementById("humanBtn").style.display = human ? "none" : "block";
+  const notice = document.getElementById("notice");
+  notice.style.display = human && state.waiting ? "block" : "none";
+  notice.textContent = "Una persona del equipo te contesta aquí en cuanto pueda. Puedes cerrar la app: tu respuesta te espera en Ayuda.";
+  // Con el equipo, se revisa cada 20 s si ya contestaron.
+  clearInterval(pollTimer);
+  if (human) pollTimer = setInterval(refresh, 20000);
+}
+
+async function refresh() {
+  if (busy || document.hidden) return;
+  try { state = await post("/support/chat"); render(false); } catch {}
+}
+
+async function send(preset) {
+  const input = document.getElementById("input");
+  const text = (preset || input.value).trim();
+  if (!text || busy) return;
+  busy = true;
+  document.getElementById("sendBtn").disabled = true;
+  input.value = "";
+  state.messages.push({ sender: "usuario", text, created_at: new Date().toISOString() });
+  render(state.mode !== "humano");
+  try {
+    state = await post("/support/chat", { text });
+  } catch (e) {
+    toast(e.message);
+    state.messages.pop();
+    input.value = text;
+  }
+  busy = false;
+  document.getElementById("sendBtn").disabled = false;
+  render(false);
+}
+
+async function askHuman() {
+  try { state = await post("/support/human"); render(false); document.getElementById("input").focus(); }
+  catch (e) { toast(e.message); }
+}
+
+function showOut(msg) {
+  document.getElementById("msgs").outerHTML = `<div class="out"><div>${msg}</div>
+    <a href="${COMO === "chofer" ? "chofer.html" : "pasajero.html"}">Entrar a la app</a>
+    <div style="font-size:13px">¿No puedes entrar? <a style="background:none;color:inherit;padding:0;text-decoration:underline;font-weight:600" target="_blank"
+      href="https://wa.me/52${SOPORTE_WHATSAPP_NUMBER}?text=${encodeURIComponent("Hola, no puedo entrar a MotoVecino: ")}">Escríbenos por WhatsApp</a></div></div>`;
+}
+
+(async function start() {
+  if (!me || !me.phone || !me.pin) { showOut("Para usar Ayuda, primero entra a tu cuenta."); return; }
+  try {
+    state = await post("/support/chat");
+  } catch (e) {
+    showOut(escapeHtml(e.message));
+    return;
+  }
+  document.getElementById("bar").style.display = "block";
+  render(false);
+})();
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state && state.mode === "humano") refresh(); });
+</script>
+</body>
+</html>
