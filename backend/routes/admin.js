@@ -526,6 +526,33 @@ router.post("/admin/drivers/:id/test-account", checkAdminPin, async (req, res) =
   res.json({ ok: true });
 });
 
+// 25-oct-2026: "Cambiar municipio" — solo el PIN del dueño (el único que ve
+// varias zonas). Sirve para probar con una cuenta en otro municipio (ej. el
+// dueño en Ticul) sin borrar y volver a dar de alta. La comisaría (Progreso)
+// es de su municipio, así que se limpia al mudarlo. Con un viaje en curso no
+// se mueve: el viaje se quedaría a medias en el cajón de antes.
+router.post("/admin/drivers/:id/move-city", checkAdminPin, async (req, res) => {
+  if (req.adminRole !== "tekax") {
+    return res.status(403).json({ error: "Esto solo lo puede hacer el dueño." });
+  }
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const toCity = req.body.toCity;
+  if (!req.adminZones.includes(toCity) || !getCityById(toCity)) {
+    return res.status(400).json({ error: "Municipio no válido" });
+  }
+  if (toCity === req.adminCity) {
+    return res.status(400).json({ error: "Ya está en ese municipio" });
+  }
+  const active = await db
+    .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
+    .get(req.params.id);
+  if (active) {
+    return res.status(409).json({ error: "Tiene un viaje en curso. Espera a que termine para cambiarlo." });
+  }
+  await db.prepare("UPDATE drivers SET city = ?, zone = NULL WHERE id = ?").run(toCity, req.params.id);
+  res.json({ ok: true, city: toCity, cityLabel: getCityById(toCity).label });
+});
+
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) => {
   const apps = await db
     .prepare(

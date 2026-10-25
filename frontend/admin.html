@@ -1325,6 +1325,7 @@ const AUDIT_LABELS = {
   "/admin/drivers": "Dio de alta un chofer",
   "/admin/drivers/:id/update": "Editó un chofer",
   "/admin/drivers/:id/delete": "Eliminó un chofer",
+  "/admin/drivers/:id/move-city": "Cambió de municipio a un chofer",
   "/admin/drivers/:id/reset-pin": "Cambió el PIN de un chofer",
   "/admin/drivers/:id/register-trip-fees": "Cobró cuotas de viajes",
   "/admin/drivers/:id/register-payment": "Registró un pago",
@@ -2395,6 +2396,42 @@ async function resetDriverPin(id) {
   loadDrivers();
 }
 
+// Solo el dueño (ve varias zonas): pasa al chofer a otro municipio, ej. para
+// probar en Ticul con su propia cuenta. Deja de verse en esta zona y aparece
+// en la nueva; sus viajes pasados se quedan donde se hicieron.
+async function moveDriverCity(id) {
+  const driver = driversCache.find((d) => d.id === id);
+  const others = adminZones.filter((z) => z.id !== adminCity);
+  const toCity = await new Promise((resolve) => {
+    const ov = document.createElement("div");
+    ov.className = "modal-overlay active";
+    ov.innerHTML = `<div class="modal-card"><p style="margin:0 0 12px;line-height:1.5;"></p><select class="tipo-select" style="width:100%;margin-bottom:16px;"></select><div style="display:flex;gap:8px;"><button class="btn btn-secondary" data-r="0" style="flex:1">Cancelar</button><button class="btn" data-r="1" style="flex:1">Cambiar</button></div></div>`;
+    ov.querySelector("p").textContent = `¿A qué municipio pasa ${driver.name}? Solo le llegarán los mototaxis de ahí.`;
+    const sel = ov.querySelector("select");
+    sel.innerHTML = others.map((z) => `<option value="${escapeHtml(z.id)}">${escapeHtml(z.label)}${z.enabled ? "" : " (apagado)"}</option>`).join("");
+    ov.addEventListener("click", (e) => {
+      const r = e.target.closest("[data-r]");
+      if (!r && e.target !== ov) return;
+      ov.remove();
+      resolve(r && r.dataset.r === "1" ? sel.value : null);
+    });
+    document.body.appendChild(ov);
+  });
+  if (!toCity) return;
+  const res = await fetch(API + `/api/admin/drivers/${id}/move-city`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin, toCity }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    showToast(data.error || "No se pudo cambiar el municipio");
+    return;
+  }
+  showToast(`${driver.name} ahora es chofer de ${data.cityLabel}. Lo ves al cambiar la zona arriba.`);
+  loadDrivers();
+}
+
 // Una cuenta de prueba no ocupa lugar de "chofer fundador" ni entra al ranking de
 // Top chofer: al marcarla, su
 // lugar pasa al siguiente chofer real (lo recalcula el servidor).
@@ -2621,6 +2658,7 @@ function renderDriverRows() {
         <button class="btn-sm" onclick="startEdit(${d.id})">Editar</button>
         <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
         <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
+        ${adminRoleNow === "tekax" && adminZones.length > 1 ? `<button class="btn-sm" onclick="moveDriverCity(${d.id})">Cambiar municipio</button>` : ""}
         <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
       </td>
     </tr>`;
