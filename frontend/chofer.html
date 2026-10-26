@@ -74,6 +74,14 @@ function setDriverTheme(pref) {
   #toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-dim); }
   #mapWrap { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
   #map { flex: 1; min-height: 0; }
+  /* Botón Centrar (26-oct, idea del grupo de Ticul): si el chofer movió el
+     mapa con el dedo, un toque lo regresa a su ubicación, como en Google Maps. */
+  #centerBtn {
+    position: absolute; right: 12px; bottom: 26px; z-index: 500; width: 48px; height: 48px;
+    border-radius: 50%; border: 0; background: #fff; box-shadow: 0 3px 12px rgba(0,0,0,.35);
+    display: none; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+  #centerBtn:active { transform: scale(.94); }
   /* Cajita "hoy" arriba del mapa, como Uber: se ve sin entrar al perfil. */
   #earnPill {
     position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 500;
@@ -820,6 +828,7 @@ function setDriverTheme(pref) {
   </div>
   <div id="mapWrap">
     <div id="map"></div>
+    <button id="centerBtn" onclick="centerOnMe()" title="Centrar" aria-label="Centrar el mapa en mi ubicación"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.6" fill="#1a73e8"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg></button>
     <button id="earnPill" onclick="openEarnings()" style="display:none;" title="Mis ganancias">
       <span class="row"><span class="amt" id="earnPillAmt">$0</span><span class="lbl" id="earnPillLbl">hoy</span></span>
       <span class="bar" id="earnPillBar" style="display:none;"><div></div></span>
@@ -1215,6 +1224,11 @@ let available = (() => {
   try { return localStorage.getItem("motoya_available") === "1"; } catch { return false; }
 })();
 let myPos = null;
+
+function centerOnMe() {
+  if (!myPos || !map) return;
+  map.setView([myPos.lat, myPos.lng], Math.max(map.getZoom(), 16), { animate: true });
+}
 let todayCount = 0;
 let otherDriverMarkers = new Map();
 let otherDriversPollTimer = null;
@@ -1942,6 +1956,7 @@ function watchLocation() {
       myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       if (!myMarker) {
         myMarker = L.marker([myPos.lat, myPos.lng], { title: "Tú", icon: vehicleIcon(driver.vehicle_type) }).addTo(map);
+        document.getElementById("centerBtn").style.display = "flex";
         if (didFitOtherDrivers && otherDriverMarkers.size > 0) {
           const points = [...otherDriverMarkers.values()].map((m) => m.getLatLng());
           points.push(L.latLng(myPos.lat, myPos.lng));
