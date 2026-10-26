@@ -14,6 +14,14 @@ const router = express.Router();
 const numericParam = (req, res, next, value) => (/^\d{1,9}$/.test(value) ? next() : res.status(404).json({ error: "No encontrado" }));
 router.param("id", numericParam);
 
+// 26-oct-2026: cuenta de prueba que Google Play usa para revisar la app (Play
+// Console → Detalles de acceso: teléfono + PIN). El revisor no tiene ese
+// celular, así que el código nunca le llega (y le caía al dueño). Solo este
+// número sigue entrando con PIN y no se le manda código; los demás, código o
+// huella. El límite de PINs equivocados por cuenta sigue igual.
+const PLAY_REVIEW_PHONES = new Set(["9971553468"]);
+const isPlayReviewPhone = (phone) => PLAY_REVIEW_PHONES.has(String(phone || "").replace(/\D/g, ""));
+
 async function generateRiderPin() {
   let pin;
   do {
@@ -37,7 +45,7 @@ router.post("/riders/otp/send", async (req, res) => {
   const { phone } = parsed;
   const existing = await db.prepare("SELECT pin FROM riders WHERE phone = ?").get(phone);
   const login = !!(existing && existing.pin);
-  if (login && (req.body.login !== true || !otpEnabled())) {
+  if (login && (req.body.login !== true || !otpEnabled() || isPlayReviewPhone(phone))) {
     return res.status(409).json({ error: "Ese teléfono ya tiene cuenta" });
   }
   if (!otpEnabled()) {
@@ -192,10 +200,10 @@ router.post("/riders/login", async (req, res) => {
   // 23-oct-2026: con el código por WhatsApp funcionando, ya no se entra con
   // PIN (4 dígitos) — la app tampoco enseña ese botón. Solo sirve si el
   // servidor no manda códigos (OTP_MODE off), para que nadie se quede fuera.
-  if (otpEnabled()) {
+  const { phone, pin } = req.body || {};
+  if (otpEnabled() && !isPlayReviewPhone(phone)) {
     return res.status(403).json({ error: "Ahora se entra con el código por WhatsApp o con tu huella. Cierra la app y vuelve a abrirla." });
   }
-  const { phone, pin } = req.body || {};
   if (!phone || !pin) {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
