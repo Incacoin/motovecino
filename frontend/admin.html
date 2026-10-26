@@ -928,6 +928,7 @@
   <div class="section-card" id="supportListCard">
   <h1>Soporte</h1>
   <p class="section-hint" id="supportHint">Pláticas de "Ayuda" de pasajeros y choferes.</p>
+  <div id="supportPush" class="section-hint" style="display:none;margin:4px 0 12px;"></div>
   <div id="supportList" class="ago">Cargando…</div>
   </div>
   <div class="section-card" id="supportThreadCard" style="display:none">
@@ -938,9 +939,9 @@
   <textarea id="supportReply" rows="3" maxlength="1000" placeholder="Escribe tu respuesta…" style="width:100%;margin-top:8px;padding:10px;font:inherit;"></textarea>
   <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
     <button class="btn-sm" onclick="replySupport()">Enviar respuesta</button>
-    <button class="btn-sm" onclick="resolveSupport()">Resuelto (vuelve el asistente)</button>
+    <button class="btn-sm" id="supportResolveBtn" onclick="resolveSupport()">Resuelto (vuelve el asistente)</button>
   </div>
-  <p class="section-hint" style="margin-top:8px;">La persona ve tu respuesta en Ayuda la próxima vez que la abra (sale como "Equipo MotoVecino").</p>
+  <p class="section-hint" style="margin-top:8px;">Tu respuesta sale como "Equipo MotoVecino". Si la persona activó los avisos le llega al celular; si no, la ve al abrir Ayuda.</p>
   <p class="section-hint" id="supportMsg" style="margin-top:4px;"></p>
   </div>
   </div>
@@ -1424,9 +1425,11 @@ async function loadSupport() {
   const badge = document.getElementById("supportBadge");
   badge.textContent = d.waiting;
   badge.style.display = d.waiting ? "inline-flex" : "none";
+  document.getElementById("supportResolveBtn").textContent = d.bot ? "Resuelto (vuelve el asistente)" : "Resuelto";
+  refreshSupportPush();
   document.getElementById("supportHint").innerHTML = d.bot
     ? 'Pláticas de "Ayuda" de pasajeros y choferes. Contesta el Asistente MotoVecino; las que dicen <b>Espera respuesta</b> son para ti.'
-    : '<b>El asistente está apagado</b> (falta ANTHROPIC_API_KEY en Render, o SUPPORT_BOT=off): todas las pláticas te llegan a ti.';
+    : '<b>Contestas tú:</b> el asistente automático está apagado, así que todas las pláticas de Ayuda te llegan a ti.';
   const list = document.getElementById("supportList");
   list.classList.toggle("ago", !d.threads.length);
   list.innerHTML = d.threads.length ? d.threads.map((t) => `
@@ -1438,6 +1441,41 @@ async function loadSupport() {
       </div>
       <div class="ago" style="white-space:nowrap;">${t.last ? escapeHtml(supportWhen(t.last.created_at)) : ""}</div>
     </div>`).join("") : "Todavía no hay pláticas.";
+}
+// Avisos en este celular cuando alguien escribe en Ayuda (26-oct, ver push.js).
+function supportPushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+async function refreshSupportPush() {
+  const box = document.getElementById("supportPush");
+  if (!supportPushSupported()) { box.style.display = "none"; return; }
+  let sub = null;
+  try { sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription(); } catch {}
+  if (sub && Notification.permission === "granted") {
+    // Se vuelve a mandar al abrir: si el servidor la borró, se recupera sola.
+    const j = sub.toJSON();
+    supportPost("/push/subscribe", { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }).catch(() => {});
+    box.innerHTML = "🔔 Avisos activados en este celular: te suena cuando alguien escribe en Ayuda.";
+  } else if (Notification.permission === "denied") {
+    box.innerHTML = "🔕 Avisos bloqueados en este navegador. Actívalos: candado junto a la dirección → Permisos → Notificaciones.";
+  } else {
+    box.innerHTML = '🔕 No te avisa cuando alguien escribe. <button class="btn-sm" onclick="enableSupportPush()">Activar avisos en este celular</button>';
+  }
+  box.style.display = "";
+}
+async function enableSupportPush() {
+  if (await Notification.requestPermission() !== "granted") { refreshSupportPush(); return; }
+  try {
+    const { publicKey } = await (await fetch(API + "/api/push/public-key")).json();
+    const raw = atob((publicKey + "=".repeat((4 - (publicKey.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) }));
+    const j = sub.toJSON();
+    await supportPost("/push/subscribe", { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+  } catch (e) {
+    document.getElementById("supportPush").textContent = "No se pudieron activar los avisos: " + e.message;
+    return;
+  }
+  refreshSupportPush();
 }
 function renderSupportThread(t) {
   const u = t.user;
@@ -1826,6 +1864,11 @@ async function login(withSavedToken) {
   document.getElementById("app").classList.add("active");
   let savedTab = "resumen";
   try { savedTab = localStorage.getItem("motoyaAdminTab") || "resumen"; } catch {}
+  // Al tocar el aviso "Te escribieron en Ayuda" se abre admin.html#soporte.
+  if (location.hash === "#soporte" && adminRoleNow === "tekax") {
+    savedTab = "soporte";
+    history.replaceState(null, "", location.pathname + location.search);
+  }
   switchTab(savedTab);
   loadAllAdminData();
   if (!withSavedToken) offerPasskey();

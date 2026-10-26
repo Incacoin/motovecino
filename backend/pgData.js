@@ -31,6 +31,9 @@ const TABLES = [
   "phone_otps",
   "admin_sessions",
   "admin_audit",
+  "support_threads",
+  "support_messages",
+  "support_push_subs",
 ];
 
 // Llave para ordenar (las tablas de ajustes no tienen id).

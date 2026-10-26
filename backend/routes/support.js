@@ -6,6 +6,7 @@
 const express = require("express");
 const db = require("../db");
 const bot = require("../supportBot");
+const push = require("../push");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { checkAdminPin } = require("./admin");
 
@@ -89,6 +90,15 @@ async function userContext(user) {
   return lines.join("\n");
 }
 
+// Aviso al celular del dueño: alguien espera respuesta en Ayuda.
+function notifyOwner(user, thread, text) {
+  const who = `${String(user.name || "").split(/\s+/)[0] || "Alguien"} (${user.type})`;
+  push.notifySupport("admin", 0, {
+    kind: "admin", tag: `ayuda-${thread.id}`, url: "/admin.html#soporte",
+    title: `💬 ${who} te escribió en Ayuda`, body: text.slice(0, 140),
+  }).catch((e) => console.warn("[ayuda] aviso al dueño:", e.message));
+}
+
 function publicThread(thread, messages) {
   return { mode: thread.mode, waiting: !!thread.needs_human, bot: bot.enabled(), messages };
 }
@@ -107,6 +117,10 @@ router.post("/support/chat", async (req, res) => {
     await addMessage(thread.id, "usuario", text);
     if (thread.mode === "humano") {
       await db.prepare("UPDATE support_threads SET needs_human = 1 WHERE id = ?").run(thread.id);
+    } else if (!bot.enabled()) {
+      // Sin asistente (sin clave o SUPPORT_BOT=off): va directo al equipo, sin
+      // mensaje automático; ayuda.html ya dice que una persona contesta.
+      await handOff(thread, "Asistente apagado");
     } else {
       const history = (await messagesOf(thread.id, HISTORY_FOR_BOT)).map((m) => ({ sender: m.sender, text: m.text }));
       const answer = await bot.reply(history, await userContext(user));
@@ -114,9 +128,22 @@ router.post("/support/chat", async (req, res) => {
       if (answer.handoff) await handOff(thread, answer.reason);
     }
     thread = await threadFor(user);
+    if (thread.needs_human) notifyOwner(user, thread, text);
   }
   await db.prepare("UPDATE support_messages SET read_at = datetime('now') WHERE thread_id = ? AND sender = 'equipo' AND read_at IS NULL").run(thread.id);
   res.json(publicThread(thread, await messagesOf(thread.id)));
+});
+
+// Avisarle a la persona cuando el equipo le conteste.
+router.post("/support/push/subscribe", async (req, res) => {
+  const user = await authUser(req, res);
+  if (!user) return;
+  const { endpoint, p256dh, auth } = req.body || {};
+  if (!push.isValidEndpoint(endpoint) || !push.isValidRiderKeys(p256dh, auth)) {
+    return res.status(400).json({ error: "Suscripción no válida" });
+  }
+  await push.saveSupportSubscription(user.type, user.id, endpoint, p256dh, auth);
+  res.json({ ok: true });
 });
 
 // "Hablar con una persona".
@@ -154,6 +181,16 @@ async function userOf(thread) {
     : await db.prepare("SELECT name, phone, city FROM riders WHERE id = ?").get(thread.user_id);
   return { id: thread.user_id, type: thread.user_type, name: u ? u.name : "(cuenta borrada)", phone: u ? u.phone : null, city: u ? u.city : null };
 }
+
+// Avisos al celular del dueño cuando alguien escribe en Ayuda.
+router.post("/admin/support/push/subscribe", checkAdminPin, ownerOnly, async (req, res) => {
+  const { endpoint, p256dh, auth } = req.body || {};
+  if (!push.isValidEndpoint(endpoint) || !push.isValidRiderKeys(p256dh, auth)) {
+    return res.status(400).json({ error: "Suscripción no válida" });
+  }
+  await push.saveSupportSubscription("admin", 0, endpoint, p256dh, auth);
+  res.json({ ok: true });
+});
 
 router.post("/admin/support/list", checkAdminPin, ownerOnly, async (req, res) => {
   const threads = await db.prepare(
@@ -197,6 +234,10 @@ router.post("/admin/support/:id/reply", checkAdminPin, ownerOnly, async (req, re
   if (!text) return res.status(400).json({ error: "Escribe la respuesta" });
   await addMessage(t.id, "equipo", text);
   await db.prepare("UPDATE support_threads SET mode = 'humano', needs_human = 0 WHERE id = ?").run(t.id);
+  push.notifySupport(t.user_type, t.user_id, {
+    kind: "ayuda", tag: "ayuda", url: t.user_type === "chofer" ? "/ayuda.html?como=chofer" : "/ayuda.html",
+    title: "💬 MotoVecino te contestó", body: text.slice(0, 140),
+  }).catch((e) => console.warn("[ayuda] aviso a la persona:", e.message));
   res.json(await adminView(await adminThread(t.id, res)));
 });
 

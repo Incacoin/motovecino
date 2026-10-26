@@ -320,8 +320,53 @@ async function removeBusinessSubscription(businessId, endpoint) {
   await db.prepare("DELETE FROM business_push_subs WHERE business_id = ? AND endpoint = ?").run(businessId, endpoint);
 }
 
+// ---- Avisos de Ayuda (26-oct) ----
+// Al pasajero/chofer: "💬 MotoVecino te contestó" cuando el equipo responde.
+// Al dueño (user_type 'admin', user_id 0): "💬 Te escribieron en Ayuda".
+// Cifrados igual que los del pasajero (llevan el texto del mensaje).
+async function sendToSupport(sub, message) {
+  try {
+    const res = await fetch(sub.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: await vapidHeader(sub.endpoint),
+        TTL: "86400",
+        Urgency: "normal",
+        "Content-Encoding": "aes128gcm",
+        "Content-Type": "application/octet-stream",
+      },
+      body: encryptPayload(sub.p256dh, sub.auth, JSON.stringify(message)),
+    });
+    if (res.status === 404 || res.status === 410) {
+      await db.prepare("DELETE FROM support_push_subs WHERE id = ?").run(sub.id);
+    } else if (!res.ok) {
+      console.warn("[push] respuesta", res.status, "ayuda", sub.user_type, sub.user_id);
+    }
+  } catch (e) {
+    console.warn("[push] error", e.message);
+  }
+}
+// message: { kind: "ayuda" | "admin", title, body, tag, url }
+async function notifySupport(userType, userId, message) {
+  const subs = await db.prepare("SELECT id, user_type, user_id, endpoint, p256dh, auth FROM support_push_subs WHERE user_type = ? AND user_id = ?")
+    .all(userType, userId);
+  await Promise.allSettled(subs.map((s) => sendToSupport(s, message)));
+}
+// Máximo 5 celulares por persona: se queda con los más nuevos.
+async function saveSupportSubscription(userType, userId, endpoint, p256dh, auth) {
+  await db.prepare(
+    `INSERT INTO support_push_subs (user_type, user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT (user_type, user_id, endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth`
+  ).run(userType, userId, endpoint, p256dh, auth);
+  await db.prepare(
+    `DELETE FROM support_push_subs WHERE user_type = ? AND user_id = ? AND id NOT IN
+       (SELECT id FROM support_push_subs WHERE user_type = ? AND user_id = ? ORDER BY id DESC LIMIT 5)`
+  ).run(userType, userId, userType, userId);
+}
+
 module.exports = {
   getKeys, notifyNewRide, setWantsRides, saveSubscription, removeSubscription, isValidEndpoint,
   notifyRider, saveRiderSubscription, isValidRiderKeys, encryptPayload,
   notifyBusiness, saveBusinessSubscription, removeBusinessSubscription,
+  notifySupport, saveSupportSubscription,
 };

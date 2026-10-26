@@ -57,6 +57,7 @@ const COMO = new URLSearchParams(location.search).get("como") === "chofer" ? "ch
   .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 6px 0 4px; }
   .chip { border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 999px; padding: 8px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
   .notice { margin: 0 16px 8px; padding: 10px 12px; border-radius: 14px; background: var(--warn-bg); border: 1px solid var(--warn-bd); font-size: 13px; line-height: 1.4; }
+  .notice button { display: block; margin-top: 8px; border: 0; border-radius: 10px; padding: 9px 13px; background: var(--btn); color: var(--btn-ink); font-weight: 700; font-size: 13.5px; cursor: pointer; }
   .bar { padding: 8px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
   .row { display: flex; gap: 8px; }
   .row textarea { flex: 1; resize: none; height: 46px; max-height: 120px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); border-radius: 14px; padding: 12px 13px; font: inherit; font-size: 15px; }
@@ -121,9 +122,13 @@ async function post(path, extra) {
 function render(typing) {
   const box = document.getElementById("msgs");
   const first = (me.name || "").trim().split(/\s+/)[0];
+  // Sin asistente (apagado en el servidor) contesta directo el equipo.
+  const human = state.mode === "humano" || !state.bot;
   let html = "";
   if (!state.messages.length) {
-    html += `<div class="hello"><b>Hola${first ? `, ${escapeHtml(first)}` : ""} 👋</b>Pregúntame lo que necesites de MotoVecino.<br>Si hace falta, te paso con una persona del equipo.</div>`;
+    html += state.bot
+      ? `<div class="hello"><b>Hola${first ? `, ${escapeHtml(first)}` : ""} 👋</b>Pregúntame lo que necesites de MotoVecino.<br>Si hace falta, te paso con una persona del equipo.</div>`
+      : `<div class="hello"><b>Hola${first ? `, ${escapeHtml(first)}` : ""} 👋</b>Escríbenos lo que necesites de MotoVecino.<br>Una persona del equipo te contesta aquí mismo.</div>`;
     html += `<div class="chips">${QUICK.map((q) => `<button class="chip" onclick="send(this.textContent)">${escapeHtml(q)}</button>`).join("")}</div>`;
   }
   html += state.messages.map((m) => {
@@ -135,12 +140,14 @@ function render(typing) {
   box.innerHTML = html;
   box.scrollTop = box.scrollHeight;
 
-  const human = state.mode === "humano";
   document.getElementById("sub").textContent = human ? "Te atiende el equipo de MotoVecino" : "Asistente MotoVecino · te contesta al momento";
   document.getElementById("humanBtn").style.display = human ? "none" : "block";
   const notice = document.getElementById("notice");
   notice.style.display = human && state.waiting ? "block" : "none";
-  notice.textContent = "Una persona del equipo te contesta aquí en cuanto pueda. Puedes cerrar la app: tu respuesta te espera en Ayuda.";
+  notice.innerHTML = pushOn
+    ? "Una persona del equipo te contesta aquí en cuanto pueda. Puedes cerrar la app: te avisamos al celular cuando te contestemos."
+    : "Una persona del equipo te contesta aquí en cuanto pueda. Puedes cerrar la app: tu respuesta te espera en Ayuda." +
+      (pushSupported() && Notification.permission !== "denied" ? '<button onclick="enablePush()">🔔 Avísame cuando me contesten</button>' : "");
   // Con el equipo, se revisa cada 20 s si ya contestaron.
   clearInterval(pollTimer);
   if (human) pollTimer = setInterval(refresh, 20000);
@@ -159,7 +166,7 @@ async function send(preset) {
   document.getElementById("sendBtn").disabled = true;
   input.value = "";
   state.messages.push({ sender: "usuario", text, created_at: new Date().toISOString() });
-  render(state.mode !== "humano");
+  render(state.mode !== "humano" && state.bot);
   try {
     state = await post("/support/chat", { text });
   } catch (e) {
@@ -175,6 +182,37 @@ async function send(preset) {
 async function askHuman() {
   try { state = await post("/support/human"); render(false); document.getElementById("input").focus(); }
   catch (e) { toast(e.message); }
+}
+
+// Aviso al celular cuando el equipo contesta (26-oct, ver backend/push.js).
+let pushOn = false;
+function pushSupported() { return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window; }
+async function syncPush() {
+  if (!pushSupported() || Notification.permission !== "granted") return;
+  try {
+    const sub = await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    if (!sub) return;
+    const j = sub.toJSON();
+    await post("/support/push/subscribe", { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+    pushOn = true;
+  } catch {}
+}
+async function enablePush() {
+  if (await Notification.requestPermission() !== "granted") { toast("Sin permiso no te podemos avisar"); render(false); return; }
+  try {
+    const { publicKey } = await (await fetch(API + "/api/push/public-key")).json();
+    const raw = atob((publicKey + "=".repeat((4 - (publicKey.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    const reg = await navigator.serviceWorker.ready;
+    const sub = (await reg.pushManager.getSubscription()) ||
+      (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) }));
+    const j = sub.toJSON();
+    await post("/support/push/subscribe", { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
+    pushOn = true;
+    toast("Listo: te avisamos cuando te contestemos");
+  } catch (e) {
+    toast("No se pudieron activar los avisos, intenta de nuevo");
+  }
+  render(false);
 }
 
 function showOut(msg) {
@@ -194,8 +232,10 @@ function showOut(msg) {
   }
   document.getElementById("bar").style.display = "block";
   render(false);
+  // Si ya dio permiso de avisos (ej. el chofer para sus viajes), se activa solo.
+  syncPush().then(() => { if (pushOn) render(false); });
 })();
-document.addEventListener("visibilitychange", () => { if (!document.hidden && state && state.mode === "humano") refresh(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state && (state.mode === "humano" || !state.bot)) refresh(); });
 </script>
 </body>
 </html>

@@ -10,6 +10,26 @@ self.addEventListener("push", (event) => {
   // ya está en pantalla no se muestra, porque ahí ya lo está viendo.
   let msg = null;
   try { msg = event.data ? event.data.json() : null; } catch (e) {}
+  // Ayuda (26-oct): "MotoVecino te contestó" (kind ayuda) y, al dueño,
+  // "Te escribieron en Ayuda" (kind admin). Si ya tiene esa página en
+  // pantalla no se muestra: ahí ya lo está viendo.
+  if (msg && (msg.kind === "ayuda" || msg.kind === "admin")) {
+    event.waitUntil((async () => {
+      const page = msg.kind === "admin" ? "/admin.html" : "/ayuda.html";
+      const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (wins.some((c) => c.visibilityState === "visible" && new URL(c.url).pathname.endsWith(page))) return;
+      await self.registration.showNotification(msg.title, {
+        body: msg.body,
+        icon: "icons/icon-192.png?v=2",
+        badge: "icons/icon-192.png?v=2",
+        tag: msg.tag,
+        renotify: true,
+        vibrate: [200, 100, 200],
+        data: { url: msg.url || page },
+      });
+    })());
+    return;
+  }
   // Aviso al negocio (pedido nuevo, mensaje de un cliente). Si tiene "Mi
   // negocio" en pantalla no se muestra: ahí ya le sonó.
   if (msg && msg.kind === "negocio") {
