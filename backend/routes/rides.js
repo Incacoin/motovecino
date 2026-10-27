@@ -522,7 +522,10 @@ router.get("/taxi/suggest", async (req, res) => {
   res.json(suggestTaxiFare(plat, plng, dlat, dlng));
 });
 
-const OFFER_SELECT = "SELECT o.id, o.price, o.deposit_amount, o.created_at, d.id AS driver_id, d.name, d.vehicle, d.photo, d.es_fundador FROM ride_offers o JOIN drivers d ON d.id = o.driver_id";
+// Motivos que el chofer puede elegir al pedir más (ver OFFER_REASONS en chofer.html y pasajero.html).
+const OFFER_REASONS = ["lluvia", "lejos", "noche", "camino", "otro"];
+
+const OFFER_SELECT = "SELECT o.id, o.price, o.deposit_amount, o.reason, o.created_at, d.id AS driver_id, d.name, d.vehicle, d.photo, d.es_fundador FROM ride_offers o JOIN drivers d ON d.id = o.driver_id";
 
 // Lo que ve el pasajero de cada contraoferta: quién ofrece y cuánto. El
 // teléfono del chofer no: ese solo se entrega cuando el pasajero acepta.
@@ -542,6 +545,7 @@ function offerForRider(o) {
     id: o.id,
     price: o.price,
     depositAmount: o.deposit_amount || null,
+    reason: o.reason || null,
     expiresInSec: Math.max(0, Math.round(TAXI_OFFER_TTL_SEC - ageSec)),
     driver: { id: o.driver_id, name: o.name, vehicle: o.vehicle, es_fundador: o.es_fundador, ...photoUrls("d", o.driver_id, o.photo) },
   };
@@ -590,6 +594,8 @@ async function validateDeposit(driverId, price, depositAmount) {
 router.post("/rides/:id/offer", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, price, depositAmount } = req.body || {};
+  // Por qué pide más (el pasajero lo ve en la tarjeta). Una app vieja no lo manda: queda sin motivo.
+  const reason = OFFER_REASONS.includes(req.body?.reason) ? req.body.reason : null;
   if (!driverId || !pin) return res.status(400).json({ error: "Falta driverId o PIN" });
   if (isRateLimited(req.ip, req.body)) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   if (!await driverPinValid(driverId, pin)) {
@@ -634,8 +640,8 @@ router.post("/rides/:id/offer", async (req, res) => {
     realtime.notifyRide(rideId, "offer_removed", { offerId: p.id });
   }
   const result = await db
-    .prepare("INSERT INTO ride_offers (ride_id, driver_id, price, deposit_amount) VALUES (?, ?, ?, ?)")
-    .run(rideId, driverId, offerPrice, dep.deposit || null);
+    .prepare("INSERT INTO ride_offers (ride_id, driver_id, price, deposit_amount, reason) VALUES (?, ?, ?, ?, ?)")
+    .run(rideId, driverId, offerPrice, dep.deposit || null, reason);
   const row = await db.prepare(OFFER_SELECT + " WHERE o.id = ?").get(result.lastInsertRowid);
   realtime.notifyRide(rideId, "offer_new", offerForRider(row));
   res.status(201).json({ offerId: row.id, price: row.price, expiresInSec: TAXI_OFFER_TTL_SEC });

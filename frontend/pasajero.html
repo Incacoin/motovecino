@@ -284,6 +284,10 @@ function toggleRiderTheme() {
   .offer-who .name { font-weight: 800; font-size: 16px; }
   .offer-who .sub, .offer-card .sub { font-size: 12.5px; color: var(--text-dim); }
   .offer-price { font-size: 26px; font-weight: 800; color: var(--accent); white-space: nowrap; }
+  .offer-why { margin-top: 10px; padding: 9px 12px; border-radius: 12px; font-size: 14px; background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.35); color: var(--text); }
+  .offer-why b { color: #0284c7; }
+  html[data-theme="dark"] .offer-why b { color: #7dd3fc; }
+  .offer-card .sub s { opacity: .7; }
   .offer-actions { display: flex; gap: 8px; margin-top: 10px; }
   .offer-actions .btn { flex: 1; margin: 0; }
   .offers-hint { font-size: 13px; color: var(--text-dim); text-align: center; }
@@ -3453,6 +3457,18 @@ function fmtCountdown(ms) {
   return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
 }
 
+// Por qué el chofer pide más (lo elige al mandar su contraoferta; ver rides.js OFFER_REASONS).
+// "otro" no se explica: solo se muestra cuánto más pide.
+const OFFER_REASON_TXT = { lluvia: "🌧️ Está lloviendo", lejos: "📍 Es lejos", noche: "🌙 Es de noche", camino: "🛣️ Camino difícil" };
+
+function offerWhyHtml(o) {
+  const mine = ride && ride.offer_price;
+  if (!mine || !(o.price > mine)) return "";
+  const why = OFFER_REASON_TXT[o.reason];
+  return `<div class="offer-why"><b>Te pide $${o.price - mine} más</b>${why ? ` · ${why}` : ""}</div>
+        <div class="sub" style="margin-top:6px;">Tu oferta <s>$${mine}</s> → <b>$${o.price}</b></div>`;
+}
+
 function renderTaxiOffers() {
   const list = document.getElementById("offersList");
   if (!list) return;
@@ -3479,11 +3495,13 @@ function renderTaxiOffers() {
           </div>
           <div class="offer-price">$${o.price}</div>
         </div>
+        ${offerWhyHtml(o)}
         ${o.depositAmount ? `<div class="sub" style="margin-top:6px;">Pide anticipo de $${o.depositAmount} por depósito</div>` : ""}
         <div class="offer-actions">
           <button class="btn" onclick="acceptTaxiOffer(${o.id})">Aceptar $${o.price}</button>
           <button class="btn btn-secondary" onclick="rejectTaxiOffer(${o.id})">No, gracias</button>
         </div>
+        <div class="sub" style="margin-top:8px;text-align:center;">Si no te conviene, otro ${serviceType === "taxi" ? "taxista" : "chofer"} puede aceptar tu precio.</div>
         <div class="sub" style="margin-top:6px;text-align:center;">Vence en <span class="offer-timer" data-offer="${o.id}">${fmtCountdown(o.expiresAt - Date.now())}</span></div>
       </div>`;
     })

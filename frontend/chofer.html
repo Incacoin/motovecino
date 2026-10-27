@@ -653,6 +653,10 @@ function setDriverTheme(pref) {
   .req-chips button { padding: 11px 0; font: 700 14px Inter, sans-serif; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); cursor: pointer; }
   .req-chips button.sel { background: #22c55e; border-color: #22c55e; color: #04140a; }
   .req-note { font-size: 12.5px; color: var(--text-dim); margin-top: 8px; line-height: 1.45; }
+  .reason-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .reason-chips button { padding: 9px 12px; font: 600 13.5px Inter, sans-serif; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); cursor: pointer; }
+  .reason-chips button.sel { background: rgba(34,197,94,.18); border-color: #22c55e; color: #16a34a; }
+  html[data-theme="dark"] .reason-chips button.sel { color: #86efac; }
   .req-otro { display: flex; gap: 6px; margin-top: 8px; }
   .req-otro input { flex: 1; font-size: 18px; font-weight: 700; padding: 10px 12px; border: 1.5px solid #22c55e !important; }
   .req-wait { display: flex; align-items: center; gap: 10px; background: var(--bg-card); border-radius: 12px; padding: 12px; }
@@ -1215,6 +1219,9 @@ let featuredPendingId = null;
 let featuredPinned = false;
 // Lo que el chofer escogió para pedir más en cada solicitud: 5/10/15/20 u "otro".
 let counterPick = {};
+// Por qué pide más el chofer (el pasajero lo ve junto a la contraoferta).
+let counterReason = {};
+const OFFER_REASONS = [["lluvia", "🌧️ Está lloviendo"], ["lejos", "📍 Es lejos"], ["noche", "🌙 Es de noche"], ["camino", "🛣️ Camino difícil"], ["otro", "Otro"]];
 let currentRide = null;
 // Arranca ya "disponible" si así quedó la última vez — sin esto, cada vez
 // que Android descarga la pestaña de la memoria (muy común al pasar rato en
@@ -2117,6 +2124,7 @@ function addPendingRide(ride) {
 function removePendingRide(id) {
   delete pendingRides[id];
   delete counterPick[id];
+  delete counterReason[id];
   if (featuredPendingId === id) { featuredPendingId = null; featuredPinned = false; }
   delete pendingRideColors[id];
   if (pendingMarkers[id]) {
@@ -2344,7 +2352,7 @@ function renderRideList() {
 
   const allPending = sortedPendingRides();
   const rides = allPending.slice(0, MAX_VISIBLE_PENDING_RIDES);
-  const shape = rides.length === 0 ? "empty:" + available : "pending:" + rides.map((r) => r.id).join(",") + ":" + allPending.length + ":" + myOffersShape() + ":" + featuredPendingId + ":" + JSON.stringify(counterPick);
+  const shape = rides.length === 0 ? "empty:" + available : "pending:" + rides.map((r) => r.id).join(",") + ":" + allPending.length + ":" + myOffersShape() + ":" + featuredPendingId + ":" + JSON.stringify(counterPick) + JSON.stringify(Object.keys(counterReason).filter((k) => pendingRides[k]?.ride_type !== "taxi").map((k) => k + counterReason[k]));
   if (shape === renderedShape) { updateDistances(); return; }
   renderedShape = shape;
   document.getElementById("panel")?.classList.toggle("has-reqs", rides.length > 0);
@@ -2591,6 +2599,26 @@ function pickCounter(id, v) {
   if (v === "otro" && counterPick[id]) setTimeout(() => document.getElementById(`counterInput-${id}`)?.focus(), 30);
 }
 
+function pickReason(id, v) {
+  if (counterReason[id] === v) delete counterReason[id];
+  else counterReason[id] = v;
+  // El taxi escribe su precio a mano: no repintar para no borrar lo escrito.
+  const r = pendingRides[id];
+  if (r && r.ride_type === "taxi") {
+    document.querySelectorAll(`#reasons-${id} button`).forEach((b) => b.classList.toggle("sel", b.dataset.r === counterReason[id]));
+    return;
+  }
+  const typed = document.getElementById(`counterInput-${id}`)?.value;
+  renderRideList();
+  const inp = document.getElementById(`counterInput-${id}`);
+  if (inp && typed) { inp.value = typed; onOtroInput(id); }
+}
+function reasonChipsHtml(id) {
+  const sel = counterReason[id];
+  return `<div class="counter-label" style="margin-top:10px">¿Por qué pides más? <span style="font-weight:500">El pasajero lo ve.</span></div>
+  <div class="reason-chips" id="reasons-${id}">${OFFER_REASONS.map(([k, t]) => `<button type="button" data-r="${k}" class="${sel === k ? "sel" : ""}" onclick="pickReason(${id}, '${k}')">${t}</button>`).join("")}</div>`;
+}
+
 // "Otro": se escribe cuánto MÁS quiere ganar (ej. 12 = +$12).
 function otroExtra(id) {
   const v = Math.round(Number(document.getElementById(`counterInput-${id}`)?.value));
@@ -2602,8 +2630,8 @@ function onOtroInput(id) {
   if (!r || !btn) return;
   const extra = otroExtra(id);
   const net = motoNet(r.offer_price);
-  btn.disabled = !extra || extra > MOTO_COUNTER_MAX_UP;
-  btn.textContent = !extra ? "Escribe cuánto más" : extra > MOTO_COUNTER_MAX_UP ? `Máximo +$${MOTO_COUNTER_MAX_UP}` : `Pedir +$${extra} · ganas $${net + extra}`;
+  btn.disabled = !extra || extra > MOTO_COUNTER_MAX_UP || !counterReason[id];
+  btn.textContent = !extra ? "Escribe cuánto más" : extra > MOTO_COUNTER_MAX_UP ? `Máximo +$${MOTO_COUNTER_MAX_UP}` : !counterReason[id] ? "Elige por qué pides más ↓" : `Pedir +$${extra} · ganas $${net + extra}`;
 }
 function sendPickedCounter(id) {
   const r = pendingRides[id];
@@ -2614,6 +2642,7 @@ function sendPickedCounter(id) {
     showToast(`Puedes pedir de +$1 a +$${MOTO_COUNTER_MAX_UP}`);
     return;
   }
+  if (!counterReason[id]) { showToast("Elige por qué pides más"); return; }
   delete counterPick[id];
   sendTaxiOffer(id, r.offer_price + extra);
 }
@@ -2635,7 +2664,8 @@ function taxiOfferBlockHtml(r) {
     <div class="counter-row">
       <input type="number" id="counterInput-${r.id}" inputmode="numeric" min="${r.offer_price + 1}" max="${max}" placeholder="Ej. ${r.offer_price + (isTaxi ? 20 : 10)}" style="flex:2;padding:9px;font-size:16px;text-align:center;">
       <button class="btn-sm" onclick="sendCounter(${r.id})">Mandar</button>
-    </div>`;
+    </div>
+    ${reasonChipsHtml(r.id)}`;
 }
 
 function motoOfferBlockHtml(r, mine) {
@@ -2657,10 +2687,12 @@ function motoOfferBlockHtml(r, mine) {
     return `
     <button class="btn btn-go pedir" id="pedirBtn-${r.id}" onclick="sendPickedCounter(${r.id})" disabled>Escribe cuánto más</button>${chips}
     <div class="req-otro"><input type="number" id="counterInput-${r.id}" inputmode="numeric" min="1" max="${MOTO_COUNTER_MAX_UP}" placeholder="¿Cuánto más? Ej. 12" oninput="onOtroInput(${r.id})"></div>
+    ${reasonChipsHtml(r.id)}
     <div class="req-note">Máximo +$${MOTO_COUNTER_MAX_UP}. Toca otra vez «Otro» para quitarlo.</div>`;
   }
   return `
-    <button class="btn btn-go pedir" onclick="sendPickedCounter(${r.id})">Pedir +$${pick} · ganas $${net + pick}</button>${chips}
+    <button class="btn btn-go pedir" onclick="sendPickedCounter(${r.id})" ${counterReason[r.id] ? "" : "disabled"}>${counterReason[r.id] ? `Pedir +$${pick} · ganas $${net + pick}` : "Elige por qué pides más ↓"}</button>${chips}
+    ${reasonChipsHtml(r.id)}
     <div class="req-note">${firstName} ve <b>$${r.offer_price + pick}</b> con la cuota de la app. Toca +$${pick} otra vez para quitarlo.</div>`;
 }
 
@@ -2683,6 +2715,7 @@ function sendCounter(id) {
       showToast(`Escribe cuánto quieres ganar: de $${motoNet(r.offer_price) + 1} a $${motoNet(max)}`);
       return;
     }
+    if (!counterReason[id]) { showToast("Elige por qué pides más"); return; }
     sendTaxiOffer(id, price);
     return;
   }
@@ -2691,6 +2724,7 @@ function sendCounter(id) {
     showToast(`Escribe un precio de $${r.offer_price + 1} a $${max}`);
     return;
   }
+  if (!counterReason[id]) { showToast("Elige por qué pides más"); return; }
   sendTaxiOffer(id, price);
 }
 
@@ -2704,7 +2738,7 @@ async function sendTaxiOffer(id, price) {
   const res = await fetch(API + `/api/rides/${id}/offer`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, price, depositAmount }),
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin, price, depositAmount, reason: counterReason[id] || null }),
   }).catch(() => null);
   if (!res) { showToast("Sin conexión, intenta de nuevo"); return; }
   const data = await res.json().catch(() => ({}));
@@ -2713,6 +2747,7 @@ async function sendTaxiOffer(id, price) {
     showToast(data.error || "No se pudo mandar la oferta");
     return;
   }
+  delete counterReason[id];
   myOffers[id] = { offerId: data.offerId, price: data.price, expiresAt: Date.now() + data.expiresInSec * 1000 };
   const r = pendingRides[id];
   showToast(r && r.ride_type !== "taxi" ? `Pediste ganar $${motoNet(data.price)}` : `Le mandaste $${data.price} al pasajero`);

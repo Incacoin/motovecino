@@ -562,6 +562,8 @@ ALTER TABLE rides ADD COLUMN IF NOT EXISTS cash_to_business INTEGER;
 ALTER TABLE rides ADD COLUMN IF NOT EXISTS order_big INTEGER NOT NULL DEFAULT 0;
 -- Nota del cliente para el negocio ("sin cebolla, salsa aparte"), 11-oct-2026.
 ALTER TABLE business_orders ADD COLUMN IF NOT EXISTS client_note TEXT;
+-- Motivo de la contraoferta del chofer (lluvia, lejos, noche, camino, otro): el pasajero lo ve.
+ALTER TABLE ride_offers ADD COLUMN IF NOT EXISTS reason TEXT;
 -- Mensajes cliente <-> negocio dentro de la app (14-oct-2026). Es una
 -- conversación por par cliente-negocio: sirve antes de pagar y en cada pedido.
 CREATE TABLE IF NOT EXISTS business_chat (
