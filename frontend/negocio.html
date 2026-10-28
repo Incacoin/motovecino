@@ -27,12 +27,12 @@
 <style>
   :root {
     --bg: #ffffff; --bg-card: #f6f6f6; --bg-hover: #eeeeee; --border: #e2e2e2;
-    --text: #000; --dim: #545454; --faint: #8a8a8a; --green: #16a34a; --green-bg: #dcfce7;
+    --text: #000; --dim: #545454; --faint: #8a8a8a; --gold: #a16207; --green: #16a34a; --green-bg: #dcfce7;
     --btn: #000; --btn-ink: #fff;
   }
   html[data-theme="dark"] {
     --bg: #000; --bg-card: #1a1a1a; --bg-hover: #242424; --border: #2a2a2a;
-    --text: #fff; --dim: #a8a8a8; --faint: #6b6b6b; --green: #4ade80; --green-bg: #14532d;
+    --text: #fff; --dim: #a8a8a8; --faint: #6b6b6b; --gold: #fbbf24; --green: #4ade80; --green-bg: #14532d;
     --btn: #fff; --btn-ink: #000;
   }
   * { box-sizing: border-box; }
@@ -442,6 +442,7 @@ async function start() {
     }
     biz = d.business;
     document.getElementById("bizName").textContent = biz.name;
+    if (biz.es_fundador) document.getElementById("bizName").insertAdjacentHTML("beforeend", ` <span style="display:inline-block;vertical-align:middle;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid var(--gold);color:var(--gold);letter-spacing:0">Negocio fundador</span>`);
     document.getElementById("newBtn").disabled = false;
     document.getElementById("tabs").style.display = "";
     document.getElementById("openBtn").style.display = "";

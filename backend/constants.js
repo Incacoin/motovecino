@@ -70,4 +70,9 @@ module.exports = {
   // Cuántos choferes por ciudad reciben la insignia de "fundador" (los
   // primeros en darse de alta, automático, sin depender de viajes).
   FOUNDER_SLOTS: 10,
+  // "Negocio fundador" (28-oct-2026, lo decidió el usuario): todo negocio dado
+  // de alta antes de esta fecha lleva la insignia para siempre y sale arriba en
+  // la lista. Es hasta el 30-nov a medianoche de Mérida (UTC-6), en UTC como
+  // se guarda created_at.
+  BUSINESS_FOUNDER_UNTIL: "2026-12-01 06:00:00",
 };

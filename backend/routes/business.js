@@ -12,6 +12,7 @@ const { isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { checkAdminPin } = require("./admin");
 const { saveImage, imageUrl } = require("../menuImages");
+const { BUSINESS_FOUNDER_UNTIL } = require("../constants");
 
 const router = express.Router();
 
@@ -42,6 +43,10 @@ async function authBusiness(req, res) {
   return { rider, business };
 }
 
+function isFounderBusiness(b) {
+  return !!b.created_at && b.created_at < BUSINESS_FOUNDER_UNTIL;
+}
+
 function publicBusiness(b) {
   return b
     ? {
@@ -49,6 +54,7 @@ function publicBusiness(b) {
         tagline: b.tagline, category: b.category, hours: b.hours, whatsapp: b.whatsapp, is_open: !!b.is_open,
         catalog: !!b.catalog_enabled, special: !!b.special_enabled,
         logo: imageUrl(b.logo), cover: imageUrl(b.cover),
+        es_fundador: isFounderBusiness(b),
       }
     : null;
 }
@@ -294,7 +300,7 @@ router.use("/food", (req, res, next) => {
 router.get("/food/businesses", async (req, res) => {
   const city = String(req.query.city || "tekax");
   if (!await foodEnabled(city)) return res.json({ enabled: false, businesses: [] });
-  const rows = await db.prepare(`SELECT b.* FROM businesses b WHERE b.city = ? AND ${LISTED} ORDER BY b.is_open DESC, b.name`).all(city);
+  const rows = await db.prepare(`SELECT b.* FROM businesses b WHERE b.city = ? AND ${LISTED} ORDER BY b.is_open DESC, (b.created_at < ?) DESC, b.name`).all(city, BUSINESS_FOUNDER_UNTIL);
   // Nombres de productos, para que el buscador encuentre "pizza" aunque no esté en el nombre del negocio.
   const items = await db.prepare("SELECT business_id, name, category FROM menu_items WHERE deleted_at IS NULL AND available = 1").all();
   res.json({
@@ -332,7 +338,7 @@ router.post("/admin/businesses/list", checkAdminPin, async (req, res) => {
        FROM businesses b JOIN riders r ON r.id = b.rider_id WHERE b.city = ? ORDER BY b.id DESC`
     )
     .all(req.adminCity);
-  res.json(rows);
+  res.json(rows.map((b) => ({ ...b, es_fundador: isFounderBusiness(b) })));
 });
 
 // El dueño ya debe estar registrado como pasajero con ese teléfono.
