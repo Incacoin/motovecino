@@ -54,13 +54,15 @@ async function threadFor(user) {
 }
 
 async function messagesOf(threadId, limit = 80) {
-  const rows = await db.prepare("SELECT id, sender, text, created_at FROM support_messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?")
+  const rows = await db.prepare("SELECT id, sender, text, media_type, created_at FROM support_messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?")
     .all(threadId, limit);
   return rows.reverse();
 }
 
-async function addMessage(threadId, sender, text) {
-  await db.prepare("INSERT INTO support_messages (thread_id, sender, text) VALUES (?, ?, ?)").run(threadId, sender, text);
+// media: { url, type } — foto/audio/video que llegó por WhatsApp (ver whatsappSupport.js).
+async function addMessage(threadId, sender, text, media = null) {
+  await db.prepare("INSERT INTO support_messages (thread_id, sender, text, media_url, media_type) VALUES (?, ?, ?, ?, ?)")
+    .run(threadId, sender, text, media ? media.url : null, media ? media.type : null);
   await db.prepare("UPDATE support_threads SET updated_at = datetime('now') WHERE id = ?").run(threadId);
 }
 
@@ -236,6 +238,17 @@ router.post("/admin/support/:id", checkAdminPin, ownerOnly, async (req, res) => 
   if (!t) return;
   await db.prepare("UPDATE support_messages SET read_at = datetime('now') WHERE thread_id = ? AND sender = 'usuario' AND read_at IS NULL").run(t.id);
   res.json(await adminView(t));
+});
+
+// Foto/audio/video de WhatsApp: el servidor la trae de Twilio (pide la clave)
+// y se la pasa al admin.
+router.post("/admin/support/media/:mid", checkAdminPin, ownerOnly, async (req, res) => {
+  if (!/^\d{1,9}$/.test(req.params.mid)) return res.status(404).json({ error: "No encontrado" });
+  const m = await db.prepare("SELECT media_url, media_type FROM support_messages WHERE id = ?").get(req.params.mid);
+  if (!m || !m.media_url) return res.status(404).json({ error: "No encontrado" });
+  const r = await whatsapp.fetchMedia(m.media_url);
+  if (!r) return res.status(502).json({ error: "No se pudo traer el archivo de WhatsApp" });
+  res.set({ "Content-Type": m.media_type || r.type, "Cache-Control": "private, max-age=3600" }).send(r.buffer);
 });
 
 // Contestar como equipo: la conversación queda con el equipo (el asistente

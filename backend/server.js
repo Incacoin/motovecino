@@ -68,6 +68,8 @@ const CSP = [
   // del pedido, foto de "Entregar sin clave"). Sin esto la foto no carga.
   "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://api.qrserver.com",
   "connect-src 'self' ws: wss: https://router.project-osrm.org",
+  // blob: = audio o video de WhatsApp que el admin abre en Soporte.
+  "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

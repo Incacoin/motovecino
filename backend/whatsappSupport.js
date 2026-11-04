@@ -59,14 +59,18 @@ function validSignature(req) {
   return expected.length === got.length && crypto.timingSafeEqual(expected, got);
 }
 
+// Otra dirección solo en pruebas locales (Twilio falso).
+function twilioBase() {
+  return process.env.TWILIO_API_BASE || "https://api.twilio.com";
+}
+
 // Texto libre por WhatsApp (solo sirve dentro de las 24 h desde el último
 // mensaje de la persona; fuera de eso Twilio contesta error 63016).
 async function sendText(waTo, body) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const from = process.env.TWILIO_WHATSAPP_FROM;
   if (!sid || !from) throw new Error("Faltan variables de Twilio");
-  const base = process.env.TWILIO_API_BASE || "https://api.twilio.com"; // otra solo en pruebas locales
-  const res = await fetch(`${base}/2010-04-01/Accounts/${sid}/Messages.json`, {
+  const res = await fetch(`${twilioBase()}/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
     headers: { Authorization: twilioAuth(), "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ From: `whatsapp:${from}`, To: waTo, Body: body.slice(0, 1500) }),
@@ -115,13 +119,46 @@ async function accountOf(phone) {
 // Lo que se recibe además del texto (audio, foto, ubicación…).
 function describeMedia(body) {
   const n = Number(body.NumMedia) || 0;
-  if (body.Latitude && body.Longitude) return "[Mandó una ubicación]";
+  if (body.Latitude && body.Longitude) {
+    const lat = Number(body.Latitude), lng = Number(body.Longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) return `[Mandó una ubicación: https://maps.google.com/?q=${lat},${lng}]`;
+    return "[Mandó una ubicación]";
+  }
   if (!n) return "";
   const type = String(body.MediaContentType0 || "");
   if (type.startsWith("audio/")) return "[Mandó un audio]";
   if (type.startsWith("image/")) return "[Mandó una foto]";
   if (type.startsWith("video/")) return "[Mandó un video]";
   return "[Mandó un archivo]";
+}
+
+// La primera foto/audio/video del mensaje (WhatsApp manda uno por mensaje).
+// Solo direcciones de Twilio: el servidor las abre con la clave.
+const MEDIA_TYPES = /^(image|audio|video)\//;
+function mediaOf(body) {
+  if (!(Number(body.NumMedia) > 0)) return null;
+  const url = String(body.MediaUrl0 || "");
+  const type = String(body.MediaContentType0 || "").split(";")[0].trim().toLowerCase();
+  const path = url.startsWith(twilioBase()) ? url.slice(twilioBase().length) : "";
+  if (!/^\/2010-04-01\/Accounts\/AC[0-9a-f]{32}\/Messages\/MM[0-9a-f]{32}\/Media\/ME[0-9a-f]{32}$/i.test(path)) return null;
+  if (!MEDIA_TYPES.test(type)) return null;
+  return { url, type };
+}
+
+const MEDIA_MAX_BYTES = 16 * 1024 * 1024; // lo máximo que deja WhatsApp
+async function fetchMedia(url) {
+  if (!url.startsWith(twilioBase() + "/2010-04-01/")) return null;
+  try {
+    // Twilio pide la clave y luego redirige a su almacén (ahí ya no se manda).
+    const r = await fetch(url, { headers: { Authorization: twilioAuth() } });
+    if (!r.ok) { console.warn("[whatsapp] archivo:", r.status); return null; }
+    const buffer = Buffer.from(await r.arrayBuffer());
+    if (buffer.length > MEDIA_MAX_BYTES) return null;
+    return { buffer, type: r.headers.get("content-type") || "application/octet-stream" };
+  } catch (e) {
+    console.warn("[whatsapp] archivo:", e.message);
+    return null;
+  }
 }
 
 // ---------- Plática ----------
@@ -222,7 +259,7 @@ function createRouter(support) {
         "SELECT COUNT(*) AS n FROM support_messages WHERE thread_id = ? AND sender = 'usuario' AND created_at >= datetime('now', '-1 days')"
       ).get(thread.id);
       if (Number(day.n) >= USER_DAY_LIMIT) return; // ya no se guarda ni se contesta (cuesta)
-      await support.addMessage(thread.id, "usuario", text);
+      await support.addMessage(thread.id, "usuario", text, mediaOf(b));
 
       if (thread.mode === "humano") {
         await db.prepare("UPDATE support_threads SET needs_human = 1 WHERE id = ?").run(thread.id);
@@ -271,4 +308,4 @@ async function contactInfo(contactId) {
   return { ...c, account: await accountOf(c.phone) };
 }
 
-module.exports = { createRouter, replyFromTeam, contactInfo, phoneFromWa, signatureFor, WEBHOOK_PATH };
+module.exports = { createRouter, replyFromTeam, contactInfo, fetchMedia, mediaOf, phoneFromWa, signatureFor, WEBHOOK_PATH };

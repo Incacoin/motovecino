@@ -552,6 +552,10 @@
   .sup-m { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; background: rgba(127,127,127,.12); align-self: flex-start; }
   .sup-m.equipo { align-self: flex-end; background: #22c55e; color: #04130a; }
   .sup-m.asistente { align-self: flex-end; background: rgba(34,197,94,.15); }
+  .sup-media { margin-top: 6px; font-size: 12px; opacity: .8; }
+  .sup-media img, .sup-media video { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; }
+  .sup-media audio { max-width: 100%; }
+  .sup-m a { color: inherit; text-decoration: underline; }
   .sup-m small { display: block; font-size: 10.5px; opacity: .65; margin-top: 2px; }
   #supportBadge { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; align-items: center; justify-content: center; margin-left: auto; }
 </style>
@@ -1487,8 +1491,25 @@ function renderSupportThread(t) {
     (t.waiting && t.reason ? `<br><b>Motivo:</b> ${escapeHtml(t.reason)}` : "");
   const who = { usuario: u.name ? u.name.split(/\s+/)[0] : "Persona", asistente: "Asistente", equipo: "Tú" };
   const box = document.getElementById("supportMsgs");
-  box.innerHTML = t.messages.map((m) => `<div class="sup-m ${m.sender}">${escapeHtml(m.text)}<small>${escapeHtml(who[m.sender] || m.sender)} · ${escapeHtml(supportWhen(m.created_at))}</small></div>`).join("");
+  box.innerHTML = t.messages.map((m) => `<div class="sup-m ${m.sender}">${supportText(m.text)}${m.media_type ? `<div class="sup-media" data-mid="${m.id}" data-type="${escapeHtml(m.media_type)}">Cargando…</div>` : ""}<small>${escapeHtml(who[m.sender] || m.sender)} · ${escapeHtml(supportWhen(m.created_at))}</small></div>`).join("");
   box.scrollTop = box.scrollHeight;
+  box.querySelectorAll(".sup-media").forEach(loadSupportMedia);
+}
+// Ubicación de WhatsApp: el link al mapa se puede tocar.
+function supportText(text) {
+  return escapeHtml(text).replace(/https:\/\/maps\.google\.com\/\?q=-?[\d.]+,-?[\d.]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">Ver en el mapa</a>`);
+}
+// Foto, audio o video de WhatsApp: se pide al servidor (con el PIN) y se muestra aquí.
+async function loadSupportMedia(el) {
+  try {
+    const res = await fetch(API + "/api/admin/support/media/" + el.dataset.mid, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+    if (!res.ok) throw new Error();
+    const url = URL.createObjectURL(await res.blob());
+    const type = el.dataset.type;
+    el.innerHTML = type.startsWith("image/") ? `<a href="${url}" target="_blank"><img src="${url}" alt="Foto"></a>`
+      : type.startsWith("audio/") ? `<audio controls src="${url}"></audio>`
+      : `<video controls src="${url}"></video>`;
+  } catch { el.textContent = "No se pudo abrir el archivo."; }
 }
 async function openSupportThread(id) {
   supportOpenId = id;

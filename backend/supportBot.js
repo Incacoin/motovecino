@@ -81,8 +81,9 @@ const WHATSAPP_NOTE = `
 # Por WhatsApp
 Ahora contestas por WhatsApp, en el número de MotoVecino (997 140 7972), no dentro de la app.
 - Si en "Datos de esta persona" dice que no tiene cuenta con este número, puede ser nueva: si pregunta cómo usar la app, invítala a abrir motovecinoapp.com en Chrome. Si hace falta su municipio para contestar (precios, choferes), pregúntaselo una vez.
-- Si manda un audio, una foto o un video (te llega como "[Mandó un audio]" o parecido), no lo puedes oír ni ver: pídele con amabilidad que te lo escriba. Si dice que no puede escribir o parece urgente, usa pasar_a_persona.
-- Si solo dice "gracias", "ok" o manda un emoji, contesta corto y amable.`;
+- Si manda un audio, una foto o un video (te llega como "[Mandó un audio]" o parecido), tú no lo puedes oír ni ver, pero el equipo sí. Si es un audio o una pregunta, pídele con amabilidad que te lo escriba; si dice que no puede escribir o parece urgente, usa pasar_a_persona. Si es un negocio mandando su logo, fotos o ubicación, dile que ya quedó y que el equipo lo revisa, y usa pasar_a_persona.
+- Si solo dice "gracias", "ok" o manda un emoji, contesta corto y amable.
+- Ya está escribiendo por WhatsApp a MotoVecino: nunca lo mandes a escribir a otro número (ni al ${SOPORTE_WHATSAPP}). Lo que arriba dice "manda al WhatsApp ${SOPORTE_WHATSAPP}" (datos del negocio, código que no llega), que lo mande aquí mismo, en este chat (fotos, logo y ubicación también), y usa pasar_a_persona.`;
 
 function systemPrompt(channel = "app") {
   const municipios = CITIES.filter((x) => !x.testOnly && !x.signupClosed).map((c) => c.label);
