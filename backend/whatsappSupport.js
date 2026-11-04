@@ -50,13 +50,23 @@ function signatureFor(token, url, params) {
 }
 
 function validSignature(req) {
-  const token = process.env.TWILIO_AUTH_TOKEN;
+  const token = (process.env.TWILIO_AUTH_TOKEN || "").trim();
   const given = req.get("X-Twilio-Signature");
   if (!token || !given) return false;
   const url = process.env.WHATSAPP_WEBHOOK_URL || DEFAULT_WEBHOOK_URL;
   const expected = Buffer.from(signatureFor(token, url, req.body || {}));
   const got = Buffer.from(given);
   return expected.length === got.length && crypto.timingSafeEqual(expected, got);
+}
+
+// Aviso en el log cuando la firma no cuadra (máximo uno cada 10 min), sin
+// mostrar la clave: solo si existe y cuánto mide (la de Twilio mide 32).
+let lastSigWarn = 0;
+function warnBadSignature(req) {
+  if (Date.now() - lastSigWarn < 10 * 60 * 1000) return;
+  lastSigWarn = Date.now();
+  const token = (process.env.TWILIO_AUTH_TOKEN || "").trim();
+  console.warn(`[whatsapp] firma no válida: clave ${token ? `sí (${token.length} caracteres)` : "NO"}, firma ${req.get("X-Twilio-Signature") ? "sí" : "no"}, dirección ${process.env.WHATSAPP_WEBHOOK_URL || DEFAULT_WEBHOOK_URL}, host ${req.get("host")}`);
 }
 
 // Otra dirección solo en pruebas locales (Twilio falso).
@@ -212,6 +222,7 @@ function createRouter(support) {
       return;
     }
     await support.addMessage(thread.id, "asistente", res.text);
+    console.log(`[whatsapp] contestado a …${contact.phone.slice(-4)}${res.handoff ? " (pasa al equipo)" : ""}`);
     if (res.handoff) {
       await support.handOff(thread, res.reason);
       notifyOwner(contact, thread, history[history.length - 1].text);
@@ -237,7 +248,7 @@ function createRouter(support) {
 
   router.post("/whatsapp/incoming", express.urlencoded({ extended: false, limit: "64kb" }), async (req, res) => {
     if (!validSignature(req)) {
-      if (!process.env.TWILIO_AUTH_TOKEN) console.warn("[whatsapp] falta TWILIO_AUTH_TOKEN: no se aceptan mensajes");
+      warnBadSignature(req);
       return res.status(403).send("Firma no válida");
     }
     // Se le contesta a Twilio de inmediato (vacío); la respuesta a la persona
@@ -253,6 +264,7 @@ function createRouter(support) {
       const text = [String(b.Body || "").trim(), describeMedia(b)].filter(Boolean).join(" ").slice(0, MSG_MAX);
       if (!text) return;
 
+      console.log(`[whatsapp] mensaje recibido de …${phone.slice(-4)}`);
       const contact = await contactFor(waFrom, phone, b.ProfileName);
       const thread = await support.threadFor({ type: "whatsapp", id: contact.id });
       const day = await db.prepare(
