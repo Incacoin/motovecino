@@ -1418,7 +1418,7 @@ async function supportPost(path, extra) {
 function supportWhen(t) {
   return new Date(String(t).replace(" ", "T") + "Z").toLocaleString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 }
-const SUPPORT_TYPE = { pasajero: "Pasajero", chofer: "Chofer" };
+const SUPPORT_TYPE = { pasajero: "Pasajero", chofer: "Chofer", whatsapp: "WhatsApp" };
 async function loadSupport() {
   let d;
   try { d = await supportPost("/list"); } catch { return; }
@@ -1428,7 +1428,7 @@ async function loadSupport() {
   document.getElementById("supportResolveBtn").textContent = d.bot ? "Resuelto (vuelve el asistente)" : "Resuelto";
   refreshSupportPush();
   document.getElementById("supportHint").innerHTML = d.bot
-    ? 'Pláticas de "Ayuda" de pasajeros y choferes. Contesta el Asistente MotoVecino; las que dicen <b>Espera respuesta</b> son para ti.'
+    ? 'Pláticas de "Ayuda" y del WhatsApp 7972. Contesta el Asistente MotoVecino; las que dicen <b>Espera respuesta</b> son para ti.'
     : '<b>Contestas tú:</b> el asistente automático está apagado, así que todas las pláticas de Ayuda te llegan a ti.';
   const list = document.getElementById("supportList");
   list.classList.toggle("ago", !d.threads.length);
@@ -1481,6 +1481,8 @@ function renderSupportThread(t) {
   const u = t.user;
   document.getElementById("supportThreadTitle").textContent = `${u.name || "Sin nombre"} · ${SUPPORT_TYPE[u.type] || u.type}`;
   document.getElementById("supportThreadInfo").innerHTML = `${u.phone ? `Tel. ${escapeHtml(u.phone)} · ` : ""}${escapeHtml(u.city || "")}` +
+    (u.account ? `${u.city ? " · " : ""}${escapeHtml(u.account)}` : "") +
+    (u.type === "whatsapp" ? "<br>Tu respuesta le llega por WhatsApp (997 140 7972), solo si te escribió en las últimas 24 h." : "") +
     (t.mode === "humano" ? " · <b>La atiendes tú</b> (el asistente no contesta)" : " · Contesta el asistente") +
     (t.waiting && t.reason ? `<br><b>Motivo:</b> ${escapeHtml(t.reason)}` : "");
   const who = { usuario: u.name ? u.name.split(/\s+/)[0] : "Persona", asistente: "Asistente", equipo: "Tú" };

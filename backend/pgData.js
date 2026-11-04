@@ -34,6 +34,7 @@ const TABLES = [
   "support_threads",
   "support_messages",
   "support_push_subs",
+  "whatsapp_contacts",
 ];
 
 // Llave para ordenar (las tablas de ajustes no tienen id).

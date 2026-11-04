@@ -10,6 +10,7 @@ const push = require("../push");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { checkAdminPin } = require("./admin");
 const { CITIES } = require("../cities");
+const whatsapp = require("../whatsappSupport");
 const cityLabel = (id) => { const c = CITIES.find((x) => x.id === (id || "tekax")); return c ? c.label : (id === "progreso" ? "Progreso" : String(id)); };
 
 const router = express.Router();
@@ -178,6 +179,16 @@ function ownerOnly(req, res, next) {
 }
 
 async function userOf(thread) {
+  if (thread.user_type === "whatsapp") {
+    const c = await whatsapp.contactInfo(thread.user_id);
+    if (!c) return { id: thread.user_id, type: "whatsapp", name: "(contacto borrado)", phone: null, city: null };
+    const a = c.account;
+    return {
+      id: c.id, type: "whatsapp", name: c.profile_name || (a && a.name) || "Sin nombre", phone: c.phone,
+      city: a ? cityLabel(a.city) : null,
+      account: a ? `Tiene cuenta: ${a.type} ${a.name || ""}`.trim() : "Sin cuenta en la app con este número",
+    };
+  }
   const u = thread.user_type === "chofer"
     ? await db.prepare("SELECT name, phone, city FROM drivers WHERE id = ?").get(thread.user_id)
     : await db.prepare("SELECT name, phone, city FROM riders WHERE id = ?").get(thread.user_id);
@@ -234,6 +245,14 @@ router.post("/admin/support/:id/reply", checkAdminPin, ownerOnly, async (req, re
   if (!t) return;
   const text = clean(req.body.text, 1000);
   if (!text) return res.status(400).json({ error: "Escribe la respuesta" });
+  if (t.user_type === "whatsapp") {
+    // Por WhatsApp: primero se manda; si WhatsApp no deja, no se guarda.
+    const sent = await whatsapp.replyFromTeam(t.user_id, text);
+    if (sent.error) return res.status(400).json({ error: sent.error });
+    await addMessage(t.id, "equipo", text);
+    await db.prepare("UPDATE support_threads SET mode = 'humano', needs_human = 0 WHERE id = ?").run(t.id);
+    return res.json(await adminView(await adminThread(t.id, res)));
+  }
   await addMessage(t.id, "equipo", text);
   await db.prepare("UPDATE support_threads SET mode = 'humano', needs_human = 0 WHERE id = ?").run(t.id);
   push.notifySupport(t.user_type, t.user_id, {
@@ -250,5 +269,9 @@ router.post("/admin/support/:id/resolve", checkAdminPin, ownerOnly, async (req, 
   await db.prepare("UPDATE support_threads SET mode = 'bot', needs_human = 0, handoff_reason = NULL WHERE id = ?").run(t.id);
   res.json(await adminView(await adminThread(t.id, res)));
 });
+
+// WhatsApp del 7972 (ver whatsappSupport.js): usa estas mismas piezas, así
+// sus pláticas salen en la misma pestaña Soporte.
+router.use(whatsapp.createRouter({ threadFor, messagesOf, addMessage, handOff, userContext }));
 
 module.exports = router;
