@@ -9,6 +9,8 @@ const bot = require("../supportBot");
 const push = require("../push");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { checkAdminPin } = require("./admin");
+const { CITIES } = require("../cities");
+const cityLabel = (id) => { const c = CITIES.find((x) => x.id === (id || "tekax")); return c ? c.label : (id === "progreso" ? "Progreso" : String(id)); };
 
 const router = express.Router();
 
@@ -76,7 +78,7 @@ async function userContext(user) {
   ).all(user.id);
   const lines = [
     `Es ${user.type === "chofer" ? `chofer (${user.vehicle_type === "taxi" ? "taxi" : user.vehicle_type || "mototaxi"})` : "pasajero"}.`,
-    `Nombre: ${String(user.name || "").split(/\s+/)[0] || "sin nombre"}. Municipio: ${user.city || "tekax"}.`,
+    `Nombre: ${String(user.name || "").split(/\s+/)[0] || "sin nombre"}. Municipio: ${cityLabel(user.city)}.`,
   ];
   if (rides.length) {
     lines.push("Últimos viajes (hora UTC):");
