@@ -1171,6 +1171,7 @@ function hideLocationBanner() {
 }
 function retryLocation() {
   if (!navigator.geolocation) return;
+  if (geoWatchId != null) restartLocation();
   navigator.geolocation.getCurrentPosition(
     () => hideLocationBanner(),
     () => showToast("Sigue sin activarse. Revisa el GPS o el permiso de ubicación de la app en los ajustes de tu teléfono."),
@@ -1232,8 +1233,13 @@ let available = (() => {
 })();
 let myPos = null;
 
+// El mapa sigue al chofer mientras maneja (como Google Maps). Si el chofer lo
+// mueve con el dedo deja de seguirlo; "Centrar" lo vuelve a prender.
+let followMe = true;
+
 function centerOnMe() {
   if (!myPos || !map) return;
+  followMe = true;
   map.setView([myPos.lat, myPos.lng], Math.max(map.getZoom(), 16), { animate: true });
 }
 let todayCount = 0;
@@ -1730,9 +1736,11 @@ function startApp() {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
+  map.on("dragstart", () => { followMe = false; });
 
   connectWs();
   watchLocation();
+  startGeoWatchdog();
   startOtherDriversPolling();
   restoreActiveRide();
   refreshPushUi(true);
@@ -1955,11 +1963,57 @@ function connectWs() {
   };
 }
 
+// Vigilante del GPS (6-nov-2026). En la app de Play la ubicación la da la
+// librería "locationdelegation" de Google: si un envío a la página falla (se
+// apagó la pantalla, Android pausó la app) APAGA el GPS en silencio y no lo
+// vuelve a prender. watchPosition sigue "vivo" sin mandar nada ni dar error y
+// el motocarro se quedaba congelado en el mapa. Si pasan 20 s sin un punto
+// nuevo, se vuelve a pedir el GPS; si sigue sin llegar, se avisa al chofer.
+let geoWatchId = null;
+let lastGeoAt = 0;
+let geoRestarts = 0;
+const GEO_STALE_MS = 20000;
+const LOC_OFF_TEXT = "La ubicación está desactivada. Toca aquí para activarla.";
+const LOC_STALE_TEXT = "Tu ubicación no se está actualizando. Toca aquí para reintentar.";
+
+function setLocationBannerText(text) {
+  const el = document.querySelector("#locationBanner .locationBanner-text");
+  if (el) el.textContent = text;
+}
+
+function restartLocation() {
+  lastGeoAt = Date.now(); // darle 20 s al GPS antes de volver a intentar
+  watchLocation();
+}
+
+function startGeoWatchdog() {
+  setInterval(() => {
+    if (geoWatchId == null || document.visibilityState !== "visible") return;
+    if (Date.now() - lastGeoAt < GEO_STALE_MS) return;
+    geoRestarts++;
+    // El primer intento callado (el chofer pudo estar parado); al segundo seguido, aviso.
+    if (geoRestarts >= 2) {
+      setLocationBannerText(LOC_STALE_TEXT);
+      showLocationBanner();
+    }
+    restartLocation();
+  }, 5000);
+  // Al regresar a la app (WhatsApp, llamada, pantalla apagada) se pide el GPS de nuevo.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && geoWatchId != null) restartLocation();
+  });
+}
+
 function watchLocation() {
   if (!navigator.geolocation) return;
-  navigator.geolocation.watchPosition(
+  if (geoWatchId != null) navigator.geolocation.clearWatch(geoWatchId);
+  if (!lastGeoAt) lastGeoAt = Date.now();
+  geoWatchId = navigator.geolocation.watchPosition(
     (pos) => {
+      lastGeoAt = Date.now();
+      geoRestarts = 0;
       hideLocationBanner();
+      setLocationBannerText(LOC_OFF_TEXT);
       myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       if (!myMarker) {
         myMarker = L.marker([myPos.lat, myPos.lng], { title: "Tú", icon: vehicleIcon(driver.vehicle_type) }).addTo(map);
@@ -1973,6 +2027,12 @@ function watchLocation() {
         }
       } else {
         MVVeh.moveVeh(myMarker, myPos.lat, myPos.lng);
+        // Seguir al chofer: solo se mueve el mapa cuando el motocarro se acerca
+        // a la orilla, así no brinca con cada temblor del GPS.
+        if (followMe) {
+          const here = L.latLng(myPos.lat, myPos.lng);
+          if (!map.getBounds().pad(-0.25).contains(here)) map.panTo(here, { animate: true });
+        }
       }
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "location", lat: myPos.lat, lng: myPos.lng }));
@@ -1982,6 +2042,7 @@ function watchLocation() {
     },
     (err) => {
       console.warn("geo error", err);
+      setLocationBannerText(LOC_OFF_TEXT);
       showLocationBanner();
     },
     { enableHighAccuracy: true, maximumAge: 3000 }
@@ -2585,7 +2646,10 @@ function selectPendingRide(id) {
   featuredPinned = true;
   renderRideList();
   const r = pendingRides[id];
-  if (typeof map !== "undefined" && map && r) map.panTo([r.pickup_lat, r.pickup_lng]);
+  if (typeof map !== "undefined" && map && r) {
+    followMe = false; // que no lo regrese a su ubicación mientras ve la recogida
+    map.panTo([r.pickup_lat, r.pickup_lng]);
+  }
   const list = document.getElementById("rideList");
   if (list) list.scrollIntoView({ block: "start", behavior: "smooth" });
 }
