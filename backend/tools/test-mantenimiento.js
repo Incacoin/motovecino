@@ -32,11 +32,11 @@ async function main() {
   const stamp = String(Date.now()).slice(-6);
   const phone = `96611${stamp}`.slice(0, 10);
   const reg = await post("/riders/register", { name: "Barrido", phone });
-  const ride = await post("/rides", { rider_phone: phone, rider_pin: reg.data.pin, pickup_lat: 20.2071, pickup_lng: -89.2809, ride_type: "moto" });
+  const ride = await post("/rides", { rider_phone: phone, rider_pin: reg.data.pin, pickup_lat: 20.2071, pickup_lng: -89.2809, dest_lat: 20.2171, dest_lng: -89.2809, ride_type: "moto", offer_price: 17 });
   await db.prepare("UPDATE rides SET created_at = datetime('now', '-10 minutes') WHERE id = ?").run(ride.data.id);
   // Viaje activo abandonado (chofer de prueba existente)
   const drv = await db.prepare("SELECT id FROM drivers WHERE deleted_at IS NULL AND vehicle_type = 'moto' AND id NOT IN (SELECT driver_id FROM rides WHERE status IN ('aceptado','llegue','en_curso') AND driver_id IS NOT NULL) LIMIT 1").get();
-  const ride2 = await post("/rides", { rider_phone: phone, rider_pin: reg.data.pin, pickup_lat: 20.2071, pickup_lng: -89.2809, ride_type: "moto" });
+  const ride2 = await post("/rides", { rider_phone: phone, rider_pin: reg.data.pin, pickup_lat: 20.2071, pickup_lng: -89.2809, dest_lat: 20.2171, dest_lng: -89.2809, ride_type: "moto", offer_price: 17 });
   await db.prepare("UPDATE rides SET status = 'aceptado', driver_id = ?, updated_at = datetime('now', '-2 hours') WHERE id = ?").run(drv.id, ride2.data.id);
   console.log("Esperando el barrido (hasta 35 s)...");
   let r1, r2;
@@ -69,6 +69,14 @@ async function main() {
   const file = path.join(os.tmpdir(), `mv-respaldo-${stamp}.json.gz`);
   fs.writeFileSync(file, gz);
   const { execFileSync } = require("node:child_process");
+  // La base de restaurar debe estar vacía: se limpia en cada corrida (RESTORE_URL
+  // ya se revisó arriba que sea localhost).
+  {
+    const { Pool } = require("pg");
+    const wipe = new Pool({ connectionString: process.env.RESTORE_URL });
+    await wipe.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
+    await wipe.end();
+  }
   let restoreOut = "";
   try {
     restoreOut = execFileSync(process.execPath, [path.join(__dirname, "restore-backup.js"), file], {

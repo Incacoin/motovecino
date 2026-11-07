@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "test": "node tools/test-todo.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
