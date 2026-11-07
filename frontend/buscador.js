@@ -73,10 +73,26 @@ function placeMatches(query, data) {
     const words = q.split(" ");
     const hits = data.lugares.filter((l) => words.every((w) => l.k.includes(w)));
     // Primero los que empiezan igual por nombre o por sus otras palabras ("centro" → parque principal).
-    const starts = (l) => l.k.startsWith(q) || l.kb.startsWith(q);
-    hits.sort((x, y) => (starts(y) - starts(x)) || x.n.length - y.n.length);
+    // 7-nov (con DENUE hay cientos): primero lo que lo dice en el NOMBRE, luego
+    // por palabra completa ("mercado" no debe traer primero "supermercado").
+    const scoreOf = (l) => {
+      const name = " " + normText(l.n);
+      let s = 0;
+      if (name.startsWith(" " + q)) s += 8;
+      if (words.every((w) => name.includes(" " + w))) s += 4;
+      if (l.kb.startsWith(q)) s += 2;
+      if (words.every((w) => (" " + l.k).includes(" " + w))) s += 1;
+      // Los de la lista original (OSM + a mano) son los conocidos: parque principal,
+      // iglesia, palacio. Sus "otras palabras" ("centro") las puso alguien a propósito.
+      if (!l.d) { s += 3; if (l.kb.startsWith(q)) s += 16; }
+      return s;
+    };
+    for (const l of hits) l._s = scoreOf(l);
+    hits.sort((x, y) => (y._s - x._s) || x.n.length - y.n.length);
     for (const l of hits.slice(0, 8)) {
-      out.push({ label: l.n, sub: l.t === "pueblo" ? "Comisaría o pueblo cercano" : l.t === "colonia" ? "Colonia" : "Lugar", t: l.t === "pueblo" ? "pueblo" : "lugar", p: l.p });
+      // "s" = entre qué calles (DENUE): ayuda cuando hay varios con el mismo nombre.
+      const sub = l.t === "pueblo" ? "Comisaría o pueblo cercano" : l.t === "colonia" ? "Colonia" : l.s ? l.s.replace(/[<>&]/g, "") : "Lugar";
+      out.push({ label: l.n, sub, t: l.t === "pueblo" ? "pueblo" : "lugar", p: l.p });
     }
   }
   return out.slice(0, 10);

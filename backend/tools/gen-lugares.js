@@ -100,6 +100,17 @@ function aplicarExtra(data, fileId) {
   const propios = (extra.lugares || []).map((l) => ({ n: l.n, t: l.t || "lugar", p: l.p, ...(l.b ? { b: l.b } : {}), m: 1 }));
   const nombres = new Set(propios.map((l) => key(l.n)));
   lugares = [...propios, ...lugares.filter((l) => !nombres.has(key(l.n)))];
+  // DENUE del INEGI (gen-denue.js): escuelas, salud, súpers, Oxxos... "s" = entre qué calles.
+  // Van después de los de OSM/a mano; "m" para que se reemplacen al regenerar.
+  const denueFile = path.join(__dirname, "../../frontend/lugares", fileId + "-denue.json");
+  if (fs.existsSync(denueFile)) {
+    const ya = new Set(lugares.map((l) => key(l.n)));
+    const denue = JSON.parse(fs.readFileSync(denueFile, "utf8")).lugares || [];
+    for (const l of denue) {
+      if (ya.has(key(l.n))) continue;
+      lugares.push({ n: l.n, t: "lugar", p: l.p, b: l.b, ...(l.s ? { s: l.s } : {}), m: 1, d: 1 });
+    }
+  }
   return { ...data, lugares };
 }
 
