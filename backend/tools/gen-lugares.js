@@ -121,13 +121,150 @@ function aplicarExtra(data, fileId) {
 // (a ≤ SNAP_KM) que no sea ya otra esquina. Probado en Tekax quitando cada
 // esquina conocida y volviéndola a calcular: error típico 14 m, 80% ≤ 32 m.
 const SNAP_KM = 0.045;
-function completarCruces(cruces, todas) {
+// 7-nov: además de las esquinas conocidas se usan los negocios del DENUE como
+// puntos de referencia: "calle 23 entre 28 y 30" está a media cuadra, en la
+// coordenada (23, 29) de la cuadrícula. Así se calculan esquinas donde OSM no
+// tiene nombres de calles (Ticul, Oxkutzcab, Akil casi no tenían).
+function puntosDenue(fileId) {
+  const file = path.join(__dirname, "../../frontend/lugares", fileId + "-denue.json");
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")).lugares || [] : [];
+}
+
+// Mínimos cuadrados de 3 incógnitas (regla de Cramer) y estimación de una
+// esquina con las 8 referencias más cercanas en números de calle.
+const det3 = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+function ajuste3(filas, v) {
+  const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], y = [0, 0, 0];
+  filas.forEach((r, i) => { for (let j = 0; j < 3; j++) { y[j] += r[j] * v[i]; for (let k = 0; k < 3; k++) A[j][k] += r[j] * r[k]; } });
+  const d = det3(A);
+  if (Math.abs(d) < 1e-9) return null;
+  return [0, 1, 2].map((c) => det3(A.map((row, i) => row.map((x, j) => (j === c ? y[i] : x)))) / d);
+}
+function estimarEn(pool, e, o) {
+  const cerca = pool.map((k) => ({ k, d: Math.abs(k.e - e) + Math.abs(k.o - o) })).sort((a, b) => a.d - b.d).slice(0, 8);
+  if (!cerca.length || cerca[0].d > 8) return null; // máximo 4 cuadras más allá de lo conocido
+  if (new Set(cerca.map((c) => c.k.e)).size < 2 || new Set(cerca.map((c) => c.k.o)).size < 2) return null;
+  const filas = cerca.map((c) => [1, c.k.e, c.k.o]);
+  const la = ajuste3(filas, cerca.map((c) => c.k.p[0])), ln = ajuste3(filas, cerca.map((c) => c.k.p[1]));
+  return la && ln ? [la[0] + la[1] * e + la[2] * o, ln[0] + ln[1] * e + ln[2] * o] : null;
+}
+const kmEntre = (a, b) => Math.hypot((a[0] - b[0]) * 111, (a[1] - b[1]) * 111 * Math.cos((a[0] * Math.PI) / 180));
+
+// 7-nov: las comisarías dentro del radio repiten números de calle (el "20 x 23"
+// de Ticul era de Pustunich, a 4 km; el "17 x 28" de Oxkutzcab, de Akil). Se
+// quita, de la peor a la mejor, toda esquina que no cuadra con sus vecinas
+// (calculada sin ella cae a más de QUITAR_M); gana la cuadrícula de la cabecera.
+const QUITAR_M = 400; // las de comisarías fallan por km; 150-400 m puede ser una calle que se curva en la orilla
+function limpiarCruces(cruces) {
+  let known = Object.entries(cruces).filter(([k, p]) => !p[2] && crucePosible(k)).map(([k, p]) => {
+    const [a, b] = k.split("x").map(Number);
+    return a % 2 ? { k, e: b, o: a, p } : { k, e: a, o: b, p };
+  });
+  const quitadas = [];
+  for (;;) {
+    let peor = null, peorErr = QUITAR_M;
+    const lejanas = [];
+    for (const x of known) {
+      const est = estimarEn(known.filter((y) => y !== x), x.e, x.o);
+      if (!est) continue;
+      const err = kmEntre(est, x.p) * 1000;
+      if (err > 1000) lejanas.push(x);
+      if (err > peorErr) { peorErr = err; peor = x; }
+    }
+    if (!peor) break;
+    // Las de más de 1 km son de otro lado seguro: se van todas juntas (más rápido).
+    const fuera = new Set(lejanas.length ? lejanas : [peor]);
+    for (const x of fuera) quitadas.push(x.k);
+    known = known.filter((x) => !fuera.has(x));
+  }
+  // Dos esquinas distintas en el mismo punto exacto (OSM: "9 x 38" = "9 x 46"):
+  // una está mal; se queda la que mejor cuadra con sus vecinas.
+  const porPunto = new Map();
+  for (const x of known) { const s = x.p[0] + "," + x.p[1]; porPunto.set(s, [...(porPunto.get(s) || []), x]); }
+  for (const grupo of porPunto.values()) {
+    if (grupo.length < 2) continue;
+    const err = (x) => { const est = estimarEn(known.filter((y) => !grupo.includes(y)), x.e, x.o); return est ? kmEntre(est, x.p) : Infinity; };
+    grupo.sort((a, b) => err(a) - err(b));
+    for (const x of grupo.slice(1)) quitadas.push(x.k);
+  }
+  const out = { ...cruces };
+  for (const k of quitadas) delete out[k];
+  console.log(`  esquinas quitadas por no cuadrar (comisarías, errores de OSM): ${quitadas.length}${quitadas.length ? " → " + quitadas.slice(0, 15).join(" ") + (quitadas.length > 15 ? "…" : "") : ""}`);
+  return out;
+}
+
+// 7-nov: seguir cada calle por separado. En Ticul las calles se tuercen (la 23)
+// y el plano de arriba fallaba: la 22 x 23, en pleno centro, no salía. Puntos
+// sobre la calle A: esquinas conocidas A×X (peso 3) y negocios "calle A entre
+// X y Y" (peso 1, a media cuadra). Se ajusta una recta con el número de la calle
+// que cruza y se calcula la esquina por las DOS calles; si no coinciden (> 60 m),
+// no se pone. Prueba "esconder una esquina" (7-nov): Ticul 95% ≤ 47 m (antes
+// 191 m), Tekax ≤ 35 m, Akil ≤ 54 m, Oxkutzcab ≤ 72 m.
+function puntosPorCalle(cruces, denue) {
+  const by = {};
+  const add = (st, t, p, w) => (by[st] = by[st] || []).push({ t, p, w });
+  for (const [k, p] of Object.entries(cruces)) {
+    if (p[2] || !crucePosible(k)) continue;
+    const [a, b] = k.split("x").map(Number);
+    add(a, b, p, 3);
+    add(b, a, p, 3);
+  }
+  for (const l of denue) {
+    const m = /^Calle (\d{1,3}) x (\d{1,3}) y (\d{1,3})$/.exec(l.s || "");
+    if (!m || l.x) continue;
+    const [a, b, c] = m.slice(1).map(Number);
+    if (Math.abs(b - c) !== 2 || b % 2 !== c % 2 || a % 2 === b % 2) continue;
+    add(a, (b + c) / 2, l.p, 1);
+  }
+  return by;
+}
+function sobreCalle(pts, t) {
+  const near = (pts || []).filter((q) => Math.abs(q.t - t) <= 6);
+  if (near.length < 3 || new Set(near.map((q) => q.t)).size < 2) return null;
+  // Sin puntos de los dos lados, solo si hay uno a una cuadra o menos (no inventar calles).
+  if ((!near.some((q) => q.t <= t) || !near.some((q) => q.t >= t)) && Math.min(...near.map((q) => Math.abs(q.t - t))) > 2) return null;
+  const W = near.reduce((s, q) => s + q.w, 0), mt = near.reduce((s, q) => s + q.w * q.t, 0) / W;
+  const fit = (i) => {
+    const my = near.reduce((s, q) => s + q.w * q.p[i], 0) / W;
+    let num = 0, den = 0;
+    for (const q of near) { num += q.w * (q.t - mt) * (q.p[i] - my); den += q.w * (q.t - mt) ** 2; }
+    return my + (den ? num / den : 0) * (t - mt);
+  };
+  return [fit(0), fit(1)];
+}
+// Con una sola calle, solo si la esquina queda ENTRE dos puntos conocidos de esa
+// calle a una cuadra o menos de cada lado (interpolar, nunca alargar).
+const encerrada = (pts, t) => (pts || []).some((q) => q.t < t && t - q.t <= 2) && (pts || []).some((q) => q.t > t && q.t - t <= 2);
+function estimarPorCalles(by, a, b) {
+  const e1 = sobreCalle(by[a], b), e2 = sobreCalle(by[b], a);
+  if (e1 && e2) return kmEntre(e1, e2) > 0.06 ? null : [(e1[0] + e2[0]) / 2, (e1[1] + e2[1]) / 2];
+  if (e1 && encerrada(by[a], b)) return e1;
+  if (e2 && encerrada(by[b], a)) return e2;
+  return null;
+}
+
+function completarCruces(cruces, todas, denue = []) {
+  const obs = [];
+  for (const l of denue) {
+    const m = /^Calle (\d{1,3}) x (\d{1,3}) y (\d{1,3})$/.exec(l.s || "");
+    if (!m || l.x) continue; // con letra ("25 A"), sin entrecalles o en comisaría: no sirve
+    const [a, b, c] = m.slice(1).map(Number);
+    if (Math.abs(b - c) !== 2 || b % 2 !== c % 2 || a % 2 === b % 2) continue;
+    const mid = (b + c) / 2;
+    obs.push(a % 2 ? { e: mid, o: a, p: l.p } : { e: a, o: mid, p: l.p });
+  }
+  const porCalle = puntosPorCalle(cruces, denue);
   const kmBetween = (a, b) => Math.hypot((a[0] - b[0]) * 111, (a[1] - b[1]) * 111 * Math.cos((a[0] * Math.PI) / 180));
   const known = Object.entries(cruces).filter(([k]) => crucePosible(k)).map(([k, p]) => {
     const [a, b] = k.split("x").map(Number);
     return a % 2 ? { e: b, o: a, p } : { e: a, o: b, p };
   });
   if (known.length < 12) return cruces;
+  // El plano usa solo esquinas conocidas: los negocios no quedan justo a media
+  // cuadra y le meten ruido (7-nov: Tekax perdía la 25 x 50). Ellos sirven
+  // para seguir las calles (porCalle) y para saber hasta dónde hay casas.
+  const pool = known;
+  const rango = [...known, ...obs];
   const nodes = new Map(), uses = new Map();
   for (const e of todas) if (e.type === "node") nodes.set(e.id, [e.lat, e.lon]);
   for (const w of todas) if (w.type === "way") for (const n of new Set(w.nodes)) uses.set(n, (uses.get(n) || 0) + 1);
@@ -142,30 +279,51 @@ function completarCruces(cruces, todas) {
     return [0, 1, 2].map((c) => det(A.map((row, i) => row.map((x, j) => (j === c ? y[i] : x)))) / d);
   }
   function estimar(e, o) {
-    const cerca = known.map((k) => ({ k, d: Math.abs(k.e - e) + Math.abs(k.o - o) })).sort((a, b) => a.d - b.d).slice(0, 8);
+    const cerca = pool.map((k) => ({ k, d: Math.abs(k.e - e) + Math.abs(k.o - o) })).sort((a, b) => a.d - b.d).slice(0, 8);
     if (!cerca.length || cerca[0].d > 8) return null; // máximo 4 cuadras más allá de lo conocido
     if (new Set(cerca.map((c) => c.k.e)).size < 2 || new Set(cerca.map((c) => c.k.o)).size < 2) return null;
     const filas = cerca.map((c) => [1, c.k.e, c.k.o]);
     const la = ajuste(filas, cerca.map((c) => c.k.p[0])), ln = ajuste(filas, cerca.map((c) => c.k.p[1]));
     return la && ln ? [la[0] + la[1] * e + la[2] * o, ln[0] + ln[1] * e + ln[2] * o] : null;
   }
-  const es = known.map((k) => k.e), os = known.map((k) => k.o);
+  const es = rango.map((k) => k.e), os = rango.map((k) => k.o);
   const out = { ...cruces };
+  const usados = new Set(); // dos esquinas no pueden caer en el mismo cruce real
   let nuevos = 0;
-  for (let e = Math.max(2, Math.min(...es) - 6); e <= Math.max(...es) + 6; e += 2) {
-    for (let o = Math.max(1, Math.min(...os) - 8) | 1; o <= Math.max(...os) + 6; o += 2) {
+  const motivos = { porCalles: 0, sinDatos: 0, sinCruceReal: 0, yaOcupado: 0 };
+  const usadosPts = new Set();
+  // Los negocios dan medias cuadras (29 = entre 28 y 30): se arranca en par.
+  for (let e = Math.max(2, Math.ceil(Math.min(...es) - 6) & ~1); e <= Math.max(...es) + 6; e += 2) {
+    for (let o = Math.max(1, Math.ceil(Math.min(...os) - 8)) | 1; o <= Math.max(...os) + 6; o += 2) {
       const k = e < o ? e + "x" + o : o + "x" + e;
       if (out[k]) continue;
-      const est = estimar(e, o);
-      if (!est) continue;
-      let mejor = null, dist = Infinity;
-      for (const p of reales) { const d = kmBetween(p, est); if (d < dist) { dist = d; mejor = p; } }
-      if (dist > SNAP_KM || known.some((x) => kmBetween(x.p, mejor) < 0.025)) continue;
-      out[k] = [round(mejor[0]), round(mejor[1]), 1];
+      // Primero siguiendo las calles (más exacto); si no cae en un cruce real,
+      // el plano de antes. Siempre se pega a un cruce real de calles de OSM
+      // (7-nov: sin eso salían esquinas en terrenos vacíos).
+      const cercano = (est) => {
+        let mejor = null, dist = Infinity;
+        for (const p of reales) { const d = kmBetween(p, est); if (d < dist) { dist = d; mejor = p; } }
+        return { mejor, dist };
+      };
+      let punto = null, porCalles = false;
+      const ec = estimarPorCalles(porCalle, e, o);
+      if (ec) { const c = cercano(ec); if (c.dist <= 0.03) { punto = c.mejor; porCalles = true; } }
+      if (!punto) {
+        const ep = estimar(e, o);
+        if (!ep && !ec) { motivos.sinDatos++; continue; }
+        const c = ep ? cercano(ep) : { dist: Infinity };
+        if (c.dist > SNAP_KM) { motivos.sinCruceReal++; continue; }
+        punto = c.mejor;
+      }
+      if (known.some((x) => kmBetween(x.p, punto) < 0.025) || usados.has(punto) || [...usadosPts].some((u) => kmBetween(u, punto) < 0.025)) { motivos.yaOcupado++; continue; }
+      usados.add(punto);
+      usadosPts.add(punto);
+      if (porCalles) motivos.porCalles++;
+      out[k] = [round(punto[0]), round(punto[1]), 1];
       nuevos++;
     }
   }
-  console.log(`  esquinas aproximadas agregadas: ${nuevos}`);
+  console.log(`  esquinas aproximadas agregadas: ${nuevos}`, motivos);
   return out;
 }
 
@@ -189,7 +347,7 @@ async function main() {
     const todas = await overpass(`[out:json][timeout:90];way["highway"~"^(residential|unclassified|tertiary|secondary|primary|living_street|service|track|road)$"](${bb});out body;>;out skel qt;`);
     // Las aproximadas de antes se vuelven a calcular.
     for (const [k, p] of Object.entries(data.cruces)) if (p[2]) delete data.cruces[k];
-    data.cruces = completarCruces(data.cruces, todas);
+    data.cruces = completarCruces(limpiarCruces(data.cruces), todas, process.argv.includes("--sin-denue") ? [] : puntosDenue(id));
     fs.writeFileSync(out, JSON.stringify(aplicarExtra(data, id)));
     console.log(`${out}: ${Object.keys(data.cruces).length} cruces`);
     return;
@@ -243,7 +401,7 @@ async function main() {
   }
 
   const todas = await overpass(`[out:json][timeout:90];way["highway"~"^(residential|unclassified|tertiary|secondary|primary|living_street|service|track|road)$"](${bb});out body;>;out skel qt;`);
-  cruces = completarCruces(cruces, todas);
+  cruces = completarCruces(zone ? cruces : limpiarCruces(cruces), todas, zone ? [] : puntosDenue(id));
 
   const pois = await overpass(`[out:json][timeout:90];(
     nwr["name"]["amenity"](${bb});nwr["name"]["shop"](${bb});nwr["name"]["leisure"](${bb});

@@ -140,6 +140,10 @@ function main() {
   const col = Object.fromEntries(head.map((h, i) => [h, i]));
   const get = (r, k) => (r[col[k]] || "").trim();
 
+  const cuenta = {};
+  for (const raw of rows) if (norm(get(raw, "municipio")) === municipio) { const l = norm(get(raw, "localidad")); cuenta[l] = (cuenta[l] || 0) + 1; }
+  const cabecera = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0]?.[0] || municipio;
+
   const out = [];
   const mercado = [];
   for (const raw of rows) {
@@ -157,13 +161,18 @@ function main() {
     let n = titulo(limpio);
     // Comisarías dentro del radio (Pustunich, Yotholín...): que se note.
     const loc = r.localidad.replace(/\s+/g, " ").trim();
-    if (loc && norm(loc) !== municipio) n += ` (${loc})`;
+    // La cabecera es la localidad con más negocios (el INEGI dice "Tekax de
+    // Álvaro Obregón", no "Tekax"); las demás son comisarías.
+    const enComisaria = loc && norm(loc) !== cabecera;
+    if (enComisaria) n += ` (${loc})`;
     let b = cat[1];
     if (/oxxo/i.test(n)) b += " oxxo";
     if (/similares/i.test(n)) b += " similares";
     if (/\bdif\b/i.test(n)) b += " dif";
     if (/\bimss\b/i.test(n)) b += " imss seguro social";
-    out.push({ n, p: [+lat.toFixed(6), +lng.toFixed(6)], b, ...(direccion(r) ? { s: direccion(r) } : {}) });
+    // "x" = está en una comisaría: sus calles repiten números de la cabecera,
+    // así que no sirve de referencia para calcular esquinas (gen-lugares).
+    out.push({ n, p: [+lat.toFixed(6), +lng.toFixed(6)], b, ...(direccion(r) ? { s: direccion(r) } : {}), ...(enComisaria ? { x: 1 } : {}) });
   }
 
   // El mercado viene como cientos de locales "dentro de" él: un solo punto al centro.
