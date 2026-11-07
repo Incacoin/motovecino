@@ -469,7 +469,8 @@ function setDriverTheme(pref) {
   .slide-lbl { font-size: 16px; font-weight: 800; color: #15803d; padding-left: 40px; pointer-events: none; transition: opacity .15s; }
   html[data-theme="dark"] .slide-lbl { color: #a7f3d0; }
   .slide-knob { position: absolute; left: 5px; top: 5px; width: 50px; height: 50px; border-radius: 16px; background: linear-gradient(180deg, #4ade80, #16a34a); color: #04110b; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; cursor: grab; box-shadow: 0 6px 16px rgba(5,150,105,0.35); z-index: 2; touch-action: none; }
-  .slide.ready { box-shadow: 0 0 0 4px rgba(34,197,94,0.25); }
+  .slide.ready { box-shadow: 0 0 0 4px rgba(34,197,94,0.25); background: rgba(34,197,94,0.28); border-color: #22c55e; animation: slideReady 1.4s ease-in-out infinite; }
+  @keyframes slideReady { 0%,100% { box-shadow: 0 0 0 3px rgba(34,197,94,0.25); } 50% { box-shadow: 0 0 0 9px rgba(34,197,94,0.12); } }
   .slide::after { content: ""; position: absolute; top: 0; bottom: 0; width: 70px; left: -70px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: slideShine 2.2s ease-in-out infinite; pointer-events: none; }
   @keyframes slideShine { to { left: 110%; } }
   @media (prefers-reduced-motion: reduce) { .slide::after { animation: none; } }
@@ -1236,6 +1237,15 @@ let myPos = null;
 // El mapa sigue al chofer mientras maneja (como Google Maps). Si el chofer lo
 // mueve con el dedo deja de seguirlo; "Centrar" lo vuelve a prender.
 let followMe = true;
+// Si el chofer movió el mapa durante un viaje, a los 12 s sin tocarlo el mapa
+// vuelve a seguirlo solo (6-nov: se perdía la moto si tocaba "Ver" y nunca
+// tocaba Centrar).
+const FOLLOW_RESUME_MS = 12000;
+let lastMapTouchAt = 0;
+function pauseFollow() {
+  followMe = false;
+  lastMapTouchAt = Date.now();
+}
 
 function centerOnMe() {
   if (!myPos || !map) return;
@@ -1736,7 +1746,7 @@ function startApp() {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap",
   }).addTo(map);
-  map.on("dragstart", () => { followMe = false; });
+  map.on("dragstart", pauseFollow);
 
   connectWs();
   watchLocation();
@@ -2029,6 +2039,7 @@ function watchLocation() {
         MVVeh.moveVeh(myMarker, myPos.lat, myPos.lng);
         // Seguir al chofer: solo se mueve el mapa cuando el motocarro se acerca
         // a la orilla, así no brinca con cada temblor del GPS.
+        if (!followMe && currentRide && Date.now() - lastMapTouchAt > FOLLOW_RESUME_MS) followMe = true;
         if (followMe) {
           const here = L.latLng(myPos.lat, myPos.lng);
           if (!map.getBounds().pad(-0.25).contains(here)) map.panTo(here, { animate: true });
@@ -2441,7 +2452,10 @@ function renderRideList() {
 // — mismo umbral que ya usaba el botón para "resaltarse" (0.15 km = 150 m).
 const AUTO_ARRIVAL_KM = 0.15;
 let autoArriving = false;
-let autoCompleting = false;
+// Aviso de "ya llegaste al destino" (una vez por viaje). Ya NO se termina el
+// viaje solo: 6-nov se cerró antes de llegar (el camino pasaba a <150 m del
+// destino / brinco del GPS). Ahora el chofer desliza, como en Uber.
+let nearDestNoticeRideId = null;
 
 function updateDistances() {
   if (!myPos) return;
@@ -2465,12 +2479,13 @@ function updateDistances() {
       const dist = haversine(myPos.lat, myPos.lng, currentRide.dest_lat, currentRide.dest_lng);
       const el = document.getElementById("dist-current");
       if (el) el.textContent = dist.toFixed(1);
-      // El taxi no se auto-completa: hace falta que el chofer capture el
-      // precio acordado a mano antes de cerrar el viaje.
-      // Domicilio con clave tampoco: hace falta la clave del cliente.
-      if (dist <= AUTO_ARRIVAL_KM && !autoCompleting && currentRide.ride_type !== "taxi" && !currentRide.delivery_code_required) {
-        autoCompleting = true;
-        completeRide().finally(() => { autoCompleting = false; });
+      const near = dist <= AUTO_ARRIVAL_KM;
+      const slide = document.getElementById("btnComplete");
+      if (slide) slide.classList.toggle("ready", near);
+      if (near && nearDestNoticeRideId !== currentRide.id) {
+        nearDestNoticeRideId = currentRide.id;
+        try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch {}
+        showToast("Llegaste al destino — desliza para finalizar el viaje");
       }
     }
     return;
@@ -2647,7 +2662,7 @@ function selectPendingRide(id) {
   renderRideList();
   const r = pendingRides[id];
   if (typeof map !== "undefined" && map && r) {
-    followMe = false; // que no lo regrese a su ubicación mientras ve la recogida
+    pauseFollow(); // que no lo regrese a su ubicación mientras ve la recogida
     map.panTo([r.pickup_lat, r.pickup_lng]);
   }
   const list = document.getElementById("rideList");
@@ -2975,6 +2990,7 @@ function closeReceiptOverlay() {
 // el chofer al reabrir la app (ver restoreActiveRide).
 function beginRide(ride) {
   currentRide = ride;
+  followMe = true; // al empezar un viaje el mapa vuelve a seguir al chofer
   pendingRides = {};
   for (const markers of Object.values(pendingMarkers)) markers.forEach((m) => map.removeLayer(m));
   Object.keys(pendingMarkers).forEach((k) => delete pendingMarkers[k]);

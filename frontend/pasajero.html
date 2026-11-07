@@ -352,6 +352,8 @@ function toggleRiderTheme() {
   #photoLightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 2000; align-items: center; justify-content: center; padding: 24px; }
   #photoLightbox.show { display: flex; }
   #photoLightbox img { max-width: 90vw; max-height: 80vh; border-radius: var(--radius-lg); border: 3px solid var(--accent); }
+  .status-center-btn { width: 44px; height: 44px; border-radius: 50%; border: 0; background: #fff; box-shadow: 0 3px 12px rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; cursor: pointer; padding: 0; margin: 0 10px 12px 0; }
+  .status-center-btn:active { transform: scale(.94); }
   #statusMap { width: 100%; height: 50vh; flex-shrink: 0; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
   #status { overflow-y: auto; }
   #connWarning { display: none; color: var(--danger); font-size: 13.5px; text-align: center; }
@@ -1628,6 +1630,58 @@ let pickup = null, dest = null;
 let pickupMarker = null, destMarker = null;
 let ride = null, ws = null;
 let driverMarker = null;
+
+// El mapa del viaje sigue a la moto (6-nov: se salía del cuadro y se perdía).
+// Si el pasajero mueve el mapa con el dedo deja de seguirla y aparece el
+// botón Centrar para volver.
+let followDriver = true;
+const CENTER_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.6" fill="#1a73e8"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg>';
+function initStatusMapFollow() {
+  followDriver = true;
+  statusMap.on("dragstart", () => { followDriver = false; updateStatusCenterBtn(); });
+  const Ctl = L.Control.extend({
+    options: { position: "bottomright" },
+    onAdd() {
+      const b = L.DomUtil.create("button", "status-center-btn");
+      b.id = "statusCenterBtn";
+      b.type = "button";
+      b.title = "Centrar";
+      b.setAttribute("aria-label", "Centrar el mapa en tu chofer");
+      b.innerHTML = CENTER_SVG;
+      L.DomEvent.disableClickPropagation(b);
+      L.DomEvent.on(b, "click", (e) => { L.DomEvent.stop(e); centerOnDriver(); });
+      return b;
+    },
+  });
+  new Ctl().addTo(statusMap);
+}
+function updateStatusCenterBtn() {
+  const b = document.getElementById("statusCenterBtn");
+  if (b) b.style.display = !followDriver && driverPos ? "flex" : "none";
+}
+function centerOnDriver() {
+  if (!statusMap || !driverPos) return;
+  followDriver = true;
+  statusMap.setView([driverPos.lat, driverPos.lng], Math.max(statusMap.getZoom(), 15), { animate: true });
+  updateStatusCenterBtn();
+}
+// Primera vez que aparece la moto: encuadrar moto + punto al que va (recogida
+// o destino) para que el pasajero vea las dos cosas.
+function fitDriverFirstTime() {
+  if (!statusMap || !driverPos) return;
+  const target = currentRideStatus === "en_curso" && dest ? dest : pickup;
+  const pts = [L.latLng(driverPos.lat, driverPos.lng)];
+  if (target) pts.push(L.latLng(target.lat, target.lng));
+  if (pts.length > 1) statusMap.fitBounds(L.latLngBounds(pts), { padding: [50, 50], maxZoom: 16 });
+  else statusMap.setView(pts[0], 15);
+}
+function followDriverTick() {
+  updateStatusCenterBtn();
+  if (!followDriver || !statusMap || !driverPos) return;
+  const here = L.latLng(driverPos.lat, driverPos.lng);
+  // Solo se mueve cuando la moto se acerca a la orilla, así no brinca con cada temblor del GPS.
+  if (!statusMap.getBounds().pad(-0.2).contains(here)) statusMap.panTo(here, { animate: true });
+}
 let driverPos = null;
 let routeLine = null;
 let routeRefreshInterval = null;
@@ -3183,6 +3237,7 @@ async function requestRide() {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(statusMap);
   L.marker([pickup.lat, pickup.lng], { icon: numberedIcon(1, "#f6a623") }).addTo(statusMap);
   if (dest) L.marker([dest.lat, dest.lng], { icon: numberedIcon(2, "#3498db") }).addTo(statusMap);
+  initStatusMapFollow();
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
   document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
@@ -3596,6 +3651,8 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
   if (driver.lat) {
     driverPos = { lat: driver.lat, lng: driver.lng };
     driverMarker = L.marker([driver.lat, driver.lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
+    fitDriverFirstTime();
+    updateStatusCenterBtn();
     startRouteTracking();
   }
   showChatToggle();
@@ -3937,8 +3994,11 @@ function onDriverLocation({ lat, lng }) {
   driverPos = { lat, lng };
   if (!driverMarker) {
     driverMarker = L.marker([lat, lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
+    fitDriverFirstTime();
+    updateStatusCenterBtn();
   } else {
     MVVeh.moveVeh(driverMarker, lat, lng);
+    followDriverTick();
   }
   if (!routeRefreshInterval) startRouteTracking();
 }
@@ -4820,6 +4880,7 @@ async function restoreActiveRide() {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(statusMap);
   L.marker([pickup.lat, pickup.lng], { icon: numberedIcon(1, "#f6a623") }).addTo(statusMap);
   if (dest) L.marker([dest.lat, dest.lng], { icon: numberedIcon(2, "#3498db") }).addTo(statusMap);
+  initStatusMapFollow();
   startStatusAvailableDriversPolling();
   updateEmergencyBtn();
   document.getElementById("statusIcon").innerHTML = serviceType === "taxi" ? MVVeh.taxiSide(64) : MVVeh.motoSide(60);
