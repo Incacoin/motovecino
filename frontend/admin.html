@@ -2227,8 +2227,6 @@ function renderOtpCap(o) {
     : `Van <b>${o.sent} de ${o.cap}</b> códigos de verificación hoy.`;
 }
 
-// Medidor del servidor (solo el dueño). La barra llega al 100% en 500, lo que
-// aguantó la prueba de carga del 13-oct; desde 300 avisa que toca subir el plan.
 // Conteo por municipio (solo el dueño). "Sin chofer" en rojo si hubo alguno:
 // gente que pidió y nadie la tomó → ahí falta reclutar.
 function renderByCity(list) {
@@ -2236,16 +2234,17 @@ function renderByCity(list) {
   if (!card) return;
   if (!Array.isArray(list)) { card.style.display = "none"; return; }
   card.style.display = "block";
-  const esc = (t) => String(t).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   const tbody = document.getElementById("byCityRows");
   if (!list.length) { tbody.innerHTML = `<tr><td colspan="6" style="color:var(--text-dim);">Todavía no hay registros.</td></tr>`; return; }
   const sum = (k) => list.reduce((a, r) => a + (Number(r[k]) || 0), 0);
   const cell = (n, warn) => `<td${warn && n > 0 ? ' style="color:var(--danger);font-weight:600;"' : ""}>${Number(n) || 0}</td>`;
-  const line = (r, bold) => `<tr${bold ? ' style="font-weight:700;"' : ""}><td>${esc(r.label)}</td>${cell(r.riders)}${cell(r.ridersActive7d)}${cell(r.drivers)}${cell(r.driversOnline)}${cell(r.noDriver7d, true)}</tr>`;
+  const line = (r, bold) => `<tr${bold ? ' style="font-weight:700;"' : ""}><td>${escapeHtml(r.label)}</td>${cell(r.riders)}${cell(r.ridersActive7d)}${cell(r.drivers)}${cell(r.driversOnline)}${cell(r.noDriver7d, true)}</tr>`;
   tbody.innerHTML = list.map((r) => line(r, false)).join("") +
     line({ label: "Total", riders: sum("riders"), ridersActive7d: sum("ridersActive7d"), drivers: sum("drivers"), driversOnline: sum("driversOnline"), noDriver7d: sum("noDriver7d") }, true);
 }
 
+// Medidor del servidor (solo el dueño). La barra llega al 100% en 500, lo que
+// aguantó la prueba de carga del 13-oct; desde 300 avisa que toca subir el plan.
 function renderCapacity(c) {
   const card = document.getElementById("capacityCard");
   if (!card) return;

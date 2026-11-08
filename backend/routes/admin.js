@@ -762,38 +762,47 @@ router.post("/admin/rides/reset", checkAdminPin, async (req, res) => {
 const REAL_RIDE = `NOT EXISTS (SELECT 1 FROM drivers td WHERE td.id = r.driver_id AND td.es_prueba = 1)
          AND NOT EXISTS (SELECT 1 FROM riders tr WHERE tr.id = r.rider_id AND tr.es_prueba = 1)`;
 
+// Chofer "en línea": en viaje, o disponible y visto hace poco. Una sola
+// definición para el cuadro "Choferes en línea" y la tarjeta por municipio.
+const DRIVER_ONLINE = `(status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))`;
+
 // Cuántos hay en cada municipio, sin cuentas de prueba (es_prueba). Solo
-// números, nunca nombres ni teléfonos. "Pidieron viaje" = pasajeros
-// distintos que crearon al menos un viaje en los últimos 7 días (aunque se
-// cancelara). "Sin chofer" = viajes de los últimos 7 días que terminaron
-// cancelados sin que ningún chofer los tomara: dice dónde falta reclutar.
+// números, nunca nombres ni teléfonos.
+// - "Pasajeros" y "Pidieron viaje" se agrupan los dos por el municipio del
+//   pasajero (riders.city), para que la misma fila hable de la misma gente.
+//   "Pidieron viaje" = pasajeros distintos con al menos un viaje creado en
+//   los últimos 7 días (aunque se cancelara).
+// - "Sin chofer" = viajes de los últimos 7 días que el SISTEMA canceló sin
+//   que ningún chofer los tomara (se acabó el tiempo o quedó abandonado
+//   buscando). No cuenta los que el pasajero canceló por su cuenta ni los
+//   que un chofer aceptó y luego soltó: dice dónde falta reclutar.
 async function statsByCity() {
+  const [riders, ridersActive7d, drivers, driversOnline, noDriver7d] = await Promise.all([
+    db.prepare("SELECT city, COUNT(*) AS n FROM riders WHERE es_prueba = 0 GROUP BY city").all(),
+    db.prepare(
+      `SELECT p.city, COUNT(*) AS n FROM riders p
+       WHERE p.es_prueba = 0
+         AND EXISTS (SELECT 1 FROM rides r WHERE r.rider_id = p.id AND r.created_at >= datetime('now', '-7 days'))
+       GROUP BY p.city`
+    ).all(),
+    db.prepare("SELECT city, COUNT(*) AS n FROM drivers WHERE deleted_at IS NULL AND es_prueba = 0 GROUP BY city").all(),
+    db.prepare(`SELECT city, COUNT(*) AS n FROM drivers WHERE deleted_at IS NULL AND es_prueba = 0 AND ${DRIVER_ONLINE} GROUP BY city`).all(),
+    db.prepare(
+      `SELECT r.city, COUNT(*) AS n FROM rides r
+       WHERE r.status = 'cancelado' AND r.cancelled_by = 'system' AND r.driver_id IS NULL
+         AND r.created_at >= datetime('now', '-7 days') AND ${REAL_RIDE}
+       GROUP BY r.city`
+    ).all(),
+  ]);
+
   const rows = {};
   const row = (city) => (rows[city] ||= { city, riders: 0, ridersActive7d: 0, drivers: 0, driversOnline: 0, noDriver7d: 0 });
   const put = (list, key) => { for (const r of list) row(r.city)[key] = Number(r.n) || 0; };
-
-  put(await db.prepare(
-    "SELECT city, COUNT(*) AS n FROM riders WHERE es_prueba = 0 GROUP BY city"
-  ).all(), "riders");
-  put(await db.prepare(
-    `SELECT r.city, COUNT(DISTINCT r.rider_id) AS n FROM rides r
-     WHERE r.rider_id IS NOT NULL AND r.created_at >= datetime('now', '-7 days') AND ${REAL_RIDE}
-     GROUP BY r.city`
-  ).all(), "ridersActive7d");
-  put(await db.prepare(
-    "SELECT city, COUNT(*) AS n FROM drivers WHERE deleted_at IS NULL AND es_prueba = 0 GROUP BY city"
-  ).all(), "drivers");
-  put(await db.prepare(
-    `SELECT city, COUNT(*) AS n FROM drivers
-     WHERE deleted_at IS NULL AND es_prueba = 0
-       AND (status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))
-     GROUP BY city`
-  ).all(), "driversOnline");
-  put(await db.prepare(
-    `SELECT r.city, COUNT(*) AS n FROM rides r
-     WHERE r.status = 'cancelado' AND r.driver_id IS NULL AND r.created_at >= datetime('now', '-7 days') AND ${REAL_RIDE}
-     GROUP BY r.city`
-  ).all(), "noDriver7d");
+  put(riders, "riders");
+  put(ridersActive7d, "ridersActive7d");
+  put(drivers, "drivers");
+  put(driversOnline, "driversOnline");
+  put(noDriver7d, "noDriver7d");
 
   return Object.values(rows)
     .map((r) => ({ ...r, label: getCityById(r.city)?.label || r.city }))
@@ -815,7 +824,7 @@ router.post("/admin/stats", checkAdminPin, async (req, res) => {
     .prepare(
       `SELECT COUNT(*) AS n FROM drivers
        WHERE deleted_at IS NULL AND es_prueba = 0 AND city = ?
-         AND (status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))`
+         AND ${DRIVER_ONLINE}`
     )
     .get(city)).n;
   const topDrivers = await db
