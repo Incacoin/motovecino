@@ -762,6 +762,44 @@ router.post("/admin/rides/reset", checkAdminPin, async (req, res) => {
 const REAL_RIDE = `NOT EXISTS (SELECT 1 FROM drivers td WHERE td.id = r.driver_id AND td.es_prueba = 1)
          AND NOT EXISTS (SELECT 1 FROM riders tr WHERE tr.id = r.rider_id AND tr.es_prueba = 1)`;
 
+// Cuántos hay en cada municipio, sin cuentas de prueba (es_prueba). Solo
+// números, nunca nombres ni teléfonos. "Pidieron viaje" = pasajeros
+// distintos que crearon al menos un viaje en los últimos 7 días (aunque se
+// cancelara). "Sin chofer" = viajes de los últimos 7 días que terminaron
+// cancelados sin que ningún chofer los tomara: dice dónde falta reclutar.
+async function statsByCity() {
+  const rows = {};
+  const row = (city) => (rows[city] ||= { city, riders: 0, ridersActive7d: 0, drivers: 0, driversOnline: 0, noDriver7d: 0 });
+  const put = (list, key) => { for (const r of list) row(r.city)[key] = Number(r.n) || 0; };
+
+  put(await db.prepare(
+    "SELECT city, COUNT(*) AS n FROM riders WHERE es_prueba = 0 GROUP BY city"
+  ).all(), "riders");
+  put(await db.prepare(
+    `SELECT r.city, COUNT(DISTINCT r.rider_id) AS n FROM rides r
+     WHERE r.rider_id IS NOT NULL AND r.created_at >= datetime('now', '-7 days') AND ${REAL_RIDE}
+     GROUP BY r.city`
+  ).all(), "ridersActive7d");
+  put(await db.prepare(
+    "SELECT city, COUNT(*) AS n FROM drivers WHERE deleted_at IS NULL AND es_prueba = 0 GROUP BY city"
+  ).all(), "drivers");
+  put(await db.prepare(
+    `SELECT city, COUNT(*) AS n FROM drivers
+     WHERE deleted_at IS NULL AND es_prueba = 0
+       AND (status = 'en_viaje' OR (status = 'disponible' AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')))
+     GROUP BY city`
+  ).all(), "driversOnline");
+  put(await db.prepare(
+    `SELECT r.city, COUNT(*) AS n FROM rides r
+     WHERE r.status = 'cancelado' AND r.driver_id IS NULL AND r.created_at >= datetime('now', '-7 days') AND ${REAL_RIDE}
+     GROUP BY r.city`
+  ).all(), "noDriver7d");
+
+  return Object.values(rows)
+    .map((r) => ({ ...r, label: getCityById(r.city)?.label || r.city }))
+    .sort((a, b) => b.riders - a.riders || b.drivers - a.drivers || a.label.localeCompare(b.label));
+}
+
 router.post("/admin/stats", checkAdminPin, async (req, res) => {
   const city = req.adminCity;
   const ridesToday = (await db
@@ -837,9 +875,11 @@ router.post("/admin/stats", checkAdminPin, async (req, res) => {
   const otpToday = req.adminRole === "tekax" ? await otpDailyStatus() : null;
   // Medidor del servidor (todas las zonas): solo el dueño. Ver realtime.js.
   const capacity = req.adminRole === "tekax" ? await require("../realtime").liveCapacity() : null;
+  // Conteo por municipio (todas las zonas): solo el dueño.
+  const byCity = req.adminRole === "tekax" ? await statsByCity() : null;
 
   res.json({
-    capacity,
+    capacity, byCity,
     ridesToday, ridesWeek, cancelledToday, driversOnline, topDrivers, satisfactionPct, ratedCount: ratings.total,
     collectedWeek, collectedMonth, launchRanking, ridesByDay, trialEndDate: TRIAL_END_DATE, otpToday,
   });
