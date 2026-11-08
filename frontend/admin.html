@@ -3477,7 +3477,7 @@ async function downloadAllyArt(id, kind) {
   // de verdad, centrado entre el encabezado y el pie.
   const story = kind === "historia";
   const G = story ? 1.4 : 1;
-  const L = story ? 320 : 220, Q = story ? 440 : 340, NAME = story ? 88 : 70;
+  const L = story ? 320 : 190, Q = story ? 440 : 290, NAME = story ? 88 : 70;
   const drawBody = (ctx, y) => {
     ctx.textAlign = "center";
     if (logo) {
@@ -3496,8 +3496,11 @@ async function downloadAllyArt(id, kind) {
     ctx.fillStyle = "#000"; roundRect(ctx, (W - pw) / 2, y, pw, 72, 36); ctx.fill();
     ctx.fillStyle = "#fff"; ctx.fillText(pillText, W / 2, y + 48);
     y += 72 + 56 * G;
+    // 8-nov-2026: invita a venir AL NEGOCIO (que también le convenga a él), no solo a pedir mototaxi.
+    ctx.fillStyle = "#000"; ctx.font = "800 44px Inter";
+    y = wrapText(ctx, "¿Vienes a " + a.name + "?", W / 2, y + 40, W - 160, 54) + 22;
     ctx.fillStyle = "#545454"; ctx.font = "500 38px Inter";
-    y = wrapText(ctx, story ? "Pide tu mototaxi o taxi en " + adminCityLabel + ". Instala la app:" : "Pide tu mototaxi o taxi desde tu celular. Escanea e instala la app:", W / 2, y + 34, W - 200, 50) + 40 * G;
+    y = wrapText(ctx, "Llega y regresa a casa en mototaxi o taxi. Pídelo desde la app MotoVecino:", W / 2, y + 34, W - 200, 50) + 40 * G;
     if (qr) {
       ctx.fillStyle = "#fff"; ctx.strokeStyle = "#e2e2e2"; ctx.lineWidth = 3;
       roundRect(ctx, (W - Q) / 2 - 24, y, Q + 48, Q + 48, 30); ctx.fill(); ctx.stroke();
