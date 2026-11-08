@@ -268,6 +268,13 @@
   .ally-chips span { font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: #eee; }
   .ally-chips .on { background: #e3f5ea; color: #0e8345; }
   .ally-chips .off { background: #fdeaea; color: #b3261e; }
+  .biz-pend { border: 2px solid #f59e0b !important; }
+  .biz-pend-h { font-size: 15px; font-weight: 800; margin: 14px 0 8px; }
+  .biz-facade { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px; margin: 10px 0 4px; cursor: zoom-in; }
+  .biz-reject { display: none; margin-top: 8px; }
+  .biz-reject.open { display: flex; gap: 6px; flex-wrap: wrap; }
+  .biz-reject input { flex: 1 1 200px; }
+  .ally-chips .wait { background: #fff4d6; color: #92400e; }
   .ally-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0; }
   .ally-stats div { background: #f6f6f6; border-radius: 10px; padding: 10px; }
   .ally-stats b { display: block; font-size: 20px; }
@@ -1378,6 +1385,8 @@ const AUDIT_LABELS = {
   "/admin/riders/:id/test-account": "Marcó cuenta de prueba (pasajero)",
   "/admin/rides/reset": "Borró todos los viajes",
   "/admin/family-rides/enabled": "Prendió/apagó Pedir para otra persona",
+  "/admin/businesses/:id/approve": "Aprobó un negocio",
+  "/admin/businesses/:id/reject": "Rechazó un negocio",
   "/admin/ally-ads/save": "Guardó un negocio aliado",
   "/admin/ally-ads/enabled": "Prendió/apagó Negocios aliados",
   "/admin/ally-ads/:id/active": "Activó/pausó un negocio aliado",
@@ -3125,15 +3134,30 @@ async function loadBusinesses() {
   if (!res.ok) return;
   bizCache = await res.json();
   const el = document.getElementById("bizList");
-  el.innerHTML = bizCache.length ? bizCache.map((b) => `<div class="ally-item">
+  // 8-nov-2026: solicitudes de negocios que se registraron solos, arriba.
+  const pend = bizCache.filter((b) => b.status === "pendiente");
+  const rest = bizCache.filter((b) => b.status !== "pendiente");
+  const pendHtml = pend.length ? `<div class="biz-pend-h">🏪 Por aprobar (${pend.length})</div>` + pend.map((b) => `<div class="ally-item biz-pend">
+      <div><b>${escapeHtml(b.name)}</b> · ${escapeHtml(b.category || "")}<div class="sub">Dueño: ${escapeHtml(b.owner_name || "")} (${escapeHtml(b.phone)})${b.address ? " · " + escapeHtml(b.address) : ""}</div></div>
+      ${b.facade ? `<img class="biz-facade" src="${escapeHtml(b.facade)}" alt="Fachada" onclick="window.open(this.src, '_blank')">` : '<div class="sub">Sin foto</div>'}
+      <a class="sub" href="https://www.openstreetmap.org/?mlat=${Number(b.lat)}&mlon=${Number(b.lng)}#map=18/${Number(b.lat)}/${Number(b.lng)}" target="_blank" rel="noopener">📍 Ver dónde está en el mapa</a>
+      <div class="ally-actions" style="margin-top:10px;">
+        <button class="btn-sm" style="background:var(--success,#0e8345);color:#fff;border-color:transparent" onclick="approveBiz(${b.id}, '${escapeHtml(b.updated_at || "")}')">Aprobar</button>
+        <button class="btn-sm" onclick="document.getElementById('bizRej${b.id}').classList.toggle('open')">Rechazar</button>
+      </div>
+      <div class="biz-reject" id="bizRej${b.id}">
+        <input id="bizRejWhy${b.id}" maxlength="140" placeholder="Motivo (lo ve el dueño). Ej. La foto no se ve bien" />
+        <button class="btn-sm" onclick="rejectBiz(${b.id})">Confirmar rechazo</button>
+      </div></div>`).join("") + '<div class="biz-pend-h">Negocios</div>' : "";
+  el.innerHTML = pendHtml + (rest.length ? rest.map((b) => `<div class="ally-item">
       <div class="ally-item-top"><div class="noimg" style="display:flex;align-items:center;justify-content:center;font-size:24px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></div>
         <div><b>${escapeHtml(b.name)}</b>${b.es_fundador ? ` <span title="Negocio fundador (alta antes del 1-dic-2026)" style="font-size:10.5px;font-weight:700;border:1px solid currentColor;border-radius:999px;padding:1px 6px;opacity:.8;">Fundador</span>` : ""}<div class="sub">${escapeHtml(b.address || "")} · Dueño: ${escapeHtml(b.owner_name || "")} (${escapeHtml(b.phone)})</div>
-        <div class="ally-chips"><span class="${b.active ? "on" : "off"}">${b.active ? "Activo" : "Pausado"}</span><span>${b.deliveries} entregas</span></div></div></div>
+        <div class="ally-chips">${b.status === "rechazado" ? '<span class="off">Rechazado</span>' : `<span class="${b.active ? "on" : "off"}">${b.active ? "Activo" : "Pausado"}</span>`}<span>${b.deliveries} entregas</span></div></div></div>
       <div class="ally-actions" style="margin-top:10px;">
         <button class="btn-sm" onclick="openBizForm(${b.id})">Editar</button>
-        <button class="btn-sm" onclick="toggleBiz(${b.id}, ${b.active ? 0 : 1})">${b.active ? "Pausar" : "Activar"}</button>
+        ${b.status === "rechazado" ? "" : `<button class="btn-sm" onclick="toggleBiz(${b.id}, ${b.active ? 0 : 1})">${b.active ? "Pausar" : "Activar"}</button>`}
       </div></div>`).join("")
-    : `<div class="section-hint">Todavía no hay negocios dados de alta.</div>`;
+    : (pend.length ? "" : `<div class="section-hint">Todavía no hay negocios dados de alta.</div>`));
 }
 
 function openBizForm(id) {
@@ -3188,6 +3212,21 @@ async function saveBiz() {
   loadBusinesses();
 }
 
+async function approveBiz(id, seen) {
+  const res = await fetch(API + `/api/admin/businesses/${id}/approve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, seen }) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) { showToast(d.error || "No se pudo aprobar"); loadBusinesses(); return; }
+  showToast("Negocio aprobado. Ya puede armar su perfil.");
+  loadBusinesses();
+}
+async function rejectBiz(id) {
+  const reason = (document.getElementById("bizRejWhy" + id) || {}).value || "";
+  const res = await fetch(API + `/api/admin/businesses/${id}/reject`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, reason }) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) { showToast(d.error || "No se pudo rechazar"); return; }
+  showToast("Solicitud rechazada. El dueño verá el motivo.");
+  loadBusinesses();
+}
 async function toggleBiz(id, active) {
   const res = await fetch(API + `/api/admin/businesses/${id}/active`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, active }) });
   if (!res.ok) { showToast("No se pudo cambiar"); return; }

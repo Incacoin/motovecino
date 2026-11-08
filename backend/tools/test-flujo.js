@@ -335,6 +335,9 @@ async function main() {
   const blist = await post("/business/rides/list", { phone: bizPhone, pin: breg.data.pin });
   check("negocio: lista de envíos", blist.status === 200 && blist.data.rides.length === 1 && blist.data.rides[0].client_name === "Cliente", blist);
   await post(`/rides/${bride.data.id}/cancel`, { riderPhone: bizPhone, riderPin: breg.data.pin });
+  // 8-nov-2026: para salir en la lista hace falta logo, portada y 3 productos con foto.
+  await post("/business/profile/save", { phone: bizPhone, pin: breg.data.pin, whatsapp: "9971234567", category: "Tacos", tagline: "Ricos", logo: PNG, cover: PNG });
+  for (const n of ["Panucho", "Salbute", "Torta"]) await post("/business/menu/save", { phone: bizPhone, pin: breg.data.pin, name: n, price: 20, photo: PNG });
   const fe = await post("/admin/food/enabled", { adminPin: ADMIN, enabled: true });
   const fb = await get("/food/businesses?city=tekax");
   check("comida: lista con negocio", fe.status === 200 && fb.status === 200 && fb.data.businesses.some((b) => b.id === bsave.data.id), fb);

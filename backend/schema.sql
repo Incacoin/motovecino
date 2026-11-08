@@ -643,3 +643,13 @@ CREATE TABLE IF NOT EXISTS whatsapp_contacts (
   last_inbound_at TEXT,
   created_at TEXT NOT NULL DEFAULT sl_datetime('now')
 );
+
+-- Registro de negocios por su cuenta (8-nov-2026, routes/business.js).
+-- status: 'pendiente' (llenó la solicitud, active = 0 hasta que el admin lo
+-- apruebe), 'aprobado' (todos los de antes y los que da de alta el admin) o
+-- 'rechazado' (puede corregir y mandar otra vez). facade = foto de la fachada
+-- o del mostrador, solo la ve el admin para aprobar.
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'aprobado';
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS facade TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS reject_reason TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS reviewed_at TEXT;

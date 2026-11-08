@@ -142,6 +142,13 @@ app.get(["/quiero-ser-chofer", "/quiero-ser-chofer/"], (req, res) => {
   res.redirect("/quiero-ser-chofer.html" + qs);
 });
 
+// Dirección corta para que los negocios se registren solos (8-nov-2026): va en
+// anuncios y en el QR del mostrador.
+app.get(["/registrar-negocio", "/registrar-negocio/"], (req, res) => {
+  const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
+  res.redirect("/negocio.html" + qs);
+});
+
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 
 // App de Android en Google Play (com.motovecino.app): este archivo le prueba

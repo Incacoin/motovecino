@@ -75,4 +75,12 @@ module.exports = {
   // la lista. Es hasta el 30-nov a medianoche de Mérida (UTC-6), en UTC como
   // se guarda created_at.
   BUSINESS_FOUNDER_UNTIL: "2026-12-01 06:00:00",
+  // Mínimo para salir en la lista de Negocios (8-nov-2026, lo decidió el
+  // usuario): logo + portada + este número de productos disponibles con foto.
+  BUSINESS_MIN_PRODUCTS: 3,
+  // Los negocios dados de alta antes de BUSINESS_RULES_FROM siguen con la regla
+  // vieja (un producto o pedido especial) hasta BUSINESS_GRACE_UNTIL, para que
+  // les dé tiempo de completar su perfil sin desaparecer de golpe. UTC.
+  BUSINESS_RULES_FROM: "2026-11-10 06:00:00",
+  BUSINESS_GRACE_UNTIL: "2026-11-24 06:00:00",
 };

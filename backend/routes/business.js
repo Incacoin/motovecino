@@ -8,11 +8,12 @@ const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const realtime = require("../realtime");
-const { isWithinServiceRadius } = require("../cities");
+const { isWithinServiceRadius, resolveCity } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { checkAdminPin } = require("./admin");
 const { saveImage, imageUrl } = require("../menuImages");
-const { BUSINESS_FOUNDER_UNTIL } = require("../constants");
+const { BUSINESS_FOUNDER_UNTIL, BUSINESS_MIN_PRODUCTS, BUSINESS_RULES_FROM, BUSINESS_GRACE_UNTIL } = require("../constants");
+const push = require("../push");
 
 const router = express.Router();
 
@@ -91,7 +92,69 @@ async function menuOf(businessId, onlyAvailable) {
 router.post("/business/me", async (req, res) => {
   const auth = await authBusiness(req, res);
   if (!auth) return;
-  res.json({ business: publicBusiness(auth.business) });
+  if (auth.business) return res.json({ business: publicBusiness(auth.business) });
+  // Sin negocio activo: ¿mandó una solicitud? (pendiente, rechazada o en pausa)
+  const b = await db.prepare("SELECT * FROM businesses WHERE rider_id = ?").get(auth.rider.id);
+  res.json({ business: null, application: b ? applicationInfo(b) : null, categories: BUSINESS_CATEGORIES });
+});
+
+// Lo que ve el dueño de su solicitud. "pausado" = aprobado pero el admin lo apagó.
+function applicationInfo(b) {
+  return {
+    status: b.status === "aprobado" ? "pausado" : b.status,
+    name: b.name, category: b.category, address: b.address, lat: b.lat, lng: b.lng,
+    reject_reason: b.status === "rechazado" ? b.reject_reason || null : null,
+    has_facade: !!b.facade,
+  };
+}
+
+// --- Registro de negocios por su cuenta (8-nov-2026) ---
+// El dueño (ya con cuenta de pasajero) manda nombre, categoría, ubicación y foto
+// de la fachada. Queda "pendiente" y APAGADO (active = 0): no sale en la lista,
+// no recibe pedidos ni pide choferes hasta que el admin de su municipio lo
+// apruebe. Si lo rechazan, puede corregir y mandar otra vez.
+router.post("/business/apply", async (req, res) => {
+  const auth = await authBusiness(req, res);
+  if (!auth) return;
+  if (auth.business) return res.status(409).json({ error: "Tu cuenta ya es de un negocio" });
+  const name = clean(req.body.name, 50);
+  if (!name) return res.status(400).json({ error: "Escribe el nombre de tu negocio" });
+  const category = BUSINESS_CATEGORIES.includes(req.body.category) ? req.body.category : null;
+  if (!category) return res.status(400).json({ error: "Elige qué vende tu negocio" });
+  const lat = Number(req.body.lat), lng = Number(req.body.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return res.status(400).json({ error: "Marca dónde está tu negocio en el mapa" });
+  const city = resolveCity(lat, lng);
+  if (!city || city.testOnly || city.signupClosed) {
+    return res.status(400).json({ error: "Por ahora solo registramos negocios de los municipios donde está MotoVecino" });
+  }
+  const existing = await db.prepare("SELECT * FROM businesses WHERE rider_id = ?").get(auth.rider.id);
+  if (existing && existing.status === "aprobado") {
+    return res.status(409).json({ error: "Tu negocio está en pausa. Escríbenos al 997 973 9422." });
+  }
+  let facade = existing ? existing.facade : null;
+  if (req.body.facade) {
+    facade = saveImage(req.body.facade);
+    if (!facade) return res.status(400).json({ error: "No se pudo guardar la foto. Prueba con otra." });
+  }
+  if (!facade) return res.status(400).json({ error: "Toma una foto de la fachada o del mostrador de tu negocio" });
+  const address = clean(req.body.address) || null;
+  if (existing) {
+    await db.prepare(
+      `UPDATE businesses SET name = ?, category = ?, lat = ?, lng = ?, address = ?, city = ?, facade = ?,
+         status = 'pendiente', reject_reason = NULL, active = 0, updated_at = datetime('now') WHERE id = ?`
+    ).run(name, category, lat, lng, address, city.id, facade, existing.id);
+  } else {
+    await db.prepare(
+      `INSERT INTO businesses (rider_id, city, name, lat, lng, address, category, facade, status, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', 0)`
+    ).run(auth.rider.id, city.id, name, lat, lng, address, category, facade);
+  }
+  push.notifySupport("admin", 0, {
+    kind: "admin", tag: `negocio-${auth.rider.id}`, url: "/admin.html",
+    title: `🏪 Negocio por aprobar en ${city.label}`, body: `${name} · ${category}`,
+  }).catch((e) => console.warn("[negocios] aviso al dueño:", e.message));
+  const saved = await db.prepare("SELECT * FROM businesses WHERE rider_id = ?").get(auth.rider.id);
+  res.json({ application: applicationInfo(saved) });
 });
 
 router.post("/business/rides", async (req, res) => {
@@ -189,7 +252,7 @@ async function needBusiness(req, res) {
 router.post("/business/profile", async (req, res) => {
   const b = await needBusiness(req, res);
   if (!b) return;
-  res.json({ business: { ...publicBusiness(b), ...payInfo(b), ...orderSettings(b) }, menu: await menuOf(b.id, false), categories: BUSINESS_CATEGORIES });
+  res.json({ business: { ...publicBusiness(b), ...payInfo(b), ...orderSettings(b) }, menu: await menuOf(b.id, false), categories: BUSINESS_CATEGORIES, listing: await listingInfo(b) });
 });
 
 router.post("/business/profile/save", async (req, res) => {
@@ -220,7 +283,7 @@ router.post("/business/profile/save", async (req, res) => {
     clean(req.body.pay_bank, 40) || null, account || null, clean(req.body.pay_holder, 60) || null, b.id
   );
   const saved = await db.prepare("SELECT * FROM businesses WHERE id = ?").get(b.id);
-  res.json({ business: { ...publicBusiness(saved), ...payInfo(saved) } });
+  res.json({ business: { ...publicBusiness(saved), ...payInfo(saved) }, listing: await listingInfo(saved) });
 });
 
 // Abierto / cerrado: los clientes solo pueden pedir cuando está abierto.
@@ -259,7 +322,7 @@ router.post("/business/menu/save", async (req, res) => {
     await db.prepare("INSERT INTO menu_items (business_id, category, name, description, price, photo, position) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(b.id, ...fields, n);
   }
-  res.json({ menu: await menuOf(b.id, false) });
+  res.json({ menu: await menuOf(b.id, false), listing: await listingInfo(b) });
 });
 
 router.post("/business/menu/:id/available", async (req, res) => {
@@ -267,14 +330,14 @@ router.post("/business/menu/:id/available", async (req, res) => {
   if (!b) return;
   await db.prepare("UPDATE menu_items SET available = ?, updated_at = datetime('now') WHERE id = ? AND business_id = ?")
     .run(req.body.available ? 1 : 0, Number(req.params.id), b.id);
-  res.json({ menu: await menuOf(b.id, false) });
+  res.json({ menu: await menuOf(b.id, false), listing: await listingInfo(b) });
 });
 
 router.post("/business/menu/:id/delete", async (req, res) => {
   const b = await needBusiness(req, res);
   if (!b) return;
   await db.prepare("UPDATE menu_items SET deleted_at = datetime('now') WHERE id = ? AND business_id = ?").run(Number(req.params.id), b.id);
-  res.json({ menu: await menuOf(b.id, false) });
+  res.json({ menu: await menuOf(b.id, false), listing: await listingInfo(b) });
 });
 
 // --- Comida y negocios: lo que ven los clientes (público) ---
@@ -287,9 +350,32 @@ async function foodEnabled(city) {
   return !!(row && row.enabled);
 }
 
-// Se ve si tiene algo que pedir: catálogo con productos o "pedido especial".
-// (Desde el 11-oct el pedido va dentro de la app; el WhatsApp ya no es obligatorio.)
-const LISTED = `b.active = 1 AND (b.special_enabled = 1 OR EXISTS (SELECT 1 FROM menu_items m WHERE m.business_id = b.id AND m.deleted_at IS NULL AND m.available = 1))`;
+// Sale en la lista (8-nov-2026): aprobado, activo y completo = logo + portada +
+// BUSINESS_MIN_PRODUCTS productos disponibles con foto. Los de antes de
+// BUSINESS_RULES_FROM siguen con la regla vieja (algo que pedir: un producto o
+// "pedido especial") hasta BUSINESS_GRACE_UNTIL. Las fechas vienen de
+// constants.js (no del usuario), por eso van dentro del texto.
+const PHOTO_ITEMS = `(SELECT COUNT(*) FROM menu_items m WHERE m.business_id = b.id AND m.deleted_at IS NULL AND m.available = 1 AND m.photo IS NOT NULL)`;
+const COMPLETE = `b.logo IS NOT NULL AND b.cover IS NOT NULL AND ${PHOTO_ITEMS} >= ${Number(BUSINESS_MIN_PRODUCTS)}`;
+const OLD_RULE = `(b.special_enabled = 1 OR EXISTS (SELECT 1 FROM menu_items m WHERE m.business_id = b.id AND m.deleted_at IS NULL AND m.available = 1))`;
+const GRACE = `b.created_at < '${BUSINESS_RULES_FROM}' AND b.reviewed_at IS NULL AND datetime('now') < '${BUSINESS_GRACE_UNTIL}' AND ${OLD_RULE}`;
+const LISTED = `b.active = 1 AND b.status = 'aprobado' AND ((${COMPLETE}) OR (${GRACE}))`;
+
+// Lo que ve el dueño en "Mi negocio": si ya sale en la lista y qué le falta.
+async function listingInfo(b) {
+  const row = await db.prepare(`SELECT ${PHOTO_ITEMS} AS photos, CASE WHEN ${COMPLETE} THEN 1 ELSE 0 END AS complete, CASE WHEN ${LISTED} THEN 1 ELSE 0 END AS listed FROM businesses b WHERE b.id = ?`).get(b.id);
+  const photos = Number(row && row.photos) || 0;
+  const falta = BUSINESS_MIN_PRODUCTS - photos;
+  const missing = [];
+  if (!b.logo) missing.push("logo");
+  if (!b.cover) missing.push("portada");
+  if (falta > 0) missing.push(`${falta} producto${falta === 1 ? "" : "s"} con foto`);
+  return {
+    listed: !!(row && Number(row.listed)), complete: !!(row && Number(row.complete)), missing,
+    photos, min_products: BUSINESS_MIN_PRODUCTS,
+    grace_until: b.created_at < BUSINESS_RULES_FROM && !b.reviewed_at ? BUSINESS_GRACE_UNTIL : null,
+  };
+}
 
 // Abierto/cerrado y "agotado" cambian a cada rato: que el navegador nunca los guarde.
 router.use("/food", (req, res, next) => {
@@ -335,10 +421,10 @@ router.post("/admin/businesses/list", checkAdminPin, async (req, res) => {
     .prepare(
       `SELECT b.*, r.phone, r.name AS owner_name,
          (SELECT COUNT(*) FROM rides WHERE business_id = b.id AND status = 'completado') AS deliveries
-       FROM businesses b JOIN riders r ON r.id = b.rider_id WHERE b.city = ? ORDER BY b.id DESC`
+       FROM businesses b JOIN riders r ON r.id = b.rider_id WHERE b.city = ? ORDER BY CASE WHEN b.status = 'pendiente' THEN 0 ELSE 1 END, b.id DESC`
     )
     .all(req.adminCity);
-  res.json(rows.map((b) => ({ ...b, es_fundador: isFounderBusiness(b) })));
+  res.json(rows.map((b) => ({ ...b, es_fundador: isFounderBusiness(b), facade: imageUrl(b.facade), logo: imageUrl(b.logo), cover: imageUrl(b.cover) })));
 });
 
 // El dueño ya debe estar registrado como pasajero con ese teléfono.
@@ -357,7 +443,7 @@ router.post("/admin/businesses/save", checkAdminPin, async (req, res) => {
   const existing = await db.prepare("SELECT id, city FROM businesses WHERE rider_id = ?").get(rider.id);
   if (existing && existing.city !== req.adminCity) return res.status(409).json({ error: "Esa cuenta ya es negocio en otra ciudad" });
   if (existing) {
-    await db.prepare("UPDATE businesses SET name = ?, lat = ?, lng = ?, address = ?, active = 1, updated_at = datetime('now') WHERE id = ?")
+    await db.prepare("UPDATE businesses SET name = ?, lat = ?, lng = ?, address = ?, active = 1, status = 'aprobado', reject_reason = NULL, updated_at = datetime('now') WHERE id = ?")
       .run(name, lat, lng, address, existing.id);
     return res.json({ ok: true, id: existing.id });
   }
@@ -367,9 +453,31 @@ router.post("/admin/businesses/save", checkAdminPin, async (req, res) => {
 });
 
 router.post("/admin/businesses/:id/active", checkAdminPin, async (req, res) => {
-  const b = await db.prepare("SELECT id, city FROM businesses WHERE id = ?").get(req.params.id);
+  const b = await db.prepare("SELECT id, city, status FROM businesses WHERE id = ?").get(req.params.id);
   if (!b || b.city !== req.adminCity) return res.status(404).json({ error: "No encontrado" });
+  if (req.body.active && b.status !== "aprobado") return res.status(409).json({ error: "Primero aprueba el negocio" });
   await db.prepare("UPDATE businesses SET active = ?, updated_at = datetime('now') WHERE id = ?").run(req.body.active ? 1 : 0, b.id);
+  res.json({ ok: true });
+});
+
+// Aprobar / rechazar una solicitud (solo las de su municipio).
+router.post("/admin/businesses/:id/approve", checkAdminPin, async (req, res) => {
+  const b = await db.prepare("SELECT id, city, status FROM businesses WHERE id = ?").get(req.params.id);
+  if (!b || b.city !== req.adminCity) return res.status(404).json({ error: "No encontrado" });
+  if (b.status !== "pendiente") return res.status(409).json({ error: "Este negocio no está esperando aprobación" });
+  // El dueño puede corregir mientras espera: se aprueba solo la versión que vio el admin.
+  const r = await db.prepare("UPDATE businesses SET status = 'aprobado', active = 1, reject_reason = NULL, reviewed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND status = 'pendiente' AND updated_at = ?")
+    .run(b.id, String(req.body.seen || ""));
+  if (!r.changes) return res.status(409).json({ error: "El negocio cambió sus datos. Revísalo otra vez." });
+  res.json({ ok: true });
+});
+
+router.post("/admin/businesses/:id/reject", checkAdminPin, async (req, res) => {
+  const b = await db.prepare("SELECT id, city, status FROM businesses WHERE id = ?").get(req.params.id);
+  if (!b || b.city !== req.adminCity) return res.status(404).json({ error: "No encontrado" });
+  if (b.status !== "pendiente") return res.status(409).json({ error: "Este negocio no está esperando aprobación" });
+  await db.prepare("UPDATE businesses SET status = 'rechazado', active = 0, reject_reason = ?, reviewed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
+    .run(clean(req.body.reason, 140) || null, b.id);
   res.json({ ok: true });
 });
 

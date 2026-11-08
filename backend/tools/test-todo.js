@@ -20,6 +20,7 @@ const TESTS = [
   ["propon", []],
   ["motivo", []],
   ["pedidos", []],
+  ["registro-negocio", []],
   ["sesion", []],
   ["clave", []],
   ["celestun", []],

@@ -105,6 +105,34 @@
 
   /* Pedir chofer */
   #mapBox { position: relative; height: 38vh; min-height: 220px; }
+  /* Registro de negocio (8-nov-2026) */
+  #regMapBox { position: relative; height: 34vh; min-height: 220px; border-radius: 14px; overflow: hidden; }
+  #regMap { position: absolute; inset: 0; }
+  #regMapBox .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.04); }
+  html[data-theme="dark"] #regMapBox .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
+  #regMapBox .pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); z-index: 500; pointer-events: none; display: flex; flex-direction: column; align-items: center; }
+  #regMapBox .pin .lbl { background: #000; color: #fff; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 8px; margin-bottom: 4px; white-space: nowrap; }
+  #regMapBox .pin .dot { width: 22px; height: 22px; border-radius: 50%; background: #22c55e; border: 4px solid #fff; box-shadow: 0 0 0 6px rgba(34,197,94,0.25); }
+  .gps-btn { align-self: flex-start; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 20px; padding: 8px 14px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .facade { height: 170px; border-radius: 14px; border: 1.5px dashed var(--border); background: var(--bg-card) center/cover no-repeat; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--dim); font-size: 13.5px; line-height: 1.4; padding: 14px; cursor: pointer; }
+  .facade.has { border-style: solid; color: transparent; }
+  .reg-card { margin: 14px 16px; padding: 18px 16px; border-radius: 16px; background: var(--bg-card); font-size: 14.5px; line-height: 1.5; color: var(--dim); }
+  .reg-card h3 { margin: 0 0 6px; font-size: 19px; color: var(--text); letter-spacing: -0.02em; }
+  .reg-card b { color: var(--text); }
+  .reg-card ol { margin: 10px 0 0; padding-left: 20px; }
+  .reg-card li { margin: 4px 0; }
+  .reg-card .go2 { display: block; width: 100%; margin-top: 14px; padding: 14px; border-radius: 12px; border: none; background: var(--btn); color: var(--btn-ink); font-weight: 800; font-size: 15px; cursor: pointer; }
+  .reg-card .go2.light { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .reg-card .why { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--bg); color: var(--text); font-size: 13.5px; }
+  .chk { margin: 12px 16px 0; padding: 14px; border-radius: 14px; background: var(--bg-card); font-size: 13.5px; line-height: 1.45; color: var(--dim); }
+  .chk b { color: var(--text); }
+  .chk ul { list-style: none; margin: 8px 0 0; padding: 0; }
+  .chk li { display: flex; align-items: center; gap: 8px; padding: 3px 0; color: var(--text); font-weight: 600; }
+  .chk li .bx { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--faint); flex: 0 0 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .chk li.ok { color: var(--dim); font-weight: 500; text-decoration: line-through; }
+  .chk li.ok .bx { border-color: var(--green); background: var(--green); color: #fff; }
+  .chk .mini2 { margin-top: 10px; border: none; background: var(--btn); color: var(--btn-ink); border-radius: 10px; padding: 9px 13px; font-weight: 800; font-size: 13px; cursor: pointer; }
+  .chk.done { background: var(--green-bg); color: var(--green); font-weight: 600; }
   #map { position: absolute; inset: 0; }
   #mapBox .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.04); }
   html[data-theme="dark"] #mapBox .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
@@ -263,7 +291,9 @@
     <button class="tab" data-tab="ventas" onclick="setTab('ventas')">Ventas</button>
     <button class="tab" data-tab="perfil" onclick="setTab('perfil')">Perfil</button>
   </div>
+  <div id="regBox"></div>
   <div class="panel on" id="panel-pedidos">
+    <div id="chkCard" class="chk" style="display:none"></div>
     <div id="pushCard" class="push-card" style="display:none"></div>
     <div id="chatList"></div>
     <div class="sec" id="ordTitle">Pedidos</div>
@@ -324,6 +354,30 @@
     <button class="bigbtn" id="pfSaveBtn" onclick="saveProfile()">Guardar perfil</button>
   </div>
   <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="onPhotoPicked(event)" />
+</div>
+
+<!-- Registrar mi negocio (8-nov-2026): el dueño llena la solicitud y el admin la aprueba -->
+<div id="regScreen" class="screen">
+  <div class="top">
+    <button class="back" onclick="closeRegister()" aria-label="Regresar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div><div class="kick">MOTOVECINO · NEGOCIOS</div><div class="title">Registrar mi negocio</div></div>
+  </div>
+  <div class="form">
+    <div class="lab">Nombre del negocio</div>
+    <input id="regName" maxlength="50" placeholder="Ej. Cocina La Esquina" autocomplete="off" />
+    <div class="lab">¿Qué vende?</div>
+    <select id="regCategory"><option value="">Elige uno</option></select>
+    <div class="lab">Dirección corta (opcional)</div>
+    <input id="regAddress" maxlength="80" placeholder="Ej. Calle 23 x 26, Centro" autocomplete="off" />
+    <div class="lab">¿Dónde está? Mueve el mapa hasta la puerta de tu negocio</div>
+    <div id="regMapBox"><div id="regMap"></div><div class="pin"><div class="lbl">Aquí está mi negocio</div><div class="dot"></div></div></div>
+    <button type="button" class="gps-btn" onclick="regUseGps()">📍 Estoy en mi negocio: usar mi ubicación</button>
+    <div class="lab">Foto de la fachada o del mostrador</div>
+    <div class="facade" id="regFacade" onclick="document.getElementById('regFacadeInput').click()">Toca para tomar la foto.<br>Así sabemos que tu negocio existe y lo aprobamos rápido.</div>
+    <input type="file" id="regFacadeInput" accept="image/*" capture="environment" style="display:none" onchange="onFacadePicked(event)" />
+    <div class="note">Registrarte no te cuesta nada. Revisamos tu solicitud y te avisamos aquí mismo.</div>
+  </div>
+  <button class="bigbtn" id="regSendBtn" onclick="sendApplication()">Mandar solicitud</button>
 </div>
 
 <!-- Agregar / editar producto -->
@@ -419,7 +473,12 @@ function toast(msg) {
 }
 function post(path, body) {
   return fetch(API + "/api" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: me.phone, pin: me.pin, ...body }) })
-    .then(async (r) => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || "No se pudo"); return d; });
+    .then(async (r) => {
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "No se pudo");
+      if (d && d.listing) { listing = d.listing; renderChecklist(); }
+      return d;
+    });
 }
 
 // El WhatsApp del cliente se queda solo en este celular (no se manda al servidor).
@@ -433,14 +492,20 @@ function savePhone(rideId, phone) {
 
 async function start() {
   try { me = JSON.parse(localStorage.getItem("motoya_rider") || "null"); } catch {}
-  if (!me || !me.phone || !me.pin) { location.replace("pasajero.html"); return; }
+  if (!me || !me.phone || !me.pin) {
+    // Sin cuenta todavía: que cree la suya y regrese aquí a registrar su negocio.
+    try { localStorage.setItem("mv_despues_login", "negocio:" + Date.now()); } catch {}
+    location.replace("pasajero.html");
+    return;
+  }
   try {
     const d = await post("/business/me", {});
-    if (!d.business) {
-      document.getElementById("ordList").innerHTML = document.getElementById("list").innerHTML = `<div class="empty">Esta cuenta todavía no es de un negocio.<br>Si tienes un negocio y quieres mandar tus pedidos con MotoVecino, escríbenos al <b>997 973 9422</b>.</div>`;
-      return;
-    }
+    if (!d.business) { renderApplication(d); return; }
     biz = d.business;
+    // Recién aprobado: lo felicitamos y lo llevamos a completar su perfil.
+    let wasPending = false;
+    try { wasPending = localStorage.getItem("mv_negocio_pendiente") === "1"; localStorage.removeItem("mv_negocio_pendiente"); } catch {}
+    if (wasPending) setTimeout(() => { toast("¡Tu negocio fue aprobado! Completa tu perfil para salir en la lista."); setTab("perfil"); }, 400);
     document.getElementById("bizName").textContent = biz.name;
     if (biz.es_fundador) document.getElementById("bizName").insertAdjacentHTML("beforeend", ` <span style="display:inline-block;vertical-align:middle;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;border:1px solid var(--gold);color:var(--gold);letter-spacing:0">Negocio fundador</span>`);
     document.getElementById("newBtn").disabled = false;
@@ -1103,12 +1168,149 @@ function renderProfilePhotos() {
   document.getElementById("logoHint").style.display = logo ? "none" : "";
 }
 function renderProfileStatus() {
-  const items = menu.filter((i) => i.available).length;
-  const ready = items || biz.special;
   const noPay = biz.pay_account ? "" : "<br>Te recomendamos poner tus datos para que te paguen por transferencia.";
-  document.getElementById("pfStatus").innerHTML = (ready
-    ? `Tu negocio está listo para aparecer en <b>Negocios</b>${items ? ` con ${items} producto${items === 1 ? "" : "s"}` : " con pedido especial"}.`
-    : `Para aparecer en <b>Negocios</b> te falta: al menos un producto o prender <b>Pedido especial</b>.`) + noPay;
+  if (!listing) { document.getElementById("pfStatus").innerHTML = noPay.replace("<br>", ""); return; }
+  document.getElementById("pfStatus").innerHTML = (listing.listed && listing.complete
+    ? "Tu negocio ya sale en la lista de <b>Negocios</b>."
+    : listing.listed
+      ? `Tu negocio sale en la lista, pero te falta: <b>${listing.missing.join(", ")}</b>. Complétalo a más tardar el ${fechaCorta(listing.grace_until)} para seguir apareciendo.`
+      : `Para salir en la lista de <b>Negocios</b> te falta: <b>${listing.missing.join(", ")}</b>.`) + noPay;
+}
+
+// --- Lista de tareas para salir en Negocios (8-nov-2026) ---
+let listing = null;
+function fechaCorta(utc) {
+  if (!utc) return "";
+  const d = new Date(utc.replace(" ", "T") + "Z");
+  d.setHours(d.getHours() - 1); // el corte es a medianoche: decir el día anterior
+  return d.toLocaleDateString("es-MX", { day: "numeric", month: "long", timeZone: "America/Merida" });
+}
+function renderChecklist() {
+  const el = document.getElementById("chkCard");
+  if (!el || !listing) return;
+  if (biz) renderProfileStatus();
+  if (listing.complete) {
+    el.className = "chk done";
+    el.innerHTML = "✓ Tu negocio ya sale en la lista de Negocios.";
+    el.style.display = listing.listed ? "" : "none";
+    return;
+  }
+  const n = Math.min(listing.photos, listing.min_products);
+  const rows = [
+    ["Sube tu logo", !listing.missing.includes("logo")],
+    ["Sube tu portada", !listing.missing.includes("portada")],
+    [`Agrega ${listing.min_products} productos con foto (${n} de ${listing.min_products})`, listing.photos >= listing.min_products],
+  ];
+  const next = !rows[0][1] || !rows[1][1] ? "perfil" : "menu";
+  el.className = "chk";
+  el.innerHTML = (listing.listed
+    ? `<b>Completa tu negocio a más tardar el ${fechaCorta(listing.grace_until)}</b> para seguir saliendo en la lista:`
+    : "<b>Para salir en la lista de Negocios te falta:</b>") +
+    `<ul>${rows.map(([t, ok]) => `<li class="${ok ? "ok" : ""}"><span class="bx">${ok ? "✓" : ""}</span>${t}</li>`).join("")}</ul>` +
+    `<button class="mini2" onclick="setTab('${next}')">${next === "perfil" ? "Subir logo y portada" : "Agregar productos"}</button>`;
+  el.style.display = "";
+}
+
+// --- Registrar mi negocio (8-nov-2026) ---
+let regMap = null, regFacade = null, regApp = null, appPoll = null;
+function renderApplication(d) {
+  regApp = d.application;
+  const sel = document.getElementById("regCategory");
+  sel.innerHTML = '<option value="">Elige uno</option>' + (d.categories || []).map((c) => `<option>${escapeHtml(c)}</option>`).join("");
+  document.getElementById("panel-pedidos").classList.remove("on");
+  const box = document.getElementById("regBox");
+  const a = regApp;
+  if (!a) {
+    box.innerHTML = `<div class="reg-card"><h3>Registra tu negocio</h3>
+      Vende a más clientes de tu municipio desde la app. <b>Registrarte no te cuesta nada.</b>
+      <ol><li>Nos dices el nombre, qué vendes y dónde está.</li><li>Tomas una foto de tu fachada o mostrador.</li><li>Lo revisamos y te avisamos aquí.</li><li>Subes tu logo, portada y productos, y ¡listo!</li></ol>
+      <button class="go2" onclick="openRegister()">Registrar mi negocio</button></div>`;
+    return;
+  }
+  if (a.status === "pendiente") {
+    try { localStorage.setItem("mv_negocio_pendiente", "1"); } catch {}
+    box.innerHTML = `<div class="reg-card"><h3>⏳ Estamos revisando tu negocio</h3>
+      <b>${escapeHtml(a.name)}</b> · ${escapeHtml(a.category || "")}<br>
+      Te avisamos aquí en cuanto lo aprobemos. Puedes cerrar la app, no pierdes nada.
+      <button class="go2 light" onclick="openRegister()">Corregir mis datos</button></div>`;
+    clearInterval(appPoll);
+    appPoll = setInterval(async () => {
+      if (document.hidden) return;
+      try { const r = await post("/business/me", {}); if (r.business || (r.application && r.application.status !== "pendiente")) location.reload(); } catch {}
+    }, 30000);
+    return;
+  }
+  if (a.status === "rechazado") {
+    box.innerHTML = `<div class="reg-card"><h3>No pudimos aprobar tu negocio</h3>
+      ${a.reject_reason ? `<div class="why">${escapeHtml(a.reject_reason)}</div>` : ""}
+      Corrige tus datos o la foto y mándala otra vez. ¿Dudas? Escríbenos al <b>997 973 9422</b>.
+      <button class="go2" onclick="openRegister()">Corregir y mandar otra vez</button></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="reg-card"><h3>Tu negocio está en pausa</h3><b>${escapeHtml(a.name)}</b><br>Escríbenos al <b>997 973 9422</b> para activarlo otra vez.</div>`;
+}
+function openRegister() {
+  const a = regApp;
+  document.getElementById("regName").value = a ? a.name || "" : "";
+  document.getElementById("regCategory").value = a ? a.category || "" : "";
+  document.getElementById("regAddress").value = a ? a.address || "" : "";
+  regFacade = null;
+  const fc = document.getElementById("regFacade");
+  fc.classList.remove("has"); fc.style.backgroundImage = "";
+  fc.innerHTML = a && a.has_facade ? "Ya tenemos tu foto.<br>Toca si quieres cambiarla." : "Toca para tomar la foto.<br>Así sabemos que tu negocio existe y lo aprobamos rápido.";
+  document.getElementById("homeScreen").classList.remove("active");
+  document.getElementById("regScreen").classList.add("active");
+  window.scrollTo(0, 0);
+  const start = a && Number.isFinite(a.lat) ? [a.lat, a.lng] : [20.39528, -89.53389];
+  if (!regMap) {
+    regMap = L.map("regMap", { zoomControl: false }).setView(start, a ? 17 : 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(regMap);
+  } else regMap.setView(start, a ? 17 : 15, { animate: false });
+  setTimeout(() => regMap.invalidateSize(), 60);
+  if (!a) regUseGps(true);
+}
+function closeRegister() {
+  document.getElementById("regScreen").classList.remove("active");
+  document.getElementById("homeScreen").classList.add("active");
+}
+function regUseGps(quiet) {
+  if (!navigator.geolocation) { if (!quiet) toast("Tu celular no comparte ubicación. Mueve el mapa."); return; }
+  navigator.geolocation.getCurrentPosition(
+    (p) => regMap && regMap.setView([p.coords.latitude, p.coords.longitude], 18),
+    () => { if (!quiet) toast("No pudimos ver tu ubicación. Mueve el mapa hasta tu negocio."); },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+  );
+}
+async function onFacadePicked(e) {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    regFacade = await compressImage(file, 1000, 1000, false);
+    const fc = document.getElementById("regFacade");
+    fc.style.backgroundImage = `url("${regFacade}")`;
+    fc.classList.add("has");
+  } catch (err) { toast(err.message); }
+}
+async function sendApplication() {
+  const name = document.getElementById("regName").value.trim();
+  const category = document.getElementById("regCategory").value;
+  if (!name) { toast("Escribe el nombre de tu negocio"); return; }
+  if (!category) { toast("Elige qué vende tu negocio"); return; }
+  if (!regFacade && !(regApp && regApp.has_facade)) { toast("Toma la foto de tu fachada o mostrador"); return; }
+  const c = regMap.getCenter();
+  const btn = document.getElementById("regSendBtn");
+  btn.disabled = true; btn.textContent = "Mandando…";
+  try {
+    const d = await post("/business/apply", {
+      name, category, address: document.getElementById("regAddress").value.trim(),
+      lat: c.lat, lng: c.lng, facade: regFacade || undefined,
+    });
+    closeRegister();
+    renderApplication({ application: d.application, categories: [...document.getElementById("regCategory").options].slice(1).map((o) => o.value) });
+    toast("¡Listo! Mandamos tu solicitud");
+  } catch (err) { toast(err.message); }
+  finally { btn.disabled = false; btn.textContent = "Mandar solicitud"; }
 }
 async function saveProfile() {
   const btn = document.getElementById("pfSaveBtn");
