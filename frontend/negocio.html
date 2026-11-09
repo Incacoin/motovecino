@@ -373,8 +373,9 @@
     <div id="regMapBox"><div id="regMap"></div><div class="pin"><div class="lbl">Aquí está mi negocio</div><div class="dot"></div></div></div>
     <button type="button" class="gps-btn" onclick="regUseGps()">📍 Estoy en mi negocio: usar mi ubicación</button>
     <div class="lab">Foto de la fachada o del mostrador</div>
-    <div class="facade" id="regFacade" onclick="document.getElementById('regFacadeInput').click()">Toca para tomar la foto.<br>Así sabemos que tu negocio existe y lo aprobamos rápido.</div>
-    <input type="file" id="regFacadeInput" accept="image/*" capture="environment" style="display:none" onchange="onFacadePicked(event)" />
+    <div class="facade" id="regFacade" onclick="pickFacade(true)">Toca para tomar la foto.<br>Así sabemos que tu negocio existe y lo aprobamos rápido.</div>
+    <button type="button" class="gps-btn" onclick="pickFacade(false)">🖼️ O elige una foto de tu galería</button>
+    <input type="file" id="regFacadeInput" accept="image/*" style="display:none" onchange="onFacadePicked(event)" />
     <div class="note">Registrarte no te cuesta nada. Revisamos tu solicitud y te avisamos aquí mismo.</div>
   </div>
   <button class="bigbtn" id="regSendBtn" onclick="sendApplication()">Mandar solicitud</button>
@@ -500,7 +501,7 @@ async function start() {
   }
   try {
     const d = await post("/business/me", {});
-    if (!d.business) { renderApplication(d); return; }
+    if (!d.business) { renderApplication(d); resumeRegDraft(); return; }
     biz = d.business;
     // Recién aprobado: lo felicitamos y lo llevamos a completar su perfil.
     let wasPending = false;
@@ -1261,14 +1262,68 @@ function openRegister() {
   document.getElementById("homeScreen").classList.remove("active");
   document.getElementById("regScreen").classList.add("active");
   window.scrollTo(0, 0);
-  const start = a && Number.isFinite(a.lat) ? [a.lat, a.lng] : [20.39528, -89.53389];
+  let start = a && Number.isFinite(a.lat) ? [a.lat, a.lng] : [20.39528, -89.53389];
+  // Lo que ya había escrito (si la app se cerró al abrir la cámara, no lo pierde).
+  const dr = readRegDraft();
+  if (dr) {
+    if (dr.name) document.getElementById("regName").value = dr.name;
+    if (dr.category) document.getElementById("regCategory").value = dr.category;
+    if (dr.address) document.getElementById("regAddress").value = dr.address;
+    if (Number.isFinite(dr.lat) && Number.isFinite(dr.lng)) start = [dr.lat, dr.lng];
+    if (dr.facade) { regFacade = dr.facade; fc.innerHTML = ""; fc.style.backgroundImage = `url("${regFacade}")`; fc.classList.add("has"); }
+  }
+  const zoom = a || (dr && Number.isFinite(dr.lat)) ? 17 : 15;
   if (!regMap) {
-    regMap = L.map("regMap", { zoomControl: false }).setView(start, a ? 17 : 15);
+    regMap = L.map("regMap", { zoomControl: false }).setView(start, zoom);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(regMap);
-  } else regMap.setView(start, a ? 17 : 15, { animate: false });
+    regMap.on("moveend", () => saveRegDraft());
+  } else regMap.setView(start, zoom, { animate: false });
   setTimeout(() => regMap.invalidateSize(), 60);
-  if (!a) regUseGps(true);
+  if (!a && !(dr && Number.isFinite(dr.lat))) regUseGps(true);
 }
+// --- Borrador del registro (8-nov-2026) ---
+// En celulares con poca memoria, Android cierra la app mientras la cámara está
+// abierta y al regresar se recarga en blanco. Guardamos lo escrito (y la foto ya
+// reducida) para volver al formulario tal como estaba.
+const REG_DRAFT = "mv_reg_borrador";
+function readRegDraft() {
+  try {
+    const d = JSON.parse(localStorage.getItem(REG_DRAFT) || "null");
+    if (!d || !d.t || Date.now() - d.t > 6 * 3600 * 1000 || (me && d.phone !== me.phone)) return null;
+    return d;
+  } catch { return null; }
+}
+function saveRegDraft(extra) {
+  if (!document.getElementById("regScreen").classList.contains("active")) return;
+  const prev = readRegDraft() || {};
+  const c = regMap ? regMap.getCenter() : null;
+  const d = {
+    phone: me && me.phone, t: Date.now(), camera: prev.camera || false,
+    name: document.getElementById("regName").value, category: document.getElementById("regCategory").value,
+    address: document.getElementById("regAddress").value,
+    lat: c ? c.lat : prev.lat, lng: c ? c.lng : prev.lng, facade: regFacade || null, ...(extra || {}),
+  };
+  try { localStorage.setItem(REG_DRAFT, JSON.stringify(d)); }
+  catch { try { localStorage.setItem(REG_DRAFT, JSON.stringify({ ...d, facade: null })); } catch {} }
+}
+function clearRegDraft() { try { localStorage.removeItem(REG_DRAFT); } catch {} }
+function pickFacade(camera) {
+  const inp = document.getElementById("regFacadeInput");
+  if (camera) inp.setAttribute("capture", "environment"); else inp.removeAttribute("capture");
+  saveRegDraft({ camera: true });
+  inp.click();
+}
+// Al abrir la página: si se quedó a medias al tomar la foto, regresamos al formulario.
+function resumeRegDraft() {
+  const dr = readRegDraft();
+  if (!dr || !dr.camera) return;
+  if (regApp && regApp.status !== "pendiente" && regApp.status !== "rechazado") return;
+  openRegister();
+  saveRegDraft({ camera: false });
+  if (!dr.facade) setTimeout(() => toast("Tu celular cerró la app mientras tomabas la foto. Tus datos siguen aquí. Si vuelve a pasar, toma la foto con tu cámara normal y elígela con «O elige una foto de tu galería»."), 300);
+}
+["regName", "regAddress"].forEach((id) => document.getElementById(id).addEventListener("input", () => saveRegDraft()));
+document.getElementById("regCategory").addEventListener("change", () => saveRegDraft());
 function closeRegister() {
   document.getElementById("regScreen").classList.remove("active");
   document.getElementById("homeScreen").classList.add("active");
@@ -1288,8 +1343,10 @@ async function onFacadePicked(e) {
   try {
     regFacade = await compressImage(file, 1000, 1000, false);
     const fc = document.getElementById("regFacade");
+    fc.innerHTML = "";
     fc.style.backgroundImage = `url("${regFacade}")`;
     fc.classList.add("has");
+    saveRegDraft({ camera: false });
   } catch (err) { toast(err.message); }
 }
 async function sendApplication() {
@@ -1306,6 +1363,7 @@ async function sendApplication() {
       name, category, address: document.getElementById("regAddress").value.trim(),
       lat: c.lat, lng: c.lng, facade: regFacade || undefined,
     });
+    clearRegDraft();
     closeRegister();
     renderApplication({ application: d.application, categories: [...document.getElementById("regCategory").options].slice(1).map((o) => o.value) });
     toast("¡Listo! Mandamos tu solicitud");
