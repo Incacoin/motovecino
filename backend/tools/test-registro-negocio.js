@@ -123,6 +123,17 @@ async function main() {
   check("reactivado: vuelve a la lista", (await get("/food/businesses?city=tekax")).data.businesses.some((b) => b.id === bizId));
   await post("/admin/food/enabled", { adminPin: ADMIN, enabled: false });
 
+  // ---------- Eliminar (para negocios de prueba) ----------
+  check("eliminar sin PIN de admin = 401/403", [401, 403].includes((await post(`/admin/businesses/${bizId}/delete`, { adminPin: "mal" })).status));
+  check("eliminar uno que no existe = 404", (await post("/admin/businesses/99999999/delete", { adminPin: ADMIN })).status === 404);
+  const del = await post(`/admin/businesses/${bizId}/delete`, { adminPin: ADMIN });
+  check("eliminar negocio sin pedidos", del.status === 200, del);
+  const meD = await post("/business/me", O);
+  check("eliminado: la cuenta sigue y ya no tiene negocio", meD.status === 200 && meD.data.business === null && meD.data.application === null, meD);
+  check("eliminado: ya no está en la lista del admin", !(await post("/admin/businesses/list", { adminPin: ADMIN })).data.some((b) => b.id === bizId));
+  const re = await post("/business/apply", good);
+  check("eliminado: puede registrar su negocio otra vez", re.status === 200 && re.data.application.status === "pendiente", re);
+
   console.log(`\n${fail ? "✗" : "✓"} ${pass} bien, ${fail} mal`);
   process.exit(fail ? 1 : 0);
 }

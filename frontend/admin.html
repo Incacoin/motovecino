@@ -3187,6 +3187,7 @@ async function loadBusinesses() {
       <div class="ally-actions" style="margin-top:10px;">
         <button class="btn-sm" onclick="openBizForm(${b.id})">Editar</button>
         ${b.status === "rechazado" ? "" : `<button class="btn-sm" onclick="toggleBiz(${b.id}, ${b.active ? 0 : 1})">${b.active ? "Pausar" : "Activar"}</button>`}
+        ${adminRoleNow === "tekax" && !Number(b.orders) ? `<button class="btn-sm" style="color:var(--danger,#d32f2f)" onclick="deleteBiz(${b.id})">Eliminar</button>` : ""}
       </div></div>`).join("")
     : (pend.length ? "" : `<div class="section-hint">Todavía no hay negocios dados de alta.</div>`));
 }
@@ -3256,6 +3257,16 @@ async function rejectBiz(id) {
   const d = await res.json().catch(() => ({}));
   if (!res.ok) { showToast(d.error || "No se pudo rechazar"); return; }
   showToast("Solicitud rechazada. El dueño verá el motivo.");
+  loadBusinesses();
+}
+async function deleteBiz(id) {
+  const b = bizCache.find((x) => x.id === id);
+  const ok = await mvConfirmAdmin(`¿Eliminar el negocio "${b ? b.name : ""}"? Se borran su perfil y sus productos. Su cuenta de pasajero se queda y podrá registrar su negocio otra vez. No se puede deshacer.`, "Sí, eliminar");
+  if (!ok) return;
+  const res = await fetch(API + `/api/admin/businesses/${id}/delete`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) { showToast(d.error || "No se pudo eliminar"); return; }
+  showToast("Negocio eliminado");
   loadBusinesses();
 }
 async function toggleBiz(id, active) {

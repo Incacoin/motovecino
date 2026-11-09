@@ -420,7 +420,8 @@ router.post("/admin/businesses/list", checkAdminPin, async (req, res) => {
   const rows = await db
     .prepare(
       `SELECT b.*, r.phone, r.name AS owner_name,
-         (SELECT COUNT(*) FROM rides WHERE business_id = b.id AND status = 'completado') AS deliveries
+         (SELECT COUNT(*) FROM rides WHERE business_id = b.id AND status = 'completado') AS deliveries,
+         (SELECT COUNT(*) FROM business_orders WHERE business_id = b.id) AS orders
        FROM businesses b JOIN riders r ON r.id = b.rider_id WHERE b.city = ? ORDER BY CASE WHEN b.status = 'pendiente' THEN 0 ELSE 1 END, b.id DESC`
     )
     .all(req.adminCity);
@@ -478,6 +479,24 @@ router.post("/admin/businesses/:id/reject", checkAdminPin, async (req, res) => {
   if (b.status !== "pendiente") return res.status(409).json({ error: "Este negocio no está esperando aprobación" });
   await db.prepare("UPDATE businesses SET status = 'rechazado', active = 0, reject_reason = ?, reviewed_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
     .run(clean(req.body.reason, 140) || null, b.id);
+  res.json({ ok: true });
+});
+
+// Eliminar un negocio (8-nov-2026): para borrar negocios de prueba y que ese
+// teléfono pueda registrarse otra vez. Solo el dueño de MotoVecino, y solo si
+// el negocio nunca recibió pedidos de clientes (esos se conservan; para esos
+// está "Pausar"). La cuenta de pasajero del dueño NO se borra. Los viajes que
+// pidió como negocio se quedan en el historial.
+router.post("/admin/businesses/:id/delete", checkAdminPin, async (req, res) => {
+  if (req.adminRole !== "tekax") return res.status(403).json({ error: "Esto solo lo puede hacer el dueño." });
+  const b = await db.prepare("SELECT id, city FROM businesses WHERE id = ?").get(req.params.id);
+  if (!b || b.city !== req.adminCity) return res.status(404).json({ error: "No encontrado" });
+  const o = await db.prepare("SELECT COUNT(*) AS n FROM business_orders WHERE business_id = ?").get(b.id);
+  if (Number(o.n) > 0) return res.status(409).json({ error: "Este negocio ya tiene pedidos de clientes. Mejor usa Pausar." });
+  await db.prepare("DELETE FROM business_push_subs WHERE business_id = ?").run(b.id);
+  await db.prepare("DELETE FROM business_chat WHERE business_id = ?").run(b.id);
+  await db.prepare("DELETE FROM menu_items WHERE business_id = ?").run(b.id);
+  await db.prepare("DELETE FROM businesses WHERE id = ?").run(b.id);
   res.json({ ok: true });
 });
 
