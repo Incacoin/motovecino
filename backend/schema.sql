@@ -653,3 +653,6 @@ ALTER TABLE businesses ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'ap
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS facade TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS reject_reason TEXT;
 ALTER TABLE businesses ADD COLUMN IF NOT EXISTS reviewed_at TEXT;
+-- 9-nov-2026: el municipio del pasajero ya se acomodó con su ubicación real
+-- (registro con GPS, /riders/locate una sola vez, o su primer viaje).
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS city_located INTEGER NOT NULL DEFAULT 0;

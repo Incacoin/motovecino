@@ -21,6 +21,7 @@ const TESTS = [
   ["motivo", []],
   ["pedidos", []],
   ["registro-negocio", []],
+  ["municipio-una-vez", []],
   ["sesion", []],
   ["clave", []],
   ["celestun", []],

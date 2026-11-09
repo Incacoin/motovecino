@@ -225,7 +225,7 @@ router.post("/rides", async (req, res) => {
   // queda pegado al default para siempre si no lo actualizamos aquí — esto
   // lo mantiene sincronizado con dónde pidió viaje realmente la última vez,
   // que es lo que filtra el admin de cada pueblo (ver routes/admin.js).
-  await db.prepare("UPDATE riders SET city = ? WHERE id = ?").run(city, rider.id);
+  await db.prepare("UPDATE riders SET city = ?, city_located = 1 WHERE id = ?").run(city, rider.id);
 
   // "Pedir para otra persona" (solo pasaje, y solo si ya está prendido en ese
   // pueblo — si no, se ignora y el viaje sale normal para quien lo pide).

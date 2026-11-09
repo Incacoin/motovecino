@@ -5,7 +5,7 @@ const { photoUrls, cleanThumb } = require("../photos");
 const { toStored } = require("../imageStore");
 const { otpEnabled, sendOtp, verifyOtp, sendWelcome } = require("../whatsappOtp");
 const { parseRiderPhone } = require("../phone");
-const { rideCityAt } = require("../cities");
+const { rideCityAt, resolveCity } = require("../cities");
 
 const router = express.Router();
 
@@ -134,21 +134,25 @@ router.post("/riders/register", async (req, res) => {
   // vuelve a acomodar según la recogida (ver rides.js).
   const lat = Number(req.body.lat);
   const lng = Number(req.body.lng);
-  const city = Number.isFinite(lat) && Number.isFinite(lng) && req.body.lat != null && req.body.lng != null
-    ? rideCityAt(lat, lng)
-    : "tekax";
+  const hasGps = Number.isFinite(lat) && Number.isFinite(lng) && req.body.lat != null && req.body.lng != null;
+  const city = hasGps ? rideCityAt(lat, lng) : "tekax";
+  // Ya quedó en su municipio de verdad (no en Tekax por no tener ubicación):
+  // /riders/locate ya no la mueve. Ver más abajo.
+  const located = hasGps && isRealCity(lat, lng) ? 1 : 0;
 
   if (existing) {
     // Rider de antes de que existiera el PIN (dato viejo) — se lo asignamos
     // ahora, de una vez, en vez de dejarlo sin dueño para siempre.
-    await db.prepare("UPDATE riders SET name = ?, pin = ?, city = ? WHERE id = ?").run(name, pin, city, existing.id);
+    // Sin ubicación real no se toca su municipio (no regresarla a Tekax).
+    if (located) await db.prepare("UPDATE riders SET name = ?, pin = ?, city = ?, city_located = 1 WHERE id = ?").run(name, pin, city, existing.id);
+    else await db.prepare("UPDATE riders SET name = ?, pin = ? WHERE id = ?").run(name, pin, existing.id);
     sendWelcome(parsed.e164, name);
     return res.status(200).json({ id: existing.id, name, phone, pin, isNewPin: true });
   }
 
   const result = await db
-    .prepare("INSERT INTO riders (phone, name, pin, city, created_at) VALUES (?, ?, ?, ?, datetime('now'))")
-    .run(phone, name, pin, city);
+    .prepare("INSERT INTO riders (phone, name, pin, city, city_located, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
+    .run(phone, name, pin, city, located);
   // Sin await: el WhatsApp de bienvenida no hace esperar a la persona.
   sendWelcome(parsed.e164, name);
   res.status(201).json({ id: result.lastInsertRowid, name, phone, pin, isNewPin: true });
@@ -219,6 +223,50 @@ router.post("/riders/login", async (req, res) => {
   }
   clearAttempts(req.ip);
   res.json({ ...rider, ...photoUrls("r", rider.id, rider.photo) });
+});
+
+// ¿El punto cae en un municipio de verdad (no fuera de todo, ni zona de prueba)?
+function isRealCity(lat, lng) {
+  const c = resolveCity(lat, lng);
+  return !!(c && !c.testOnly);
+}
+
+// Acomodar el municipio UNA sola vez (9-nov-2026). Quien se registró sin
+// ubicación quedó en Tekax; la primera vez que la app consigue dónde está su
+// celular, se pasa a ese municipio. Solo si todavía no ha pedido ningún viaje
+// (con viajes, su municipio ya lo pone el último viaje, ver rides.js) y solo
+// una vez (city_located): luego no se mueve aunque ande en otro municipio.
+router.post("/riders/locate", async (req, res) => {
+  if (isRateLimited(req.ip, req.body)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const { phone, pin } = req.body || {};
+  const lat = Number(req.body && req.body.lat);
+  const lng = Number(req.body && req.body.lng);
+  if (!phone || !pin) return res.status(400).json({ error: "Falta teléfono o PIN" });
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return res.status(400).json({ error: "Falta ubicación" });
+  const rider = await db.prepare("SELECT id, city, city_located FROM riders WHERE phone = ? AND pin = ?").get(phone, pin);
+  if (!rider) {
+    recordFailedAttempt(req.ip, req.body);
+    return res.status(404).json({ error: "No autorizado" });
+  }
+  clearAttempts(req.ip);
+  if (Number(rider.city_located)) return res.json({ ok: true, moved: false, done: true });
+  // Fuera de los municipios (o en zona de prueba): no se gasta su única vez.
+  if (!isRealCity(lat, lng)) return res.json({ ok: true, moved: false, done: false });
+  const city = rideCityAt(lat, lng);
+  const r = await db
+    .prepare(
+      `UPDATE riders SET city = ?, city_located = 1
+       WHERE id = ? AND city_located = 0 AND NOT EXISTS (SELECT 1 FROM rides WHERE rides.rider_id = riders.id)`
+    )
+    .run(city, rider.id);
+  if (!r.changes) {
+    // Ya tiene viajes: solo se marca para no volver a preguntar.
+    await db.prepare("UPDATE riders SET city_located = 1 WHERE id = ?").run(rider.id);
+    return res.json({ ok: true, moved: false, done: true });
+  }
+  res.json({ ok: true, moved: city !== rider.city, city, done: true });
 });
 
 // La app de Google Play avisa que la abrieron (una vez por apertura, ver

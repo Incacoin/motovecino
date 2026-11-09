@@ -1568,6 +1568,28 @@ function retryLocation() {
 // cuenta nueva quede en el cajón de su municipio (Oxkutzcab, Akil...).
 let deviceCoords = null;
 
+// Una sola vez por cuenta: si se registró sin ubicación (quedó en Tekax), su
+// cuenta pasa al municipio donde está el celular. El servidor decide si ya
+// se acomodó antes o si ya pidió viajes (ver /riders/locate).
+function syncRiderCity() {
+  let me = null;
+  try { me = JSON.parse(localStorage.getItem("motoya_rider") || "null"); } catch {}
+  if (!deviceCoords || !me || !me.phone || !me.pin) return;
+  const key = "mv_municipio_ok_" + me.phone;
+  try { if (localStorage.getItem(key)) return; } catch { return; }
+  if (syncRiderCity.busy) return;
+  syncRiderCity.busy = true;
+  fetch(API + "/api/riders/locate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone: me.phone, pin: me.pin, lat: deviceCoords.lat, lng: deviceCoords.lng }),
+  })
+    .then((r) => r.json())
+    .then((d) => { if (d && d.done) { try { localStorage.setItem(key, "1"); } catch {} } })
+    .catch(() => {})
+    .finally(() => { syncRiderCity.busy = false; });
+}
+
 function initCityBrand(attempt) {
   attempt = attempt || 0;
   if (!navigator.geolocation) return;
@@ -1575,6 +1597,7 @@ function initCityBrand(attempt) {
     (pos) => {
       hideLocationBanner();
       deviceCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      syncRiderCity();
       fetch(API + `/api/cities/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`)
         .then((r) => r.json())
         .then((data) => {
@@ -2648,6 +2671,7 @@ function finishRiderLogin(rider) {
     emergency_contact_phone: rider.emergency_contact_phone || null,
   }));
   pingPlayOpen(rider);
+  syncRiderCity();
   // Llegó desde "Registrar mi negocio" sin cuenta: ya la creó, que regrese allá.
   let next = null;
   try { next = localStorage.getItem("mv_despues_login"); localStorage.removeItem("mv_despues_login"); } catch {}
