@@ -3532,6 +3532,12 @@ async function downloadAllyArt(id, kind) {
     }
     ctx.fillStyle = "#000"; ctx.font = `800 ${NAME}px Inter`;
     y = wrapText(ctx, a.name, W / 2, y + NAME * 0.8, W - 140, NAME * 1.1) + 44 * G;
+    // 11-nov-2026: la frase propia de cada negocio (si la tiene), debajo del nombre.
+    const tagline = (a.tagline || "").trim();
+    if (tagline) {
+      ctx.fillStyle = "#545454"; ctx.font = `500 ${story ? 42 : 36}px Inter`;
+      y = wrapText(ctx, tagline, W / 2, y + (story ? -6 : 8), W - 160, story ? 54 : 46) + 36 * G;
+    }
     ctx.font = "600 34px Inter";
     const pillText = story ? "Somos negocio aliado de MotoVecino" : "Aquí somos aliados de MotoVecino";
     const pw = ctx.measureText(pillText).width + 64;
