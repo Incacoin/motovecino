@@ -994,6 +994,26 @@ function toggleRiderTheme() {
   #themeQuickBtn svg { display: block; margin: auto; }
   .brand-icon svg { display: block; margin: auto; }
   .acc-private { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+
+  /* Viajes agendados (12-nov-2026, backend/routes/bookings.js) */
+  #scheduleBtn { margin-top: 8px; }
+  #pickBar.collapsed #scheduleBtn { display: none !important; }
+  #bookingsPill { position: absolute; top: 14px; left: 56px; z-index: 1000; display: none; align-items: center; gap: 7px; max-width: calc(100% - 126px); padding: 10px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-panel); color: var(--text); font: 700 13.5px/1.2 inherit; font-family: inherit; box-shadow: 0 2px 10px rgba(0,0,0,0.22); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.loc-banner-on #bookingsPill { top: 64px; }
+  #bookingsPill .dot { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; flex: none; }
+  #bookingsPill.ok .dot { background: #22c55e; }
+  .bk-box { max-width: 360px; max-height: 86vh; overflow-y: auto; }
+  .bk-box h3 { margin: 0 0 4px; font-size: 18px; }
+  .bk-box .bk-sub { margin: 0 0 14px; font-size: 13.5px; color: var(--text-dim); font-weight: 500; line-height: 1.4; }
+  .bk-box label { display: block; font-size: 13px; font-weight: 700; margin: 10px 0 6px; }
+  .bk-box select { width: 100%; box-sizing: border-box; padding: 12px; font-size: 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-family: inherit; }
+  .bk-err { color: var(--danger); font-size: 13.5px; font-weight: 600; min-height: 18px; margin: 10px 0 0; }
+  .bk-item { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 10px; background: var(--bg-card); }
+  .bk-when { font-weight: 800; font-size: 15px; }
+  .bk-line { font-size: 13.5px; color: var(--text-dim); margin-top: 4px; line-height: 1.35; }
+  .bk-state { font-size: 13.5px; font-weight: 700; margin-top: 6px; }
+  .bk-state.ok { color: #16a34a; }
+  .bk-item .btn { margin-top: 10px; padding: 10px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -1236,6 +1256,7 @@ function toggleRiderTheme() {
   </button>
   <!-- Pedir en 3 pasos (29-sep): en Recogida y Destino el pin se queda fijo al
        centro y se mueve el mapa debajo (#centerPin); en "Tu viaje" salen todas las opciones. -->
+  <button id="bookingsPill" onclick="openBookings()"><span class="dot"></span><span id="bookingsPillText"></span></button>
   <div id="mapWrap">
     <div id="map"></div>
     <div id="centerPin"><div class="cp-label">Punto de encuentro</div><div class="cp-dot">1</div><div class="cp-stick"></div></div>
@@ -1348,6 +1369,7 @@ function toggleRiderTheme() {
         <div class="offer-note" id="motoOfferNote"></div>
       </div>
       <button class="btn" id="requestBtn" disabled onclick="requestRide()">Pedir mototaxi</button>
+      <button class="btn btn-secondary" id="scheduleBtn" onclick="openSchedule()">Agendar para más tarde</button>
     </div>
   </div>
 </div>
@@ -1551,9 +1573,11 @@ function showToast(msg) {
 
 function showLocationBanner() {
   document.getElementById("locationBanner").style.display = "flex";
+  document.body.classList.add("loc-banner-on"); // baja el aviso de viajes agendados
 }
 function hideLocationBanner() {
   document.getElementById("locationBanner").style.display = "none";
+  document.body.classList.remove("loc-banner-on");
 }
 function retryLocation() {
   if (!navigator.geolocation) return;
@@ -2369,6 +2393,8 @@ function setServiceCategory(category) {
   }
 
   document.getElementById("referenceInput").placeholder = SERVICE_CATEGORY_REFERENCE_PLACEHOLDER[category];
+  // Agendar es solo para pasaje (por ahora).
+  document.getElementById("scheduleBtn").style.display = isPassengerTrip ? "" : "none";
   updateFareEstimate();
 }
 
@@ -2920,6 +2946,7 @@ function enterMap() {
   map.on("moveend", () => document.getElementById("centerPin").classList.remove("moving"));
   renderVehCards();
   setPickStep("pickup");
+  startBookingsPolling();
 
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition((pos) => {
@@ -4950,6 +4977,233 @@ async function restoreActiveRide() {
   requestWakeLock();
   setupRidePush();
   return true;
+}
+
+// --- Viajes agendados (12-nov-2026, ver backend/routes/bookings.js) ---
+// El pasajero arma su viaje igual que siempre (punto, destino, precio) y en vez
+// de "Pedir" toca "Agendar para más tarde". Cerca de la hora el servidor crea
+// el viaje solo; esta app lo abre en cuanto lo ve (revisa cada 30 s).
+const MERIDA_OFFSET_MS = 6 * 3600 * 1000; // Yucatán: UTC-6 todo el año
+const BOOKING_MIN_AHEAD_MS = 40 * 60 * 1000;
+let myBookings = [];
+let bookingsTimer = null;
+
+function riderCreds() {
+  const r = JSON.parse(localStorage.getItem("motoya_rider") || "null");
+  return r && r.phone && r.pin ? { riderPhone: r.phone, riderPin: r.pin } : null;
+}
+
+function bookingWhen(ms) {
+  const d = new Date(ms);
+  const opts = { timeZone: "America/Merida" };
+  const dayKey = (x) => new Date(x - MERIDA_OFFSET_MS).toISOString().slice(0, 10);
+  const today = dayKey(Date.now());
+  const tomorrow = dayKey(Date.now() + 86400000);
+  const day = dayKey(ms) === today ? "Hoy" : dayKey(ms) === tomorrow ? "Mañana"
+    : d.toLocaleDateString("es-MX", { ...opts, weekday: "long", day: "numeric", month: "short" }).replace(/\./g, "");
+  const hour = d.toLocaleTimeString("es-MX", { ...opts, hour: "numeric", minute: "2-digit", hour12: true });
+  return `${day.charAt(0).toUpperCase() + day.slice(1)}, ${hour}`;
+}
+
+function openSchedule() {
+  if (!pickup || !dest) { showToast("Marca tu punto de encuentro y tu destino"); return; }
+  if (serviceCategory !== "pasaje") { showToast("Agendar es solo para pasaje"); return; }
+  const offerMode = serviceType === "moto" && priceMode === "oferta";
+  const offer = serviceType === "taxi" ? taxiOffer : offerMode ? motoOffer : null;
+  if (document.getElementById("requestBtn").disabled || !(offer > 0)) {
+    showToast(serviceType === "moto" && !offerMode ? "Para agendar usa «Propón tu precio»" : "Primero escribe cuánto ofreces");
+    return;
+  }
+
+  // Días: hoy y los 7 siguientes (hora de Yucatán).
+  const now = Date.now();
+  const base = new Date(now - MERIDA_OFFSET_MS); // "reloj" de Mérida en campos UTC
+  const days = [];
+  for (let i = 0; i <= 7; i++) {
+    const ms = Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + i);
+    const label = i === 0 ? "Hoy" : i === 1 ? "Mañana"
+      : new Date(ms).toLocaleDateString("es-MX", { timeZone: "UTC", weekday: "long", day: "numeric", month: "short" }).replace(/\./g, "");
+    days.push({ ms, label: label.charAt(0).toUpperCase() + label.slice(1) });
+  }
+  const times = [];
+  for (let m = 0; m < 24 * 60; m += 15) {
+    const h = Math.floor(m / 60), mm = m % 60;
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    times.push({ m, label: `${h12}:${String(mm).padStart(2, "0")} ${h < 12 ? "a. m." : "p. m."}` });
+  }
+  // Primera hora que sí se puede: dentro de 1 h, redondeado a 15 min.
+  const first = new Date(now + 60 * 60 * 1000 - MERIDA_OFFSET_MS);
+  let firstMin = Math.ceil((first.getUTCHours() * 60 + first.getUTCMinutes()) / 15) * 15;
+  let firstDay = Math.round((Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), first.getUTCDate()) - days[0].ms) / 86400000);
+  if (firstMin >= 24 * 60) { firstMin = 0; firstDay++; }
+
+  const ov = document.createElement("div");
+  ov.className = "mv-confirm";
+  ov.innerHTML = `<div class="mv-confirm-box bk-box" role="dialog" aria-modal="true">
+    <h3>Agendar viaje</h3>
+    <p class="bk-sub">Elige cuándo pasan por ti. Un chofer lo puede confirmar desde antes; si nadie lo confirma, 10 minutos antes lo mandamos a los choferes cercanos.</p>
+    <label for="bkDay">Día</label>
+    <select id="bkDay">${days.map((d, i) => `<option value="${i}">${escapeHtml(d.label)}</option>`).join("")}</select>
+    <label for="bkTime">Hora</label>
+    <select id="bkTime">${times.map((t) => `<option value="${t.m}">${t.label}</option>`).join("")}</select>
+    <p class="bk-line" style="margin-top:12px">Precio: <b>$${offer}</b> · ${passengers + children} pasajero${passengers + children === 1 ? "" : "s"}</p>
+    <div class="bk-err" id="bkErr"></div>
+    <div class="mv-confirm-actions" style="margin-top:8px"><button class="btn btn-secondary" data-r="0">Cancelar</button><button class="btn" data-r="1">Agendar</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  ov.querySelector("#bkDay").value = String(Math.min(firstDay, 7));
+  ov.querySelector("#bkTime").value = String(firstMin);
+  ov.addEventListener("click", async (e) => {
+    if (e.target === ov) return ov.remove();
+    const b = e.target.closest("[data-r]");
+    if (!b) return;
+    if (b.dataset.r === "0") return ov.remove();
+    const err = ov.querySelector("#bkErr");
+    const when = days[Number(ov.querySelector("#bkDay").value)].ms + Number(ov.querySelector("#bkTime").value) * 60000 + MERIDA_OFFSET_MS;
+    if (when < Date.now() + BOOKING_MIN_AHEAD_MS) { err.textContent = "Elige una hora de aquí a 40 minutos o más. Para antes, pide tu viaje normal."; return; }
+    const creds = riderCreds();
+    if (!creds) { showToast("Tu sesión se cerró. Vuelve a entrar con tu teléfono y PIN."); return; }
+    b.disabled = true;
+    err.textContent = "";
+    // Pedir el permiso de avisos aquí (es un toque del pasajero) para avisarle
+    // cuando un chofer confirme y cuando ya vaya en camino.
+    const askPush = riderPushSupported() && Notification.permission === "default" ? Notification.requestPermission().catch(() => {}) : null;
+    try {
+      const res = await fetch(API + "/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...creds,
+          scheduled_at_ms: when,
+          pickup_lat: pickup.lat, pickup_lng: pickup.lng,
+          pickup_label: document.getElementById("referenceInput").value.trim() || null,
+          dest_lat: dest.lat, dest_lng: dest.lng,
+          passengers, children, ride_type: serviceType, offer_price: offer,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { err.textContent = data.error || "No se pudo agendar, intenta de nuevo"; b.disabled = false; return; }
+      ov.remove();
+      showToast(`✅ Viaje agendado: ${bookingWhen(data.scheduled_at_ms)}`);
+      // El permiso de avisos puede quedarse esperando respuesta: no se detiene nada por eso.
+      Promise.resolve(askPush).then(() => subscribeBookingPush(data.id)).catch(() => {});
+      resetPins();
+      loadBookings();
+    } catch {
+      err.textContent = "Sin conexión. Intenta de nuevo.";
+      b.disabled = false;
+    }
+  });
+}
+
+async function subscribeBookingPush(bookingId) {
+  if (!riderPushSupported() || Notification.permission !== "granted") return;
+  const creds = riderCreds();
+  if (!creds) return;
+  const { publicKey } = await (await fetch(API + "/api/push/public-key")).json();
+  const reg = await navigator.serviceWorker.ready;
+  const sub = (await reg.pushManager.getSubscription()) ||
+    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) }));
+  const keys = sub.toJSON().keys || {};
+  await fetch(API + `/api/bookings/${bookingId}/push`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...creds, endpoint: sub.endpoint, p256dh: keys.p256dh, auth: keys.auth }),
+  });
+}
+
+async function loadBookings() {
+  const creds = riderCreds();
+  if (!creds) return;
+  try {
+    const res = await fetch(API + "/api/bookings/mine", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(creds),
+    });
+    if (!res.ok) return;
+    myBookings = await res.json();
+  } catch { return; }
+  // ¿Ya salió uno y sigue vivo? Se abre como cualquier viaje (la app arranca
+  // de nuevo y restoreActiveRide lo enseña).
+  const live = myBookings.find((b) => b.ride && !["completado", "cancelado"].includes(b.ride.status));
+  if (live && !ride && !localStorage.getItem("motoya_active_ride") && document.getElementById("mapScreen").classList.contains("active")) {
+    localStorage.setItem("motoya_active_ride", JSON.stringify({ id: live.ride.id, token: live.ride.token }));
+    location.reload();
+    return;
+  }
+  renderBookingsPill();
+}
+
+function renderBookingsPill() {
+  const pill = document.getElementById("bookingsPill");
+  const pending = myBookings.filter((b) => b.status === "agendado" || b.status === "confirmado");
+  if (!pending.length) { pill.style.display = "none"; return; }
+  const next = pending[0];
+  pill.classList.toggle("ok", next.status === "confirmado");
+  document.getElementById("bookingsPillText").textContent = pending.length > 1
+    ? `${pending.length} viajes agendados · ${bookingWhen(next.scheduled_at_ms)}`
+    : `Agendado · ${bookingWhen(next.scheduled_at_ms)}`;
+  pill.style.display = "flex";
+}
+
+function startBookingsPolling() {
+  loadBookings();
+  clearInterval(bookingsTimer);
+  bookingsTimer = setInterval(() => {
+    if (document.visibilityState === "visible" && document.getElementById("mapScreen").classList.contains("active")) loadBookings();
+  }, 30000);
+}
+
+function bookingStateHtml(b) {
+  if (b.status === "confirmado" && b.driver) {
+    return `<div class="bk-state ok">✅ ${escapeHtml(b.driver.name)} confirmó${b.driver.vehicle ? ` · ${escapeHtml(b.driver.vehicle)}` : ""}</div>`;
+  }
+  if (b.status === "agendado") return `<div class="bk-state">Esperando que un chofer lo confirme</div>`;
+  if (b.status === "lanzado" || b.status === "lanzando") return `<div class="bk-state">Ya salió como viaje</div>`;
+  if (b.status === "vencido") return `<div class="bk-state">No salió a tiempo</div>`;
+  if (b.status === "fallido") return `<div class="bk-state">No se pudo sacar${b.fail_reason ? `: ${escapeHtml(b.fail_reason)}` : ""}</div>`;
+  return "";
+}
+
+function openBookings() {
+  const ov = document.createElement("div");
+  ov.className = "mv-confirm";
+  const render = () => {
+    const list = myBookings.filter((b) => b.status === "agendado" || b.status === "confirmado");
+    ov.innerHTML = `<div class="mv-confirm-box bk-box" role="dialog" aria-modal="true">
+      <h3>Mis viajes agendados</h3>
+      <p class="bk-sub">${list.length ? "Te avisamos cuando un chofer confirme y cuando ya vaya por ti." : "No tienes viajes agendados."}</p>
+      ${list.map((b) => `<div class="bk-item">
+        <div class="bk-when">${escapeHtml(bookingWhen(b.scheduled_at_ms))}</div>
+        <div class="bk-line">${b.ride_type === "taxi" ? "Taxi" : "Mototaxi"} · $${b.offer_price}${b.pickup_label ? ` · ${escapeHtml(b.pickup_label)}` : ""}</div>
+        ${bookingStateHtml(b)}
+        <button class="btn btn-secondary" data-cancel="${b.id}">Cancelar este viaje</button>
+      </div>`).join("")}
+      <div class="mv-confirm-actions"><button class="btn" data-close="1">Listo</button></div>
+    </div>`;
+  };
+  render();
+  document.body.appendChild(ov);
+  ov.addEventListener("click", async (e) => {
+    if (e.target === ov || e.target.closest("[data-close]")) return ov.remove();
+    const c = e.target.closest("[data-cancel]");
+    if (!c) return;
+    const id = Number(c.dataset.cancel);
+    if (!(await mvConfirm("¿Cancelar este viaje agendado?", "Sí, cancelar", true))) return;
+    const creds = riderCreds();
+    if (!creds) return;
+    const res = await fetch(API + `/api/bookings/${id}/cancel`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(creds),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (!res || !res.ok) { showToast(data.error || "No se pudo cancelar, intenta de nuevo"); return; }
+    showToast("Viaje agendado cancelado");
+    await loadBookings();
+    render();
+  });
 }
 
 // Si ya tiene cuenta guardada en este celular (con su PIN), no le volvemos a

@@ -842,6 +842,7 @@ function setDriverTheme(pref) {
   <div id="panel">
     <div class="sheet-handle"></div>
     <div id="pushCard" class="card push-card" style="display:none;"></div>
+    <div id="bookingsCard" class="card push-card" style="display:none;"></div>
     <div id="rideList"></div>
     <div id="chatBox" class="card" style="display:none;">
       <div id="chatMessages"></div>
@@ -1754,6 +1755,119 @@ function startApp() {
   startOtherDriversPolling();
   restoreActiveRide();
   refreshPushUi(true);
+  startDriverBookings();
+}
+
+// ---------- Viajes agendados (12-nov-2026, ver backend/routes/bookings.js) ----------
+// El pasajero agenda para más tarde; el chofer lo confirma desde aquí. 15 min
+// antes de la hora el viaje le aparece solo como viaje aceptado (booking_started).
+let driverBookings = { mine: [], available: [] };
+let driverBookingsTimer = null;
+
+function driverBookingWhen(ms) {
+  const opts = { timeZone: "America/Merida" };
+  const dayKey = (x) => new Date(x - 6 * 3600 * 1000).toISOString().slice(0, 10);
+  const day = dayKey(ms) === dayKey(Date.now()) ? "Hoy" : dayKey(ms) === dayKey(Date.now() + 86400000) ? "Mañana"
+    : new Date(ms).toLocaleDateString("es-MX", { ...opts, weekday: "long", day: "numeric", month: "short" }).replace(/\./g, "");
+  const hour = new Date(ms).toLocaleTimeString("es-MX", { ...opts, hour: "numeric", minute: "2-digit", hour12: true });
+  return `${day.charAt(0).toUpperCase() + day.slice(1)}, ${hour}`;
+}
+
+async function loadDriverBookings() {
+  try {
+    const res = await fetch(API + "/api/bookings/driver", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+    });
+    if (!res.ok) return;
+    driverBookings = await res.json();
+  } catch { return; }
+  renderBookingsCard();
+  if (document.getElementById("driverBookingsSheet")) renderBookingsSheet();
+}
+
+function startDriverBookings() {
+  loadDriverBookings();
+  clearInterval(driverBookingsTimer);
+  driverBookingsTimer = setInterval(() => { if (document.visibilityState === "visible") loadDriverBookings(); }, 60000);
+}
+
+function renderBookingsCard() {
+  const card = document.getElementById("bookingsCard");
+  const { mine, available } = driverBookings;
+  if (!mine.length && !available.length) { card.style.display = "none"; return; }
+  const parts = [];
+  if (mine.length) parts.push(`Tuyo: ${escapeHtml(driverBookingWhen(mine[0].scheduled_at_ms))}${mine.length > 1 ? ` y ${mine.length - 1} más` : ""}`);
+  if (available.length) parts.push(`${available.length} por confirmar`);
+  card.innerHTML = `<div class="push-txt"><b>Viajes agendados</b>${parts.join(" · ")}</div><button class="btn-sm" onclick="openBookingsSheet()">Ver</button>`;
+  card.style.display = "flex";
+}
+
+function bookingCardHtml(b) {
+  const km = haversine(b.pickup_lat, b.pickup_lng, b.dest_lat, b.dest_lng);
+  const far = myPos ? haversine(myPos.lat, myPos.lng, b.pickup_lat, b.pickup_lng) : null;
+  const people = b.passengers + b.children;
+  return `<div class="ride-card card" style="margin-bottom:10px">
+    <div style="font-weight:800;font-size:16px">${escapeHtml(driverBookingWhen(b.scheduled_at_ms))}</div>
+    <div class="meta">${escapeHtml(b.rider_name)}${b.riderTripCount ? ` · ${b.riderTripCount} viaje${b.riderTripCount === 1 ? "" : "s"}` : " · nuevo"} · ${people} pasajero${people === 1 ? "" : "s"}</div>
+    <div class="ride-chips"><span class="chip chip-accent">$${b.offer_price}</span><span class="chip">viaje ~${km.toFixed(1)} km</span>${far != null ? `<span class="chip">a ${far.toFixed(1)} km de ti</span>` : ""}</div>
+    ${b.pickup_label ? `<div class="meta">Referencia: ${escapeHtml(b.pickup_label)}</div>` : ""}
+    ${b.mine
+      ? `<button class="btn btn-secondary" data-release="${b.id}">Ya no puedo ir</button>`
+      : `<button class="btn" data-take="${b.id}">Confirmar este viaje</button>`}
+  </div>`;
+}
+
+function renderBookingsSheet() {
+  const box = document.querySelector("#driverBookingsSheet .mv-confirm-box");
+  if (!box) return;
+  const { mine, available } = driverBookings;
+  box.innerHTML = `
+    <div style="font-weight:800;font-size:18px;margin-bottom:4px">Viajes agendados</div>
+    <div class="meta" style="margin-bottom:12px;line-height:1.4">Al confirmar te comprometes a ir a esa hora. 15 minutos antes el viaje te aparece solo como aceptado. Si ya no puedes, suéltalo con tiempo para que otro chofer lo tome.</div>
+    ${mine.length ? `<div style="font-weight:700;margin:6px 0 8px">Tus viajes</div>${mine.map(bookingCardHtml).join("")}` : ""}
+    <div style="font-weight:700;margin:6px 0 8px">Por confirmar</div>
+    ${available.length ? available.map(bookingCardHtml).join("") : `<div class="empty">No hay viajes agendados por confirmar.</div>`}
+    <div class="mv-confirm-actions"><button class="btn" data-close="1">Listo</button></div>`;
+}
+
+function openBookingsSheet() {
+  const ov = document.createElement("div");
+  ov.className = "mv-confirm";
+  ov.id = "driverBookingsSheet";
+  ov.innerHTML = `<div class="mv-confirm-box" role="dialog" aria-modal="true" style="max-width:380px;max-height:86vh;overflow-y:auto"></div>`;
+  document.body.appendChild(ov);
+  renderBookingsSheet();
+  ov.addEventListener("click", async (e) => {
+    if (e.target === ov || e.target.closest("[data-close]")) return ov.remove();
+    const take = e.target.closest("[data-take]");
+    const rel = e.target.closest("[data-release]");
+    if (!take && !rel) return;
+    const id = Number((take || rel).dataset.take || (take || rel).dataset.release);
+    const b = [...driverBookings.mine, ...driverBookings.available].find((x) => x.id === id);
+    if (!b) return;
+    const ok = take
+      ? await mvConfirm(`¿Confirmas que vas por ${b.rider_name}? ${driverBookingWhen(b.scheduled_at_ms)}, por $${b.offer_price}.`, "Sí, voy")
+      : await mvConfirm("¿Seguro que ya no puedes ir? El viaje vuelve a quedar libre para otro chofer.", "Sí, soltarlo", true);
+    if (!ok) return;
+    const res = await fetch(API + `/api/bookings/${id}/${take ? "take" : "release"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (!res || !res.ok) showToast(data.error || "No se pudo, intenta de nuevo");
+    else showToast(take ? "✅ Viaje confirmado. Te avisamos 15 minutos antes." : "Listo, el viaje quedó libre para otro chofer");
+    loadDriverBookings();
+  });
+}
+
+function onBookingStarted() {
+  playNotificationSound();
+  showToast("🗓 Es hora de tu viaje agendado");
+  restoreActiveRide();
+  loadDriverBookings();
 }
 
 // ---------- Avisos push de viajes nuevos (ver backend/push.js) ----------
@@ -1922,6 +2036,9 @@ function connectWs() {
     if (type === "ride_taken") { delete myOffers[payload.rideId]; removePendingRide(payload.rideId); }
     if (type === "offer_closed") onOfferClosed(payload);
     if (type === "offer_accepted") onOfferAccepted(payload);
+    if (type === "bookings_changed") loadDriverBookings();
+    if (type === "booking_started") onBookingStarted();
+    if (type === "booking_cancelled") { showToast(`El pasajero canceló su viaje agendado (${payload.when})`); loadDriverBookings(); }
     if (type === "ride_cancelled" && currentRide && currentRide.id === payload.rideId && !cancellingOwnRide) {
       // Regla del anticipo (Aviso Legal): confirmado = ya salió por él, se lo
       // queda; sin confirmar = lo que haya recibido se devuelve.
