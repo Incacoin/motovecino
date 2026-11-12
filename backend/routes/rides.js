@@ -1194,3 +1194,4 @@ module.exports.riderInfoFor = riderInfoFor;
 module.exports.driverForRide = driverForRide;
 module.exports.driverInRideZone = driverInRideZone;
 module.exports.driverPinValid = driverPinValid;
+module.exports.closeDriverOtherOffers = closeDriverOtherOffers;

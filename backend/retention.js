@@ -43,6 +43,11 @@ async function purgeOldPersonalData() {
       .prepare("DELETE FROM driver_activity_log WHERE julianday('now') - julianday(connected_at) > ?")
       .run(RETENTION_DAYS);
 
+    // Viajes agendados (routes/bookings.js) de hace más de un año: el viaje que
+    // salió queda en rides (ya anonimizado arriba); la agenda ya no sirve.
+    await db.prepare("DELETE FROM booking_push_subs WHERE booking_id IN (SELECT id FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?)").run(RETENTION_DAYS);
+    await db.prepare("DELETE FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?").run(RETENTION_DAYS);
+
     // La foto del comprobante del anticipo trae datos bancarios del pasajero
     // y solo sirve para aclarar un problema recién pasado — se borra mucho
     // antes que el resto. El monto y la fecha de confirmación se quedan

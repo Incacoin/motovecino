@@ -89,6 +89,8 @@ async function main() {
   check("ve solo el primer nombre", seen && seen.rider_name === "María", seen);
   check("no ve el teléfono", seen && !("rider_phone" in seen) && !JSON.stringify(seen).includes(R.riderPhone), seen);
   check("ubicación aproximada antes de confirmar", seen && seen.pickup_lat === Math.round(T.lat * 1000) / 1000, seen);
+  check("destino aproximado antes de confirmar", seen && seen.dest_lat === Math.round((T.lat + 0.01) * 1000) / 1000, seen);
+  check("sin la referencia de la casa antes de confirmar", seen && seen.pickup_label === null, seen);
   const listT = await post("/bookings/driver", DT);
   check("el taxista no ve un mototaxi", listT.status === 200 && !listT.data.available.some((x) => x.id === b1.data.id), listT);
   check("PIN malo de chofer no", (await post("/bookings/driver", { driverId: A.id, pin: "0000" })).status === 401);
@@ -101,7 +103,7 @@ async function main() {
   check("el taxista no puede confirmar un mototaxi", taxiTake.status === 404, taxiTake);
   const listA2 = await post("/bookings/driver", DA);
   const mineA = listA2.data.mine.find((x) => x.id === b1.data.id);
-  check("Pedro lo ve en los suyos con la ubicación exacta", mineA && mineA.pickup_lat === T.lat, listA2.data);
+  check("Pedro lo ve en los suyos con la ubicación exacta", mineA && mineA.pickup_lat === T.lat && mineA.pickup_label === "Casa azul", listA2.data);
   const mine2 = await post("/bookings/mine", R);
   const v1 = mine2.data.find((x) => x.id === b1.data.id);
   check("el pasajero ve a Pedro", v1 && v1.status === "confirmado" && v1.driver && v1.driver.name === "Pedro", v1);
@@ -170,6 +172,34 @@ async function main() {
   await setWhen(b7.data.id, Date.now() - 30 * MIN);
   const l7 = await waitFor(async () => { const b = await getBooking(b7.data.id); return b.status === "vencido" ? b : null; });
   check("el que ya pasó queda vencido", !!l7, await getBooking(b7.data.id));
+
+  // El viaje sin chofer que salió tiene 15 min de búsqueda, no 5 (ver
+  // BOOKING_SEARCH_MS): a los 6 min de creado sigue buscando.
+  const b8 = await post("/bookings", { ...trip, ...R, scheduled_at_ms: at(800) });
+  await setWhen(b8.data.id, at(5));
+  const l8 = await waitFor(async () => { const b = await getBooking(b8.data.id); return b.status === "lanzado" ? b : null; });
+  if (l8) {
+    await db.prepare("UPDATE rides SET created_at = datetime('now', '-6 minutes') WHERE id = ?").run(l8.ride_id);
+    await sleep(35000); // el barrido de viajes corre cada 30 s
+    const r8 = await db.prepare("SELECT status FROM rides WHERE id = ?").get(l8.ride_id);
+    check("el agendado sin chofer sigue buscando a los 6 min", r8.status === "buscando", r8);
+    await post(`/rides/${l8.ride_id}/cancel`, { riderPhone: R.riderPhone, riderPin: R.riderPin });
+  } else check("b8 salió", false, await getBooking(b8.data.id));
+
+  // Se quedó a medias al salir (servidor reiniciado) → fallido, no atorado
+  const b9 = await post("/bookings", { ...trip, ...R, scheduled_at_ms: at(900) });
+  await db.prepare("UPDATE ride_bookings SET status = 'lanzando', updated_at = datetime('now', '-5 minutes') WHERE id = ?").run(b9.data.id);
+  const l9 = await waitFor(async () => { const b = await getBooking(b9.data.id); return b.status === "fallido" ? b : null; });
+  check("el que se quedó a medias pasa a fallido", !!l9, await getBooking(b9.data.id));
+
+  // Al chofer que confirmó lo dan de baja → vuelve a quedar libre
+  const C = await mk(`Luis Agenda ${stamp}`, `97500${stamp}`.slice(0, 10), "moto");
+  const b10 = await post("/bookings", { ...trip, ...R, scheduled_at_ms: at(1000) });
+  check("Luis confirma", (await post(`/bookings/${b10.data.id}/take`, { driverId: C.id, pin: C.pin })).status === 200);
+  await db.prepare("UPDATE drivers SET deleted_at = datetime('now') WHERE id = ?").run(C.id);
+  const l10 = await waitFor(async () => { const b = await getBooking(b10.data.id); return b.status === "agendado" && b.driver_id == null ? b : null; });
+  check("chofer dado de baja: el viaje vuelve a agendado", !!l10, await getBooking(b10.data.id));
+  await post(`/bookings/${b10.data.id}/cancel`, R);
 
   // Limpieza: terminar los viajes abiertos de la prueba
   for (const b of [l1, l5]) if (b) await post(`/rides/${b.ride_id}/cancel`, { riderPhone: R.riderPhone, riderPin: R.riderPin });

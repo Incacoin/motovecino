@@ -63,7 +63,7 @@ async function authDriver(req, res) {
   if (!driverId || !pin) { res.status(400).json({ error: "Falta driverId o PIN" }); return null; }
   if (isRateLimited(req.ip, req.body)) { res.status(429).json({ error: RATE_LIMIT_MESSAGE }); return null; }
   const driver = await db
-    .prepare("SELECT id, name, city, zone, vehicle_type FROM drivers WHERE id = ? AND pin = ? AND deleted_at IS NULL")
+    .prepare("SELECT id, name, city, zone, lat, lng, vehicle_type FROM drivers WHERE id = ? AND pin = ? AND deleted_at IS NULL")
     .get(driverId, pin);
   if (!driver) {
     recordFailedAttempt(req.ip, req.body);
@@ -75,14 +75,18 @@ async function authDriver(req, res) {
 }
 
 // El chofer puede atender este viaje: mismo tipo de vehículo, mismo municipio
-// (el taxi, toda la región) y, donde hay comisarías (Progreso), la suya.
+// (el taxi, toda la región) y, donde hay comisarías (Progreso), la suya — la
+// fija de su alta o, sin ella, donde estuvo la última vez (misma regla que
+// driverInRideZone en rides.js, sin la ubicación en vivo: el viaje es para
+// más tarde).
 function driverFits(driver, b) {
   if ((driver.vehicle_type === "taxi" ? "taxi" : "moto") !== b.ride_type) return false;
   if (!sameCityForRide(b.ride_type, b.city, driver.city)) return false;
   const cfg = getCityById(b.city);
   if (cfg?.zones) {
     const z = zoneAt(b.city, b.pickup_lat, b.pickup_lng);
-    return !!(z && driver.zone && driver.zone === z.id);
+    const zDriver = driver.zone ? { id: driver.zone } : (driver.lat != null ? zoneAt(b.city, driver.lat, driver.lng) : null);
+    return !!(z && zDriver && zDriver.id === z.id);
   }
   return true;
 }
@@ -100,12 +104,13 @@ async function pushRider(bookingId, title, body) {
 // A los choferes con la app abierta en ese municipio: que vuelvan a pedir su
 // lista de agendados (no se manda nada del viaje por aquí).
 async function bookingsChanged(b) {
+  const taxi = b.ride_type === "taxi";
   const list = await db
-    .prepare("SELECT id, city, vehicle_type FROM drivers WHERE deleted_at IS NULL AND vehicle_type = ?")
-    .all(b.ride_type === "taxi" ? "taxi" : "moto");
-  for (const d of list) {
-    if (sameCityForRide(b.ride_type, b.city, d.city)) realtime.notifyDriver(d.id, "bookings_changed", {});
-  }
+    .prepare(`SELECT id FROM drivers WHERE deleted_at IS NULL AND vehicle_type = ? ${taxi ? "" : "AND city = ?"}`)
+    .all(...(taxi ? ["taxi"] : ["moto", b.city]));
+  // (la app del chofer espera un momento al azar antes de volver a pedir la
+  // lista, para que no lleguen todos al mismo tiempo)
+  for (const d of list) realtime.notifyDriver(d.id, "bookings_changed", {});
 }
 
 // ---- Lo que ve cada quien ----
@@ -140,15 +145,13 @@ async function riderView(b) {
   return out;
 }
 
-// Al chofer: la recogida va aproximada (~100 m) hasta que él lo confirme,
-// porque la lista la ven todos los choferes del municipio durante días.
-async function driverView(b, driverId) {
+// Al chofer: recogida y destino aproximados (~100 m) y sin la referencia de
+// la casa hasta que él lo confirme, porque la lista la ven todos los choferes
+// del municipio durante días (regla de CLAUDE.md: nada de ubicación exacta
+// de otra persona al público). b trae rider_name y rider_trips (ver
+// BOOKING_DRIVER_SELECT).
+function driverView(b, driverId) {
   const mine = b.driver_id === driverId;
-  const rider = await db.prepare("SELECT name, phone FROM riders WHERE id = ?").get(b.rider_id);
-  let trips = 0;
-  if (rider) {
-    trips = (await db.prepare("SELECT COUNT(*) AS n FROM rides WHERE rider_phone = ? AND status = 'completado'").get(rider.phone)).n;
-  }
   const round = (v) => Math.round(v * 1000) / 1000;
   return {
     id: b.id,
@@ -157,17 +160,22 @@ async function driverView(b, driverId) {
     ride_type: b.ride_type,
     pickup_lat: mine ? b.pickup_lat : round(b.pickup_lat),
     pickup_lng: mine ? b.pickup_lng : round(b.pickup_lng),
-    pickup_label: b.pickup_label,
-    dest_lat: b.dest_lat,
-    dest_lng: b.dest_lng,
-    dest_label: b.dest_label,
+    pickup_label: mine ? b.pickup_label : null,
+    dest_lat: mine ? b.dest_lat : round(b.dest_lat),
+    dest_lng: mine ? b.dest_lng : round(b.dest_lng),
+    dest_label: mine ? b.dest_label : null,
     passengers: b.passengers,
     children: b.children,
     offer_price: b.offer_price,
-    rider_name: firstName(rider && rider.name) || "Pasajero",
-    riderTripCount: trips,
+    rider_name: firstName(b.rider_name) || "Pasajero",
+    riderTripCount: Number(b.rider_trips) || 0,
   };
 }
+// Una sola consulta con el nombre del pasajero y cuántos viajes ha completado
+// (antes eran 2 consultas por cada viaje de la lista).
+const BOOKING_DRIVER_SELECT = `SELECT b.*, r.name AS rider_name,
+    (SELECT COUNT(*) FROM rides x WHERE x.rider_phone = r.phone AND x.status = 'completado') AS rider_trips
+  FROM ride_bookings b LEFT JOIN riders r ON r.id = b.rider_id`;
 
 // ---- Pasajero ----
 
@@ -205,10 +213,12 @@ router.post("/bookings", async (req, res) => {
   const clean = (v, max) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
   const result = await db
     .prepare(
-      `INSERT INTO ride_bookings (rider_id, city, ride_type, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, offer_price, scheduled_at_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO ride_bookings (rider_id, city, ride_type, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, offer_price, scheduled_at_ms, reminded)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(rider.id, checked.city, rideType, body.pickup_lat, body.pickup_lng, clean(b.pickup_label, 120), body.dest_lat, body.dest_lng, clean(b.dest_label, 120), body.passengers, body.children, checked.offerPrice, when);
+    // Agendado con poco tiempo (menos de 1 h 15 min): no se le manda el aviso
+    // de "es en 1 hora" (sería falso y le llegaría casi al instante).
+    .run(rider.id, checked.city, rideType, body.pickup_lat, body.pickup_lng, clean(b.pickup_label, 120), body.dest_lat, body.dest_lng, clean(b.dest_label, 120), body.passengers, body.children, checked.offerPrice, when, when - now < REMIND_MS + 15 * MIN ? 1 : 0);
   const booking = await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(result.lastInsertRowid);
   bookingsChanged(booking).catch(() => {});
   res.status(201).json(await riderView(booking));
@@ -268,16 +278,19 @@ router.post("/bookings/driver", async (req, res) => {
   if (!driver) return;
   const now = Date.now();
   const mine = await db
-    .prepare("SELECT * FROM ride_bookings WHERE driver_id = ? AND status = 'confirmado' ORDER BY scheduled_at_ms")
+    .prepare(`${BOOKING_DRIVER_SELECT} WHERE b.driver_id = ? AND b.status = 'confirmado' ORDER BY b.scheduled_at_ms`)
     .all(driver.id);
-  // Solo los que todavía no salen solos (después ya son viajes normales).
+  // Solo los que todavía se pueden confirmar (después salen solos como viaje
+  // normal). Mototaxi: solo de su municipio, ya filtrado en la consulta para
+  // que el LIMIT no se llene con viajes de otros municipios.
+  const taxi = driver.vehicle_type === "taxi";
   const open = (await db
-    .prepare("SELECT * FROM ride_bookings WHERE status = 'agendado' AND ride_type = ? AND scheduled_at_ms > ? ORDER BY scheduled_at_ms LIMIT 60")
-    .all(driver.vehicle_type === "taxi" ? "taxi" : "moto", now + LAUNCH_OPEN_MS))
+    .prepare(`${BOOKING_DRIVER_SELECT} WHERE b.status = 'agendado' AND b.ride_type = ? ${taxi ? "" : "AND b.city = ?"} AND b.scheduled_at_ms > ? ORDER BY b.scheduled_at_ms LIMIT 60`)
+    .all(...(taxi ? ["taxi"] : ["moto", driver.city || "tekax"]), now + LAUNCH_CONFIRMED_MS))
     .filter((b) => driverFits(driver, b));
   res.json({
-    mine: await Promise.all(mine.map((b) => driverView(b, driver.id))),
-    available: await Promise.all(open.map((b) => driverView(b, driver.id))),
+    mine: mine.map((b) => driverView(b, driver.id)),
+    available: open.map((b) => driverView(b, driver.id)),
   });
 });
 
@@ -327,6 +340,17 @@ async function failBooking(b, reason) {
   if (b.driver_id) realtime.notifyDriver(b.driver_id, "bookings_changed", {});
 }
 
+// Algo falló a medias: el viaje que ya se había creado (si hubo) se cancela
+// para que no se quede "buscando" sin que nadie lo vea, y se le avisa.
+async function abortLaunch(bookingId, rideId) {
+  const r = await db.prepare("UPDATE ride_bookings SET status = 'fallido', fail_reason = 'Error del sistema', updated_at = datetime('now') WHERE id = ? AND status = 'lanzando'").run(bookingId);
+  const cancel = rideId
+    ? await db.prepare("UPDATE rides SET status = 'cancelado', cancelled_by = 'system', cancel_reason = 'Error al sacar el viaje agendado', updated_at = datetime('now') WHERE id = ? AND status = 'buscando'").run(rideId)
+    : await db.prepare("UPDATE rides SET status = 'cancelado', cancelled_by = 'system', cancel_reason = 'Error al sacar el viaje agendado', updated_at = datetime('now') WHERE booking_id = ? AND status = 'buscando'").run(bookingId);
+  if (r.changes) await pushRider(bookingId, "No pudimos sacar tu viaje agendado", "Hubo un error. Pide tu viaje desde la app.").catch(() => {});
+  return cancel.changes;
+}
+
 async function launchBooking(b) {
   // Lo toma uno solo (si el barrido se encima, o el chofer lo suelta justo ahora).
   const claim = b.driver_id
@@ -337,6 +361,7 @@ async function launchBooking(b) {
       .prepare("UPDATE ride_bookings SET status = 'lanzando', updated_at = datetime('now') WHERE id = ? AND status = ? AND driver_id IS NULL")
       .run(b.id, b.status);
   if (claim.changes === 0) return;
+  let ride = null;
   try {
     const rider = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
     if (!rider) return failBooking(b, "Tu cuenta ya no existe");
@@ -349,7 +374,7 @@ async function launchBooking(b) {
     const checked = rides.checkRideRequest(body);
     if (checked.error) return failBooking(b, checked.error);
 
-    const ride = await rides.insertRide(rider, body, checked, b.id);
+    ride = await rides.insertRide(rider, body, checked, b.id);
     // Sus avisos del viaje agendado pasan a ser avisos de este viaje.
     const subs = await db.prepare("SELECT endpoint, p256dh, auth FROM booking_push_subs WHERE booking_id = ?").all(b.id);
     for (const s of subs) await push.saveRiderSubscription(ride.id, s.endpoint, s.p256dh, s.auth);
@@ -374,6 +399,9 @@ async function launchBooking(b) {
 
     if (assigned) {
       await db.prepare("UPDATE drivers SET status = 'en_viaje' WHERE id = ?").run(b.driver_id);
+      // Igual que al aceptar un viaje (rides.js /accept): sus contraofertas
+      // pendientes en otros viajes se cierran.
+      await rides.closeDriverOtherOffers(b.driver_id);
       const driver = await rides.driverForRide(b.driver_id);
       realtime.notifyRide(ride.id, "ride_accepted", { ...driver, agreedPrice: ride.offer_price, deposit: null });
       realtime.notifyDriver(b.driver_id, "booking_started", { rideId: ride.id });
@@ -384,11 +412,11 @@ async function launchBooking(b) {
     } else {
       if (b.driver_id) realtime.notifyDriver(b.driver_id, "bookings_changed", {});
       await realtime.broadcastNewRide(ride);
-      realtime.startNoDriverTimer(ride.id, ride.ride_type, ride.offer_price != null);
+      realtime.startNoDriverTimer(ride.id, ride.ride_type, ride.offer_price != null, true);
       await pushRider(b.id, "🔎 Buscando chofer para tu viaje", `Tu viaje de las ${hourText(b.scheduled_at_ms)} ya salió a los choferes cercanos. Abre la app para verlo.`);
     }
   } catch (err) {
-    await db.prepare("UPDATE ride_bookings SET status = 'fallido', fail_reason = 'Error del sistema', updated_at = datetime('now') WHERE id = ? AND status = 'lanzando'").run(b.id);
+    await abortLaunch(b.id, ride && ride.id);
     throw err;
   }
 }
@@ -399,6 +427,22 @@ async function sweepBookings() {
   sweeping = true;
   try {
     const now = Date.now();
+    // Se quedó a medias al salir (el servidor se reinició justo ahí).
+    const stuck = await db
+      .prepare("SELECT id FROM ride_bookings WHERE status = 'lanzando' AND (julianday('now') - julianday(updated_at)) * 86400 > 120")
+      .all();
+    for (const b of stuck) await abortLaunch(b.id, null);
+    // Al chofer que confirmó lo dieron de baja: el viaje vuelve a quedar libre.
+    const orphan = await db
+      .prepare("SELECT b.* FROM ride_bookings b JOIN drivers d ON d.id = b.driver_id WHERE b.status = 'confirmado' AND d.deleted_at IS NOT NULL")
+      .all();
+    for (const b of orphan) {
+      const r = await db.prepare("UPDATE ride_bookings SET status = 'agendado', driver_id = NULL, updated_at = datetime('now') WHERE id = ? AND status = 'confirmado' AND driver_id = ?").run(b.id, b.driver_id);
+      if (r.changes) {
+        await pushRider(b.id, "Tu chofer ya no podrá ir", `Tu viaje del ${whenText(b.scheduled_at_ms)} sigue agendado: otro chofer lo puede confirmar.`);
+        bookingsChanged(b).catch(() => {});
+      }
+    }
     // Se pasó la hora y no salió (el servidor estuvo apagado): ya no sirve.
     const late = await db
       .prepare("SELECT * FROM ride_bookings WHERE status IN ('agendado', 'confirmado') AND scheduled_at_ms < ?")

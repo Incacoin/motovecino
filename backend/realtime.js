@@ -47,6 +47,10 @@ const NO_DRIVER_GRACE_MS = 60000;
 function searchWindowMs(rideType, hasOffer) {
   return rideType === "taxi" || hasOffer ? TAXI_SEARCH_MS : NO_DRIVER_GRACE_MS;
 }
+// Viaje agendado sin chofer confirmado (routes/bookings.js): sale 10 min antes
+// de la hora y se busca hasta 5 min después, para no cancelarlo antes de la
+// hora que pidió el pasajero.
+const BOOKING_SEARCH_MS = 15 * 60 * 1000;
 
 // Si un pasajero o chofer se quedó a medias (app cerrada, celular apagado,
 // etc.) con un viaje ya asignado, se da por abandonado tras esto — mismo
@@ -128,7 +132,7 @@ async function handleDriverReconnected(driverId) {
   notifyRide(ride.id, "driver_reconnected", {});
 }
 
-function startNoDriverTimer(rideId, rideType, hasOffer) {
+function startNoDriverTimer(rideId, rideType, hasOffer, fromBooking = false) {
   const timer = setTimeout(() => bg("no_driver", (async () => {
     noDriverTimers.delete(rideId);
     // Solo si sigue buscando EN ESTE INSTANTE: si un chofer lo aceptó justo
@@ -140,7 +144,7 @@ function startNoDriverTimer(rideId, rideType, hasOffer) {
     await closeOpenOffers(rideId, "cerrada");
     notifyRide(rideId, "no_drivers_available", {});
     broadcastRideRemoved(rideId);
-  })()), searchWindowMs(rideType, hasOffer));
+  })()), fromBooking ? BOOKING_SEARCH_MS : searchWindowMs(rideType, hasOffer));
   noDriverTimers.set(rideId, timer);
 }
 
@@ -170,9 +174,9 @@ async function sweepStaleRides() {
   try {
     const stuckSearching = await db
       .prepare(
-        "SELECT id FROM rides WHERE status = 'buscando' AND (julianday('now') - julianday(created_at)) * 86400000 > CASE WHEN ride_type = 'taxi' OR offer_price IS NOT NULL THEN CAST(? AS double precision) ELSE CAST(? AS double precision) END"
+        "SELECT id FROM rides WHERE status = 'buscando' AND (julianday('now') - julianday(created_at)) * 86400000 > CASE WHEN booking_id IS NOT NULL THEN CAST(? AS double precision) WHEN ride_type = 'taxi' OR offer_price IS NOT NULL THEN CAST(? AS double precision) ELSE CAST(? AS double precision) END"
       )
-      .all(TAXI_SEARCH_MS, NO_DRIVER_GRACE_MS);
+      .all(BOOKING_SEARCH_MS, TAXI_SEARCH_MS, NO_DRIVER_GRACE_MS);
     for (const ride of stuckSearching) {
       const result = await db.prepare(
         "UPDATE rides SET status = 'cancelado', updated_at = datetime('now'), cancelled_by = 'system', cancel_reason = 'Nadie lo tomó a tiempo' WHERE id = ? AND status = 'buscando'"
@@ -588,9 +592,9 @@ async function notifyPendingRides(driverId) {
 
   const pending = await db
     .prepare(
-      "SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ? AND (julianday('now') - julianday(created_at)) * 86400000 <= CASE WHEN ride_type = 'taxi' OR offer_price IS NOT NULL THEN CAST(? AS double precision) ELSE CAST(? AS double precision) END"
+      "SELECT * FROM rides WHERE status = 'buscando' AND ride_type = ? AND (julianday('now') - julianday(created_at)) * 86400000 <= CASE WHEN booking_id IS NOT NULL THEN CAST(? AS double precision) WHEN ride_type = 'taxi' OR offer_price IS NOT NULL THEN CAST(? AS double precision) ELSE CAST(? AS double precision) END"
     )
-    .all(driver.vehicle_type, TAXI_SEARCH_MS, NO_DRIVER_GRACE_MS);
+    .all(driver.vehicle_type, BOOKING_SEARCH_MS, TAXI_SEARCH_MS, NO_DRIVER_GRACE_MS);
   const maxDistance = driver.vehicle_type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   for (const ride of pending) {
     const distanceKm = haversineKm(ride.pickup_lat, ride.pickup_lng, driver.lat, driver.lng);

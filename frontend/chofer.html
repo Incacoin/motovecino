@@ -1763,6 +1763,7 @@ function startApp() {
 // antes de la hora el viaje le aparece solo como viaje aceptado (booking_started).
 let driverBookings = { mine: [], available: [] };
 let driverBookingsTimer = null;
+let driverBookingsReload = null;
 
 function driverBookingWhen(ms) {
   const opts = { timeZone: "America/Merida" };
@@ -2036,7 +2037,11 @@ function connectWs() {
     if (type === "ride_taken") { delete myOffers[payload.rideId]; removePendingRide(payload.rideId); }
     if (type === "offer_closed") onOfferClosed(payload);
     if (type === "offer_accepted") onOfferAccepted(payload);
-    if (type === "bookings_changed") loadDriverBookings();
+    // Cada celular espera un momento al azar (hasta 4 s) para no pedir la
+    // lista todos al mismo tiempo; varios avisos seguidos cuentan como uno.
+    if (type === "bookings_changed" && !driverBookingsReload) {
+      driverBookingsReload = setTimeout(() => { driverBookingsReload = null; loadDriverBookings(); }, Math.random() * 4000);
+    }
     if (type === "booking_started") onBookingStarted();
     if (type === "booking_cancelled") { showToast(`El pasajero canceló su viaje agendado (${payload.when})`); loadDriverBookings(); }
     if (type === "ride_cancelled" && currentRide && currentRide.id === payload.rideId && !cancellingOwnRide) {
