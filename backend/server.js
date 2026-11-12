@@ -14,6 +14,7 @@ const { recordError, errorsHealth, isBadInput } = require("./errorAlerts");
 const driverRoutes = require("./routes/drivers");
 const riderRoutes = require("./routes/riders");
 const rideRoutes = require("./routes/rides");
+const bookingRoutes = require("./routes/bookings");
 const adminRoutes = require("./routes/admin");
 const allyAdRoutes = require("./routes/allyAds");
 const businessRoutes = require("./routes/business");
@@ -245,6 +246,7 @@ app.get("/api/cities/resolve", async (req, res) => {
 app.use("/api", driverRoutes);
 app.use("/api", riderRoutes);
 app.use("/api", rideRoutes);
+app.use("/api", bookingRoutes);
 app.use("/api", adminRoutes);
 app.use("/api", allyAdRoutes);
 app.use("/api", businessRoutes);
@@ -318,6 +320,7 @@ async function start() {
 
   const server = http.createServer(app);
   realtime.attach(server, app.get("trust proxy fn"));
+  bookingRoutes.startBookingSweep();
 
   const PORT = process.env.PORT || 3003;
   server.listen(PORT, () => {

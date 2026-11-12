@@ -89,31 +89,165 @@ async function driverPinValid(driverId, pin) {
     .get(driverId, pin);
 }
 
-router.post("/rides", async (req, res) => {
-  const {
-    rider_phone,
-    rider_pin,
-    pickup_lat,
-    pickup_lng,
-    pickup_label,
-    dest_lat,
-    dest_lng,
-    dest_label,
-    passengers,
-    children,
-    ride_type,
-    service_kind,
-    offer_price,
-    extra,
-    for_name,
-    for_note,
-    rider_lat,
-    rider_lng,
-  } = req.body;
+// Revisa que el pedido cumpla las reglas del municipio (precio mínimo, zona,
+// destino). Lo usan el viaje normal y el viaje agendado (routes/bookings.js),
+// así los dos pasan por las mismas reglas. Regresa { error } o los datos ya
+// limpios: { city, offerPrice, cleanServiceKind }.
+function checkRideRequest(body) {
+  const { pickup_lat, pickup_lng, dest_lat, dest_lng, passengers, children, ride_type, service_kind, offer_price } = body;
   // El extra voluntario (+$5 / +$10) se quitó el 5-oct-2026: quien quiera
   // pagar más usa "Propón tu precio". Una app vieja que lo mande se ignora.
   const VALID_SERVICE_KINDS = ["pasaje", "domicilio", "mandado"];
   const cleanServiceKind = VALID_SERVICE_KINDS.includes(service_kind) ? service_kind : "pasaje";
+
+  // Taxi estilo inDrive: el pasajero propone su precio y hace falta destino
+  // (sin destino no hay precio que sugerir ni que negociar). Clientes viejos
+  // sin offer_price siguen con el flujo anterior (el chofer pone el precio).
+  const isTaxiRequest = ride_type === "taxi";
+  let offerPrice = null;
+  if (isTaxiRequest && offer_price != null) {
+    offerPrice = Math.round(Number(offer_price));
+    if (!(offerPrice >= 10) || offerPrice > 20000) {
+      return { error: "Revisa el precio que ofreces" };
+    }
+    if (dest_lat == null || dest_lng == null) {
+      return { error: "Marca tu destino para pedir taxi" };
+    }
+  }
+
+  // La ciudad del viaje es la de la recogida (no la de quien lo pide desde su
+  // celular) — es lo que decide a qué admin/red le toca ese viaje.
+  const pickupCity = resolveCity(pickup_lat, pickup_lng)?.id || DEFAULT_CITY_ID;
+
+  // Fuera del radio real de servicio de esa ciudad (ej. alguien pidiendo
+  // desde otro país) — antes esto caía en DEFAULT_CITY_ID sin más, dejando
+  // pedir un viaje que ningún chofer real podría atender.
+  if (!isWithinServiceRadius(pickupCity, pickup_lat, pickup_lng, ride_type === "taxi" ? "taxi" : "moto")) {
+    return { error: "MotoVecino todavía no está disponible en tu zona." };
+  }
+  // Zonas de prueba (testOnly): el viaje es de la red de Tekax (ver
+  // rideCityAt). Los demás lugares van a su propio cajón.
+  const city = rideCityAt(pickup_lat, pickup_lng);
+
+  // Progreso (por comisarías, ver cities.js): solo motocarro, y el viaje
+  // empieza y termina en la misma comisaría. "Propón tu precio" es un viaje
+  // de moto con offer_price (el chofer acepta o contraoferta, igual que el taxi).
+  const cityCfg = getCityById(city);
+  if (cityCfg?.zones) {
+    if (ride_type === "taxi") return { error: "Aquí solo hay motocarro" };
+    if (dest_lat == null || dest_lng == null) {
+      return { error: "Marca a dónde vas" };
+    }
+    const zp = zoneAt(city, pickup_lat, pickup_lng);
+    const zd = zoneAt(city, dest_lat, dest_lng);
+    if (!zd || zd.id !== zp.id) {
+      return { error: `El motocarro solo hace viajes dentro de ${zp.label}` };
+    }
+    // Zona solo con "Propón tu precio" (offerOnly): sin precio fijo. minOffer
+    // es lo mínimo que GANA el chofer por persona; el pasajero paga eso + la
+    // cuota de la app (8-oct-2026: la cuota no sale de lo del chofer).
+    if (zp.offerOnly && offer_price == null) {
+      return { error: "Aquí escribe tu precio con \"Propón tu precio\". Si no lo ves, cierra y vuelve a abrir la app." };
+    }
+    if (offer_price != null) {
+      offerPrice = Math.round(Number(offer_price));
+      const people = (Number(passengers) || 1) + (Number(children) || 0);
+      const min = zp.minOffer ? zp.minOffer * people + (cityCfg.serviceFee || 0) : 0;
+      if (offerPrice < min) {
+        return { error: `El precio mínimo en ${zp.label} es $${min}` };
+      }
+      if (!(offerPrice >= 5) || offerPrice > 2000) {
+        return { error: "Revisa el precio que ofreces" };
+      }
+    }
+  } else if (ride_type !== "taxi" && cityCfg?.offerOnly && offer_price == null) {
+    // Tekax, Ticul, Oxkutzcab y Akil (9-oct-2026): ya no hay Exprés de precio
+    // fijo. Una app vieja guardada en el celular todavía lo puede mandar.
+    return { error: "Ahora el mototaxi es con \"Propón tu precio\". Cierra y vuelve a abrir la app para verlo." };
+  } else if (ride_type !== "taxi" && offer_price != null) {
+    // "Propón tu precio" en mototaxi (Tekax y demás): necesita destino, igual
+    // que el taxi, para que el chofer sepa qué está aceptando.
+    if (dest_lat == null || dest_lng == null) {
+      return { error: "Marca tu destino para proponer tu precio" };
+    }
+    offerPrice = Math.round(Number(offer_price));
+    if (!(offerPrice >= 5) || offerPrice > 2000) {
+      return { error: "Revisa el precio que ofreces" };
+    }
+    const tripKm = haversineKm(Number(pickup_lat), Number(pickup_lng), Number(dest_lat), Number(dest_lng));
+    const min = cityMinOffer(cityCfg, Number(passengers) || 1, Number(children) || 0, tripKm);
+    if (offerPrice < min) {
+      return { error: `El precio mínimo es $${min}` };
+    }
+  }
+  return { city, offerPrice, cleanServiceKind };
+}
+
+// Guarda el viaje ya revisado (checkRideRequest) y lo regresa tal como está en
+// la base. bookingId = viene de un viaje agendado (routes/bookings.js).
+async function insertRide(rider, body, checked, bookingId = null) {
+  const { pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, for_name, for_note, rider_lat, rider_lng } = body;
+  const { city, offerPrice, cleanServiceKind } = checked;
+
+  await db.prepare("UPDATE riders SET last_ride_at = datetime('now') WHERE id = ?").run(rider.id);
+
+  // El registro de pasajero nunca pregunta ubicación, así que su `city` se
+  // queda pegado al default para siempre si no lo actualizamos aquí — esto
+  // lo mantiene sincronizado con dónde pidió viaje realmente la última vez,
+  // que es lo que filtra el admin de cada pueblo (ver routes/admin.js).
+  await db.prepare("UPDATE riders SET city = ?, city_located = 1 WHERE id = ?").run(city, rider.id);
+
+  // "Pedir para otra persona" (solo pasaje, y solo si ya está prendido en ese
+  // pueblo — si no, se ignora y el viaje sale normal para quien lo pide).
+  const forOther = cleanServiceKind === "pasaje" ? await cleanForOther(city, for_name, for_note) : null;
+
+  const result = await db
+    .prepare(
+      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token, offer_price, extra, for_name, for_note, booking_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      rider.name,
+      rider.phone,
+      rider.id,
+      pickup_lat,
+      pickup_lng,
+      pickup_label || null,
+      dest_lat ?? null,
+      dest_lng ?? null,
+      dest_label || null,
+      passengers || 1,
+      children || 0,
+      ride_type === "taxi" ? "taxi" : "moto",
+      city,
+      cleanServiceKind,
+      generateShareToken(),
+      offerPrice,
+      0, // extra: ya no existe (ver checkRideRequest)
+      forOther ? forOther.name : null,
+      forOther ? forOther.note : null,
+      bookingId
+    );
+
+  // Domicilio pedido desde la app: lleva clave de entrega (ver driverRide).
+  if (cleanServiceKind === "domicilio") {
+    await db.prepare("UPDATE rides SET delivery_code = ? WHERE id = ?").run(newDeliveryCode(), result.lastInsertRowid);
+  }
+
+  // Sin GPS del celular no se sabe: no se marca nada.
+  const rLat = Number(rider_lat), rLng = Number(rider_lng);
+  if (rider_lat != null && rider_lng != null && Number.isFinite(rLat) && Number.isFinite(rLng)) {
+    const km = haversineKm(rLat, rLng, Number(pickup_lat), Number(pickup_lng));
+    if (km >= FAR_REQUEST_KM) {
+      await db.prepare("UPDATE rides SET requested_from_km = ? WHERE id = ?").run(Math.round(km), result.lastInsertRowid);
+    }
+  }
+
+  return db.prepare("SELECT * FROM rides WHERE id = ?").get(result.lastInsertRowid);
+}
+
+router.post("/rides", async (req, res) => {
+  const { rider_phone, rider_pin, pickup_lat, pickup_lng } = req.body;
 
   if (!rider_phone || !rider_pin || pickup_lat == null || pickup_lng == null) {
     return res.status(400).json({ error: "Faltan datos del viaje" });
@@ -133,148 +267,11 @@ router.post("/rides", async (req, res) => {
     return res.status(401).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
-  const rider_name = rider.name;
 
-  // Taxi estilo inDrive: el pasajero propone su precio y hace falta destino
-  // (sin destino no hay precio que sugerir ni que negociar). Clientes viejos
-  // sin offer_price siguen con el flujo anterior (el chofer pone el precio).
-  const isTaxiRequest = ride_type === "taxi";
-  let offerPrice = null;
-  if (isTaxiRequest && offer_price != null) {
-    offerPrice = Math.round(Number(offer_price));
-    if (!(offerPrice >= 10) || offerPrice > 20000) {
-      return res.status(400).json({ error: "Revisa el precio que ofreces" });
-    }
-    if (dest_lat == null || dest_lng == null) {
-      return res.status(400).json({ error: "Marca tu destino para pedir taxi" });
-    }
-  }
+  const checked = checkRideRequest(req.body);
+  if (checked.error) return res.status(400).json({ error: checked.error });
 
-  await db.prepare("UPDATE riders SET last_ride_at = datetime('now') WHERE id = ?").run(rider.id);
-
-  // La ciudad del viaje es la de la recogida (no la de quien lo pide desde su
-  // celular) — es lo que decide a qué admin/red le toca ese viaje.
-  const pickupCity = resolveCity(pickup_lat, pickup_lng)?.id || DEFAULT_CITY_ID;
-
-  // Fuera del radio real de servicio de esa ciudad (ej. alguien pidiendo
-  // desde otro país) — antes esto caía en DEFAULT_CITY_ID sin más, dejando
-  // pedir un viaje que ningún chofer real podría atender.
-  if (!isWithinServiceRadius(pickupCity, pickup_lat, pickup_lng, ride_type === "taxi" ? "taxi" : "moto")) {
-    return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
-  }
-  // Zonas de prueba (testOnly): el viaje es de la red de Tekax (ver
-  // rideCityAt). Los demás lugares van a su propio cajón.
-  const city = rideCityAt(pickup_lat, pickup_lng);
-
-  // Progreso (por comisarías, ver cities.js): solo motocarro, y el viaje
-  // empieza y termina en la misma comisaría. "Propón tu precio" es un viaje
-  // de moto con offer_price (el chofer acepta o contraoferta, igual que el taxi).
-  const cityCfg = getCityById(city);
-  let motoOffer = false;
-  if (cityCfg?.zones) {
-    if (ride_type === "taxi") return res.status(400).json({ error: "Aquí solo hay motocarro" });
-    if (dest_lat == null || dest_lng == null) {
-      return res.status(400).json({ error: "Marca a dónde vas" });
-    }
-    const zp = zoneAt(city, pickup_lat, pickup_lng);
-    const zd = zoneAt(city, dest_lat, dest_lng);
-    if (!zd || zd.id !== zp.id) {
-      return res.status(400).json({ error: `El motocarro solo hace viajes dentro de ${zp.label}` });
-    }
-    // Zona solo con "Propón tu precio" (offerOnly): sin precio fijo. minOffer
-    // es lo mínimo que GANA el chofer por persona; el pasajero paga eso + la
-    // cuota de la app (8-oct-2026: la cuota no sale de lo del chofer).
-    if (zp.offerOnly && offer_price == null) {
-      return res.status(400).json({ error: "Aquí escribe tu precio con \"Propón tu precio\". Si no lo ves, cierra y vuelve a abrir la app." });
-    }
-    if (offer_price != null) {
-      offerPrice = Math.round(Number(offer_price));
-      const people = (Number(passengers) || 1) + (Number(children) || 0);
-      const min = zp.minOffer ? zp.minOffer * people + (cityCfg.serviceFee || 0) : 0;
-      if (offerPrice < min) {
-        return res.status(400).json({ error: `El precio mínimo en ${zp.label} es $${min}` });
-      }
-      if (!(offerPrice >= 5) || offerPrice > 2000) {
-        return res.status(400).json({ error: "Revisa el precio que ofreces" });
-      }
-      motoOffer = true;
-    }
-  } else if (ride_type !== "taxi" && cityCfg?.offerOnly && offer_price == null) {
-    // Tekax, Ticul, Oxkutzcab y Akil (9-oct-2026): ya no hay Exprés de precio
-    // fijo. Una app vieja guardada en el celular todavía lo puede mandar.
-    return res.status(400).json({ error: "Ahora el mototaxi es con \"Propón tu precio\". Cierra y vuelve a abrir la app para verlo." });
-  } else if (ride_type !== "taxi" && offer_price != null) {
-    // "Propón tu precio" en mototaxi (Tekax y demás): necesita destino, igual
-    // que el taxi, para que el chofer sepa qué está aceptando.
-    if (dest_lat == null || dest_lng == null) {
-      return res.status(400).json({ error: "Marca tu destino para proponer tu precio" });
-    }
-    offerPrice = Math.round(Number(offer_price));
-    if (!(offerPrice >= 5) || offerPrice > 2000) {
-      return res.status(400).json({ error: "Revisa el precio que ofreces" });
-    }
-    const tripKm = haversineKm(Number(pickup_lat), Number(pickup_lng), Number(dest_lat), Number(dest_lng));
-    const min = cityMinOffer(cityCfg, Number(passengers) || 1, Number(children) || 0, tripKm);
-    if (offerPrice < min) {
-      return res.status(400).json({ error: `El precio mínimo es $${min}` });
-    }
-    motoOffer = true;
-  }
-
-  // El registro de pasajero nunca pregunta ubicación, así que su `city` se
-  // queda pegado al default para siempre si no lo actualizamos aquí — esto
-  // lo mantiene sincronizado con dónde pidió viaje realmente la última vez,
-  // que es lo que filtra el admin de cada pueblo (ver routes/admin.js).
-  await db.prepare("UPDATE riders SET city = ?, city_located = 1 WHERE id = ?").run(city, rider.id);
-
-  // "Pedir para otra persona" (solo pasaje, y solo si ya está prendido en ese
-  // pueblo — si no, se ignora y el viaje sale normal para quien lo pide).
-  const forOther = cleanServiceKind === "pasaje" ? await cleanForOther(city, for_name, for_note) : null;
-
-  const result = await db
-    .prepare(
-      `INSERT INTO rides (rider_name, rider_phone, rider_id, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label, passengers, children, ride_type, city, service_kind, share_token, offer_price, extra, for_name, for_note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
-      rider_name,
-      rider_phone,
-      rider.id,
-      pickup_lat,
-      pickup_lng,
-      pickup_label || null,
-      dest_lat ?? null,
-      dest_lng ?? null,
-      dest_label || null,
-      passengers || 1,
-      children || 0,
-      ride_type === "taxi" ? "taxi" : "moto",
-      city,
-      cleanServiceKind,
-      generateShareToken(),
-      offerPrice,
-      0, // extra: ya no existe (ver arriba)
-      forOther ? forOther.name : null,
-      forOther ? forOther.note : null
-    );
-
-  // Domicilio pedido desde la app: lleva clave de entrega (ver driverRide).
-  if (cleanServiceKind === "domicilio") {
-    await db.prepare("UPDATE rides SET delivery_code = ? WHERE id = ?").run(newDeliveryCode(), result.lastInsertRowid);
-  }
-
-  // Sin GPS del celular no se sabe: no se marca nada.
-  const rLat = Number(rider_lat), rLng = Number(rider_lng);
-  if (rider_lat != null && rider_lng != null && Number.isFinite(rLat) && Number.isFinite(rLng)) {
-    const km = haversineKm(rLat, rLng, Number(pickup_lat), Number(pickup_lng));
-    if (km >= FAR_REQUEST_KM) {
-      await db.prepare("UPDATE rides SET requested_from_km = ? WHERE id = ?").run(Math.round(km), result.lastInsertRowid);
-    }
-  }
-
-  const ride = await db
-    .prepare("SELECT * FROM rides WHERE id = ?")
-    .get(result.lastInsertRowid);
+  const ride = await insertRide(rider, req.body, checked);
 
   // Viajes completados anteriores de este mismo teléfono y su foto — para
   // mostrarle al pasajero su propio contador/insignia, y (pegado al objeto
@@ -1191,3 +1188,9 @@ router.post("/rides/:id/push", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.checkRideRequest = checkRideRequest;
+module.exports.insertRide = insertRide;
+module.exports.riderInfoFor = riderInfoFor;
+module.exports.driverForRide = driverForRide;
+module.exports.driverInRideZone = driverInRideZone;
+module.exports.driverPinValid = driverPinValid;

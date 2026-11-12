@@ -366,7 +366,7 @@ async function saveSupportSubscription(userType, userId, endpoint, p256dh, auth)
 
 module.exports = {
   getKeys, notifyNewRide, setWantsRides, saveSubscription, removeSubscription, isValidEndpoint,
-  notifyRider, saveRiderSubscription, isValidRiderKeys, encryptPayload,
+  notifyRider, saveRiderSubscription, isValidRiderKeys, encryptPayload, sendToRider, sendOne,
   notifyBusiness, saveBusinessSubscription, removeBusinessSubscription,
   notifySupport, saveSupportSubscription,
 };

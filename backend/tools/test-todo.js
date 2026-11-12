@@ -25,6 +25,7 @@ const TESTS = [
   ["sesion", []],
   ["clave", []],
   ["celestun", []],
+  ["agendar", ["DATABASE_URL"]],
   ["mantenimiento", ["DATABASE_URL", "RESTORE_URL"]],
   ["progreso", ["ADMIN_PIN_PROGRESO"]],
 ];
