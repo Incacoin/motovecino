@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="style.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="vehiculos-mapa.js"></script>
 <style>
   html, body { height: 100%; }
   body { display: flex; flex-direction: column; }
@@ -17,16 +18,26 @@
   .topbar .brand .brand-icon { font-size: 22px; }
   #riderName { color: var(--text-dim); font-size: 13.5px; margin-bottom: 4px; }
   #statusText { font-size: 18px; font-weight: 700; }
-  #etaText { color: var(--accent); font-size: 14px; font-weight: 600; margin-top: 2px; }
+  #etaText { color: #4ade80; font-size: 14px; font-weight: 700; margin-top: 2px; }
   #connWarning { display: none; color: var(--danger); font-size: 13px; margin-top: 4px; }
-  #map { flex: 1; min-height: 0; }
+  #map { flex: 1; min-height: 0; background: #1b1d22; }
+  /* Mismo mapa oscuro de la app (13-nov-2026) */
+  #map .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
+  .veh-icon { background: none; border: 0; }
+  .veh { width: 46px; height: 46px; transition: transform 0.6s ease; }
+  .mv-pin { background: none; border: 0; }
+  .mv-pin .lbl { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); white-space: nowrap; background: #0b0b0d; color: #fff; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px; box-shadow: 0 4px 12px rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.12); }
+  .mv-pin .dot { position: absolute; left: 50%; bottom: 0; width: 20px; height: 20px; margin-left: -10px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
   #driverCard { position: absolute; left: 14px; right: 14px; bottom: 54px; padding: 14px; display: none; z-index: 1000; }
   #driverCard .driverInfo { display: flex; align-items: center; gap: 12px; }
   #driverCard .name { font-size: 16px; font-weight: 700; }
   #driverCard .meta { color: var(--text-dim); font-size: 13.5px; margin-top: 2px; }
   #driverCard .meta a { color: var(--text-dim); }
-  .driverPhoto { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--accent); cursor: pointer; }
-  .driverPhotoFallback { display: flex; align-items: center; justify-content: center; font-size: 24px; background: var(--bg-card); }
+  .driverPhoto { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid #22c55e; cursor: pointer; }
+  .driverPhotoFallback { display: flex; align-items: center; justify-content: center; background: var(--bg-card); overflow: hidden; }
+  .driverPhotoFallback svg { width: 40px; height: auto; }
+  #map .leaflet-control-attribution { background: rgba(11,11,13,.7); color: #9ca3af; }
+  #map .leaflet-control-attribution a { color: #9ca3af; }
   #photoLightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 2000; align-items: center; justify-content: center; padding: 24px; }
   #photoLightbox.show { display: flex; }
   #photoLightbox img { max-width: 90vw; max-height: 80vh; border-radius: var(--radius-lg); border: 3px solid var(--accent); }
@@ -74,24 +85,18 @@ let routeLine = null, routeRefreshInterval = null;
 let pickup = null, dest = null, serviceType = "moto", currentStatus = null;
 let ws = null;
 
-function numberedIcon(num, color) {
+// Puntos con etiqueta, como en la app: verde = recogida, negro = destino.
+function pinIcon(label, color) {
   return L.divIcon({
-    className: "",
-    html: `<div style="background:${color};width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #fff;"><span style="transform:rotate(45deg);font-weight:800;font-size:13px;color:#14161c;">${num}</span></div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
+    className: "mv-pin",
+    html: `<div class="lbl">${label}</div><div class="dot" style="background:${color}"></div>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 10],
   });
 }
 
-function vehicleIcon() {
-  const emoji = serviceType === "taxi" ? "🚕" : "🛵";
-  return L.divIcon({
-    className: "",
-    html: `<div style="background:#14161c;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4);border:2px solid #f6a623;font-size:17px;">${emoji}</div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-  });
-}
+// El motocarro (o taxi) visto desde arriba, que gira hacia donde va.
+function vehicleIcon() { return MVVeh.vehIcon(serviceType === "taxi" ? "taxi" : "moto"); }
 
 function showError(msg) {
   document.querySelector(".topbar").style.display = "none";
@@ -127,6 +132,8 @@ function applyStatus(status) {
   document.getElementById("statusText").textContent = (isOrder ? ORDER_STATUS_LABEL : STATUS_LABEL)[status] || status;
   if (["completado", "cancelado"].includes(status)) {
     stopRouteTracking();
+    if (driverMarker && map) { map.removeLayer(driverMarker); driverMarker = null; }
+    document.getElementById("driverCard").style.display = "none";
     document.getElementById("connWarning").style.display = "none";
   }
 }
@@ -148,12 +155,12 @@ function updateEtaDisplay(durationSeconds) {
 async function updateRouteLine() {
   if (!driverPos || ["completado", "cancelado"].includes(currentStatus)) return;
 
-  let target = null, color = "#f6a623";
+  let target = null, color = "#22c55e";
   if (currentStatus === "aceptado") {
     target = pickup;
   } else if (currentStatus === "en_curso" && dest) {
     target = dest;
-    color = "#3498db";
+    color = "#4ade80";
   }
 
   if (!target) {
@@ -172,7 +179,7 @@ async function updateRouteLine() {
   }
   if (["completado", "cancelado"].includes(currentStatus)) return;
   if (routeLine) map.removeLayer(routeLine);
-  routeLine = L.polyline(points, { color, weight: 4 }).addTo(map);
+  routeLine = L.polyline(points, { color, weight: 5, opacity: 0.9 }).addTo(map);
   updateEtaDisplay(duration);
 }
 
@@ -189,16 +196,17 @@ function stopRouteTracking() {
   updateEtaDisplay(null);
 }
 
+const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function renderDriverCard(driver) {
   const card = document.getElementById("driverCard");
   card.style.display = "block";
   card.innerHTML = `
     <div class="driverInfo">
-      ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? "🚕" : "🛵"}</div>`}
+      ${driver.photo ? `<img class="driverPhoto" src="${driver.photo}" onclick="openPhotoLightbox('${driver.photoFull || driver.photo}')" />` : `<div class="driverPhoto driverPhotoFallback">${serviceType === "taxi" ? MVVeh.taxiSide(40) : MVVeh.motoSide(38)}</div>`}
       <div>
-        <div class="name">${driver.name}</div>
-        <div class="meta">${driver.vehicle || (serviceType === "taxi" ? "Taxi" : "Mototaxi")}</div>
-        <div class="meta">Tel: ${driver.phone}</div>
+        <div class="name">${esc(driver.name)}</div>
+        <div class="meta">${esc(driver.vehicle || (serviceType === "taxi" ? "Taxi" : "Mototaxi"))}</div>
+        <div class="meta">Tel: ${esc(driver.phone)}</div>
       </div>
     </div>`;
 }
@@ -219,7 +227,7 @@ function onDriverLocation({ lat, lng }) {
   if (!driverMarker) {
     driverMarker = L.marker([lat, lng], { icon: vehicleIcon() }).addTo(map);
   } else {
-    driverMarker.setLatLng([lat, lng]);
+    MVVeh.moveVeh(driverMarker, lat, lng);
   }
   if (!routeRefreshInterval) startRouteTracking();
 }
@@ -278,9 +286,10 @@ async function init() {
     showError("No se pudo cargar el viaje. Revisa tu conexión."); return;
   }
 
-  const cityLabel = ride.city === "ticul" ? "Ticul" : "Tekax";
-  document.querySelectorAll(".cityLabel").forEach((el) => (el.textContent = " " + cityLabel));
-  document.title = "Viaje en vivo - MotoVecino " + cityLabel;
+  const CITY = { tekax: "Tekax", ticul: "Ticul", oxkutzcab: "Oxkutzcab", akil: "Akil", celestun: "Celestún", progreso: "Progreso" };
+  const cityLabel = CITY[ride.city] || "";
+  document.querySelectorAll(".cityLabel").forEach((el) => (el.textContent = cityLabel ? " " + cityLabel : ""));
+  document.title = "Viaje en vivo - MotoVecino" + (cityLabel ? " " + cityLabel : "");
 
   serviceType = ride.ride_type === "taxi" ? "taxi" : "moto";
   pickup = { lat: ride.pickup_lat, lng: ride.pickup_lng };
@@ -290,15 +299,16 @@ async function init() {
   document.getElementById("riderName").textContent = isOrder ? `Tu pedido de ${ride.rider_name}` : `Viaje de ${ride.rider_name}`;
   applyStatus(ride.status);
 
-  map = L.map("map").setView([pickup.lat, pickup.lng], 15);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(map);
-  L.marker([pickup.lat, pickup.lng], { icon: numberedIcon(1, "#f6a623") }).addTo(map);
-  if (dest) L.marker([dest.lat, dest.lng], { icon: numberedIcon(2, "#3498db") }).addTo(map);
+  document.documentElement.dataset.theme = "dark";
+  map = L.map("map", { zoomControl: false }).setView([pickup.lat, pickup.lng], 15);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap", maxZoom: 19 }).addTo(map);
+  L.marker([pickup.lat, pickup.lng], { icon: pinIcon(isOrder ? "Negocio" : "Recoge aquí", "#22c55e"), interactive: false }).addTo(map);
+  if (dest) L.marker([dest.lat, dest.lng], { icon: pinIcon(isOrder ? "Entrega" : "Destino", "#111"), interactive: false }).addTo(map);
 
   const boundsPoints = [[pickup.lat, pickup.lng]];
   if (dest) boundsPoints.push([dest.lat, dest.lng]);
 
-  if (ride.driver) {
+  if (ride.driver && !["completado", "cancelado"].includes(ride.status)) {
     renderDriverCard(ride.driver);
     if (ride.driver.lat != null) {
       driverPos = { lat: ride.driver.lat, lng: ride.driver.lng };
