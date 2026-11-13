@@ -692,6 +692,18 @@ CREATE TABLE IF NOT EXISTS ride_bookings (
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_due ON ride_bookings(status, scheduled_at_ms);
 CREATE INDEX IF NOT EXISTS idx_bookings_rider ON ride_bookings(rider_id);
+-- Asegurar chofer para un envío de negocio (13-nov-2026): el negocio aparta
+-- un chofer para cuando su pedido esté listo. service_kind 'domicilio';
+-- order_id si es un pedido de la app; for_name/for_note si llegó por
+-- WhatsApp. El envío sin precio usa la tarifa normal (offer_price NULL).
+ALTER TABLE ride_bookings ADD COLUMN IF NOT EXISTS service_kind TEXT NOT NULL DEFAULT 'pasaje';
+ALTER TABLE ride_bookings ADD COLUMN IF NOT EXISTS business_id INTEGER;
+ALTER TABLE ride_bookings ADD COLUMN IF NOT EXISTS order_id INTEGER;
+ALTER TABLE ride_bookings ADD COLUMN IF NOT EXISTS for_name TEXT;
+ALTER TABLE ride_bookings ADD COLUMN IF NOT EXISTS for_note TEXT;
+ALTER TABLE ride_bookings ALTER COLUMN offer_price DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_bookings_business ON ride_bookings(business_id) WHERE business_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_one_per_order ON ride_bookings(order_id) WHERE order_id IS NOT NULL AND status IN ('agendado', 'confirmado');
 -- Avisos al celular del pasajero para su viaje agendado (mismo cifrado que
 -- rider_push_subs). Al salir el viaje se copian a rider_push_subs.
 CREATE TABLE IF NOT EXISTS booking_push_subs (

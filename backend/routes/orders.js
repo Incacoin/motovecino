@@ -125,7 +125,13 @@ async function publicOrder(o, viewer) {
   const driver = ride && ride.driver_id ? await db.prepare("SELECT name, vehicle FROM drivers WHERE id = ?").get(ride.driver_id) : null;
   const client = await db.prepare("SELECT name, phone FROM riders WHERE id = ?").get(o.rider_id);
   const chatUnread = await unreadCount(o.business_id, o.rider_id, viewer === "business" ? "negocio" : "cliente");
+  // Chofer asegurado para más tarde (solo lo ve el negocio).
+  const bk = viewer === "business"
+    ? await db.prepare("SELECT id, status, scheduled_at_ms, driver_id FROM ride_bookings WHERE order_id = ? AND status IN ('agendado', 'confirmado') ORDER BY id DESC").get(o.id)
+    : null;
+  const bkDriver = bk && bk.driver_id && bk.status === "confirmado" ? await db.prepare("SELECT name, vehicle FROM drivers WHERE id = ?").get(bk.driver_id) : null;
   return {
+    booking: bk ? { id: bk.id, status: bk.status, scheduled_at_ms: Number(bk.scheduled_at_ms), driver: bkDriver ? { name: String(bkDriver.name || "").trim().split(/\s+/)[0], vehicle: bkDriver.vehicle } : null } : null,
     chat_unread: chatUnread,
     id: o.id,
     status: o.status,
@@ -430,6 +436,18 @@ router.post("/business/orders/:id/request-driver", async (req, res) => {
   if (o.pay_method === "transferencia" && !o.paid_confirmed_at) {
     return res.status(409).json({ error: "Primero confirma que te llegó la transferencia" });
   }
+  // "Pedir chofer ahora" gana: si tenía un chofer asegurado para más tarde, se suelta.
+  await cancelOrderBookings(o.id);
+  const ride = await insertOrderRide(b, o);
+  await realtime.broadcastNewRide(ride);
+  realtime.startNoDriverTimer(ride.id, ride.ride_type, true);
+  res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "business"));
+});
+
+// Crea el envío (viaje de domicilio) de un pedido de la app y lo marca como
+// enviado. No lo anuncia: eso lo decide quien llama (ahora, o el chofer que
+// lo aseguró desde antes, routes/bookings.js).
+async function insertOrderRide(b, o) {
   const client = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(o.rider_id);
   const cash = o.pay_method === "efectivo" ? o.total : 0;
   const code = String(crypto.randomInt(1, 10000)).padStart(4, "0");
@@ -445,11 +463,36 @@ router.post("/business/orders/:id/request-driver", async (req, res) => {
   );
   await db.prepare(`UPDATE business_orders SET status = ?, ride_id = ?, updated_at = datetime('now') WHERE id = ?`).run(S.ENVIADO, ins.lastInsertRowid, o.id);
   await db.prepare("UPDATE riders SET last_ride_at = datetime('now') WHERE id = ?").run(client.id);
-  const ride = await db.prepare("SELECT * FROM rides WHERE id = ?").get(ins.lastInsertRowid);
-  await realtime.broadcastNewRide(ride);
-  realtime.startNoDriverTimer(ride.id, ride.ride_type, true);
-  res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "business"));
-});
+  return db.prepare("SELECT * FROM rides WHERE id = ?").get(ins.lastInsertRowid);
+}
+
+// Suelta el chofer asegurado para más tarde de este pedido (el negocio pidió
+// chofer ahora o lo lleva su repartidor) y le avisa al chofer.
+async function cancelOrderBookings(orderId) {
+  const live = await db
+    .prepare("SELECT id, driver_id, scheduled_at_ms, city, ride_type FROM ride_bookings WHERE order_id = ? AND status IN ('agendado', 'confirmado')")
+    .all(orderId);
+  for (const bk of live) {
+    const r = await db
+      .prepare("UPDATE ride_bookings SET status = 'cancelado', cancelled_by = 'business', updated_at = datetime('now') WHERE id = ? AND status IN ('agendado', 'confirmado')")
+      .run(bk.id);
+    if (r.changes && bk.driver_id) realtime.notifyDriver(bk.driver_id, "booking_cancelled", { bookingId: bk.id, envio: true });
+  }
+}
+
+// ¿Este pedido ya puede salir con chofer? (aceptado o "lo entrego yo", o el
+// envío anterior se canceló; si es transferencia, ya confirmada).
+async function orderReadyForDriver(o) {
+  let can = o.status === S.ACEPTADO || o.status === S.PROPIO;
+  if (o.status === S.ENVIADO && o.ride_id) {
+    const prev = await db.prepare("SELECT status FROM rides WHERE id = ?").get(o.ride_id);
+    can = !prev || prev.status === "cancelado";
+    if (!can) return "Ya hay un chofer con este pedido";
+  }
+  if (!can) return "Primero acepta el pedido";
+  if (o.pay_method === "transferencia" && !o.paid_confirmed_at) return "Primero confirma que te llegó la transferencia";
+  return null;
+}
 
 // "Lo entrego yo": el repartidor del negocio lleva el pedido; no sale viaje.
 // Mismas reglas que "Pedir chofer" (aceptado y, si es transferencia, pagado).
@@ -469,6 +512,7 @@ router.post("/business/orders/:id/own-delivery", async (req, res) => {
   if (!await moveOrder(o, o.status, "status = ?, ride_id = NULL", [S.PROPIO])) {
     return res.status(409).json({ error: "Este pedido ya cambió" });
   }
+  await cancelOrderBookings(o.id);
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "business"));
 });
 
@@ -695,3 +739,7 @@ router.post("/business/chats/list", async (req, res) => {
 
 module.exports = router;
 module.exports.ORDER_STATUS = S;
+module.exports.insertOrderRide = insertOrderRide;
+module.exports.orderReadyForDriver = orderReadyForDriver;
+module.exports.cancelOrderBookings = cancelOrderBookings;
+module.exports.orderSummary = summary;

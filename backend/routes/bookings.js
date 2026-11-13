@@ -10,9 +10,11 @@ const db = require("../db");
 const push = require("../push");
 const realtime = require("../realtime");
 const { photoUrls } = require("../photos");
-const { getCityById, zoneAt, sameCityForRide } = require("../cities");
+const { getCityById, zoneAt, sameCityForRide, isWithinServiceRadius } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const rides = require("./rides");
+const orders = require("./orders");
+const businessRoutes = require("./business");
 const { MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
 
 const MIN = 60 * 1000;
@@ -29,6 +31,17 @@ const LIVE = ["agendado", "confirmado"];
 const MAX_OPEN_OFFERS_PER_DRIVER = 10; // propuestas de precio sin contestar a la vez
 // Por qué el chofer pide más en un viaje agendado (13-nov-2026). Sin "está
 // lloviendo": el viaje es para otro día y no se sabe.
+// Asegurar chofer para un envío de negocio (13-nov-2026): el mismo día,
+// para cuando el pedido esté listo.
+const ENVIO_MIN_AHEAD_MS = 20 * MIN;
+const ENVIO_MAX_AHEAD_MS = 4 * 60 * MIN;
+const ENVIO_LAUNCH_CONFIRMED_MS = 10 * MIN; // al chofer asegurado se le asigna 10 min antes (va llegando al negocio)
+const ENVIO_LAUNCH_OPEN_MS = 5 * MIN; // sin chofer: sale a todos 5 min antes (como "pide el chofer 5 min antes")
+const ENVIO_GAP_MS = 20 * MIN; // envíos cortos: un chofer puede asegurar varios en la tarde
+const MAX_ENVIOS_PER_BUSINESS = 10;
+const isEnvio = (b) => b.service_kind === "domicilio";
+const launchConfirmedMs = (b) => (isEnvio(b) ? ENVIO_LAUNCH_CONFIRMED_MS : LAUNCH_CONFIRMED_MS);
+const launchOpenMs = (b) => (isEnvio(b) ? ENVIO_LAUNCH_OPEN_MS : LAUNCH_OPEN_MS);
 const BOOKING_OFFER_REASONS = { lejos: "Es lejos", noche: "Es de noche", temprano: "Es muy temprano", camino: "Camino difícil", otro: "Otro" };
 
 const router = express.Router();
@@ -102,10 +115,11 @@ function driverFits(driver, b) {
 async function commitError(driverId, b) {
   const when = Number(b.scheduled_at_ms);
   const others = await db
-    .prepare("SELECT scheduled_at_ms FROM ride_bookings WHERE driver_id = ? AND status = 'confirmado' AND id != ?")
+    .prepare("SELECT scheduled_at_ms, service_kind FROM ride_bookings WHERE driver_id = ? AND status = 'confirmado' AND id != ?")
     .all(driverId, b.id);
   if (others.length >= MAX_PER_DRIVER) return `Ya tienes ${MAX_PER_DRIVER} viajes agendados`;
-  if (others.some((o) => Math.abs(Number(o.scheduled_at_ms) - when) < DRIVER_GAP_MS)) return "Ya tienes otro viaje agendado muy cerca de esa hora";
+  const gap = (o) => (isEnvio(b) || isEnvio(o) ? ENVIO_GAP_MS : DRIVER_GAP_MS);
+  if (others.some((o) => Math.abs(Number(o.scheduled_at_ms) - when) < gap(o))) return "Ya tienes otro viaje agendado muy cerca de esa hora";
   return null;
 }
 
@@ -126,7 +140,14 @@ async function closeOffers(bookingId, status = "cerrada", exceptId = 0, maxPrice
 // ---- Avisos ----
 
 // Aviso al celular del pasajero (si los activó al agendar).
-async function pushRider(bookingId, title, body) {
+// envio: [título, texto] para cuando es un envío de negocio (el aviso le llega
+// al negocio, no a su cuenta de pasajero). Sin envio, al negocio no se le avisa.
+async function pushRider(bookingId, title, body, envio) {
+  const bk = await db.prepare("SELECT business_id FROM ride_bookings WHERE id = ?").get(bookingId);
+  if (bk && bk.business_id) {
+    if (envio) await push.notifyBusiness(bk.business_id, { tag: `envio-${bookingId}`, title: envio[0], body: String(envio[1] || "").slice(0, 140) }).catch(() => {});
+    return;
+  }
   const subs = await db.prepare("SELECT endpoint, p256dh, auth FROM booking_push_subs WHERE booking_id = ?").all(bookingId);
   // id null: si el celular ya no acepta avisos, sendToRider no borra nada de
   // rider_push_subs por error (esta suscripción es de otra tabla).
@@ -208,17 +229,23 @@ function driverView(b, driverId, myOffers = {}) {
     mine,
     scheduled_at_ms: Number(b.scheduled_at_ms),
     ride_type: b.ride_type,
-    pickup_lat: mine ? b.pickup_lat : round(b.pickup_lat),
-    pickup_lng: mine ? b.pickup_lng : round(b.pickup_lng),
-    pickup_label: mine ? b.pickup_label : null,
+    pickup_lat: mine || isEnvio(b) ? b.pickup_lat : round(b.pickup_lat),
+    pickup_lng: mine || isEnvio(b) ? b.pickup_lng : round(b.pickup_lng),
+    pickup_label: mine || isEnvio(b) ? b.pickup_label : null,
     dest_lat: mine ? b.dest_lat : round(b.dest_lat),
     dest_lng: mine ? b.dest_lng : round(b.dest_lng),
     dest_label: mine ? b.dest_label : null,
     passengers: b.passengers,
     children: b.children,
     offer_price: b.offer_price,
-    rider_name: firstName(b.rider_name) || "Pasajero",
-    riderTripCount: Number(b.rider_trips) || 0,
+    rider_name: isEnvio(b) ? "" : firstName(b.rider_name) || "Pasajero",
+    riderTripCount: isEnvio(b) ? 0 : Number(b.rider_trips) || 0,
+    // Envío de negocio: el negocio es un lugar público (se ve exacto); la casa
+    // del cliente, aproximada hasta que el chofer lo asegura.
+    kind: isEnvio(b) ? "envio" : "pasaje",
+    business_name: isEnvio(b) ? b.business_name || "Negocio" : null,
+    client_name: isEnvio(b) && mine ? firstName(b.for_name) || null : null,
+    order_note: isEnvio(b) && mine ? b.for_note || null : null,
     // Su propuesta de precio que el pasajero todavía no contesta.
     myOffer: !mine && myOffers[b.id] ? { id: myOffers[b.id].id, price: myOffers[b.id].price, reason: myOffers[b.id].reason } : null,
   };
@@ -226,6 +253,7 @@ function driverView(b, driverId, myOffers = {}) {
 // Una sola consulta con el nombre del pasajero y cuántos viajes ha completado
 // (antes eran 2 consultas por cada viaje de la lista).
 const BOOKING_DRIVER_SELECT = `SELECT b.*, r.name AS rider_name,
+    (SELECT name FROM businesses WHERE id = b.business_id) AS business_name,
     (SELECT COUNT(*) FROM rides x WHERE x.rider_phone = r.phone AND x.status = 'completado') AS rider_trips
   FROM ride_bookings b LEFT JOIN riders r ON r.id = b.rider_id`;
 
@@ -259,7 +287,7 @@ router.post("/bookings", async (req, res) => {
   const checked = rides.checkRideRequest(body);
   if (checked.error) return res.status(400).json({ error: checked.error });
 
-  const { n } = await db.prepare("SELECT COUNT(*) AS n FROM ride_bookings WHERE rider_id = ? AND status IN ('agendado', 'confirmado')").get(rider.id);
+  const { n } = await db.prepare("SELECT COUNT(*) AS n FROM ride_bookings WHERE rider_id = ? AND business_id IS NULL AND status IN ('agendado', 'confirmado')").get(rider.id);
   if (n >= MAX_PER_RIDER) return res.status(409).json({ error: `Ya tienes ${MAX_PER_RIDER} viajes agendados. Cancela uno para agendar otro.` });
 
   const clean = (v, max) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
@@ -283,7 +311,7 @@ router.post("/bookings/mine", async (req, res) => {
   // abra el viaje que ya se creó).
   const list = await db
     .prepare(
-      `SELECT * FROM ride_bookings WHERE rider_id = ? AND (status IN ('agendado', 'confirmado', 'lanzando')
+      `SELECT * FROM ride_bookings WHERE rider_id = ? AND business_id IS NULL AND (status IN ('agendado', 'confirmado', 'lanzando')
          OR (status IN ('lanzado', 'fallido', 'vencido') AND scheduled_at_ms > ?))
        ORDER BY scheduled_at_ms`
     )
@@ -294,7 +322,7 @@ router.post("/bookings/mine", async (req, res) => {
 router.post("/bookings/:id/cancel", async (req, res) => {
   const rider = await authRider(req, res);
   if (!rider) return;
-  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ? AND business_id IS NULL").get(Number(req.params.id), rider.id);
   if (!b) return res.status(404).json({ error: "No encontrado" });
   const r = await db
     .prepare("UPDATE ride_bookings SET status = 'cancelado', cancelled_by = 'rider', updated_at = datetime('now') WHERE id = ? AND status IN ('agendado', 'confirmado')")
@@ -311,7 +339,7 @@ router.post("/bookings/:id/push", async (req, res) => {
   const rider = await authRider(req, res);
   if (!rider) return;
   const { endpoint, p256dh, auth } = req.body || {};
-  const b = await db.prepare("SELECT id, status FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  const b = await db.prepare("SELECT id, status FROM ride_bookings WHERE id = ? AND rider_id = ? AND business_id IS NULL").get(Number(req.params.id), rider.id);
   if (!b) return res.status(404).json({ error: "No encontrado" });
   if (!push.isValidEndpoint(endpoint) || !push.isValidRiderKeys(p256dh, auth)) return res.status(400).json({ error: "Suscripción no válida" });
   if (!LIVE.includes(b.status)) return res.json({ ok: false });
@@ -339,8 +367,8 @@ router.post("/bookings/driver", async (req, res) => {
   const taxi = driver.vehicle_type === "taxi";
   const open = (await db
     .prepare(`${BOOKING_DRIVER_SELECT} WHERE b.status = 'agendado' AND b.ride_type = ? ${taxi ? "" : "AND b.city = ?"} AND b.scheduled_at_ms > ? ORDER BY b.scheduled_at_ms LIMIT 60`)
-    .all(...(taxi ? ["taxi"] : ["moto", driver.city || "tekax"]), now + LAUNCH_CONFIRMED_MS))
-    .filter((b) => driverFits(driver, b));
+    .all(...(taxi ? ["taxi"] : ["moto", driver.city || "tekax"]), now + ENVIO_LAUNCH_CONFIRMED_MS))
+    .filter((b) => Number(b.scheduled_at_ms) > now + launchConfirmedMs(b) && driverFits(driver, b));
   const offers = await db.prepare("SELECT id, booking_id, price, reason FROM booking_offers WHERE driver_id = ? AND status = 'pendiente'").all(driver.id);
   const myOffers = Object.fromEntries(offers.map((o) => [o.booking_id, o]));
   res.json({
@@ -357,7 +385,7 @@ router.post("/bookings/:id/take", async (req, res) => {
   const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(Number(req.params.id));
   if (!b || !driverFits(driver, b)) return res.status(404).json({ error: "Este viaje ya no está disponible" });
   const when = Number(b.scheduled_at_ms);
-  if (when <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco: este viaje va a salir como viaje normal" });
+  if (when <= Date.now() + launchConfirmedMs(b)) return res.status(409).json({ error: "Ya falta muy poco: este viaje va a salir como viaje normal" });
   const busy = await commitError(driver.id, b);
   if (busy) return res.status(409).json({ error: busy });
   const r = await db
@@ -366,7 +394,8 @@ router.post("/bookings/:id/take", async (req, res) => {
   if (r.changes === 0) return res.status(409).json({ error: "Otro chofer ya lo confirmó" });
   // Ya tiene chofer al precio del pasajero: las propuestas de otros se cierran.
   await closeOffers(b.id);
-  pushRider(b.id, `✅ ${firstName(driver.name)} confirmó tu viaje`, `Pasa por ti el ${whenText(when)}.`).catch(() => {});
+  pushRider(b.id, `✅ ${firstName(driver.name)} confirmó tu viaje`, `Pasa por ti el ${whenText(when)}.`,
+    ["✅ Chofer asegurado", `${firstName(driver.name)} va por el envío${b.for_name ? ` de ${firstName(b.for_name)}` : ""} a las ${hourText(when)}.`]).catch(() => {});
   bookingsChanged(b).catch(() => {});
   res.json({ ok: true });
 });
@@ -382,6 +411,7 @@ router.post("/bookings/:id/offer", async (req, res) => {
   if (!reason) return res.status(400).json({ error: "Elige por qué pides más" });
   const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(Number(req.params.id));
   if (!b || !driverFits(driver, b)) return res.status(404).json({ error: "Este viaje ya no está disponible" });
+  if (isEnvio(b)) return res.status(400).json({ error: "En los envíos de negocio se cobra la tarifa de envío" });
   if (b.status !== "agendado") return res.status(409).json({ error: "Este viaje ya tiene chofer" });
   if (Number(b.scheduled_at_ms) <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco: este viaje va a salir como viaje normal" });
   const maxUp = b.ride_type === "taxi" ? TAXI_OFFER_MAX_UP : MOTO_OFFER_MAX_UP;
@@ -427,7 +457,7 @@ router.post("/bookings/:id/offer/withdraw", async (req, res) => {
 router.post("/bookings/:id/offers/:offerId/accept", async (req, res) => {
   const rider = await authRider(req, res);
   if (!rider) return;
-  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ? AND business_id IS NULL").get(Number(req.params.id), rider.id);
   if (!b) return res.status(404).json({ error: "No encontrado" });
   const o = await db.prepare("SELECT * FROM booking_offers WHERE id = ? AND booking_id = ? AND status = 'pendiente'").get(Number(req.params.offerId), b.id);
   if (!o) return res.status(409).json({ error: "Esta propuesta ya no está disponible" });
@@ -461,7 +491,7 @@ router.post("/bookings/:id/offers/:offerId/accept", async (req, res) => {
 router.post("/bookings/:id/offers/:offerId/reject", async (req, res) => {
   const rider = await authRider(req, res);
   if (!rider) return;
-  const b = await db.prepare("SELECT id FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  const b = await db.prepare("SELECT id FROM ride_bookings WHERE id = ? AND rider_id = ? AND business_id IS NULL").get(Number(req.params.id), rider.id);
   if (!b) return res.status(404).json({ error: "No encontrado" });
   const o = await db.prepare("SELECT id, driver_id FROM booking_offers WHERE id = ? AND booking_id = ?").get(Number(req.params.offerId), b.id);
   if (!o) return res.status(404).json({ error: "No encontrado" });
@@ -475,7 +505,7 @@ router.post("/bookings/:id/offers/:offerId/reject", async (req, res) => {
 router.post("/bookings/:id/price", async (req, res) => {
   const rider = await authRider(req, res);
   if (!rider) return;
-  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ? AND business_id IS NULL").get(Number(req.params.id), rider.id);
   if (!b) return res.status(404).json({ error: "No encontrado" });
   if (b.status !== "agendado") return res.status(409).json({ error: "Tu viaje ya tiene chofer: ya no se puede cambiar el precio" });
   if (Number(b.scheduled_at_ms) <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco para tu viaje" });
@@ -505,7 +535,8 @@ router.post("/bookings/:id/release", async (req, res) => {
     .prepare("UPDATE ride_bookings SET status = 'agendado', driver_id = NULL, updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'confirmado'")
     .run(b.id, driver.id);
   if (r.changes === 0) return res.status(409).json({ error: "Este viaje ya salió. Si no puedes ir, cancélalo desde el viaje." });
-  pushRider(b.id, "Tu chofer ya no podrá ir", `Tu viaje del ${whenText(b.scheduled_at_ms)} sigue agendado: otro chofer lo puede confirmar, o sale a los choferes cercanos antes de la hora.`).catch(() => {});
+  pushRider(b.id, "Tu chofer ya no podrá ir", `Tu viaje del ${whenText(b.scheduled_at_ms)} sigue agendado: otro chofer lo puede confirmar, o sale a los choferes cercanos antes de la hora.`,
+    ["Tu chofer asegurado ya no podrá ir", `El envío de las ${hourText(b.scheduled_at_ms)} sigue apartado: otro chofer lo puede asegurar, o sale a los choferes cercanos 5 min antes.`]).catch(() => {});
   bookingsChanged(b).catch(() => {});
   res.json({ ok: true });
 });
@@ -515,7 +546,8 @@ router.post("/bookings/:id/release", async (req, res) => {
 async function failBooking(b, reason) {
   await db.prepare("UPDATE ride_bookings SET status = 'fallido', fail_reason = ?, updated_at = datetime('now') WHERE id = ?").run(reason, b.id);
   await closeOffers(b.id).catch(() => {});
-  await pushRider(b.id, "No pudimos sacar tu viaje agendado", `${reason}. Pide tu viaje desde la app.`);
+  await pushRider(b.id, "No pudimos sacar tu viaje agendado", `${reason}. Pide tu viaje desde la app.`,
+    ["No salió tu envío asegurado", `${reason}. Pide chofer desde tu panel.`]);
   if (b.driver_id) realtime.notifyDriver(b.driver_id, "bookings_changed", {});
 }
 
@@ -526,9 +558,29 @@ async function abortLaunch(bookingId, rideId) {
   const cancel = rideId
     ? await db.prepare("UPDATE rides SET status = 'cancelado', cancelled_by = 'system', cancel_reason = 'Error al sacar el viaje agendado', updated_at = datetime('now') WHERE id = ? AND status = 'buscando'").run(rideId)
     : await db.prepare("UPDATE rides SET status = 'cancelado', cancelled_by = 'system', cancel_reason = 'Error al sacar el viaje agendado', updated_at = datetime('now') WHERE booking_id = ? AND status = 'buscando'").run(bookingId);
-  if (r.changes) await pushRider(bookingId, "No pudimos sacar tu viaje agendado", "Hubo un error. Pide tu viaje desde la app.").catch(() => {});
+  if (r.changes) await pushRider(bookingId, "No pudimos sacar tu viaje agendado", "Hubo un error. Pide tu viaje desde la app.", ["No salió tu envío asegurado", "Hubo un error. Pide chofer desde tu panel."]).catch(() => {});
   await closeOffers(bookingId).catch(() => {});
   return cancel.changes;
+}
+
+// Crea el envío del negocio a la hora (pedido de la app o de WhatsApp).
+async function makeEnvioRide(b) {
+  const biz = await db.prepare("SELECT * FROM businesses WHERE id = ? AND active = 1").get(b.business_id);
+  if (!biz) return { fail: "El negocio ya no está activo" };
+  if (b.order_id) {
+    const o = await db.prepare("SELECT * FROM business_orders WHERE id = ? AND business_id = ?").get(b.order_id, biz.id);
+    if (!o) return { fail: "El pedido ya no existe" };
+    const err = await orders.orderReadyForDriver(o);
+    if (err) return { fail: err };
+    return { ride: await orders.insertOrderRide(biz, o) };
+  }
+  const owner = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
+  if (!owner) return { fail: "La cuenta del negocio ya no existe" };
+  return {
+    ride: await businessRoutes.insertBusinessRide(biz, owner, {
+      dest_lat: b.dest_lat, dest_lng: b.dest_lng, dest_label: b.dest_label, client_name: b.for_name, order_note: b.for_note,
+    }),
+  };
 }
 
 async function launchBooking(b) {
@@ -545,22 +597,29 @@ async function launchBooking(b) {
   await closeOffers(b.id).catch(() => {});
   let ride = null;
   try {
-    const rider = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
-    if (!rider) return failBooking(b, "Tu cuenta ya no existe");
-    const body = {
-      pickup_lat: b.pickup_lat, pickup_lng: b.pickup_lng, pickup_label: b.pickup_label,
-      dest_lat: b.dest_lat, dest_lng: b.dest_lng, dest_label: b.dest_label,
-      passengers: b.passengers, children: b.children,
-      ride_type: b.ride_type, service_kind: "pasaje", offer_price: b.offer_price,
-    };
-    const checked = rides.checkRideRequest(body);
-    if (checked.error) return failBooking(b, checked.error);
+    if (isEnvio(b)) {
+      const made = await makeEnvioRide(b);
+      if (made.fail) return failBooking(b, made.fail);
+      ride = made.ride;
+      Object.assign(ride, await rides.riderInfoFor(ride.rider_phone));
+    } else {
+      const rider = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
+      if (!rider) return failBooking(b, "Tu cuenta ya no existe");
+      const body = {
+        pickup_lat: b.pickup_lat, pickup_lng: b.pickup_lng, pickup_label: b.pickup_label,
+        dest_lat: b.dest_lat, dest_lng: b.dest_lng, dest_label: b.dest_label,
+        passengers: b.passengers, children: b.children,
+        ride_type: b.ride_type, service_kind: "pasaje", offer_price: b.offer_price,
+      };
+      const checked = rides.checkRideRequest(body);
+      if (checked.error) return failBooking(b, checked.error);
 
-    ride = await rides.insertRide(rider, body, checked, b.id);
-    // Sus avisos del viaje agendado pasan a ser avisos de este viaje.
-    const subs = await db.prepare("SELECT endpoint, p256dh, auth FROM booking_push_subs WHERE booking_id = ?").all(b.id);
-    for (const s of subs) await push.saveRiderSubscription(ride.id, s.endpoint, s.p256dh, s.auth);
-    Object.assign(ride, await rides.riderInfoFor(rider.phone));
+      ride = await rides.insertRide(rider, body, checked, b.id);
+      // Sus avisos del viaje agendado pasan a ser avisos de este viaje.
+      const subs = await db.prepare("SELECT endpoint, p256dh, auth FROM booking_push_subs WHERE booking_id = ?").all(b.id);
+      for (const s of subs) await push.saveRiderSubscription(ride.id, s.endpoint, s.p256dh, s.auth);
+      Object.assign(ride, await rides.riderInfoFor(rider.phone));
+    }
 
     let assigned = false;
     if (b.status === "confirmado" && b.driver_id) {
@@ -591,11 +650,13 @@ async function launchBooking(b) {
       // abrirla le sale el viaje ya aceptado.
       const dsubs = await db.prepare("SELECT id, driver_id, endpoint FROM driver_push_subs WHERE driver_id = ?").all(b.driver_id);
       for (const s of dsubs) push.sendOne(s);
+      if (isEnvio(b)) await pushRider(b.id, "", "", ["🛵 Tu chofer ya va", `${firstName(driver && driver.name) || "Tu chofer"} va en camino por el envío${b.for_name ? ` de ${firstName(b.for_name)}` : ""}.`]);
     } else {
       if (b.driver_id) realtime.notifyDriver(b.driver_id, "bookings_changed", {});
       await realtime.broadcastNewRide(ride);
       realtime.startNoDriverTimer(ride.id, ride.ride_type, ride.offer_price != null, true);
-      await pushRider(b.id, "🔎 Buscando chofer para tu viaje", `Tu viaje de las ${hourText(b.scheduled_at_ms)} ya salió a los choferes cercanos. Abre la app para verlo.`);
+      await pushRider(b.id, "🔎 Buscando chofer para tu viaje", `Tu viaje de las ${hourText(b.scheduled_at_ms)} ya salió a los choferes cercanos. Abre la app para verlo.`,
+        ["🔎 Buscando chofer para tu envío", `Tu envío de las ${hourText(b.scheduled_at_ms)} ya salió a los choferes cercanos.`]);
     }
   } catch (err) {
     await abortLaunch(b.id, ride && ride.id);
@@ -621,7 +682,8 @@ async function sweepBookings() {
     for (const b of orphan) {
       const r = await db.prepare("UPDATE ride_bookings SET status = 'agendado', driver_id = NULL, updated_at = datetime('now') WHERE id = ? AND status = 'confirmado' AND driver_id = ?").run(b.id, b.driver_id);
       if (r.changes) {
-        await pushRider(b.id, "Tu chofer ya no podrá ir", `Tu viaje del ${whenText(b.scheduled_at_ms)} sigue agendado: otro chofer lo puede confirmar.`);
+        await pushRider(b.id, "Tu chofer ya no podrá ir", `Tu viaje del ${whenText(b.scheduled_at_ms)} sigue agendado: otro chofer lo puede confirmar.`,
+          ["Tu chofer asegurado ya no podrá ir", `El envío de las ${hourText(b.scheduled_at_ms)} sigue apartado para otro chofer.`]);
         bookingsChanged(b).catch(() => {});
       }
     }
@@ -633,7 +695,7 @@ async function sweepBookings() {
       const r = await db.prepare("UPDATE ride_bookings SET status = 'vencido', updated_at = datetime('now') WHERE id = ? AND status = ?").run(b.id, b.status);
       if (r.changes) {
         await closeOffers(b.id);
-        await pushRider(b.id, "Tu viaje agendado no salió", "Lo sentimos. Pide tu viaje desde la app.");
+        await pushRider(b.id, "Tu viaje agendado no salió", "Lo sentimos. Pide tu viaje desde la app.", ["Tu envío asegurado no salió", "Lo sentimos. Pide chofer desde tu panel."]);
       }
     }
     // Aviso 1 h antes.
@@ -656,7 +718,8 @@ async function sweepBookings() {
         `SELECT * FROM ride_bookings WHERE (status = 'confirmado' AND scheduled_at_ms <= ?) OR (status = 'agendado' AND scheduled_at_ms <= ?)
          ORDER BY scheduled_at_ms`
       )
-      .all(now + LAUNCH_CONFIRMED_MS, now + LAUNCH_OPEN_MS);
+      .all(now + LAUNCH_CONFIRMED_MS, now + LAUNCH_OPEN_MS)
+      .then((list) => list.filter((b) => Number(b.scheduled_at_ms) <= now + (b.status === "confirmado" ? launchConfirmedMs(b) : launchOpenMs(b))));
     for (const b of due) {
       try {
         await launchBooking(b);
@@ -670,6 +733,144 @@ async function sweepBookings() {
     sweeping = false;
   }
 }
+
+// ---- Negocio: asegurar chofer para un envío (13-nov-2026) ----
+// El negocio aparta un chofer para cuando su pedido esté listo (el mismo día,
+// de 20 min a 4 h). Los choferes lo ven en "Viajes agendados"; a la hora le
+// llega solo, ya aceptado, al que lo aseguró. Si nadie lo asegura, sale a
+// todos 5 min antes, igual que "Pedir chofer".
+
+async function authBiz(req, res) {
+  if (isRateLimited(req.ip, req.body)) {
+    res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+    return null;
+  }
+  const { phone, pin } = req.body || {};
+  const rider = phone && pin ? await db.prepare("SELECT id, name, phone FROM riders WHERE phone = ? AND pin = ?").get(String(phone), String(pin)) : null;
+  if (!rider) {
+    recordFailedAttempt(req.ip, req.body);
+    res.status(401).json({ error: "Teléfono o PIN incorrectos" });
+    return null;
+  }
+  clearAttempts(req.ip);
+  const business = await db.prepare("SELECT * FROM businesses WHERE rider_id = ? AND active = 1").get(rider.id);
+  if (!business) {
+    res.status(403).json({ error: "Esta cuenta no es de un negocio" });
+    return null;
+  }
+  return { rider, business };
+}
+
+async function businessView(b) {
+  const out = {
+    id: b.id,
+    status: b.status,
+    scheduled_at_ms: Number(b.scheduled_at_ms),
+    order_id: b.order_id || null,
+    client_name: b.for_name || null,
+    order_note: b.for_note || null,
+    dest_label: b.dest_label || null,
+    fail_reason: b.fail_reason || null,
+    driver: null,
+    ride: null,
+  };
+  if (b.driver_id && b.status === "confirmado") {
+    const d = await db.prepare("SELECT name, vehicle FROM drivers WHERE id = ?").get(b.driver_id);
+    if (d) out.driver = { name: firstName(d.name), vehicle: d.vehicle };
+  }
+  if (b.ride_id) {
+    const r = await db.prepare("SELECT id, status FROM rides WHERE id = ?").get(b.ride_id);
+    if (r) out.ride = { id: r.id, status: r.status };
+  }
+  return out;
+}
+
+const cleanText = (v, max) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+
+router.post("/business/bookings", async (req, res) => {
+  const auth = await authBiz(req, res);
+  if (!auth) return;
+  const { rider, business: biz } = auth;
+  const when = Math.round(Number(req.body.scheduled_at_ms));
+  const now = Date.now();
+  if (!Number.isFinite(when)) return res.status(400).json({ error: "Elige a qué hora sale" });
+  // (1 min de gracia por lo que tarda en llegar la petición)
+  if (when < now + ENVIO_MIN_AHEAD_MS - MIN) return res.status(400).json({ error: "Para antes de 20 minutos pide chofer ahora" });
+  if (when > now + ENVIO_MAX_AHEAD_MS) return res.status(400).json({ error: "Puedes asegurar chofer hasta 4 horas antes" });
+  if (!isWithinServiceRadius(biz.city, biz.lat, biz.lng, "moto")) return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
+  const { n } = await db.prepare("SELECT COUNT(*) AS n FROM ride_bookings WHERE business_id = ? AND status IN ('agendado', 'confirmado')").get(biz.id);
+  if (n >= MAX_ENVIOS_PER_BUSINESS) return res.status(409).json({ error: `Ya tienes ${MAX_ENVIOS_PER_BUSINESS} envíos apartados. Espera a que salgan.` });
+
+  let f;
+  if (req.body.order_id != null) {
+    const o = await db.prepare("SELECT * FROM business_orders WHERE id = ? AND business_id = ?").get(Number(req.body.order_id), biz.id);
+    if (!o) return res.status(404).json({ error: "Pedido no encontrado" });
+    const err = await orders.orderReadyForDriver(o);
+    if (err) return res.status(409).json({ error: err });
+    const client = await db.prepare("SELECT name FROM riders WHERE id = ?").get(o.rider_id);
+    f = {
+      order_id: o.id, dest_lat: o.dest_lat, dest_lng: o.dest_lng, dest_label: o.dest_label,
+      offer_price: o.delivery_offer, for_name: client ? client.name : null, for_note: orders.orderSummary(o) || null,
+    };
+  } else {
+    const destLat = Number(req.body.dest_lat);
+    const destLng = Number(req.body.dest_lng);
+    if (!Number.isFinite(destLat) || !Number.isFinite(destLng)) return res.status(400).json({ error: "Marca a dónde va el pedido" });
+    const clientName = cleanText(req.body.client_name, 40);
+    if (!clientName) return res.status(400).json({ error: "Escribe el nombre del cliente" });
+    f = {
+      order_id: null, dest_lat: destLat, dest_lng: destLng, dest_label: cleanText(req.body.dest_label, 120),
+      offer_price: null, for_name: clientName, for_note: cleanText(req.body.order_note, 80),
+    };
+  }
+  let result;
+  try {
+    result = await db
+      .prepare(
+        `INSERT INTO ride_bookings (rider_id, city, ride_type, pickup_lat, pickup_lng, pickup_label, dest_lat, dest_lng, dest_label,
+           passengers, children, offer_price, scheduled_at_ms, reminded, service_kind, business_id, order_id, for_name, for_note)
+         VALUES (?, ?, 'moto', ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, 1, 'domicilio', ?, ?, ?, ?)`
+      )
+      .run(
+        rider.id, biz.city, biz.lat, biz.lng, [biz.name, biz.address].filter(Boolean).join(" · ").slice(0, 120),
+        f.dest_lat, f.dest_lng, f.dest_label, f.offer_price, when, biz.id, f.order_id, f.for_name, f.for_note
+      );
+  } catch (err) {
+    // Índice único: un solo chofer apartado por pedido.
+    if (db.isUniqueViolation(err)) return res.status(409).json({ error: "Este pedido ya tiene chofer apartado" });
+    throw err;
+  }
+  const booking = await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(result.lastInsertRowid);
+  bookingsChanged(booking).catch(() => {});
+  res.status(201).json(await businessView(booking));
+});
+
+router.post("/business/bookings/list", async (req, res) => {
+  const auth = await authBiz(req, res);
+  if (!auth) return;
+  const list = await db
+    .prepare(
+      `SELECT * FROM ride_bookings WHERE business_id = ? AND (status IN ('agendado', 'confirmado', 'lanzando')
+         OR (status IN ('lanzado', 'fallido', 'vencido') AND scheduled_at_ms > ?))
+       ORDER BY scheduled_at_ms`
+    )
+    .all(auth.business.id, Date.now() - 2 * 60 * MIN);
+  res.json(await Promise.all(list.map(businessView)));
+});
+
+router.post("/business/bookings/:id/cancel", async (req, res) => {
+  const auth = await authBiz(req, res);
+  if (!auth) return;
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND business_id = ?").get(Number(req.params.id), auth.business.id);
+  if (!b) return res.status(404).json({ error: "No encontrado" });
+  const r = await db
+    .prepare("UPDATE ride_bookings SET status = 'cancelado', cancelled_by = 'business', updated_at = datetime('now') WHERE id = ? AND status IN ('agendado', 'confirmado')")
+    .run(b.id);
+  if (r.changes === 0) return res.status(409).json({ error: "Este envío ya salió. Cancélalo desde la lista de envíos." });
+  if (b.driver_id) realtime.notifyDriver(b.driver_id, "booking_cancelled", { bookingId: b.id, when: whenText(b.scheduled_at_ms), envio: true });
+  bookingsChanged(b).catch(() => {});
+  res.json({ ok: true });
+});
 
 function startBookingSweep() {
   // BOOKING_SWEEP_MS solo para las pruebas locales (tools/test-agendar.js).

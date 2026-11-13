@@ -174,6 +174,19 @@ router.post("/business/rides", async (req, res) => {
     return res.status(400).json({ error: "MotoVecino todavía no está disponible en tu zona." });
   }
 
+  const ride = await insertBusinessRide(business, rider, {
+    dest_lat: destLat, dest_lng: destLng, dest_label: clean(req.body.dest_label) || null,
+    client_name: clientName, order_note: clean(req.body.order_note) || null,
+  });
+  await realtime.broadcastNewRide(ride);
+  realtime.startNoDriverTimer(ride.id, ride.ride_type);
+  res.status(201).json(await listItem(ride));
+});
+
+// Crea el envío de un pedido que llegó por WhatsApp o teléfono. No lo
+// anuncia: eso lo decide quien llama (ahora, o routes/bookings.js cuando un
+// chofer lo aseguró desde antes).
+async function insertBusinessRide(business, rider, f) {
   await db.prepare("UPDATE riders SET last_ride_at = datetime('now') WHERE id = ?").run(rider.id);
   const result = await db
     .prepare(
@@ -188,20 +201,17 @@ router.post("/business/rides", async (req, res) => {
       business.lat,
       business.lng,
       [business.name, business.address].filter(Boolean).join(" · "),
-      destLat,
-      destLng,
-      clean(req.body.dest_label) || null,
+      f.dest_lat,
+      f.dest_lng,
+      f.dest_label,
       business.city,
       crypto.randomBytes(16).toString("base64url"),
-      clientName,
-      clean(req.body.order_note) || null,
+      f.client_name,
+      f.order_note,
       business.id
     );
-  const ride = await db.prepare("SELECT * FROM rides WHERE id = ?").get(result.lastInsertRowid);
-  await realtime.broadcastNewRide(ride);
-  realtime.startNoDriverTimer(ride.id, ride.ride_type);
-  res.status(201).json(await listItem(ride));
-});
+  return db.prepare("SELECT * FROM rides WHERE id = ?").get(result.lastInsertRowid);
+}
 
 // Lo que ve el negocio de cada envío. El teléfono del chofer va enmascarado,
 // igual que en la app del pasajero.
@@ -501,3 +511,4 @@ router.post("/admin/businesses/:id/delete", checkAdminPin, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.insertBusinessRide = insertBusinessRide;

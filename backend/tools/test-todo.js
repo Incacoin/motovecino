@@ -27,6 +27,7 @@ const TESTS = [
   ["celestun", []],
   ["agendar", ["DATABASE_URL"]],
   ["agendar-oferta", ["DATABASE_URL"]],
+  ["envio-asegurado", ["DATABASE_URL"]],
   ["mantenimiento", ["DATABASE_URL", "RESTORE_URL"]],
   ["progreso", ["ADMIN_PIN_PROGRESO"]],
 ];
