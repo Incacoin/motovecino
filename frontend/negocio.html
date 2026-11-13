@@ -70,6 +70,8 @@
   .b.green { background: #22c55e; border-color: #22c55e; color: #04210f; }
   /* Mensajes con el cliente */
   .btns { flex-wrap: wrap; }
+  .b.wide { flex: 1 0 100%; order: -1; }
+  .b.last { flex: 1 0 100%; order: 3; }
   .b.chat { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 0 100%; order: 2; padding: 10px 14px; }
   .cbadge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; }
   #chatList:empty { display: none; }
@@ -300,6 +302,7 @@
     <div class="list" id="ordList"><div class="empty">Cargando…</div></div>
   </div>
   <div class="panel" id="panel-envios">
+    <div id="bkBox"></div>
     <div class="sec" id="activeTitle">Envíos de hoy</div>
     <div class="list" id="list"><div class="empty">Cargando…</div></div>
     <button class="bigbtn" id="newBtn" onclick="openNew()" disabled>＋ Pedir chofer</button>
@@ -427,6 +430,9 @@
     <div class="lab">WhatsApp del cliente (opcional)</div>
     <input id="clientPhone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 dígitos, para mandarle el seguimiento" autocomplete="off" />
     <div class="note">Solo se guarda en este celular, para abrir su WhatsApp al compartir.</div>
+    <div class="lab">¿Cuándo sale?</div>
+    <div class="mins" id="whenChips"></div>
+    <div class="note" id="whenNote"></div>
     <div class="paid">Para pedidos que te llegaron por WhatsApp o teléfono. El chofer solo cobra el envío: <b>el pedido cóbralo tú</b>. (Los pedidos que llegan en la app se mandan desde la pestaña <b>Pedidos</b>.)</div>
   </div>
   <button class="bigbtn" id="sendBtn" onclick="sendRide()">Buscar chofer</button>
@@ -533,6 +539,69 @@ async function loadRides() {
     rides = d.rides;
     renderList();
   } catch {}
+  loadBookings();
+}
+
+// --- Asegurar chofer (12-nov-2026): apartar chofer para un envío de más tarde ---
+// El chofer lo asegura desde "Viajes agendados"; 10 min antes le llega solo.
+// Si nadie lo asegura, 5 min antes se manda a todos como siempre.
+let bookings = [], sendWhen = 0;
+const WHEN_CHOICES = [0, 20, 30, 45, 60, 90, 120];
+function horaLabel(ms) {
+  return new Date(ms).toLocaleTimeString("es-MX", { timeZone: "America/Merida", hour: "numeric", minute: "2-digit" })
+    .replace(/\s?a\.?\s?m\.?/i, " am").replace(/\s?p\.?\s?m\.?/i, " pm");
+}
+function nowMs() { return Date.now() + clockSkew; }
+async function loadBookings() {
+  try { bookings = await post("/business/bookings/list", {}); } catch { return; }
+  // El WhatsApp del cliente se guardó con el apartado; cuando ya salió, pasa al envío.
+  const tels = savedPhones();
+  bookings.forEach((b) => { if (b.ride && tels[-b.id] && !tels[b.ride.id]) savePhone(b.ride.id, tels[-b.id]); });
+  renderBookings();
+}
+function driverLine(d) { return `${escapeHtml(d.name)}${d.vehicle ? " · " + escapeHtml(d.vehicle) : ""}`; }
+function renderBookings() {
+  const box = document.getElementById("bkBox");
+  const live = bookings.filter((b) => ["agendado", "confirmado"].includes(b.status) && !b.order_id);
+  if (!live.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="sec">Choferes apartados · ${live.length}</div><div class="list">` + live.map((b) => `<div class="card">
+      <div class="row">
+        <div class="av ${b.driver ? "" : "wait"}">${b.driver ? escapeHtml(b.driver.name.trim()[0] || "") : "…"}</div>
+        <div style="min-width:0"><div class="n">Sale a las ${horaLabel(b.scheduled_at_ms)} · ${escapeHtml(b.client_name || "Cliente")}</div>
+          <div class="s">${b.dest_label ? "a " + escapeHtml(b.dest_label) : "a la casa del cliente"}${b.order_note ? " · " + escapeHtml(b.order_note) : ""}</div></div>
+      </div>
+      <div class="${b.driver ? "okbox" : "warnbox"}">${b.driver
+        ? `✅ <b>Chofer asegurado:</b> ${driverLine(b.driver)}`
+        : `⏳ <b>Buscando quién lo asegure.</b> Si nadie lo aparta, 5 min antes se manda a todos los choferes.`}</div>
+      <div class="btns"><button class="b red" onclick="cancelBooking(${b.id})">Cancelar apartado</button></div>
+    </div>`).join("") + `</div>`;
+}
+async function cancelBooking(id) {
+  if (!confirm("¿Cancelar este apartado? Si un chofer ya lo aseguró, le avisamos.")) return;
+  try { await post(`/business/bookings/${id}/cancel`, {}); toast("Apartado cancelado"); }
+  catch (e) { toast(e.message); }
+  loadBookings();
+  loadOrders();
+}
+// Pedido de la app: asegurar chofer para la hora en que estará listo.
+async function secureForOrder(id) {
+  const o = orders.find((x) => x.id === id);
+  if (!o || !o.ready_at_ms) return;
+  try {
+    await post("/business/bookings", { order_id: id, scheduled_at_ms: o.ready_at_ms });
+    toast(`Listo: buscamos chofer para las ${horaLabel(o.ready_at_ms)}`);
+  } catch (e) { toast(e.message); }
+  loadOrders();
+}
+function whenText(m) { return m === 0 ? "Ahora" : m < 60 ? m + " min" : m === 60 ? "1 hora" : m === 90 ? "1½ h" : "2 horas"; }
+function renderWhenChips() {
+  document.getElementById("whenChips").innerHTML = WHEN_CHOICES.map((m) =>
+    `<button type="button" class="${m === sendWhen ? "on" : ""}" onclick="sendWhen=${m};renderWhenChips()">${whenText(m)}</button>`).join("");
+  const at = nowMs() + sendWhen * 60000;
+  document.getElementById("whenNote").innerHTML = sendWhen
+    ? `Apartamos un chofer para las <b>${horaLabel(at)}</b>. Te avisamos cuando alguien lo asegure.`
+    : "Buscamos chofer en este momento.";
+  document.getElementById("sendBtn").textContent = sendWhen ? `Asegurar chofer para las ${horaLabel(at)}` : "Buscar chofer";
 }
 
 function renderList() {
@@ -759,9 +828,9 @@ function tickCountdowns() {
     el.classList.toggle("soon", left > 0 && left <= 5 * 60000);
     el.classList.toggle("late", left <= 0);
     if (left > 5 * 60000) el.innerHTML = `<span>Listo en</span><b>${fmtLeft(left)}</b>`;
-    else if (left > 0) el.innerHTML = `<span>¡Pide tu chofer ahora!</span><b>${fmtLeft(left)}</b>`;
+    else if (left > 0) el.innerHTML = `<span>${el.dataset.bk ? "Ya casi está listo" : "¡Pide tu chofer ahora!"}</span><b>${fmtLeft(left)}</b>`;
     else el.innerHTML = `<span>Ya pasó el tiempo que prometiste</span><b>+${fmtLeft(left)}</b>`;
-    if (left <= 5 * 60000 && !alarmed.has(id)) {
+    if (left <= 5 * 60000 && !alarmed.has(id) && !el.dataset.bk) {
       alarmed.add(id);
       beep();
       toast("Faltan 5 min: pide tu chofer");
@@ -813,10 +882,19 @@ function renderOrders() {
       body = payLine(o) + `<div class="lab" style="margin:10px 0 0">¿En cuánto está listo?</div>
         <div class="mins">${[5, 10, 20, 30, 45, 60].map((m) => `<button class="${m === sel ? "on" : ""}" onclick="pickMin[${o.id}]=${m};renderOrders()">${m} min</button>`).join("")}</div>`;
       acts = `<button class="b red" onclick="rejectOrder(${o.id})">Rechazar</button><button class="b green" onclick="acceptOrder(${o.id})">Aceptar · arranca el cronómetro</button>`;
+    } else if (o.status === "aceptado" && o.booking) {
+      const b = o.booking;
+      body = payLine(o) + (o.ready_at_ms ? `<div class="cd" data-ready="${o.ready_at_ms}" data-id="${o.id}" data-bk="1"></div>` : "") +
+        `<div class="${b.driver ? "okbox" : "warnbox"}">${b.status === "confirmado" && b.driver
+          ? `✅ <b>Chofer asegurado:</b> ${driverLine(b.driver)}. Llega para las ${horaLabel(b.scheduled_at_ms)}.`
+          : `⏳ <b>Buscando quién lo asegure</b> para las ${horaLabel(b.scheduled_at_ms)}. Si nadie lo aparta, 5 min antes se manda a todos.`}</div>`;
+      acts = `<button class="b red last" onclick="cancelBooking(${b.id})">Cancelar apartado</button><button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">Pedir chofer ahora</button>`;
     } else if (o.status === "aceptado") {
+      const canSecure = o.ready_at_ms && o.ready_at_ms - nowMs() >= 20 * 60000;
       body = payLine(o) + (o.ready_at_ms ? `<div class="cd" data-ready="${o.ready_at_ms}" data-id="${o.id}"></div>` : "") +
-        `<div class="note" style="margin-top:8px">Pide el chofer unos 5 min antes de que esté listo, o llévalo con tu propio repartidor. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
+        `<div class="note" style="margin-top:8px">${canSecure ? "Asegura tu chofer desde ahora y llega justo cuando esté listo. O pídelo unos 5 min antes," : "Pide el chofer unos 5 min antes de que esté listo,"} o llévalo con tu propio repartidor. Envío que propuso el cliente: <b>${money(o.delivery_offer)}</b>.</div>`;
       acts = `<button class="b" onclick="ownDelivery(${o.id})">Lo entrego yo</button><button class="b green" onclick="requestDriver(${o.id})">Pedir chofer</button>`;
+      if (canSecure) acts += `<button class="b green wide" onclick="secureForOrder(${o.id})">Asegurar chofer para las ${horaLabel(o.ready_at_ms)}</button>`;
     } else if (o.status === "propio") {
       const cobrar = o.pay_method === "efectivo" ? o.total + o.delivery_offer : o.delivery_offer;
       body = `<div class="okbox">Lo lleva <b>tu repartidor</b> a ${escapeHtml(o.dest_label || "la dirección del cliente")}.</div>` +
@@ -890,6 +968,8 @@ function openNew() {
   document.getElementById("fromName").textContent = biz.name;
   document.getElementById("fromAddr").textContent = biz.address || "Tu negocio";
   ["clientName", "orderNote", "clientPhone"].forEach((id) => (document.getElementById(id).value = ""));
+  sendWhen = 0;
+  renderWhenChips();
   clearSearch();
   if (!map) {
     map = L.map("map", { zoomControl: false }).setView([biz.lat, biz.lng], 16);
@@ -949,20 +1029,28 @@ async function sendRide() {
   const label = searched && c.distanceTo(searched.p) <= 40 ? searched.label : null;
   const btn = document.getElementById("sendBtn");
   btn.disabled = true;
-  btn.textContent = "Pidiendo…";
+  btn.textContent = sendWhen ? "Apartando…" : "Pidiendo…";
+  const body = {
+    dest_lat: c.lat, dest_lng: c.lng, dest_label: label,
+    client_name: clientName, order_note: document.getElementById("orderNote").value.trim(),
+  };
   try {
-    const r = await post("/business/rides", {
-      dest_lat: c.lat, dest_lng: c.lng, dest_label: label,
-      client_name: clientName, order_note: document.getElementById("orderNote").value.trim(),
-    });
-    if (phone) savePhone(r.id, phone);
-    toast("Listo, buscando chofer");
+    if (sendWhen) {
+      const at = nowMs() + sendWhen * 60000;
+      const b = await post("/business/bookings", { ...body, scheduled_at_ms: at });
+      if (phone) savePhone(-b.id, phone);
+      toast(`Listo: buscamos chofer para las ${horaLabel(at)}`);
+    } else {
+      const r = await post("/business/rides", body);
+      if (phone) savePhone(r.id, phone);
+      toast("Listo, buscando chofer");
+    }
     showHome();
   } catch (e) {
     toast(e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = "Buscar chofer";
+    renderWhenChips();
   }
 }
 

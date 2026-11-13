@@ -1838,6 +1838,7 @@ function bookingOfferPanelHtml(b) {
 }
 
 function bookingCardHtml(b) {
+  if (b.kind === "envio") return envioCardHtml(b);
   const km = haversine(b.pickup_lat, b.pickup_lng, b.dest_lat, b.dest_lng);
   const far = myPos ? haversine(myPos.lat, myPos.lng, b.pickup_lat, b.pickup_lng) : null;
   const people = b.passengers + b.children;
@@ -1864,6 +1865,26 @@ function bookingCardHtml(b) {
   </div>`;
 }
 
+// Envío de negocio apartado (12-nov-2026): sin propuesta de precio; el chofer
+// lo asegura y 10 min antes le llega solo como aceptado.
+function envioCardHtml(b) {
+  const km = haversine(b.pickup_lat, b.pickup_lng, b.dest_lat, b.dest_lng);
+  const far = myPos ? haversine(myPos.lat, myPos.lng, b.pickup_lat, b.pickup_lng) : null;
+  const actions = b.mine
+    ? `<button class="btn btn-secondary" data-release="${b.id}">Ya no puedo ir</button>`
+    : `<button class="btn" data-take="${b.id}">Asegurar envío</button>`;
+  return `<div class="ride-card card" style="margin-bottom:10px">
+    <div style="font-weight:800;font-size:16px">📦 Envío · ${escapeHtml(driverBookingWhen(b.scheduled_at_ms))}</div>
+    <div class="meta">Recoges en <b>${escapeHtml(b.business_name || "Negocio")}</b>${b.mine && b.client_name ? ` · para ${escapeHtml(b.client_name)}` : ""}</div>
+    ${b.mine && b.order_note ? `<div class="meta">Pedido: ${escapeHtml(b.order_note)}</div>` : ""}
+    <div class="ride-chips"><span class="chip chip-accent">${b.offer_price != null ? "$" + b.offer_price : "Envío"}</span><span class="chip">entrega ~${km.toFixed(1)} km</span>${far != null ? `<span class="chip">a ${far.toFixed(1)} km de ti</span>` : ""}</div>
+    <div class="bk-map" id="bkmap-${b.id}"></div>
+    <div class="bk-legend"><span><i style="background:#22c55e"></i>Negocio</span><span><i style="background:#111;border:2px solid #fff;box-shadow:0 0 0 1px #111"></i>${b.mine ? "Entrega" : "Entrega (aprox.)"}</span></div>
+    ${b.pickup_label ? `<div class="meta">Referencia: ${escapeHtml(b.pickup_label)}</div>` : ""}
+    ${actions}
+  </div>`;
+}
+
 // Dibuja el mapita de cada tarjeta. Antes de confirmar: zona aproximada (un
 // círculo de ~150 m); ya confirmado: el punto exacto.
 function drawBookingMaps() {
@@ -1878,7 +1899,7 @@ function drawBookingMaps() {
     const P = [b.pickup_lat, b.pickup_lng];
     const D = [b.dest_lat, b.dest_lng];
     L.polyline([P, D], { color: "#22c55e", weight: 3, dashArray: "6 8", opacity: 0.9 }).addTo(m);
-    if (b.mine) L.circleMarker(P, { radius: 9, color: "#fff", weight: 3, fillColor: "#22c55e", fillOpacity: 1 }).addTo(m);
+    if (b.mine || b.kind === "envio") L.circleMarker(P, { radius: 9, color: "#fff", weight: 3, fillColor: "#22c55e", fillOpacity: 1 }).addTo(m);
     else L.circle(P, { radius: 150, color: "#16a34a", weight: 2, fillColor: "#22c55e", fillOpacity: 0.25 }).addTo(m);
     L.circleMarker(D, { radius: 8, color: "#fff", weight: 3, fillColor: "#111", fillOpacity: 1 }).addTo(m);
     const box = L.latLngBounds([P, D]).pad(0.35);
@@ -1895,7 +1916,7 @@ function renderBookingsSheet() {
   const { mine, available } = driverBookings;
   box.innerHTML = `
     <div style="font-weight:800;font-size:18px;margin-bottom:4px">Viajes agendados</div>
-    <div class="meta" style="margin-bottom:12px;line-height:1.4">Al confirmar te comprometes a ir a esa hora. 15 minutos antes el viaje te aparece solo como aceptado. Si ya no puedes, suéltalo con tiempo para que otro chofer lo tome.</div>
+    <div class="meta" style="margin-bottom:12px;line-height:1.4">Al confirmar te comprometes a ir a esa hora. 15 minutos antes el viaje te aparece solo como aceptado (los envíos 📦, 10 minutos antes). Si ya no puedes, suéltalo con tiempo para que otro chofer lo tome.</div>
     ${mine.length ? `<div style="font-weight:700;margin:6px 0 8px">Tus viajes</div>${mine.map(bookingCardHtml).join("")}` : ""}
     <div style="font-weight:700;margin:6px 0 8px">Por confirmar</div>
     ${available.length ? available.map(bookingCardHtml).join("") : `<div class="empty">No hay viajes agendados por confirmar.</div>`}
@@ -1923,8 +1944,11 @@ function openBookingsSheet() {
     const id = Number((take || rel).dataset.take || (take || rel).dataset.release);
     const b = [...driverBookings.mine, ...driverBookings.available].find((x) => x.id === id);
     if (!b) return;
+    const envio = b.kind === "envio";
     const ok = take
-      ? await mvConfirm(`¿Confirmas que vas por ${b.rider_name}? ${driverBookingWhen(b.scheduled_at_ms)}, por $${b.offer_price}.`, "Sí, voy")
+      ? await mvConfirm(envio
+        ? `¿Aseguras el envío de ${b.business_name || "el negocio"}? Recoges ${driverBookingWhen(b.scheduled_at_ms)}.`
+        : `¿Confirmas que vas por ${b.rider_name}? ${driverBookingWhen(b.scheduled_at_ms)}, por $${b.offer_price}.`, "Sí, voy")
       : await mvConfirm("¿Seguro que ya no puedes ir? El viaje vuelve a quedar libre para otro chofer.", "Sí, soltarlo", true);
     if (!ok) return;
     const res = await fetch(API + `/api/bookings/${id}/${take ? "take" : "release"}`, {
@@ -1934,7 +1958,7 @@ function openBookingsSheet() {
     }).catch(() => null);
     const data = res ? await res.json().catch(() => ({})) : {};
     if (!res || !res.ok) showToast(data.error || "No se pudo, intenta de nuevo");
-    else showToast(take ? "✅ Viaje confirmado. Te avisamos 15 minutos antes." : "Listo, el viaje quedó libre para otro chofer");
+    else showToast(take ? (envio ? "✅ Envío asegurado. 10 minutos antes te llega solo." : "✅ Viaje confirmado. Te avisamos 15 minutos antes.") : "Listo, el viaje quedó libre para otro chofer");
     loadDriverBookings();
   });
 }
@@ -2153,7 +2177,7 @@ function connectWs() {
       driverBookingsReload = setTimeout(() => { driverBookingsReload = null; loadDriverBookings(); }, Math.random() * 4000);
     }
     if (type === "booking_started") onBookingStarted();
-    if (type === "booking_cancelled") { showToast(`El pasajero canceló su viaje agendado (${payload.when})`); loadDriverBookings(); }
+    if (type === "booking_cancelled") { showToast(payload.envio ? `El negocio canceló el envío apartado${payload.when ? ` (${payload.when})` : ""}` : `El pasajero canceló su viaje agendado (${payload.when})`); loadDriverBookings(); }
     if (type === "booking_offer_accepted") { playNotificationSound(); showToast(`✅ Aceptaron tu precio de $${payload.price}. Tu viaje: ${payload.when}`); loadDriverBookings(); }
     if (type === "booking_offer_rejected") { showToast("El pasajero no aceptó tu propuesta de precio"); loadDriverBookings(); }
     if (type === "ride_cancelled" && currentRide && currentRide.id === payload.rideId && !cancellingOwnRide) {
