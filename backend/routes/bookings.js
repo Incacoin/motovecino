@@ -118,7 +118,8 @@ async function commitError(driverId, b) {
     .prepare("SELECT scheduled_at_ms, service_kind FROM ride_bookings WHERE driver_id = ? AND status = 'confirmado' AND id != ?")
     .all(driverId, b.id);
   if (others.length >= MAX_PER_DRIVER) return `Ya tienes ${MAX_PER_DRIVER} viajes agendados`;
-  const gap = (o) => (isEnvio(b) || isEnvio(o) ? ENVIO_GAP_MS : DRIVER_GAP_MS);
+  // Envío con envío: 20 min bastan. Si uno es pasaje (puede ser largo), el espacio normal.
+  const gap = (o) => (isEnvio(b) && isEnvio(o) ? ENVIO_GAP_MS : DRIVER_GAP_MS);
   if (others.some((o) => Math.abs(Number(o.scheduled_at_ms) - when) < gap(o))) return "Ya tienes otro viaje agendado muy cerca de esa hora";
   return null;
 }
@@ -572,7 +573,9 @@ async function makeEnvioRide(b) {
     if (!o) return { fail: "El pedido ya no existe" };
     const err = await orders.orderReadyForDriver(o);
     if (err) return { fail: err };
-    return { ride: await orders.insertOrderRide(biz, o) };
+    const ride = await orders.insertOrderRide(biz, o);
+    if (!ride) return { fail: "El pedido ya cambió o la cuenta del cliente ya no existe" };
+    return { ride };
   }
   const owner = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
   if (!owner) return { fail: "La cuenta del negocio ya no existe" };
@@ -601,6 +604,10 @@ async function launchBooking(b) {
       const made = await makeEnvioRide(b);
       if (made.fail) return failBooking(b, made.fail);
       ride = made.ride;
+      // Ligado al apartado: así el viaje busca chofer el mismo tiempo que los
+      // agendados y, si algo falla a medias, se encuentra para cancelarlo.
+      await db.prepare("UPDATE rides SET booking_id = ? WHERE id = ?").run(b.id, ride.id);
+      ride.booking_id = b.id;
       Object.assign(ride, await rides.riderInfoFor(ride.rider_phone));
     } else {
       const rider = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
@@ -805,6 +812,7 @@ router.post("/business/bookings", async (req, res) => {
   if (req.body.order_id != null) {
     const o = await db.prepare("SELECT * FROM business_orders WHERE id = ? AND business_id = ?").get(Number(req.body.order_id), biz.id);
     if (!o) return res.status(404).json({ error: "Pedido no encontrado" });
+    if (o.status !== "aceptado") return res.status(409).json({ error: o.status === "propio" ? "Este pedido lo lleva tu repartidor" : "Primero acepta el pedido" });
     const err = await orders.orderReadyForDriver(o);
     if (err) return res.status(409).json({ error: err });
     const client = await db.prepare("SELECT name FROM riders WHERE id = ?").get(o.rider_id);

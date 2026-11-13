@@ -555,25 +555,35 @@ function nowMs() { return Date.now() + clockSkew; }
 async function loadBookings() {
   try { bookings = await post("/business/bookings/list", {}); } catch { return; }
   // El WhatsApp del cliente se guardó con el apartado; cuando ya salió, pasa al envío.
-  const tels = savedPhones();
-  bookings.forEach((b) => { if (b.ride && tels[-b.id] && !tels[b.ride.id]) savePhone(b.ride.id, tels[-b.id]); });
+  const tels = savedPhones(), bt = bkPhones();
+  bookings.forEach((b) => { if (b.ride && bt[b.id] && !tels[b.ride.id]) savePhone(b.ride.id, bt[b.id]); });
   renderBookings();
+}
+function bkPhones() { try { return JSON.parse(localStorage.getItem("mv_negocio_tels_bk") || "{}"); } catch { return {}; } }
+function saveBkPhone(id, phone) {
+  const all = bkPhones();
+  all[id] = phone;
+  const keys = Object.keys(all).sort((a, b) => b - a).slice(0, 30);
+  try { localStorage.setItem("mv_negocio_tels_bk", JSON.stringify(Object.fromEntries(keys.map((k) => [k, all[k]])))); } catch {}
 }
 function driverLine(d) { return `${escapeHtml(d.name)}${d.vehicle ? " · " + escapeHtml(d.vehicle) : ""}`; }
 function renderBookings() {
   const box = document.getElementById("bkBox");
-  const live = bookings.filter((b) => ["agendado", "confirmado"].includes(b.status) && !b.order_id);
+  const live = bookings.filter((b) => ["agendado", "confirmado", "fallido", "vencido"].includes(b.status) && !b.order_id);
   if (!live.length) { box.innerHTML = ""; return; }
-  box.innerHTML = `<div class="sec">Choferes apartados · ${live.length}</div><div class="list">` + live.map((b) => `<div class="card">
+  const failed = (b) => b.status === "fallido" || b.status === "vencido";
+  box.innerHTML = `<div class="sec">Choferes apartados · ${live.filter((b) => !failed(b)).length}</div><div class="list">` + live.map((b) => `<div class="card">
       <div class="row">
         <div class="av ${b.driver ? "" : "wait"}">${b.driver ? escapeHtml(b.driver.name.trim()[0] || "") : "…"}</div>
         <div style="min-width:0"><div class="n">Sale a las ${horaLabel(b.scheduled_at_ms)} · ${escapeHtml(b.client_name || "Cliente")}</div>
           <div class="s">${b.dest_label ? "a " + escapeHtml(b.dest_label) : "a la casa del cliente"}${b.order_note ? " · " + escapeHtml(b.order_note) : ""}</div></div>
       </div>
-      <div class="${b.driver ? "okbox" : "warnbox"}">${b.driver
+      <div class="${b.driver ? "okbox" : "warnbox"}">${failed(b)
+        ? `⚠️ <b>No salió${b.fail_reason ? ":" : "."}</b> ${escapeHtml(b.fail_reason || "")} Pide chofer ahora.`
+        : b.driver
         ? `✅ <b>Chofer asegurado:</b> ${driverLine(b.driver)}`
         : `⏳ <b>Buscando quién lo asegure.</b> Si nadie lo aparta, 5 min antes se manda a todos los choferes.`}</div>
-      <div class="btns"><button class="b red" onclick="cancelBooking(${b.id})">Cancelar apartado</button></div>
+      ${failed(b) ? "" : `<div class="btns"><button class="b red" onclick="cancelBooking(${b.id})">Cancelar apartado</button></div>`}
     </div>`).join("") + `</div>`;
 }
 async function cancelBooking(id) {
@@ -1038,7 +1048,7 @@ async function sendRide() {
     if (sendWhen) {
       const at = nowMs() + sendWhen * 60000;
       const b = await post("/business/bookings", { ...body, scheduled_at_ms: at });
-      if (phone) savePhone(-b.id, phone);
+      if (phone) saveBkPhone(b.id, phone);
       toast(`Listo: buscamos chofer para las ${horaLabel(at)}`);
     } else {
       const r = await post("/business/rides", body);

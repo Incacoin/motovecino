@@ -437,8 +437,11 @@ router.post("/business/orders/:id/request-driver", async (req, res) => {
     return res.status(409).json({ error: "Primero confirma que te llegó la transferencia" });
   }
   // "Pedir chofer ahora" gana: si tenía un chofer asegurado para más tarde, se suelta.
+  const launching = await db.prepare("SELECT id FROM ride_bookings WHERE order_id = ? AND status = 'lanzando'").get(o.id);
+  if (launching) return res.status(409).json({ error: "Tu chofer apartado ya está saliendo. Espera unos segundos." });
   await cancelOrderBookings(o.id);
   const ride = await insertOrderRide(b, o);
+  if (!ride) return res.status(409).json({ error: "Este pedido ya cambió. Actualiza la pantalla." });
   await realtime.broadcastNewRide(ride);
   realtime.startNoDriverTimer(ride.id, ride.ride_type, true);
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(o.id), "business"));
@@ -449,6 +452,13 @@ router.post("/business/orders/:id/request-driver", async (req, res) => {
 // lo aseguró desde antes, routes/bookings.js).
 async function insertOrderRide(b, o) {
   const client = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(o.rider_id);
+  if (!client) return null;
+  // Se aparta el pedido primero: si "Pedir chofer ahora" y el chofer asegurado
+  // salen al mismo tiempo, solo uno crea el viaje.
+  const claim = await db
+    .prepare("UPDATE business_orders SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = ? AND COALESCE(ride_id, 0) = ?")
+    .run(S.ENVIADO, o.id, o.status, o.ride_id || 0);
+  if (!claim.changes) return null;
   const cash = o.pay_method === "efectivo" ? o.total : 0;
   const code = String(crypto.randomInt(1, 10000)).padStart(4, "0");
   const ins = await db.prepare(
@@ -461,7 +471,7 @@ async function insertOrderRide(b, o) {
     o.dest_lat, o.dest_lng, o.dest_label, b.city, crypto.randomBytes(16).toString("base64url"), o.delivery_offer,
     client.name, summary(o) || null, b.id, b.name, o.id, cash, o.big, code
   );
-  await db.prepare(`UPDATE business_orders SET status = ?, ride_id = ?, updated_at = datetime('now') WHERE id = ?`).run(S.ENVIADO, ins.lastInsertRowid, o.id);
+  await db.prepare("UPDATE business_orders SET ride_id = ?, updated_at = datetime('now') WHERE id = ?").run(ins.lastInsertRowid, o.id);
   await db.prepare("UPDATE riders SET last_ride_at = datetime('now') WHERE id = ?").run(client.id);
   return db.prepare("SELECT * FROM rides WHERE id = ?").get(ins.lastInsertRowid);
 }
@@ -522,6 +532,7 @@ router.post("/business/orders/:id/delivered", async (req, res) => {
   if (!await moveOrder(got.o, S.PROPIO, "status = ?", [S.ENTREGADO])) {
     return res.status(409).json({ error: "Este pedido no lo lleva tu repartidor" });
   }
+  await cancelOrderBookings(got.o.id);
   res.json(await publicOrder(await db.prepare("SELECT * FROM business_orders WHERE id = ?").get(got.o.id), "business"));
 });
 

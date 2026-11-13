@@ -103,6 +103,7 @@ async function main() {
     const ride = await db.prepare("SELECT * FROM rides WHERE id = ?").get(s1.ride_id);
     check("es un domicilio del negocio, aceptado por Pedro", ride && ride.service_kind === "domicilio" && ride.business_id === bizId && ride.status === "aceptado" && ride.driver_id === A.id && ride.for_name === "María" && ride.for_note === "2 de cochinita", ride);
     check("sin precio inventado (tarifa normal de envío)", ride && ride.offer_price == null && ride.agreed_price == null, ride);
+    check("el viaje queda ligado al apartado", ride && ride.booking_id === e1.data.id, ride && ride.booking_id);
     await post(`/rides/${ride.id}/cancel`, { riderPhone: O.phone, riderPin: O.pin });
   }
 
@@ -113,6 +114,10 @@ async function main() {
   if (s2) {
     const ride = await db.prepare("SELECT * FROM rides WHERE id = ?").get(s2.ride_id);
     check("buscando chofer", ride && ride.status === "buscando" && ride.driver_id == null && ride.for_name === "Luis", ride);
+    // Ligado al apartado: no lo cancela el barrido de "nadie lo tomó" al minuto.
+    await sleep(3000);
+    const still = await db.prepare("SELECT status, booking_id FROM rides WHERE id = ?").get(ride.id);
+    check("sigue buscando (ventana de agendados)", still.status === "buscando" && still.booking_id === e2.id, still);
     await post(`/rides/${ride.id}/cancel`, { riderPhone: O.phone, riderPin: O.pin });
   }
 
@@ -169,8 +174,19 @@ async function main() {
   await post(`/business/orders/${o3.id}/own-delivery`, O);
   check("'lo entrego yo' suelta el chofer apartado", (await getBooking(p3.id)).status === "cancelado");
 
+  // Con su repartidor ya no se aparta chofer, y al entregarlo no queda nada colgado.
+  check("pedido 'lo entrego yo' no aparta chofer", (await post("/business/bookings", { ...O, order_id: o3.id, scheduled_at_ms: o3.ready_at_ms })).status === 409);
+  check("entregado por su repartidor", (await post(`/business/orders/${o3.id}/delivered`, O)).status === 200);
+
+  // Pasaje y envío del mismo chofer: el espacio largo de los viajes normales.
+  const near = (await post("/business/bookings", { ...manual, client_name: "Ana", scheduled_at_ms: at(150) })).data;
+  await db.prepare("INSERT INTO ride_bookings (rider_id, city, ride_type, pickup_lat, pickup_lng, dest_lat, dest_lng, passengers, children, offer_price, scheduled_at_ms, reminded, status, driver_id) VALUES (?, ?, 'moto', ?, ?, ?, ?, 1, 0, 20, ?, 1, 'confirmado', ?)")
+    .run(client.id, (await getBooking(near.id)).city, T.lat, T.lng, T.lat + 0.01, T.lng, at(125), B.id);
+  check("envío a 25 min de un pasaje suyo no", (await post(`/bookings/${near.id}/take`, DB_)).status === 409);
+  await db.prepare("UPDATE ride_bookings SET status = 'cancelado' WHERE driver_id = ? AND business_id IS NULL AND status = 'confirmado'").run(B.id);
+
   // Limpieza
-  for (const b of [e1.data, e2, e3]) await post(`/business/bookings/${b.id}/cancel`, O);
+  for (const b of [e1.data, e2, e3, near]) await post(`/business/bookings/${b.id}/cancel`, O);
 
   console.log(fail ? `✗ ${fail} mal, ${pass} bien` : `✓ ${pass} bien`);
   await db.close();
