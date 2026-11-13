@@ -13,6 +13,7 @@ const { photoUrls } = require("../photos");
 const { getCityById, zoneAt, sameCityForRide } = require("../cities");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const rides = require("./rides");
+const { MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
 
 const MIN = 60 * 1000;
 const MIN_AHEAD_MS = 40 * MIN; // menos que esto: mejor pedir el viaje normal
@@ -25,9 +26,14 @@ const DRIVER_GAP_MS = 45 * MIN; // un chofer no confirma dos viajes tan pegados
 const MAX_PER_RIDER = 3;
 const MAX_PER_DRIVER = 6;
 const LIVE = ["agendado", "confirmado"];
+const MAX_OPEN_OFFERS_PER_DRIVER = 10; // propuestas de precio sin contestar a la vez
+// Por qué el chofer pide más en un viaje agendado (13-nov-2026). Sin "está
+// lloviendo": el viaje es para otro día y no se sabe.
+const BOOKING_OFFER_REASONS = { lejos: "Es lejos", noche: "Es de noche", temprano: "Es muy temprano", camino: "Camino difícil", otro: "Otro" };
 
 const router = express.Router();
 router.param("id", (req, res, next, v) => (/^\d{1,9}$/.test(v) ? next() : res.status(404).json({ error: "No encontrado" })));
+router.param("offerId", (req, res, next, v) => (/^\d{1,9}$/.test(v) ? next() : res.status(404).json({ error: "No encontrado" })));
 
 const firstName = (name) => String(name || "").trim().split(/\s+/)[0] || "";
 
@@ -91,6 +97,32 @@ function driverFits(driver, b) {
   return true;
 }
 
+// ¿El chofer puede comprometerse a este viaje? (máximo de viajes y que no
+// choque con otro suyo). Lo mismo al confirmar y al aceptarle su precio.
+async function commitError(driverId, b) {
+  const when = Number(b.scheduled_at_ms);
+  const others = await db
+    .prepare("SELECT scheduled_at_ms FROM ride_bookings WHERE driver_id = ? AND status = 'confirmado' AND id != ?")
+    .all(driverId, b.id);
+  if (others.length >= MAX_PER_DRIVER) return `Ya tienes ${MAX_PER_DRIVER} viajes agendados`;
+  if (others.some((o) => Math.abs(Number(o.scheduled_at_ms) - when) < DRIVER_GAP_MS)) return "Ya tienes otro viaje agendado muy cerca de esa hora";
+  return null;
+}
+
+// Cierra las propuestas de precio que siguen sin contestar en este viaje (ya
+// lo confirmó alguien, lo cancelaron o ya salió) y avisa a esos choferes para
+// que su lista se actualice. exceptId: la que se acaba de aceptar.
+// maxPrice: solo las que quedaron igual o abajo de ese precio.
+async function closeOffers(bookingId, status = "cerrada", exceptId = 0, maxPrice = null) {
+  const open = maxPrice == null
+    ? await db.prepare("SELECT id, driver_id FROM booking_offers WHERE booking_id = ? AND status = 'pendiente' AND id != ?").all(bookingId, exceptId)
+    : await db.prepare("SELECT id, driver_id FROM booking_offers WHERE booking_id = ? AND status = 'pendiente' AND id != ? AND price <= ?").all(bookingId, exceptId, maxPrice);
+  for (const o of open) {
+    const r = await db.prepare("UPDATE booking_offers SET status = ?, responded_at = datetime('now') WHERE id = ? AND status = 'pendiente'").run(status, o.id);
+    if (r.changes) realtime.notifyDriver(o.driver_id, "bookings_changed", {});
+  }
+}
+
 // ---- Avisos ----
 
 // Aviso al celular del pasajero (si los activó al agendar).
@@ -142,6 +174,24 @@ async function riderView(b) {
     const r = await db.prepare("SELECT id, status, share_token FROM rides WHERE id = ?").get(b.ride_id);
     if (r) out.ride = { id: r.id, status: r.status, token: r.share_token };
   }
+  // Propuestas de precio de los choferes (sin su teléfono: igual que en el
+  // viaje normal, ese se entrega hasta que el viaje sale).
+  out.offers = [];
+  if (b.status === "agendado") {
+    const list = await db
+      .prepare(
+        `SELECT o.id, o.price, o.reason, d.id AS driver_id, d.name, d.vehicle, d.photo, d.es_fundador
+         FROM booking_offers o JOIN drivers d ON d.id = o.driver_id
+         WHERE o.booking_id = ? AND o.status = 'pendiente' AND d.deleted_at IS NULL ORDER BY o.price, o.id`
+      )
+      .all(b.id);
+    out.offers = list.map((o) => ({
+      id: o.id,
+      price: o.price,
+      reason: BOOKING_OFFER_REASONS[o.reason] || null,
+      driver: { name: firstName(o.name), vehicle: o.vehicle, es_fundador: o.es_fundador, photo: photoUrls("d", o.driver_id, o.photo).photo },
+    }));
+  }
   return out;
 }
 
@@ -150,7 +200,7 @@ async function riderView(b) {
 // del municipio durante días (regla de CLAUDE.md: nada de ubicación exacta
 // de otra persona al público). b trae rider_name y rider_trips (ver
 // BOOKING_DRIVER_SELECT).
-function driverView(b, driverId) {
+function driverView(b, driverId, myOffers = {}) {
   const mine = b.driver_id === driverId;
   const round = (v) => Math.round(v * 1000) / 1000;
   return {
@@ -169,6 +219,8 @@ function driverView(b, driverId) {
     offer_price: b.offer_price,
     rider_name: firstName(b.rider_name) || "Pasajero",
     riderTripCount: Number(b.rider_trips) || 0,
+    // Su propuesta de precio que el pasajero todavía no contesta.
+    myOffer: !mine && myOffers[b.id] ? { id: myOffers[b.id].id, price: myOffers[b.id].price, reason: myOffers[b.id].reason } : null,
   };
 }
 // Una sola consulta con el nombre del pasajero y cuántos viajes ha completado
@@ -248,6 +300,7 @@ router.post("/bookings/:id/cancel", async (req, res) => {
     .prepare("UPDATE ride_bookings SET status = 'cancelado', cancelled_by = 'rider', updated_at = datetime('now') WHERE id = ? AND status IN ('agendado', 'confirmado')")
     .run(b.id);
   if (r.changes === 0) return res.status(409).json({ error: "Este viaje ya salió. Si quieres cancelarlo, hazlo desde la pantalla del viaje." });
+  await closeOffers(b.id);
   if (b.driver_id) realtime.notifyDriver(b.driver_id, "booking_cancelled", { bookingId: b.id, when: whenText(b.scheduled_at_ms) });
   bookingsChanged(b).catch(() => {});
   res.json({ ok: true });
@@ -288,9 +341,13 @@ router.post("/bookings/driver", async (req, res) => {
     .prepare(`${BOOKING_DRIVER_SELECT} WHERE b.status = 'agendado' AND b.ride_type = ? ${taxi ? "" : "AND b.city = ?"} AND b.scheduled_at_ms > ? ORDER BY b.scheduled_at_ms LIMIT 60`)
     .all(...(taxi ? ["taxi"] : ["moto", driver.city || "tekax"]), now + LAUNCH_CONFIRMED_MS))
     .filter((b) => driverFits(driver, b));
+  const offers = await db.prepare("SELECT id, booking_id, price, reason FROM booking_offers WHERE driver_id = ? AND status = 'pendiente'").all(driver.id);
+  const myOffers = Object.fromEntries(offers.map((o) => [o.booking_id, o]));
   res.json({
     mine: mine.map((b) => driverView(b, driver.id)),
-    available: open.map((b) => driverView(b, driver.id)),
+    available: open.map((b) => driverView(b, driver.id, myOffers)),
+    offerReasons: BOOKING_OFFER_REASONS,
+    offerMaxUp: taxi ? TAXI_OFFER_MAX_UP : MOTO_OFFER_MAX_UP,
   });
 });
 
@@ -301,20 +358,141 @@ router.post("/bookings/:id/take", async (req, res) => {
   if (!b || !driverFits(driver, b)) return res.status(404).json({ error: "Este viaje ya no está disponible" });
   const when = Number(b.scheduled_at_ms);
   if (when <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco: este viaje va a salir como viaje normal" });
-  const others = await db
-    .prepare("SELECT scheduled_at_ms FROM ride_bookings WHERE driver_id = ? AND status = 'confirmado' AND id != ?")
-    .all(driver.id, b.id);
-  if (others.length >= MAX_PER_DRIVER) return res.status(409).json({ error: `Ya tienes ${MAX_PER_DRIVER} viajes agendados` });
-  if (others.some((o) => Math.abs(Number(o.scheduled_at_ms) - when) < DRIVER_GAP_MS)) {
-    return res.status(409).json({ error: "Ya tienes otro viaje agendado muy cerca de esa hora" });
-  }
+  const busy = await commitError(driver.id, b);
+  if (busy) return res.status(409).json({ error: busy });
   const r = await db
     .prepare("UPDATE ride_bookings SET status = 'confirmado', driver_id = ?, updated_at = datetime('now') WHERE id = ? AND status = 'agendado'")
     .run(driver.id, b.id);
   if (r.changes === 0) return res.status(409).json({ error: "Otro chofer ya lo confirmó" });
+  // Ya tiene chofer al precio del pasajero: las propuestas de otros se cierran.
+  await closeOffers(b.id);
   pushRider(b.id, `✅ ${firstName(driver.name)} confirmó tu viaje`, `Pasa por ti el ${whenText(when)}.`).catch(() => {});
   bookingsChanged(b).catch(() => {});
   res.json({ ok: true });
+});
+
+// ---- Propuestas de precio (contraoferta) en viajes agendados, 13-nov-2026 ----
+// El chofer propone más que el pasajero (con su motivo). No se queda con el
+// viaje: el pasajero acepta o rechaza. Mientras tanto otro chofer lo puede
+// confirmar al precio del pasajero (gana el primero, como en el viaje normal).
+router.post("/bookings/:id/offer", async (req, res) => {
+  const driver = await authDriver(req, res);
+  if (!driver) return;
+  const reason = Object.hasOwn(BOOKING_OFFER_REASONS, req.body?.reason) ? req.body.reason : null;
+  if (!reason) return res.status(400).json({ error: "Elige por qué pides más" });
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(Number(req.params.id));
+  if (!b || !driverFits(driver, b)) return res.status(404).json({ error: "Este viaje ya no está disponible" });
+  if (b.status !== "agendado") return res.status(409).json({ error: "Este viaje ya tiene chofer" });
+  if (Number(b.scheduled_at_ms) <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco: este viaje va a salir como viaje normal" });
+  const maxUp = b.ride_type === "taxi" ? TAXI_OFFER_MAX_UP : MOTO_OFFER_MAX_UP;
+  const price = Math.round(Number(req.body?.price));
+  if (!(price > b.offer_price) || price > b.offer_price + maxUp) {
+    return res.status(400).json({ error: `Tu precio debe ser más que $${b.offer_price} y máximo $${b.offer_price + maxUp}` });
+  }
+  const busy = await commitError(driver.id, b);
+  if (busy) return res.status(409).json({ error: busy });
+  // Límite de propuestas abiertas (sin contar la de este viaje, que se reemplaza).
+  const { n } = await db
+    .prepare("SELECT COUNT(*) AS n FROM booking_offers WHERE driver_id = ? AND status = 'pendiente' AND booking_id != ?")
+    .get(driver.id, b.id);
+  if (n >= MAX_OPEN_OFFERS_PER_DRIVER) return res.status(409).json({ error: "Ya tienes muchas propuestas sin contestar. Espera a que te respondan." });
+  // Una sola propuesta viva por chofer en cada viaje: la nueva reemplaza la anterior.
+  const prev = await db
+    .prepare("UPDATE booking_offers SET status = 'reemplazada', responded_at = datetime('now') WHERE booking_id = ? AND driver_id = ? AND status = 'pendiente'")
+    .run(b.id, driver.id);
+  try {
+    await db.prepare("INSERT INTO booking_offers (booking_id, driver_id, price, reason) VALUES (?, ?, ?, ?)").run(b.id, driver.id, price, reason);
+  } catch {
+    // Dos toques al mismo tiempo: el índice único deja pasar solo uno.
+    return res.status(409).json({ error: "Ya enviaste una propuesta para este viaje" });
+  }
+  // Aviso al celular solo la primera vez (si cambia su precio, el pasajero lo ve al abrir).
+  if (!prev.changes) {
+    pushRider(b.id, `💬 ${firstName(driver.name)} propone $${price} para tu viaje`, `${whenText(b.scheduled_at_ms)} · Motivo: ${BOOKING_OFFER_REASONS[reason]}. Ábrelo en Mis viajes agendados para aceptar o rechazar.`).catch(() => {});
+  }
+  res.json({ ok: true });
+});
+
+// El chofer retira su propuesta.
+router.post("/bookings/:id/offer/withdraw", async (req, res) => {
+  const driver = await authDriver(req, res);
+  if (!driver) return;
+  await db
+    .prepare("UPDATE booking_offers SET status = 'retirada', responded_at = datetime('now') WHERE booking_id = ? AND driver_id = ? AND status = 'pendiente'")
+    .run(Number(req.params.id), driver.id);
+  res.json({ ok: true });
+});
+
+// El pasajero acepta la propuesta: el viaje queda confirmado con ese chofer y ese precio.
+router.post("/bookings/:id/offers/:offerId/accept", async (req, res) => {
+  const rider = await authRider(req, res);
+  if (!rider) return;
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  if (!b) return res.status(404).json({ error: "No encontrado" });
+  const o = await db.prepare("SELECT * FROM booking_offers WHERE id = ? AND booking_id = ? AND status = 'pendiente'").get(Number(req.params.offerId), b.id);
+  if (!o) return res.status(409).json({ error: "Esta propuesta ya no está disponible" });
+  if (b.status !== "agendado") return res.status(409).json({ error: "Tu viaje ya tiene chofer" });
+  if (Number(b.scheduled_at_ms) <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco: tu viaje va a salir a los choferes cercanos" });
+  const d = await db.prepare("SELECT * FROM drivers WHERE id = ? AND deleted_at IS NULL").get(o.driver_id);
+  const busy = !d || !driverFits(d, b) ? "Ese chofer ya no está disponible" : await commitError(d.id, b);
+  if (busy) {
+    await db.prepare("UPDATE booking_offers SET status = 'cerrada', responded_at = datetime('now') WHERE id = ? AND status = 'pendiente'").run(o.id);
+    return res.status(409).json({ error: "Ese chofer ya no puede ir a esa hora. Su propuesta se quitó." });
+  }
+  // Primero se aparta la propuesta (si el chofer la cambió o retiró en este
+  // mismo momento, no se acepta un precio viejo) y luego el viaje.
+  const took = await db.prepare("UPDATE booking_offers SET status = 'aceptada', responded_at = datetime('now') WHERE id = ? AND status = 'pendiente'").run(o.id);
+  if (took.changes === 0) return res.status(409).json({ error: "Esta propuesta ya no está disponible" });
+  const r = await db
+    .prepare("UPDATE ride_bookings SET status = 'confirmado', driver_id = ?, offer_price = ?, updated_at = datetime('now') WHERE id = ? AND status = 'agendado' AND driver_id IS NULL")
+    .run(d.id, o.price, b.id);
+  if (r.changes === 0) {
+    await db.prepare("UPDATE booking_offers SET status = 'cerrada', responded_at = datetime('now') WHERE id = ?").run(o.id);
+    realtime.notifyDriver(d.id, "bookings_changed", {});
+    return res.status(409).json({ error: "Tu viaje ya tiene chofer" });
+  }
+  await closeOffers(b.id, "cerrada", o.id);
+  realtime.notifyDriver(d.id, "booking_offer_accepted", { bookingId: b.id, when: whenText(b.scheduled_at_ms), price: o.price });
+  bookingsChanged(b).catch(() => {});
+  res.json(await riderView(await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(b.id)));
+});
+
+// El pasajero rechaza la propuesta: se borra y el viaje sigue abierto.
+router.post("/bookings/:id/offers/:offerId/reject", async (req, res) => {
+  const rider = await authRider(req, res);
+  if (!rider) return;
+  const b = await db.prepare("SELECT id FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  if (!b) return res.status(404).json({ error: "No encontrado" });
+  const o = await db.prepare("SELECT id, driver_id FROM booking_offers WHERE id = ? AND booking_id = ?").get(Number(req.params.offerId), b.id);
+  if (!o) return res.status(404).json({ error: "No encontrado" });
+  const r = await db.prepare("UPDATE booking_offers SET status = 'rechazada', responded_at = datetime('now') WHERE id = ? AND status = 'pendiente'").run(o.id);
+  if (r.changes) realtime.notifyDriver(o.driver_id, "booking_offer_rejected", { bookingId: b.id });
+  res.json({ ok: true });
+});
+
+// El pasajero sube su precio (nadie lo ha confirmado). Las propuestas que ya
+// quedaron igual o abajo del precio nuevo se quitan solas.
+router.post("/bookings/:id/price", async (req, res) => {
+  const rider = await authRider(req, res);
+  if (!rider) return;
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ?").get(Number(req.params.id), rider.id);
+  if (!b) return res.status(404).json({ error: "No encontrado" });
+  if (b.status !== "agendado") return res.status(409).json({ error: "Tu viaje ya tiene chofer: ya no se puede cambiar el precio" });
+  if (Number(b.scheduled_at_ms) <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco para tu viaje" });
+  const price = Math.round(Number(req.body?.price));
+  if (!(price > b.offer_price)) return res.status(400).json({ error: `Escribe más de $${b.offer_price}` });
+  const checked = rides.checkRideRequest({
+    pickup_lat: b.pickup_lat, pickup_lng: b.pickup_lng, dest_lat: b.dest_lat, dest_lng: b.dest_lng,
+    passengers: b.passengers, children: b.children, ride_type: b.ride_type, service_kind: "pasaje", offer_price: price,
+  });
+  if (checked.error) return res.status(400).json({ error: checked.error });
+  const r = await db
+    .prepare("UPDATE ride_bookings SET offer_price = ?, updated_at = datetime('now') WHERE id = ? AND status = 'agendado' AND offer_price = ?")
+    .run(checked.offerPrice, b.id, b.offer_price);
+  if (r.changes === 0) return res.status(409).json({ error: "Tu viaje cambió. Vuelve a abrirlo." });
+  await closeOffers(b.id, "cerrada", 0, checked.offerPrice);
+  bookingsChanged(b).catch(() => {});
+  res.json(await riderView(await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(b.id)));
 });
 
 // El chofer ya no puede ir: el viaje vuelve a quedar libre para otro.
@@ -336,6 +514,7 @@ router.post("/bookings/:id/release", async (req, res) => {
 
 async function failBooking(b, reason) {
   await db.prepare("UPDATE ride_bookings SET status = 'fallido', fail_reason = ?, updated_at = datetime('now') WHERE id = ?").run(reason, b.id);
+  await closeOffers(b.id).catch(() => {});
   await pushRider(b.id, "No pudimos sacar tu viaje agendado", `${reason}. Pide tu viaje desde la app.`);
   if (b.driver_id) realtime.notifyDriver(b.driver_id, "bookings_changed", {});
 }
@@ -348,6 +527,7 @@ async function abortLaunch(bookingId, rideId) {
     ? await db.prepare("UPDATE rides SET status = 'cancelado', cancelled_by = 'system', cancel_reason = 'Error al sacar el viaje agendado', updated_at = datetime('now') WHERE id = ? AND status = 'buscando'").run(rideId)
     : await db.prepare("UPDATE rides SET status = 'cancelado', cancelled_by = 'system', cancel_reason = 'Error al sacar el viaje agendado', updated_at = datetime('now') WHERE booking_id = ? AND status = 'buscando'").run(bookingId);
   if (r.changes) await pushRider(bookingId, "No pudimos sacar tu viaje agendado", "Hubo un error. Pide tu viaje desde la app.").catch(() => {});
+  await closeOffers(bookingId).catch(() => {});
   return cancel.changes;
 }
 
@@ -361,6 +541,8 @@ async function launchBooking(b) {
       .prepare("UPDATE ride_bookings SET status = 'lanzando', updated_at = datetime('now') WHERE id = ? AND status = ? AND driver_id IS NULL")
       .run(b.id, b.status);
   if (claim.changes === 0) return;
+  // Ya sale: las propuestas de precio sin contestar se cierran.
+  await closeOffers(b.id).catch(() => {});
   let ride = null;
   try {
     const rider = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
@@ -449,7 +631,10 @@ async function sweepBookings() {
       .all(now - EXPIRE_AFTER_MS);
     for (const b of late) {
       const r = await db.prepare("UPDATE ride_bookings SET status = 'vencido', updated_at = datetime('now') WHERE id = ? AND status = ?").run(b.id, b.status);
-      if (r.changes) await pushRider(b.id, "Tu viaje agendado no salió", "Lo sentimos. Pide tu viaje desde la app.");
+      if (r.changes) {
+        await closeOffers(b.id);
+        await pushRider(b.id, "Tu viaje agendado no salió", "Lo sentimos. Pide tu viaje desde la app.");
+      }
     }
     // Aviso 1 h antes.
     const soon = await db
@@ -494,4 +679,5 @@ function startBookingSweep() {
 module.exports = router;
 module.exports.startBookingSweep = startBookingSweep;
 module.exports.sweepBookings = sweepBookings;
+module.exports.BOOKING_OFFER_REASONS = BOOKING_OFFER_REASONS;
 module.exports.BOOKING_TIMES = { MIN_AHEAD_MS, MAX_AHEAD_MS, LAUNCH_CONFIRMED_MS, LAUNCH_OPEN_MS };

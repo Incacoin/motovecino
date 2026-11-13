@@ -690,6 +690,7 @@ router.post("/admin/riders/:id/delete", checkAdminPin, async (req, res) => {
       await db.prepare("DELETE FROM rides WHERE rider_id = ? AND status = 'completado'").run(req.params.id);
     }
     // Viajes agendados (routes/bookings.js) y sus avisos.
+    await db.prepare("DELETE FROM booking_offers WHERE booking_id IN (SELECT id FROM ride_bookings WHERE rider_id = ?)").run(req.params.id);
     await db.prepare("DELETE FROM booking_push_subs WHERE booking_id IN (SELECT id FROM ride_bookings WHERE rider_id = ?)").run(req.params.id);
     await db.prepare("DELETE FROM ride_bookings WHERE rider_id = ?").run(req.params.id);
     await db.prepare("DELETE FROM riders WHERE id = ?").run(req.params.id);

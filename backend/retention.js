@@ -45,6 +45,7 @@ async function purgeOldPersonalData() {
 
     // Viajes agendados (routes/bookings.js) de hace más de un año: el viaje que
     // salió queda en rides (ya anonimizado arriba); la agenda ya no sirve.
+    await db.prepare("DELETE FROM booking_offers WHERE booking_id IN (SELECT id FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?)").run(RETENTION_DAYS);
     await db.prepare("DELETE FROM booking_push_subs WHERE booking_id IN (SELECT id FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?)").run(RETENTION_DAYS);
     await db.prepare("DELETE FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?").run(RETENTION_DAYS);
 

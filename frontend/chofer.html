@@ -332,6 +332,15 @@ function setDriverTheme(pref) {
   /* (30-sep: mapa en su color de siempre también de noche.) */
   /* 11-oct: en modo oscuro el mapa también va oscuro (igual que Negocios). */
   html[data-theme="dark"] #map .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
+  /* Mapita de cada viaje agendado (13-nov-2026): zona de recogida y destino. */
+  .bk-map { height: 160px; border-radius: 14px; overflow: hidden; margin: 10px 0 6px; border: 1px solid var(--border); }
+  .bk-map .leaflet-tile-pane { filter: grayscale(1) contrast(0.92) brightness(1.02); }
+  html[data-theme="dark"] .bk-map .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.9) brightness(0.85); }
+  .bk-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted, #8a8f98); margin-bottom: 8px; }
+  .bk-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .bk-offer { border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin: 8px 0; }
+  .bk-offer .lbl { font-weight: 700; font-size: 14px; margin: 2px 0 6px; }
+  .bk-wait { border-radius: 12px; padding: 10px 12px; margin: 8px 0; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.45); font-size: 14px; line-height: 1.35; }
   .veh-icon { background: none; border: 0; }
   .veh { width: 46px; height: 46px; transition: transform 0.6s ease; }
   .leaflet-control-zoom a { color: #000 !important; }
@@ -1805,19 +1814,79 @@ function renderBookingsCard() {
   card.style.display = "flex";
 }
 
+// Propuesta de precio en viajes agendados (13-nov-2026): panel abierto, cuánto
+// más y por qué, por viaje.
+let bkOfferOpen = {};
+let bkPick = {};
+let bkReason = {};
+let bkMaps = [];
+
+function bookingOfferPanelHtml(b) {
+  const maxUp = driverBookings.offerMaxUp || 40;
+  const steps = [5, 10, 15, 20, 30, 40, 60, 80, 100].filter((x) => x <= maxUp);
+  const pick = bkPick[b.id];
+  const reasons = Object.entries(driverBookings.offerReasons || {});
+  const ready = pick && bkReason[b.id];
+  return `<div class="bk-offer">
+    <div class="lbl">¿Cuánto más pides?</div>
+    <div class="reason-chips">${steps.map((x) => `<button type="button" class="${pick === x ? "sel" : ""}" data-bkpick="${b.id}:${x}">+$${x}</button>`).join("")}</div>
+    <div class="lbl" style="margin-top:10px">¿Por qué?</div>
+    <div class="reason-chips">${reasons.map(([k, t]) => `<button type="button" class="${bkReason[b.id] === k ? "sel" : ""}" data-bkreason="${b.id}:${k}">${escapeHtml(t)}</button>`).join("")}</div>
+    <button class="btn" style="margin-top:12px" data-bksend="${b.id}" ${ready ? "" : "disabled"}>${!pick ? "Elige cuánto más" : !bkReason[b.id] ? "Elige por qué pides más" : `Proponer $${b.offer_price + pick}`}</button>
+    <button class="btn btn-secondary" style="margin-top:8px" data-bkclose="${b.id}">Cancelar</button>
+  </div>`;
+}
+
 function bookingCardHtml(b) {
   const km = haversine(b.pickup_lat, b.pickup_lng, b.dest_lat, b.dest_lng);
   const far = myPos ? haversine(myPos.lat, myPos.lng, b.pickup_lat, b.pickup_lng) : null;
   const people = b.passengers + b.children;
+  const reasonTxt = b.myOffer ? (driverBookings.offerReasons || {})[b.myOffer.reason] : "";
+  let actions;
+  if (b.mine) actions = `<button class="btn btn-secondary" data-release="${b.id}">Ya no puedo ir</button>`;
+  else if (b.myOffer) {
+    actions = `<div class="bk-wait">Propusiste <b>$${b.myOffer.price}</b>${reasonTxt ? ` · ${escapeHtml(reasonTxt)}` : ""}.<br>Esperando que el pasajero responda.</div>
+      <button class="btn" data-take="${b.id}">Mejor confirmar por $${b.offer_price}</button>
+      <button class="btn btn-secondary" style="margin-top:8px" data-bkwithdraw="${b.id}">Retirar mi propuesta</button>`;
+  } else if (bkOfferOpen[b.id]) actions = bookingOfferPanelHtml(b);
+  else {
+    actions = `<button class="btn" data-take="${b.id}">Confirmar por $${b.offer_price}</button>
+      <button class="btn btn-secondary" style="margin-top:8px" data-bkopen="${b.id}">Proponer otro precio</button>`;
+  }
   return `<div class="ride-card card" style="margin-bottom:10px">
     <div style="font-weight:800;font-size:16px">${escapeHtml(driverBookingWhen(b.scheduled_at_ms))}</div>
     <div class="meta">${escapeHtml(b.rider_name)}${b.riderTripCount ? ` · ${b.riderTripCount} viaje${b.riderTripCount === 1 ? "" : "s"}` : " · nuevo"} · ${people} pasajero${people === 1 ? "" : "s"}</div>
     <div class="ride-chips"><span class="chip chip-accent">$${b.offer_price}</span><span class="chip">viaje ~${km.toFixed(1)} km</span>${far != null ? `<span class="chip">a ${far.toFixed(1)} km de ti</span>` : ""}</div>
+    <div class="bk-map" id="bkmap-${b.id}"></div>
+    <div class="bk-legend"><span><i style="background:#22c55e"></i>${b.mine ? "Recoge aquí" : "Zona de recogida (aprox.)"}</span><span><i style="background:#111;border:2px solid #fff;box-shadow:0 0 0 1px #111"></i>Destino</span></div>
     ${b.pickup_label ? `<div class="meta">Referencia: ${escapeHtml(b.pickup_label)}</div>` : ""}
-    ${b.mine
-      ? `<button class="btn btn-secondary" data-release="${b.id}">Ya no puedo ir</button>`
-      : `<button class="btn" data-take="${b.id}">Confirmar este viaje</button>`}
+    ${actions}
   </div>`;
+}
+
+// Dibuja el mapita de cada tarjeta. Antes de confirmar: zona aproximada (un
+// círculo de ~150 m); ya confirmado: el punto exacto.
+function drawBookingMaps() {
+  bkMaps.forEach((m) => { try { m.remove(); } catch {} });
+  bkMaps = [];
+  const all = [...driverBookings.mine, ...driverBookings.available];
+  for (const b of all) {
+    const el = document.getElementById(`bkmap-${b.id}`);
+    if (!el || typeof L === "undefined") continue;
+    const m = L.map(el, { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false, attributionControl: false, tap: false });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(m);
+    const P = [b.pickup_lat, b.pickup_lng];
+    const D = [b.dest_lat, b.dest_lng];
+    L.polyline([P, D], { color: "#22c55e", weight: 3, dashArray: "6 8", opacity: 0.9 }).addTo(m);
+    if (b.mine) L.circleMarker(P, { radius: 9, color: "#fff", weight: 3, fillColor: "#22c55e", fillOpacity: 1 }).addTo(m);
+    else L.circle(P, { radius: 150, color: "#16a34a", weight: 2, fillColor: "#22c55e", fillOpacity: 0.25 }).addTo(m);
+    L.circleMarker(D, { radius: 8, color: "#fff", weight: 3, fillColor: "#111", fillOpacity: 1 }).addTo(m);
+    const box = L.latLngBounds([P, D]).pad(0.35);
+    m.fitBounds(box, { maxZoom: 16 });
+    // La hoja se anima al abrir: volver a medir y encuadrar ya abierta (si no, quedan franjas grises).
+    setTimeout(() => { m.invalidateSize(); m.fitBounds(box, { maxZoom: 16 }); }, 350);
+    bkMaps.push(m);
+  }
 }
 
 function renderBookingsSheet() {
@@ -1831,6 +1900,7 @@ function renderBookingsSheet() {
     <div style="font-weight:700;margin:6px 0 8px">Por confirmar</div>
     ${available.length ? available.map(bookingCardHtml).join("") : `<div class="empty">No hay viajes agendados por confirmar.</div>`}
     <div class="mv-confirm-actions"><button class="btn" data-close="1">Listo</button></div>`;
+  drawBookingMaps();
 }
 
 function openBookingsSheet() {
@@ -1841,7 +1911,12 @@ function openBookingsSheet() {
   document.body.appendChild(ov);
   renderBookingsSheet();
   ov.addEventListener("click", async (e) => {
-    if (e.target === ov || e.target.closest("[data-close]")) return ov.remove();
+    if (e.target === ov || e.target.closest("[data-close]")) {
+      bkMaps.forEach((m) => { try { m.remove(); } catch {} });
+      bkMaps = [];
+      return ov.remove();
+    }
+    if (await onBookingOfferClick(e)) return;
     const take = e.target.closest("[data-take]");
     const rel = e.target.closest("[data-release]");
     if (!take && !rel) return;
@@ -1862,6 +1937,41 @@ function openBookingsSheet() {
     else showToast(take ? "✅ Viaje confirmado. Te avisamos 15 minutos antes." : "Listo, el viaje quedó libre para otro chofer");
     loadDriverBookings();
   });
+}
+
+// Botones de la propuesta de precio. Regresa true si el toque era de aquí.
+async function onBookingOfferClick(e) {
+  const el = e.target.closest("[data-bkopen],[data-bkclose],[data-bkpick],[data-bkreason],[data-bksend],[data-bkwithdraw]");
+  if (!el) return false;
+  const d = el.dataset;
+  if (d.bkopen) { bkOfferOpen[d.bkopen] = true; renderBookingsSheet(); return true; }
+  if (d.bkclose) { delete bkOfferOpen[d.bkclose]; delete bkPick[d.bkclose]; delete bkReason[d.bkclose]; renderBookingsSheet(); return true; }
+  if (d.bkpick) { const [id, x] = d.bkpick.split(":"); bkPick[id] = Number(x); renderBookingsSheet(); return true; }
+  if (d.bkreason) { const [id, k] = d.bkreason.split(":"); bkReason[id] = k; renderBookingsSheet(); return true; }
+  const id = Number(d.bksend || d.bkwithdraw);
+  const b = driverBookings.available.find((x) => x.id === id);
+  if (!b) return true;
+  if (d.bksend) {
+    const price = b.offer_price + (bkPick[id] || 0);
+    const ok = await mvConfirm(`¿Le propones $${price} a ${b.rider_name} por su viaje del ${driverBookingWhen(b.scheduled_at_ms)}? Si acepta, te comprometes a ir.`, "Sí, proponer");
+    if (!ok) return true;
+    const res = await fetch(API + `/api/bookings/${id}/offer`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driverId: driver.id, pin: driver.pin, price, reason: bkReason[id] }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    if (!res || !res.ok) showToast(data.error || "No se pudo, intenta de nuevo");
+    else { showToast("💬 Propuesta enviada. Te avisamos cuando responda."); delete bkOfferOpen[id]; delete bkPick[id]; delete bkReason[id]; }
+  } else {
+    const ok = await mvConfirm("¿Retiras tu propuesta de precio?", "Sí, retirar", true);
+    if (!ok) return true;
+    await fetch(API + `/api/bookings/${id}/offer/withdraw`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+    }).catch(() => null);
+  }
+  loadDriverBookings();
+  return true;
 }
 
 function onBookingStarted() {
@@ -2044,6 +2154,8 @@ function connectWs() {
     }
     if (type === "booking_started") onBookingStarted();
     if (type === "booking_cancelled") { showToast(`El pasajero canceló su viaje agendado (${payload.when})`); loadDriverBookings(); }
+    if (type === "booking_offer_accepted") { playNotificationSound(); showToast(`✅ Aceptaron tu precio de $${payload.price}. Tu viaje: ${payload.when}`); loadDriverBookings(); }
+    if (type === "booking_offer_rejected") { showToast("El pasajero no aceptó tu propuesta de precio"); loadDriverBookings(); }
     if (type === "ride_cancelled" && currentRide && currentRide.id === payload.rideId && !cancellingOwnRide) {
       // Regla del anticipo (Aviso Legal): confirmado = ya salió por él, se lo
       // queda; sin confirmar = lo que haya recibido se devuelve.
