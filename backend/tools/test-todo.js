@@ -25,6 +25,7 @@ const TESTS = [
   ["sesion", []],
   ["clave", []],
   ["celestun", []],
+  ["comisarias", []],
   ["agendar", ["DATABASE_URL"]],
   ["agendar-oferta", ["DATABASE_URL"]],
   ["envio-asegurado", ["DATABASE_URL"]],
