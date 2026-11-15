@@ -122,8 +122,8 @@ h1 em{font-style:normal;background:var(--degradado);-webkit-background-clip:text
   .portada .wrap{grid-template-columns:minmax(0,1fr) 500px;gap:28px}
   .escena{min-height:640px;align-items:center;justify-content:flex-end;gap:20px}
   .escena .cel{--w:270px}
-  h1 em{white-space:nowrap}
 }
+@media (min-width:1180px){h1 em{white-space:nowrap}}
 .ent{opacity:0;transform:translateY(22px);animation:entra .9s cubic-bezier(.2,.7,.2,1) forwards}
 .ent.d1{animation-delay:.05s}.ent.d2{animation-delay:.18s}.ent.d3{animation-delay:.32s}.ent.d4{animation-delay:.46s}.ent.d5{animation-delay:.6s}.ent.d6{animation-delay:.75s}
 @keyframes entra{to{opacity:1;transform:none}}
@@ -756,14 +756,14 @@ footer .wrap{display:grid;gap:26px}
   function cerrar(){var v=media.querySelector('video'); if(v) v.pause(); dlg.close();}
   document.addEventListener('click',function(e){var b=e.target.closest('[data-tuto]'); if(b){e.preventDefault(); abrir(b.getAttribute('data-tuto'));}});
   document.getElementById('tutoCerrar').addEventListener('click',cerrar);
-  dlg.addEventListener('click',function(e){if(e.target===dlg) cerrar();});
+  dlg.addEventListener('click',function(e){if(e.target!==dlg) return; var r=dlg.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) cerrar();});
   dlg.addEventListener('close',function(){var v=media.querySelector('video'); if(v) v.pause();});
 
   // ===== Historia 3D =====
   var hist=document.getElementById('historia'),esc=document.getElementById('escenario');
   var paneles=[].slice.call(hist.querySelectorAll('.panel')),puntos=[].slice.call(document.querySelectorAll('#puntosHist li')),desliza=document.getElementById('desliza');
   function sin3d(){hist.classList.add('sin3d');}
-  var ahorro=navigator.connection&&navigator.connection.saveData;
+  var ahorro=(navigator.connection&&navigator.connection.saveData)||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
   if(ahorro||!('IntersectionObserver' in window)){sin3d();return;}
   function getP(){
     if(hist.classList.contains('sin3d')) return 0;
@@ -788,7 +788,7 @@ footer .wrap{display:grid;gap:26px}
       if(!ok){sin3d();return;}
       requestAnimationFrame(function(){esc.classList.add('listo')});
     }).catch(function(err){console.warn('3D no disponible',err);sin3d();});
-  },{rootMargin:'900px 0px'}).observe(hist);
+  },{rootMargin:'250px 0px'}).observe(hist);
 })();
 </script>
 </body>

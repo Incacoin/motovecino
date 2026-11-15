@@ -347,11 +347,14 @@ export function iniciar(cont, getP) {
   window.addEventListener("pointermove", (e) => { mx = e.clientX / window.innerWidth - 0.5; my = e.clientY / window.innerHeight - 0.5; }, { passive: true });
 
   const camPos = v3(50, 44, 54), camTgt = v3(0, 0, 0), proy = new THREE.Vector3();
-  let activo = true, ultimo = performance.now(), t = 0;
-  new IntersectionObserver((e) => { activo = e[0].isIntersecting; if (activo) { ultimo = performance.now(); requestAnimationFrame(cuadro); } }, { rootMargin: "100px" }).observe(cont);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden && activo) { ultimo = performance.now(); requestAnimationFrame(cuadro); } });
+  let activo = true, ultimo = performance.now(), t = 0, pedido = 0;
+  // Un solo ciclo de dibujo a la vez: si ya hay un cuadro pedido no se pide otro.
+  const pedir = () => { if (!pedido) pedido = requestAnimationFrame(cuadro); };
+  new IntersectionObserver((e) => { activo = e[0].isIntersecting; if (activo) { ultimo = performance.now(); pedir(); } }, { rootMargin: "100px" }).observe(cont);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && activo) { ultimo = performance.now(); pedir(); } });
 
   function cuadro(ahora) {
+    pedido = 0;
     if (!activo || document.hidden) return;
     const dt = Math.min((ahora - ultimo) / 1000, 0.05); ultimo = ahora; t += dt;
     Ps += (getP() - Ps) * Math.min(1, dt * 5);
@@ -401,8 +404,8 @@ export function iniciar(cont, getP) {
     }
 
     renderer.render(scene, camera);
-    requestAnimationFrame(cuadro);
+    pedir();
   }
-  requestAnimationFrame(cuadro);
+  pedir();
   return { renderer };
 }

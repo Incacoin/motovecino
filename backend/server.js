@@ -127,6 +127,13 @@ app.use((req, res, next) => {
   const host = req.hostname || "";
   const isAdminHost = host.startsWith("admin.");
   const isOldHost = !isLocalHost(host) && !isAdminHost && host !== CANONICAL_HOST;
+  // La raíz de motovecinoapp.com es la página web (15-nov-2026). En los dominios
+  // viejos la raíz sigue abriendo la app, como antes, para no cambiarle nada a
+  // quien escanea un QR impreso viejo.
+  if (isOldHost && req.method === "GET" && req.path === "/") {
+    const q = req.originalUrl.indexOf("?");
+    return res.redirect(302, "/pasajero.html" + (q >= 0 ? req.originalUrl.slice(q) : ""));
+  }
   if (isOldHost && req.method === "GET" && PUBLIC_PAGES.has(req.path)) {
     return res.redirect(301, `https://${CANONICAL_HOST}${req.originalUrl}`);
   }
