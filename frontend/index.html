@@ -1,26 +1,795 @@
-<meta charset="UTF-8">
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="facebook-domain-verification" content="dzyvx72bigkmmm1xpi9tlasdlivcgl" />
-<title>MotoVecino</title>
+<title>MotoVecino · Muévete, pide y vende. En una sola app.</title>
+<meta name="description" content="Mototaxi, motocarro, taxi y pedidos a los negocios de tu municipio, en una sola app. Hecha en Yucatán, para la gente de Yucatán.">
+<meta name="theme-color" content="#0a0c10">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg?v=2">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=2">
 <link rel="apple-touch-icon" href="/icons/icon-512.png?v=2">
-<link rel="canonical" href="https://motovecinoapp.com/pasajero.html">
+<link rel="canonical" href="https://motovecinoapp.com/">
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="MotoVecino" />
-<meta property="og:title" content="MotoVecino" />
-<meta property="og:description" content="Pide mototaxi o taxi desde tu celular en Tekax, Yucatán. Viajes dentro de Tekax y a las comisarías, con choferes locales." />
+<meta property="og:title" content="MotoVecino | Muévete, pide y vende. En una sola app." />
+<meta property="og:description" content="Mototaxi, motocarro, taxi y pedidos a los negocios de tu municipio, con choferes de aquí. Hecha en Yucatán, para la gente de Yucatán." />
 <meta property="og:url" content="https://motovecinoapp.com/" />
 <meta property="og:image" content="https://motovecinoapp.com/og-motovecino-v2.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="MotoVecino: pide mototaxi o taxi desde tu celular en Tekax y sus comisarías" />
+<meta property="og:image:alt" content="MotoVecino: muévete, pide y vende en una sola app" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta property="og:locale" content="es_MX" />
-<meta http-equiv="refresh" content="0; url=/pasajero.html">
-<body style="font-family:sans-serif;background:#0a0c10;color:#e5e7eb;padding:24px">
-<h1>MotoVecino</h1>
-<p>Pide mototaxi o taxi desde tu celular en Tekax, Yucatán.</p>
-<p>MotoVecino es operado por <strong>ENZO SANCHEZ CARRILLO</strong>.</p>
-<p><a href="/pasajero.html" style="color:#22c55e">Abrir MotoVecino</a> · <a href="/aviso-privacidad.html" style="color:#22c55e">Aviso de privacidad</a> · <a href="/aviso-legal.html" style="color:#22c55e">Aviso legal</a></p>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" as="image" href="/inicio/app-en-camino.webp">
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+<style>
+:root{
+  --noche:#0a0c10; --fondo2:#0f1218; --vidrio:rgba(255,255,255,.045); --linea:rgba(255,255,255,.1);
+  --blanco:#f4f6f8; --gris:#9aa3af; --gris2:#c9ced6;
+  --v1:#86efac; --v2:#4ade80; --v3:#22c55e; --v4:#16a34a;
+  --degradado:linear-gradient(100deg,var(--v1) 0%,var(--v2) 35%,var(--v3) 70%,var(--v4) 100%);
+  --lado:max(20px,calc((100vw - 1180px)/2 + 32px));
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--noche);color:var(--blanco);font-family:Inter,system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--v2);outline-offset:3px;border-radius:10px}
+.wrap{width:100%;max-width:1180px;margin:0 auto;padding:0 20px}
+@media (min-width:900px){.wrap{padding:0 32px}}
+
+/* Fondo: brillos verdes y cuadrícula suave */
+.fondo{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.fondo::before{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:56px 56px;mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000 30%,transparent 75%)}
+.brillo{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55}
+.brillo.a{width:620px;height:620px;left:-180px;top:-200px;background:radial-gradient(closest-side,rgba(34,197,94,.45),transparent);animation:deriva 18s ease-in-out infinite alternate}
+.brillo.b{width:520px;height:520px;right:-160px;top:20vh;background:radial-gradient(closest-side,rgba(22,163,74,.35),transparent);animation:deriva 22s ease-in-out infinite alternate-reverse}
+@keyframes deriva{to{transform:translate(80px,60px) scale(1.12)}}
+
+/* Barra superior */
+.barra{position:sticky;top:0;z-index:30;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
+.barra.fija{background:rgba(10,12,16,.78);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border-color:var(--linea)}
+.barra .wrap{display:flex;align-items:center;justify-content:space-between;gap:14px;height:68px}
+.marca{display:flex;align-items:center;gap:11px;text-decoration:none;font-weight:800;font-size:19px;letter-spacing:-.03em}
+.marca img{width:38px;height:38px;border-radius:10px;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+.marca span{color:var(--gris);font-weight:600}
+.nav{display:flex;align-items:center;gap:4px}
+.nav a{text-decoration:none;font-size:15px;font-weight:500;color:var(--gris2);padding:9px 14px;border-radius:999px;transition:color .2s,background .2s}
+.nav a:hover{color:#fff;background:rgba(255,255,255,.06)}
+.nav .sec{display:none}
+@media (min-width:900px){.nav .sec{display:inline-block}}
+@media (max-width:420px){.marca span{display:none}}
+
+/* Botones */
+.btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;font-weight:700;font-size:16px;letter-spacing:-.01em;padding:15px 24px;border-radius:14px;min-height:52px;border:0;cursor:pointer;transition:transform .2s,box-shadow .25s,background .25s,border-color .25s}
+.btn.verde{color:#05210f;background:linear-gradient(180deg,#4ade80,#22c55e);box-shadow:0 10px 30px -8px rgba(34,197,94,.6),inset 0 1px 0 rgba(255,255,255,.35)}
+.btn.verde:hover{transform:translateY(-2px);box-shadow:0 16px 40px -8px rgba(34,197,94,.75),inset 0 1px 0 rgba(255,255,255,.35)}
+.btn.verde::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);animation:destello 4.5s ease-in-out infinite 2s}
+@keyframes destello{0%,70%{left:-60%}100%{left:130%}}
+.btn.vidrio{color:#fff;background:var(--vidrio);border:1px solid var(--linea);backdrop-filter:blur(10px)}
+.btn.vidrio:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.08)}
+.btn.chico{padding:11px 16px;min-height:44px;font-size:15px;border-radius:12px}
+.nav .btn{padding:10px 18px;min-height:42px;font-size:15px;border-radius:999px}
+.ico{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* Celular con captura real */
+.cel{--w:260px;position:relative;width:var(--w);aspect-ratio:390/844;border-radius:calc(var(--w)*.16);padding:calc(var(--w)*.032);
+  background:linear-gradient(160deg,#3a404b,#14171d 40%,#0c0e12);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),0 50px 90px -30px rgba(0,0,0,.9),0 0 80px -20px rgba(34,197,94,.35)}
+.cel img{width:100%;height:100%;object-fit:cover;object-position:top;border-radius:calc(var(--w)*.13);background:#0b0d12}
+.cel::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,.12),transparent 30%)}
+
+/* ============ PORTADA ============ */
+.portada{position:relative;padding:36px 0 40px}
+.portada .wrap{display:grid;gap:44px;align-items:center}
+.pildora{display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:var(--v1);padding:8px 16px;border-radius:999px;border:1px solid rgba(34,197,94,.35);background:rgba(34,197,94,.08)}
+.pildora i{width:8px;height:8px;border-radius:50%;background:var(--v3);box-shadow:0 0 0 0 rgba(34,197,94,.7);animation:latido 2s infinite}
+@keyframes latido{70%{box-shadow:0 0 0 10px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+h1{margin:22px 0 0;font-weight:800;letter-spacing:-.05em;line-height:.98;font-size:clamp(46px,6vw,74px)}
+h1 .l{display:block}
+h1 em{font-style:normal;background:var(--degradado);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% 100%;animation:brilla 6s ease-in-out infinite alternate}
+@keyframes brilla{to{background-position:100% 0}}
+.bajada{margin:clamp(22px,2.6vw,30px) 0 0;font-size:clamp(17px,1.9vw,21px);line-height:1.5;color:var(--gris);max-width:36ch}
+.bajada b{color:#fff;font-weight:600}
+.acciones{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+@media (max-width:520px){.acciones .btn{flex:1 1 100%}}
+.servicios{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;padding:0;list-style:none}
+.servicios li{font-size:14px;font-weight:600;color:var(--gris2);padding:7px 13px;border-radius:999px;background:var(--vidrio);border:1px solid var(--linea)}
+.escena{position:relative;display:flex;justify-content:center;padding:10px 0 30px}
+.escena .cel{--w:min(68vw,290px);animation:flota 7s ease-in-out infinite}
+@keyframes flota{50%{transform:translateY(-12px)}}
+.chips{display:flex;flex-direction:column;gap:16px}
+.chip{position:relative;width:250px;display:flex;align-items:center;gap:12px;padding:12px 16px 12px 12px;border-radius:18px;background:rgba(18,22,28,.82);border:1px solid var(--linea);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 40px -14px rgba(0,0,0,.8)}
+.chip .ci{width:40px;height:40px;flex:none;border-radius:12px;display:grid;place-items:center;color:var(--v2);background:rgba(34,197,94,.13);border:1px solid rgba(34,197,94,.3)}
+.chip b{display:block;font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.chip small{display:block;font-size:13px;color:var(--gris);line-height:1.3}
+.chip.c1{animation:flota 6s ease-in-out infinite .6s}
+.chip.c2{margin-left:-24px;animation:flota 6.5s ease-in-out infinite 1.4s}
+.chip.c3{animation:flota 7s ease-in-out infinite 2.2s}
+@media (max-width:899px){.escena{padding-top:0}.chips{display:none}}
+@media (min-width:900px){
+  .portada{padding:56px 0 70px}
+  .portada .wrap{grid-template-columns:minmax(0,1fr) 500px;gap:28px}
+  .escena{min-height:640px;align-items:center;justify-content:flex-end;gap:20px}
+  .escena .cel{--w:270px}
+  h1 em{white-space:nowrap}
+}
+.ent{opacity:0;transform:translateY(22px);animation:entra .9s cubic-bezier(.2,.7,.2,1) forwards}
+.ent.d1{animation-delay:.05s}.ent.d2{animation-delay:.18s}.ent.d3{animation-delay:.32s}.ent.d4{animation-delay:.46s}.ent.d5{animation-delay:.6s}.ent.d6{animation-delay:.75s}
+@keyframes entra{to{opacity:1;transform:none}}
+.escena.ent{transform:translateY(60px) scale(.96);animation-duration:1.2s}
+
+/* ============ HISTORIA 3D ============ */
+/* Sin 3D (o sin JavaScript): tarjetas una debajo de otra con su captura */
+.historia{position:relative;padding:72px 0}
+.pegado{position:relative}
+.escenario{display:none}
+.paneles{display:grid;gap:16px;width:100%;max-width:1180px;margin:0 auto;padding:0 20px}
+.panel{border-radius:26px;padding:26px 24px;background:rgba(15,18,24,.86);border:1px solid var(--linea)}
+.panel .etq{margin-bottom:10px}
+.panel h2,.panel h3{margin:0;font-weight:800;letter-spacing:-.04em;line-height:1.05}
+.panel h2{font-size:clamp(36px,5vw,56px)}
+.panel h3{font-size:clamp(28px,3.4vw,38px)}
+.panel h2 em,.panel h3 em{font-style:normal;background:var(--degradado);-webkit-background-clip:text;background-clip:text;color:transparent}
+.panel p{margin:12px 0 0;color:var(--gris);font-size:16.5px;line-height:1.55}
+.panel p b{color:#fff;font-weight:600}
+.panel .acciones{margin-top:20px;gap:10px}
+.panel-img{--w:200px;margin:22px auto 0}
+.desliza,.puntos-hist,.cargando{display:none}
+
+/* Con 3D: la maqueta se queda fija y la historia avanza al bajar */
+.js .historia:not(.sin3d){height:760vh;padding:0}
+.js .historia:not(.sin3d) .pegado{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
+.js .historia:not(.sin3d) .escenario{display:block;position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 60% 45%,rgba(34,197,94,.12),transparent 70%)}
+.js .historia:not(.sin3d) .escenario::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(var(--noche),transparent 14%,transparent 80%,var(--noche))}
+.lienzo3d{position:absolute;inset:0;width:100%!important;height:100%!important;opacity:0;transition:opacity 1.2s}
+.escenario.listo .lienzo3d{opacity:1}
+.js .historia:not(.sin3d) .cargando{display:flex;position:absolute;inset:0;align-items:center;justify-content:center;gap:12px;color:var(--gris);font-size:15px;font-weight:600;transition:opacity .6s}
+.cargando i{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(74,222,128,.25);border-top-color:var(--v2);animation:gira .9s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+.escenario.listo + .cargando,.escenario.listo ~ .cargando{opacity:0;pointer-events:none}
+.js .historia:not(.sin3d) .paneles{display:block;position:absolute;inset:0;max-width:none;padding:0;pointer-events:none}
+.js .historia:not(.sin3d) .panel{position:absolute;left:16px;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));padding:20px 20px 18px;opacity:0;transform:translateY(24px);transition:opacity .45s,transform .55s cubic-bezier(.2,.7,.2,1);
+  background:rgba(12,15,20,.78);backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);box-shadow:0 30px 60px -20px rgba(0,0,0,.8)}
+.js .historia:not(.sin3d) .panel.ve{opacity:1;transform:none;pointer-events:auto}
+.js .historia:not(.sin3d) .panel-img{display:none}
+.js .historia:not(.sin3d) .panel p{font-size:15.5px}
+.js .historia:not(.sin3d) .panel.p0,.js .historia:not(.sin3d) .panel.p6{background:linear-gradient(180deg,rgba(12,15,20,.7),rgba(12,15,20,.9))}
+@media (max-width:899px){.js .historia:not(.sin3d) .panel h3{font-size:26px}.js .historia:not(.sin3d) .panel h2{font-size:34px}.js .historia:not(.sin3d) .panel p{margin-top:8px}}
+@media (min-width:900px){
+  .js .historia:not(.sin3d) .panel{left:var(--lado);right:auto;bottom:auto;top:50%;width:420px;padding:30px 30px 26px;transform:translateY(-46%)}
+  .js .historia:not(.sin3d) .panel.ve{transform:translateY(-50%)}
+}
+.js .historia:not(.sin3d) .desliza{display:flex;position:absolute;left:50%;top:84px;transform:translateX(-50%);align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--gris2);padding:8px 14px;border-radius:999px;background:rgba(12,15,20,.7);border:1px solid var(--linea);transition:opacity .4s}
+.desliza i{width:14px;height:22px;border-radius:8px;border:2px solid var(--gris2);position:relative}
+.desliza i::after{content:"";position:absolute;left:50%;top:4px;width:3px;height:5px;margin-left:-1.5px;border-radius:2px;background:var(--v2);animation:rueda 1.6s infinite}
+@keyframes rueda{to{transform:translateY(7px);opacity:0}}
+.desliza.fuera{opacity:0}
+.js .historia:not(.sin3d) .puntos-hist{display:flex;flex-direction:column;gap:10px;position:absolute;right:max(14px,calc((100vw - 1180px)/2 + 20px));top:50%;transform:translateY(-50%);list-style:none;margin:0;padding:0}
+.puntos-hist li{display:flex;align-items:center;justify-content:flex-end;gap:10px;font-size:13px;font-weight:600;color:transparent;transition:color .3s}
+.puntos-hist li::after{content:"";width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);transition:all .3s}
+.puntos-hist li.ve{color:var(--v1)}
+.puntos-hist li.ve::after{background:var(--v2);box-shadow:0 0 0 4px rgba(34,197,94,.25);height:22px;border-radius:6px}
+@media (max-width:899px){.js .historia:not(.sin3d) .puntos-hist{top:96px;transform:none;right:12px}.puntos-hist li{font-size:0}}
+
+/* Etiquetas de la maqueta */
+.etiquetas3d{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.et3{position:absolute;left:0;top:0;padding:8px 12px;border-radius:12px;background:rgba(12,15,20,.82);border:1px solid var(--linea);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);white-space:nowrap;line-height:1.25;opacity:0;transition:opacity .35s,border-color .3s,box-shadow .3s;margin-top:-6px}
+.et3.ve{opacity:1}
+.et3 b{display:block;font-size:13px;font-weight:700}
+.et3 small{display:block;font-size:11.5px;color:var(--gris)}
+.et3.foco{border-color:rgba(74,222,128,.7);box-shadow:0 0 0 4px rgba(34,197,94,.15),0 10px 30px -8px rgba(34,197,94,.5)}
+.et3.gris b{color:var(--gris2)}
+.et3.evento{background:linear-gradient(180deg,#4ade80,#22c55e);border-color:transparent;color:#05210f;box-shadow:0 12px 30px -8px rgba(34,197,94,.7)}
+.et3.evento small{color:#0b3a1d}
+.et3::after{content:"";position:absolute;left:50%;bottom:-6px;width:10px;height:10px;margin-left:-5px;transform:rotate(45deg);background:inherit;border-right:1px solid var(--linea);border-bottom:1px solid var(--linea)}
+.et3.evento::after{border:0;background:#22c55e}
+
+/* ============ SECCIONES ============ */
+section.bloque{padding:72px 0}
+@media (min-width:900px){section.bloque{padding:110px 0}}
+.etq{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--v2);margin:0 0 14px}
+.etq::before{content:"";width:22px;height:2px;border-radius:2px;background:var(--v3)}
+h2{margin:0;font-weight:800;letter-spacing:-.04em;line-height:1.04;font-size:clamp(34px,5vw,58px);max-width:18ch}
+h2 em{font-style:normal;background:var(--degradado);-webkit-background-clip:text;background-clip:text;color:transparent}
+.intro{margin:18px 0 0;color:var(--gris);font-size:clamp(17px,1.6vw,19px);max-width:52ch}
+.intro b{color:#fff;font-weight:600}
+.js .rev{opacity:0;transform:translateY(34px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}
+.js .rev.ve{opacity:1;transform:none}
+.js .rev.r2{transition-delay:.12s}.js .rev.r3{transition-delay:.24s}.js .rev.r4{transition-delay:.36s}.js .rev.r5{transition-delay:.48s}
+
+/* Así se ve en tu celular */
+.tres{display:grid;gap:18px;margin-top:48px}
+.paso{position:relative;border-radius:28px;padding:28px 24px 0;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid var(--linea);overflow:hidden;transition:transform .35s,border-color .35s}
+.paso:hover{transform:translateY(-6px);border-color:rgba(34,197,94,.35)}
+.paso .cab{display:flex;align-items:center;gap:14px}
+.num{width:44px;height:44px;flex:none;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:19px;color:#05210f;background:linear-gradient(180deg,#86efac,#22c55e);box-shadow:0 8px 24px -6px rgba(34,197,94,.7)}
+.paso h3{margin:0;font-size:28px;font-weight:800;letter-spacing:-.035em;line-height:1.1}
+.paso p{margin:12px 0 0;color:var(--gris);font-size:16px;line-height:1.55;min-height:3.1em}
+.paso p b{color:#fff;font-weight:600}
+.paso .cel{--w:230px;margin:26px auto -150px;transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.paso:hover .cel{transform:translateY(-14px)}
+.paso .luz{position:absolute;left:50%;bottom:-120px;width:340px;height:260px;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(34,197,94,.3),transparent);pointer-events:none}
+@media (min-width:640px){.tres{grid-template-columns:1fr 1fr}}
+@media (min-width:1000px){.tres{grid-template-columns:repeat(4,1fr);gap:18px}.paso{padding:24px 20px 0}.paso h3{font-size:24px}.paso .cel{--w:200px}}
+
+/* ¿Cómo funciona? */
+.tutos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:44px}
+.tuto{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:14px;text-align:left;padding:20px 18px;border-radius:22px;background:var(--vidrio);border:1px solid var(--linea);cursor:pointer;transition:transform .3s,border-color .3s,background .3s}
+.tuto:hover{transform:translateY(-4px);border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.06)}
+.tuto .ti{width:50px;height:50px;border-radius:15px;display:grid;place-items:center;color:var(--v2);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);transition:transform .3s}
+.tuto:hover .ti{transform:scale(1.08) rotate(-4deg)}
+.tuto strong{display:block;font-size:17px;font-weight:800;letter-spacing:-.02em;line-height:1.25}
+.tuto small{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:13px;font-weight:600;color:var(--gris)}
+.tuto small.vid{color:var(--v1)}
+.tuto small svg{width:14px;height:14px}
+@media (min-width:900px){.tutos{grid-template-columns:repeat(4,1fr);gap:16px}.tuto{padding:24px 22px}.tuto strong{font-size:18px}}
+
+dialog.tuto-dlg{width:min(940px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:0;border:1px solid var(--linea);border-radius:28px;background:#0e1117;color:var(--blanco);box-shadow:0 40px 120px -20px rgba(0,0,0,.9),0 0 0 1px rgba(34,197,94,.15);overflow:auto}
+dialog.tuto-dlg::backdrop{background:rgba(5,7,10,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+dialog.tuto-dlg[open]{animation:abre .45s cubic-bezier(.2,.7,.2,1)}
+@keyframes abre{from{opacity:0;transform:translateY(24px) scale(.97)}}
+.dlg-in{display:grid;gap:24px;padding:24px}
+.dlg-media{display:flex;justify-content:center;align-items:flex-start}
+.dlg-media video{width:min(300px,72vw);aspect-ratio:9/16;border-radius:22px;background:#000;box-shadow:0 30px 60px -20px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.1)}
+.dlg-media .cel{--w:min(250px,62vw)}
+.dlg-media .simbolo{width:180px;height:180px;border-radius:44px;display:grid;place-items:center;color:var(--v2);background:radial-gradient(circle at 30% 20%,rgba(74,222,128,.25),rgba(34,197,94,.06));border:1px solid rgba(34,197,94,.35)}
+.dlg-media .simbolo .ico{width:84px;height:84px;stroke-width:1.5}
+.dlg-txt h3{margin:0;font-size:clamp(26px,3vw,34px);font-weight:800;letter-spacing:-.035em;line-height:1.1}
+.dlg-txt .sub{margin:8px 0 0;color:var(--gris)}
+.dlg-pasos{list-style:none;margin:22px 0 0;padding:0;display:grid;gap:12px;counter-reset:p}
+.dlg-pasos li{display:flex;gap:14px;align-items:flex-start;color:var(--gris2);font-size:16px;line-height:1.5}
+.dlg-pasos li::before{counter-increment:p;content:counter(p);flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:14px;color:#05210f;background:linear-gradient(180deg,#86efac,#22c55e)}
+.dlg-pasos b{color:#fff;font-weight:600}
+.dlg-nota{margin:18px 0 0;font-size:14px;color:var(--gris);padding:12px 14px;border-radius:14px;background:var(--vidrio);border:1px solid var(--linea)}
+.dlg-txt .acciones{margin-top:22px}
+.cerrar{position:sticky;top:12px;float:right;margin:12px 12px 0 0;width:42px;height:42px;border-radius:50%;border:1px solid var(--linea);background:rgba(20,24,30,.9);display:grid;place-items:center;cursor:pointer;z-index:2}
+.cerrar:hover{background:#1c222b}
+@media (min-width:760px){.dlg-in{grid-template-columns:auto 1fr;padding:36px;gap:40px;align-items:center}}
+
+/* Dos prioridades */
+.prioridades{display:grid;gap:16px;margin-top:44px}
+.prio{position:relative;border-radius:26px;padding:30px 28px;background:var(--vidrio);border:1px solid var(--linea);overflow:hidden}
+.prio::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(140deg,rgba(134,239,172,.6),transparent 45%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.prio .pi{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;color:var(--v2);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3)}
+.prio .pi .ico{width:28px;height:28px}
+.prio small{display:block;margin-top:22px;font-size:14px;font-weight:700;color:var(--v2)}
+.prio p{margin:6px 0 0;font-size:clamp(21px,2.3vw,26px);font-weight:700;letter-spacing:-.025em;line-height:1.25}
+.prio ul{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:8px}
+.prio li{display:flex;gap:10px;color:var(--gris);font-size:15.5px;line-height:1.45}
+.prio li::before{content:"";flex:none;width:7px;height:7px;margin-top:8px;border-radius:50%;background:var(--v3)}
+.prio li b{color:#fff;font-weight:600}
+@media (min-width:760px){.prioridades{grid-template-columns:1fr 1fr}}
+.nota{margin-top:16px;display:flex;gap:16px;padding:22px;border-radius:20px;background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.03));border:1px solid rgba(34,197,94,.28)}
+.nota .ico{color:var(--v2);margin-top:2px}
+.nota p{margin:0;color:var(--gris2);font-size:16px}
+.nota b{color:#fff}
+
+/* Negocios */
+.partida{display:grid;gap:44px;align-items:center}
+@media (min-width:900px){.partida{grid-template-columns:1fr 1fr;gap:72px}.partida.inv .visual{order:-1}}
+.lista{list-style:none;margin:30px 0 0;padding:0;display:grid;gap:4px}
+.lista li{display:flex;gap:14px;align-items:flex-start;padding:13px 0;color:var(--gris);border-bottom:1px solid rgba(255,255,255,.06)}
+.lista li:last-child{border-bottom:0}
+.lista li b{color:#fff;font-weight:600}
+.palomita{width:26px;height:26px;flex:none;margin-top:1px;border-radius:50%;display:grid;place-items:center;background:rgba(34,197,94,.15);color:var(--v2)}
+.palomita svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.duo{position:relative;display:flex;justify-content:center;align-items:flex-end;padding:20px 0}
+.duo .cel{--w:min(52vw,250px)}
+.duo .cel.atras{--w:min(44vw,215px);margin-right:-60px;margin-bottom:40px;filter:brightness(.8)}
+.duo .cel.frente{z-index:1}
+.sello-fila{display:flex;justify-content:center}
+.sello{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;font-size:14px;font-weight:700;color:#3b2a00;background:linear-gradient(180deg,#fde68a,#f59e0b);box-shadow:0 12px 30px -8px rgba(245,158,11,.6)}
+@media (min-width:900px){.duo .cel{--w:270px}.duo .cel.atras{--w:235px;margin-right:-70px}}
+
+/* Aquí todos ganan */
+.ganan{display:grid;gap:14px;margin-top:44px;grid-template-columns:1fr}
+.gana{border-radius:22px;padding:24px;background:var(--vidrio);border:1px solid var(--linea);transition:transform .3s,border-color .3s,background .3s}
+.gana:hover{transform:translateY(-4px);border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.05)}
+.gana .gi{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:var(--v2);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3)}
+.gana h3{margin:18px 0 0;font-size:20px;font-weight:800;letter-spacing:-.025em}
+.gana p{margin:6px 0 0;color:var(--gris);font-size:15.5px;line-height:1.5}
+.gana.ancha{background:linear-gradient(135deg,rgba(34,197,94,.16),rgba(34,197,94,.04));border-color:rgba(34,197,94,.35)}
+@media (min-width:640px){.ganan{grid-template-columns:1fr 1fr}.gana.ancha{grid-column:1 / -1}}
+@media (min-width:1000px){.ganan{grid-template-columns:repeat(4,1fr)}.gana.ancha{grid-column:1 / -1;display:flex;align-items:center;gap:22px}.gana.ancha h3{margin:0}}
+
+/* Con orden */
+.orden{position:relative;border-radius:34px;padding:44px 26px;text-align:center;overflow:hidden;background:radial-gradient(ellipse 70% 90% at 50% 0%,rgba(34,197,94,.2),transparent 70%),var(--fondo2);border:1px solid var(--linea)}
+.orden h2{margin:0 auto;max-width:20ch}
+.orden .intro{margin:20px auto 0;max-width:56ch}
+.orden .frase{margin:30px auto 0;display:inline-block;font-size:clamp(19px,2.2vw,24px);font-weight:700;letter-spacing:-.02em;padding:16px 26px;border-radius:18px;background:rgba(0,0,0,.25);border:1px solid rgba(34,197,94,.3)}
+.orden .frase em{font-style:normal;color:var(--v2)}
+.pasos-orden{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin:30px 0 0;padding:0;list-style:none}
+.pasos-orden li{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:var(--gris2);padding:9px 15px;border-radius:999px;background:var(--vidrio);border:1px solid var(--linea)}
+.pasos-orden .ico{width:18px;height:18px;color:var(--v2)}
+@media (min-width:900px){.orden{padding:80px 60px}}
+
+/* Súbete */
+.accesos{display:grid;gap:14px;margin-top:44px}
+.acceso{position:relative;display:flex;align-items:center;gap:18px;text-decoration:none;padding:22px;border-radius:24px;background:var(--vidrio);border:1px solid var(--linea);overflow:hidden;transition:transform .3s,border-color .3s,background .3s}
+.acceso:hover{transform:translateY(-4px);border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.06)}
+.acceso .ai{width:56px;height:56px;flex:none;border-radius:16px;display:grid;place-items:center;color:var(--v2);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3)}
+.acceso .ai .ico{width:28px;height:28px}
+.acceso strong{display:block;font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.2}
+.acceso small{display:block;margin-top:3px;font-size:15px;color:var(--gris);line-height:1.4}
+.acceso .flecha{margin-left:auto;flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.07);transition:transform .3s,background .3s}
+.acceso:hover .flecha{transform:translateX(4px);background:var(--v3);color:#05210f}
+.acceso.principal{background:linear-gradient(135deg,#4ade80,#16a34a);border-color:transparent;color:#05210f}
+.acceso.principal small{color:#0b3a1d}
+.acceso.principal .ai{background:rgba(5,33,15,.15);border-color:rgba(5,33,15,.2);color:#05210f}
+.acceso.principal .flecha{background:#05210f;color:#fff}
+.acceso.principal:hover{box-shadow:0 20px 50px -14px rgba(34,197,94,.7)}
+@media (min-width:760px){.accesos{grid-template-columns:1fr 1fr}.acceso.principal{grid-column:1 / -1;padding:30px}.acceso.principal strong{font-size:24px}}
+.barra-qr{display:grid;gap:22px;align-items:center;margin-top:18px;padding:24px;border-radius:26px;background:var(--fondo2);border:1px solid var(--linea)}
+.qr{width:112px;height:112px;padding:10px;border-radius:16px;background:#fff;flex:none}
+.qr img{width:100%;height:100%}
+.qr-txt{display:flex;gap:20px;align-items:center}
+.qr-txt b{display:block;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.qr-txt span{display:block;color:var(--gris);font-size:15px;margin-top:4px}
+.qr-txt span em{font-style:normal;color:var(--v2);font-weight:600}
+.wa{display:flex;align-items:center;gap:14px;text-decoration:none}
+.wa svg{width:46px;height:46px;flex:none}
+.wa small{display:block;color:var(--gris);font-size:14px}
+.wa b{display:block;font-size:clamp(24px,3vw,30px);font-weight:800;letter-spacing:-.03em;line-height:1.15}
+@media (min-width:860px){.barra-qr{grid-template-columns:1fr auto;padding:26px 34px}}
+@media (max-width:520px){.qr{display:none}}
+
+footer{margin-top:60px;border-top:1px solid var(--linea);padding:44px 0 50px}
+footer .wrap{display:grid;gap:26px}
+.koox{margin:0;font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:-.04em;line-height:1.1}
+.koox em{font-style:normal;background:var(--degradado);-webkit-background-clip:text;background-clip:text;color:transparent}
+.pie-sub{margin:8px 0 0;color:var(--gris);font-size:15px}
+.pie-enl{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:15px;color:var(--gris2)}
+.pie-enl a{text-decoration:none}
+.pie-enl a:hover{color:#fff;text-decoration:underline}
+.legal{margin:10px 0 0;color:var(--gris);font-size:13.5px;line-height:1.7}
+.legal b{color:var(--gris2);font-weight:600}
+@media (min-width:860px){footer .wrap{grid-template-columns:1fr auto;align-items:end}footer .der{text-align:right}.pie-enl{justify-content:flex-end}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .ent,.js .rev{opacity:1!important;transform:none!important}
+}
+</style>
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+
+<div class="fondo" aria-hidden="true"><div class="brillo a"></div><div class="brillo b"></div></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10v10h16V10"/><path d="M2 10l2-6h16l2 6c0 1.7-1.3 3-3 3s-3-1.3-3-3c0 1.7-1.3 3-3 3s-3-1.3-3-3c0 1.7-1.3 3-3 3s-3-1.3-3-3z"/><path d="M10 20v-5h4v5"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+  <symbol id="i-family" viewBox="0 0 24 24"><circle cx="8" cy="7" r="3"/><circle cx="17" cy="9" r="2.3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0"/><path d="M14 20a3.5 3.5 0 0 1 7 0"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-hand" viewBox="0 0 24 24"><path d="M7 11l3.5-3.5a2 2 0 0 1 2.8 0l4.2 4.2"/><path d="M2 12l4-4 3 3"/><path d="M22 12l-4-4"/><path d="M12 13l-2 2a1.5 1.5 0 0 0 2 2l1-1m-2 3l1 1a1.5 1.5 0 0 0 2-2m0 0l1 1a1.5 1.5 0 0 0 2-2l-2.5-2.5"/></symbol>
+  <symbol id="i-moto" viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3"/><circle cx="18.5" cy="17" r="3"/><path d="M5.5 17h7l3-6h-4"/><path d="M15.5 11L14 7h3"/><path d="M8.5 11h4"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M17 6l3 3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-android" viewBox="0 0 24 24"><path d="M6 10h12v7a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M6 9a6 6 0 0 1 12 0"/><path d="M8.5 4.5l1.2 2M15.5 4.5l-1.2 2"/><path d="M3.5 11v5M20.5 11v5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+  <symbol id="i-steps" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></symbol>
+</svg>
+
+<header class="barra" id="barra">
+  <div class="wrap">
+    <a class="marca" href="/" aria-label="MotoVecino, inicio"><img src="/icons/logo-mark.svg" alt="" width="38" height="38">MotoVecino <span>Yucatán</span></a>
+    <nav class="nav" aria-label="Menú">
+      <a class="sec" href="#como">Cómo funciona</a>
+      <a class="sec" href="/quiero-ser-chofer.html">Soy chofer</a>
+      <a class="sec" href="/negocio.html">Tengo un negocio</a>
+      <a class="btn verde" href="/pasajero.html">Abrir app</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <!-- PORTADA -->
+  <section class="portada">
+    <div class="wrap">
+      <div>
+        <span class="pildora ent d1"><i></i>Hecha en Yucatán, para la gente de Yucatán</span>
+        <h1><span class="l ent d2">Muévete, pide</span><span class="l ent d3">y vende.</span><em class="l ent d4">En una sola app.</em></h1>
+        <p class="bajada ent d5">Lo que hacen Uber, Uber Eats y Rappi, juntos en una app <b>pensada para nuestra gente</b> y para que <b>los negocios de aquí vendan más</b>.</p>
+        <div class="acciones ent d6">
+          <a class="btn verde" href="/pasajero.html">Abrir MotoVecino</a>
+          <a class="btn vidrio" href="#historia">Ver cómo funciona</a>
+        </div>
+        <ul class="servicios ent d6" aria-label="Servicios">
+          <li>Mototaxi</li><li>Motocarro</li><li>Taxi</li><li>Domicilio para negocios</li>
+        </ul>
+      </div>
+      <div class="escena ent d3" aria-hidden="true">
+        <div class="chips">
+          <div class="chip c1"><span class="ci"><svg class="ico"><use href="#i-pin"/></svg></span><span><b>Desde tu puerta</b><small>El chofer ve dónde estás</small></span></div>
+          <div class="chip c2"><span class="ci"><svg class="ico"><use href="#i-chat"/></svg></span><span><b>Tú propones el precio</b><small>Todo claro desde el principio</small></span></div>
+          <div class="chip c3"><span class="ci"><svg class="ico"><use href="#i-clock"/></svg></span><span><b>Agenda tu viaje</b><small>Para mañana temprano</small></span></div>
+        </div>
+        <div class="cel"><img src="/inicio/app-en-camino.webp" alt="" width="600" height="1298" fetchpriority="high"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORIA 3D: el mototaxi recorre el municipio al bajar -->
+  <section class="historia" id="historia" aria-label="Recorrido por las funciones de MotoVecino">
+    <div class="pegado">
+      <div class="escenario" id="escenario"></div>
+      <div class="cargando" aria-hidden="true"><i></i>Armando tu municipio…</div>
+      <div class="desliza" id="desliza" aria-hidden="true"><i></i>Desliza para recorrerlo</div>
+      <ol class="puntos-hist" id="puntosHist" aria-hidden="true">
+        <li data-k="1">Muévete</li><li data-k="2">Pide</li><li data-k="3">Agenda</li><li data-k="4">Aliados</li><li data-k="5">Vende</li>
+      </ol>
+      <div class="paneles">
+        <article class="panel p0" data-k="0">
+          <p class="etq">Recorre tu municipio</p>
+          <h2>Así se mueve <em>MotoVecino.</em></h2>
+          <p>Baja con el dedo y acompaña al mototaxi en cada parada: así funciona la app, paso por paso.</p>
+        </article>
+        <article class="panel" data-k="1">
+          <p class="etq">Parada 1 · Muévete</p>
+          <h3>Tu mototaxi, <em>hasta tu puerta.</em></h3>
+          <p>La parada queda lejos. Por eso <b>pides desde tu casa</b> y el chofer ve en el mapa dónde estás, aunque tu calle sea difícil de encontrar. Propón tu precio y síguelo en el mapa.</p>
+          <div class="cel panel-img"><img src="/inicio/app-en-camino.webp" alt="Tu mototaxi va en camino" width="600" height="1298" loading="lazy"></div>
+          <div class="acciones"><button class="btn vidrio chico" data-tuto="viaje"><svg class="ico" style="width:18px;height:18px"><use href="#i-steps"/></svg>Cómo pedir un viaje</button></div>
+        </article>
+        <article class="panel" data-k="2">
+          <p class="etq">Parada 2 · Pide</p>
+          <h3>Pide a los <em>negocios de aquí.</em></h3>
+          <p>Los mariscos de El Paisa, la cochinita, los panuchos o la tienda de la esquina, <b>con choferes de aquí</b>.</p>
+          <div class="cel panel-img"><img src="/inicio/app-negocios.webp" alt="Lista de negocios" width="600" height="1298" loading="lazy"></div>
+          <div class="acciones"><button class="btn vidrio chico" data-tuto="pedir"><svg class="ico" style="width:18px;height:18px"><use href="#i-steps"/></svg>Cómo pedir a un negocio</button></div>
+        </article>
+        <article class="panel" data-k="3">
+          <p class="etq">Parada 3 · Agenda</p>
+          <h3>¿Sales temprano? <em>Agenda tu viaje.</em></h3>
+          <p>Déjalo listo desde antes. <b>Te avisamos cuando un chofer confirme</b>, y si te propone otro precio, tú decides.</p>
+          <div class="cel panel-img"><img src="/inicio/app-agendado.webp" alt="Viaje agendado y confirmado" width="600" height="1298" loading="lazy"></div>
+          <div class="acciones"><button class="btn vidrio chico" data-tuto="agendar"><svg class="ico" style="width:18px;height:18px"><use href="#i-play"/></svg>Ver video: cómo agendar</button></div>
+        </article>
+        <article class="panel" data-k="4">
+          <p class="etq">Parada 4 · Aliados</p>
+          <h3>Negocios <em>aliados.</em></h3>
+          <p>Mientras la gente espera su viaje, la app le muestra <b>negocios aliados de su municipio</b>, con un botón para escribirles por WhatsApp.</p>
+          <div class="cel panel-img"><img src="/inicio/app-aliado.webp" alt="Negocio aliado mientras esperas tu viaje" width="600" height="1298" loading="lazy"></div>
+          <div class="acciones"><button class="btn vidrio chico" data-tuto="aliados"><svg class="ico" style="width:18px;height:18px"><use href="#i-steps"/></svg>Qué es un negocio aliado</button></div>
+        </article>
+        <article class="panel" data-k="5">
+          <p class="etq">Parada 5 · Vende</p>
+          <h3>Tu negocio <em>vende más.</em></h3>
+          <p>Recibes pedidos en tu celular. <b>Tú decides:</b> lo entregas tú o pides un chofer de MotoVecino. Domicilio para negocios que suma.</p>
+          <div class="cel panel-img"><img src="/inicio/app-panel-negocio.webp" alt="Panel de pedidos del negocio" width="600" height="1298" loading="lazy"></div>
+          <div class="acciones"><button class="btn vidrio chico" data-tuto="negocio"><svg class="ico" style="width:18px;height:18px"><use href="#i-play"/></svg>Ver video: registra tu negocio</button></div>
+        </article>
+        <article class="panel p6" data-k="6">
+          <p class="etq">Todo en una sola app</p>
+          <h2>Muévete, pide <em>y vende.</em></h2>
+          <p>Con choferes de aquí y los negocios de tu municipio. Cuando pides por MotoVecino, <b>el dinero se queda en casa</b>.</p>
+          <div class="acciones"><a class="btn verde chico" href="/pasajero.html">Abrir MotoVecino</a><a class="btn vidrio chico" href="#como">Ver tutoriales</a></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ASÍ SE VE EN TU CELULAR -->
+  <section class="bloque" aria-labelledby="t-app">
+    <div class="wrap">
+      <p class="etq rev">Así se ve en tu celular</p>
+      <h2 id="t-app" class="rev r2">Todo lo que haces en el día, <em>en un solo lugar.</em></h2>
+      <div class="tres">
+        <article class="paso rev">
+          <div class="cab"><span class="num">1</span><h3>Muévete</h3></div>
+          <p><b>Mototaxi, motocarro o taxi.</b> Sigue en el mapa por dónde viene tu chofer y propón tu precio.</p>
+          <div class="cel"><img src="/inicio/app-pasajero.webp" alt="Pantalla de inicio de MotoVecino" width="600" height="1298" loading="lazy"></div>
+          <div class="luz"></div>
+        </article>
+        <article class="paso rev r2">
+          <div class="cab"><span class="num">2</span><h3>Pide</h3></div>
+          <p><b>Los negocios de tu municipio</b> en tu celular, con choferes de aquí.</p>
+          <div class="cel"><img src="/inicio/app-negocios.webp" alt="Lista de negocios con Coctelería El Paisa" width="600" height="1298" loading="lazy"></div>
+          <div class="luz"></div>
+        </article>
+        <article class="paso rev r3">
+          <div class="cab"><span class="num">3</span><h3>Agenda</h3></div>
+          <p><b>Deja tu viaje listo</b> para más tarde. Te avisamos cuando un chofer confirme.</p>
+          <div class="cel"><img src="/inicio/app-agendado.webp" alt="Viaje agendado confirmado por el chofer" width="600" height="1298" loading="lazy"></div>
+          <div class="luz"></div>
+        </article>
+        <article class="paso rev r4">
+          <div class="cab"><span class="num">4</span><h3>Vende</h3></div>
+          <p><b>Tu negocio recibe pedidos</b> y crece junto con tu municipio.</p>
+          <div class="cel"><img src="/inicio/app-panel-negocio.webp" alt="Panel de pedidos de un negocio" width="600" height="1298" loading="lazy"></div>
+          <div class="luz"></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ¿CÓMO FUNCIONA? -->
+  <section class="bloque" id="como" aria-labelledby="t-como">
+    <div class="wrap">
+      <p class="etq rev">¿Cómo funciona?</p>
+      <h2 id="t-como" class="rev r2">Toca una función y <em>te enseñamos paso a paso.</em></h2>
+      <div class="tutos">
+        <button class="tuto rev" data-tuto="android"><span class="ti"><svg class="ico"><use href="#i-android"/></svg></span><span><strong>Instalar en Android</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
+        <button class="tuto rev r2" data-tuto="iphone"><span class="ti"><svg class="ico"><use href="#i-phone"/></svg></span><span><strong>Instalar en iPhone</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
+        <button class="tuto rev r3" data-tuto="viaje"><span class="ti"><svg class="ico"><use href="#i-moto"/></svg></span><span><strong>Pedir un viaje</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
+        <button class="tuto rev r4" data-tuto="agendar"><span class="ti"><svg class="ico"><use href="#i-clock"/></svg></span><span><strong>Agendar un viaje</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
+        <button class="tuto rev" data-tuto="pedir"><span class="ti"><svg class="ico"><use href="#i-bag"/></svg></span><span><strong>Pedir a un negocio</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
+        <button class="tuto rev r2" data-tuto="chofer"><span class="ti"><svg class="ico"><use href="#i-route"/></svg></span><span><strong>Darme de alta como chofer</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
+        <button class="tuto rev r3" data-tuto="negocio"><span class="ti"><svg class="ico"><use href="#i-store"/></svg></span><span><strong>Registrar mi negocio</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
+        <button class="tuto rev r4" data-tuto="aliados"><span class="ti"><svg class="ico"><use href="#i-star"/></svg></span><span><strong>Negocios aliados</strong><small><svg class="ico"><use href="#i-steps"/></svg>Paso a paso</small></span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- POR QUÉ + PRIORIDADES -->
+  <section class="bloque" aria-labelledby="t-porque">
+    <div class="wrap">
+      <p class="etq rev">Por qué nació MotoVecino</p>
+      <h2 id="t-porque" class="rev r2">Que el dinero <em>se quede en casa.</em></h2>
+      <p class="intro rev r3">Las grandes aplicaciones casi no llegan a nuestros municipios. Y cuando llegan, el dinero se va lejos. Por eso nació MotoVecino, con <b>dos prioridades</b>. Todo lo que hacemos gira alrededor de ellas.</p>
+      <div class="prioridades">
+        <div class="prio rev">
+          <span class="pi"><svg class="ico"><use href="#i-route"/></svg></span>
+          <small>Prioridad 1</small>
+          <p>Llevar movilidad a donde hoy es difícil moverse.</p>
+          <ul>
+            <li><span>En muchas colonias y comisarías <b>la parada queda lejos</b>: la gente camina con sus compras o espera bajo el sol.</span></li>
+            <li><span><b>Pides desde la puerta de tu casa</b> y el chofer ve en el mapa dónde estás.</span></li>
+            <li><span>Pensado para <b>los abuelitos, las mamás con niños</b> y quienes regresan tarde del trabajo.</span></li>
+          </ul>
+        </div>
+        <div class="prio rev r2">
+          <span class="pi"><svg class="ico"><use href="#i-store"/></svg></span>
+          <small>Prioridad 2</small>
+          <p>Que los negocios locales vendan más.</p>
+          <ul>
+            <li><span>El corazón de MotoVecino son <b>los pequeños y medianos negocios</b>.</span></li>
+            <li><span><b>Llegan a clientes nuevos,</b> incluso en las colonias más alejadas.</span></li>
+            <li><span>El domicilio <b>suma</b> a lo que ya hace cada negocio.</span></li>
+          </ul>
+        </div>
+      </div>
+      <div class="nota rev">
+        <svg class="ico"><use href="#i-hand"/></svg>
+        <p><b>Las paradas siguen siendo las paradas.</b> Quien vive cerca de una va a seguir tomando su mototaxi ahí, como siempre. Nosotros llevamos el servicio a donde hoy no llega fácil, con los mismos choferes de aquí y unidades con placa.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- NEGOCIOS -->
+  <section class="bloque" aria-labelledby="t-negocios">
+    <div class="wrap partida inv">
+      <div>
+        <p class="etq rev">Para negocios</p>
+        <h2 id="t-negocios" class="rev r2">Que los negocios de aquí <em>vendan más.</em></h2>
+        <ul class="lista">
+          <li class="rev"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Tu negocio en una vitrina digital:</b> logo, fotos y menú, a la vista de todo tu municipio.</span></li>
+          <li class="rev r2"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Recibe pedidos desde la app</b> y avisa cuando un platillo se agota.</span></li>
+          <li class="rev r3"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Tú decides:</b> lo entregas tú o pides un chofer de MotoVecino.</span></li>
+          <li class="rev r4"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Domicilio para negocios que suma:</b> cuando tu repartidor no se da abasto, te echamos la mano.</span></li>
+          <li class="rev r5"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Te registras tú mismo</b> desde tu celular, en pocos minutos.</span></li>
+        </ul>
+        <div class="acciones rev"><a class="btn verde" href="/negocio.html">Sumar mi negocio</a><button class="btn vidrio" data-tuto="negocio"><svg class="ico" style="width:18px;height:18px"><use href="#i-play"/></svg>Ver video</button></div>
+      </div>
+      <div class="visual rev r2">
+        <div class="sello-fila"><span class="sello"><svg class="ico" style="width:18px;height:18px"><use href="#i-star"/></svg>Negocio fundador</span></div>
+        <div class="duo">
+          <div class="cel atras"><img src="/inicio/app-panel-negocio.webp" alt="" width="600" height="1298" loading="lazy"></div>
+          <div class="cel frente"><img src="/inicio/app-vitrina.webp" alt="Vitrina de Coctelería El Paisa con su logo, fotos y menú" width="600" height="1298" loading="lazy"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AQUÍ TODOS GANAN -->
+  <section class="bloque" aria-labelledby="t-ganan">
+    <div class="wrap">
+      <p class="etq rev">De vecino a vecino</p>
+      <h2 id="t-ganan" class="rev r2">Aquí <em>todos ganan.</em></h2>
+      <div class="ganan">
+        <div class="gana rev"><span class="gi"><svg class="ico"><use href="#i-family"/></svg></span><h3>Las familias</h3><p>Se mueven y piden con facilidad, vivan donde vivan.</p></div>
+        <div class="gana rev r2"><span class="gi"><svg class="ico"><use href="#i-route"/></svg></span><h3>Los choferes</h3><p>Suman viajes nuevos, y deciden cuándo conectarse.</p></div>
+        <div class="gana rev r3"><span class="gi"><svg class="ico"><use href="#i-store"/></svg></span><h3>Los negocios</h3><p>Llegan a más clientes.</p></div>
+        <div class="gana rev r4"><span class="gi"><svg class="ico"><use href="#i-shield"/></svg></span><h3>El municipio</h3><p>Crece con orden: solo participan unidades con placa y en buen estado.</p></div>
+        <div class="gana ancha rev"><span class="gi"><svg class="ico"><use href="#i-home"/></svg></span><div><h3>El dinero se queda en casa</h3><p>Cuando pides por MotoVecino, el dinero no se va lejos: se queda aquí.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CON ORDEN -->
+  <section class="bloque" aria-labelledby="t-orden">
+    <div class="wrap">
+      <div class="orden rev">
+        <p class="etq" style="justify-content:center">Con orden y de la mano con todos</p>
+        <h2 id="t-orden">Estamos dando <em>nuestros primeros pasos.</em></h2>
+        <p class="intro">Queremos crecer con respeto a las reglas, escuchando a choferes, negocios y autoridades. Ya estamos llegando al sur de Yucatán y muy pronto a más municipios.</p>
+        <ul class="pasos-orden">
+          <li><svg class="ico"><use href="#i-shield"/></svg>Unidades con placa</li>
+          <li><svg class="ico"><use href="#i-route"/></svg>Choferes de aquí</li>
+          <li><svg class="ico"><use href="#i-star"/></svg>Choferes y negocios fundadores</li>
+        </ul>
+        <p class="frase">MotoVecino no viene a competir con nadie: <em>viene a sumar.</em></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SÚBETE -->
+  <section class="bloque" id="entrar" aria-labelledby="t-entrar">
+    <div class="wrap">
+      <p class="etq rev">Súbete</p>
+      <h2 id="t-entrar" class="rev r2">Conócela y <em>guárdala en tu celular.</em></h2>
+      <div class="accesos">
+        <a class="acceso principal rev" href="/pasajero.html">
+          <span class="ai"><svg class="ico"><use href="#i-moto"/></svg></span>
+          <span><strong>Pide un viaje o un pedido</strong><small>Abre MotoVecino y guárdala en tu celular.</small></span>
+          <span class="flecha"><svg class="ico" style="width:20px;height:20px"><use href="#i-arrow"/></svg></span>
+        </a>
+        <a class="acceso rev r2" href="/quiero-ser-chofer.html">
+          <span class="ai"><svg class="ico"><use href="#i-route"/></svg></span>
+          <span><strong>¿Eres chofer?</strong><small>Regístrate con tu mototaxi, motocarro o taxi.</small></span>
+          <span class="flecha"><svg class="ico" style="width:20px;height:20px"><use href="#i-arrow"/></svg></span>
+        </a>
+        <a class="acceso rev r3" href="/negocio.html">
+          <span class="ai"><svg class="ico"><use href="#i-store"/></svg></span>
+          <span><strong>¿Tienes un negocio?</strong><small>Súmalo desde la app y sé negocio fundador.</small></span>
+          <span class="flecha"><svg class="ico" style="width:20px;height:20px"><use href="#i-arrow"/></svg></span>
+        </a>
+        <a class="acceso rev r2" href="/chofer.html">
+          <span class="ai"><svg class="ico"><use href="#i-key"/></svg></span>
+          <span><strong>Ya soy chofer</strong><small>Entra a tu cuenta para recibir viajes.</small></span>
+          <span class="flecha"><svg class="ico" style="width:20px;height:20px"><use href="#i-arrow"/></svg></span>
+        </a>
+        <a class="acceso rev r3" href="/ayuda.html">
+          <span class="ai"><svg class="ico"><use href="#i-chat"/></svg></span>
+          <span><strong>Ayuda</strong><small>Preguntas frecuentes y cómo usar la app.</small></span>
+          <span class="flecha"><svg class="ico" style="width:20px;height:20px"><use href="#i-arrow"/></svg></span>
+        </a>
+      </div>
+      <div class="barra-qr rev">
+        <div class="qr-txt">
+          <div class="qr"><img src="/inicio/qr.svg" alt="Código QR para abrir motovecinoapp.com" width="92" height="92" loading="lazy"></div>
+          <div><b>Escanéala con tu celular</b><span>Entra a <em>motovecinoapp.com</em> · Muy pronto en Google Play</span></div>
+        </div>
+        <a class="wa" href="https://wa.me/529979739422" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#25D366"/><path fill="#fff" d="M16.9 14.3c-.3-.1-1.6-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.2.2-.3.2-.6.1-.3-.1-1.1-.4-2.2-1.3-.8-.7-1.3-1.6-1.5-1.9-.2-.3 0-.4.1-.6l.4-.5c.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.5-.5-.5-.6-.5h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.3s1 2.7 1.2 2.9c.1.2 2 3.1 4.9 4.3 2.4 1 2.9.8 3.4.7.5-.1 1.6-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.3z"/></svg>
+          <span><small>Te ayudamos por WhatsApp</small><b>997 973 9422</b></span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <p class="koox">De vecino a vecino. <em>¡Ko'ox!</em></p>
+      <p class="pie-sub">MotoVecino. Hecha en Yucatán, para la gente de Yucatán.</p>
+    </div>
+    <div class="der">
+      <nav class="pie-enl" aria-label="Enlaces">
+        <a href="/ayuda.html">Ayuda</a>
+        <a href="/aviso-privacidad.html">Aviso de privacidad</a>
+        <a href="/aviso-legal.html">Aviso legal</a>
+      </nav>
+      <p class="legal">MotoVecino es operado por ENZO SANCHEZ CARRILLO.<br>Tecnología de <b>Lealtad Digital</b></p>
+    </div>
+  </div>
+</footer>
+
+<dialog class="tuto-dlg" id="tutoDlg" aria-labelledby="tutoTitulo">
+  <button class="cerrar" id="tutoCerrar" aria-label="Cerrar"><svg class="ico" style="width:20px;height:20px"><use href="#i-x"/></svg></button>
+  <div class="dlg-in">
+    <div class="dlg-media" id="tutoMedia"></div>
+    <div class="dlg-txt">
+      <h3 id="tutoTitulo"></h3>
+      <p class="sub" id="tutoSub"></p>
+      <ol class="dlg-pasos" id="tutoPasos"></ol>
+      <p class="dlg-nota" id="tutoNota" hidden></p>
+      <div class="acciones" id="tutoAcc"></div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(function(){
+  // Barra superior
+  var barra=document.getElementById('barra');
+  function onScroll(){barra.classList.toggle('fija',window.scrollY>8)}
+  onScroll();window.addEventListener('scroll',onScroll,{passive:true});
+
+  // Aparecer al bajar
+  var els=document.querySelectorAll('.rev');
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(ent){ent.forEach(function(e){if(e.isIntersecting){e.target.classList.add('ve');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px',threshold:.12});
+    els.forEach(function(e){io.observe(e)});
+  } else els.forEach(function(e){e.classList.add('ve')});
+
+  // ===== Tutoriales =====
+  var WA='https://wa.me/529979739422';
+  var T={
+    android:{t:'Instalar en Android',s:'Tenla a un toque, como cualquier app.',video:'/inicio/videos/android.mp4',poster:'/inicio/videos/android.jpg',pasos:['Abre <b>Chrome</b> y entra a <b>motovecinoapp.com</b>.','Toca <b>Abrir MotoVecino</b> para entrar a la app.','Ya dentro de la app, toca <b>Instalar app</b>. Si no te sale, toca los tres puntitos ⋮ de arriba y luego <b>Agregar a pantalla de inicio</b>.','Confirma con <b>Instalar</b>. ¡Listo! Ya la tienes en tu pantalla.'],nota:'¿La abriste desde Facebook? Toca ⋮ y elige «Abrir en Chrome». Muy pronto también en Google Play.',acc:[['Abrir MotoVecino','/pasajero.html',1]]},
+    iphone:{t:'Instalar en iPhone',s:'En iPhone se instala desde Safari.',video:'/inicio/videos/iphone.mp4',poster:'/inicio/videos/iphone.jpg',pasos:['Abre <b>Safari</b> y entra a <b>motovecinoapp.com</b>.','Toca <b>Abrir MotoVecino</b> para entrar a la app.','Ya dentro de la app, toca <b>Compartir</b> (el cuadrito con la flecha, abajo).','Toca <b>Agregar a pantalla de inicio</b>. Baja un poquito en el menú si no lo ves.','Toca <b>Agregar</b>. ¡Listo! Ya la tienes como cualquier app.'],acc:[['Abrir MotoVecino','/pasajero.html',1]]},
+    viaje:{t:'Pedir un viaje',s:'Mototaxi, motocarro o taxi, desde tu puerta.',video:'/inicio/videos/viaje.mp4',poster:'/inicio/videos/viaje.jpg',pasos:['Abre MotoVecino y entra con <b>tu nombre y tu teléfono</b>.','<b>Partida:</b> mueve el mapa hasta tu puerta y toca <b>Confirmar punto de encuentro</b>.','<b>Destino:</b> marca a dónde vas.','<b>Tu viaje:</b> elige mototaxi o taxi y <b>propón tu precio</b>. El chofer lo acepta o te propone otro.','Sigue en el mapa por dónde viene tu chofer.'],acc:[['Pedir un viaje','/pasajero.html',1]]},
+    agendar:{t:'Agendar un viaje',s:'Deja tu viaje listo para más tarde.',video:'/inicio/videos/agendar.mp4',poster:'/inicio/videos/agendar.jpg',pasos:['Marca tu partida y tu destino, como en un viaje normal.','Toca <b>Agendar para más tarde</b> y elige el día y la hora (con al menos 40 minutos de anticipación).','Te avisamos cuando un chofer confirme. Si te propone otro precio, <b>tú lo aceptas o lo rechazas</b>.','Tus viajes quedan en <b>Mis viajes agendados</b>.'],nota:'Por ahora, agendar es solo para pasaje.',acc:[['Agendar mi viaje','/pasajero.html',1]]},
+    pedir:{t:'Pedir a un negocio',s:'Los negocios de tu municipio, con choferes de aquí.',video:'/inicio/videos/pedir.mp4',poster:'/inicio/videos/pedir.jpg',pasos:['Abre MotoVecino y toca <b>Negocios</b>.','Elige el negocio y tus productos. ¿No ves lo que buscas? Haz un <b>pedido especial</b>.','Confirma tu pedido y cómo vas a pagar.','El negocio lo prepara y lo entrega, o pide un chofer de MotoVecino. Síguelo en <b>Mis pedidos</b>.'],acc:[['Ver negocios','/pasajero.html',1]]},
+    chofer:{t:'Darme de alta como chofer',s:'Para mototaxi, motocarro o taxi con placa.',video:'/inicio/videos/chofer.mp4',poster:'/inicio/videos/chofer.jpg',pasos:['Entra a <b>motovecinoapp.com/quiero-ser-chofer.html</b>.','Llena tus datos: nombre, WhatsApp, municipio y tu vehículo.','Toma <b>una selfie</b> y <b>una foto con tu unidad</b> donde se vea la placa.','Agrega un contacto de emergencia, acepta los avisos y <b>firma con el dedo</b>.','Confirma con el código que te llega por WhatsApp. Te escribimos para completar tu alta y darte tu PIN.'],acc:[['Quiero ser chofer','/quiero-ser-chofer.html',1]]},
+    negocio:{t:'Registrar mi negocio',s:'Te registras tú mismo, desde tu celular.',video:'/inicio/videos/negocio.mp4',poster:'/inicio/videos/negocio.jpg',pasos:['Entra a MotoVecino y toca <b>Registrar mi negocio</b>.','Llena tu solicitud con los datos de tu negocio.','Revisamos tu solicitud y <b>te avisamos ahí mismo</b>.','Sube tu logo, tus fotos y tu menú, y empieza a recibir pedidos.'],nota:'Los primeros negocios de cada municipio son negocios fundadores.',acc:[['Sumar mi negocio','/negocio.html',1]]},
+    aliados:{t:'Negocios aliados',s:'Tu negocio, a la vista mientras la gente espera su viaje.',img:'/inicio/app-aliado.webp',pasos:['Mientras alguien busca o espera su chofer, la app le muestra <b>un negocio aliado</b> de su municipio.','Con un toque le puede <b>escribir por WhatsApp</b>.','Los negocios aliados salen <b>parejo, por turnos</b>.'],acc:[['Quiero ser negocio aliado',WA,1]]}
+  };
+  var dlg=document.getElementById('tutoDlg'),media=document.getElementById('tutoMedia');
+  function abrir(id){
+    var d=T[id]; if(!d||!dlg.showModal) return;
+    document.getElementById('tutoTitulo').textContent=d.t;
+    document.getElementById('tutoSub').textContent=d.s;
+    document.getElementById('tutoPasos').innerHTML=d.pasos.map(function(p){return '<li><span>'+p+'</span></li>'}).join('');
+    var n=document.getElementById('tutoNota'); n.hidden=!d.nota; n.textContent=d.nota||'';
+    document.getElementById('tutoAcc').innerHTML=d.acc.map(function(a){var ext=a[1].indexOf('http')===0;return '<a class="btn '+(a[2]?'verde':'vidrio')+'" href="'+a[1]+'"'+(ext?' rel="noopener"':'')+'>'+a[0]+'</a>'}).join('');
+    if(d.video) media.innerHTML='<video src="'+d.video+'" poster="'+d.poster+'" controls playsinline preload="none"></video>';
+    else if(d.img) media.innerHTML='<div class="cel"><img src="'+d.img+'" alt="" width="600" height="1298"></div>';
+    else media.innerHTML='<div class="simbolo"><svg class="ico"><use href="#'+d.icono+'"/></svg></div>';
+    dlg.showModal();
+    var v=media.querySelector('video'); if(v){var pr=v.play(); if(pr&&pr.catch) pr.catch(function(){});}
+  }
+  function cerrar(){var v=media.querySelector('video'); if(v) v.pause(); dlg.close();}
+  document.addEventListener('click',function(e){var b=e.target.closest('[data-tuto]'); if(b){e.preventDefault(); abrir(b.getAttribute('data-tuto'));}});
+  document.getElementById('tutoCerrar').addEventListener('click',cerrar);
+  dlg.addEventListener('click',function(e){if(e.target===dlg) cerrar();});
+  dlg.addEventListener('close',function(){var v=media.querySelector('video'); if(v) v.pause();});
+
+  // ===== Historia 3D =====
+  var hist=document.getElementById('historia'),esc=document.getElementById('escenario');
+  var paneles=[].slice.call(hist.querySelectorAll('.panel')),puntos=[].slice.call(document.querySelectorAll('#puntosHist li')),desliza=document.getElementById('desliza');
+  function sin3d(){hist.classList.add('sin3d');}
+  var ahorro=navigator.connection&&navigator.connection.saveData;
+  if(ahorro||!('IntersectionObserver' in window)){sin3d();return;}
+  function getP(){
+    if(hist.classList.contains('sin3d')) return 0;
+    var r=hist.getBoundingClientRect(),total=hist.offsetHeight-window.innerHeight;
+    return Math.max(0,Math.min(1,-r.top/total))*6;
+  }
+  var actual=-1;
+  function marcar(){
+    if(hist.classList.contains('sin3d')) return;
+    var P=getP(),k=Math.round(P),cerca=Math.abs(P-k)<0.4;
+    var nuevo=cerca?k:-1;
+    if(nuevo!==actual){actual=nuevo;paneles.forEach(function(p){p.classList.toggle('ve',+p.dataset.k===nuevo)});}
+    puntos.forEach(function(li){li.classList.toggle('ve',Math.abs(P-li.dataset.k)<0.5)});
+    desliza.classList.toggle('fuera',P>0.3);
+  }
+  window.addEventListener('scroll',marcar,{passive:true});window.addEventListener('resize',marcar);marcar();
+  var cargado=false;
+  new IntersectionObserver(function(e,o){
+    if(!e[0].isIntersecting||cargado) return; cargado=true; o.disconnect();
+    import('/inicio/maqueta.js').then(function(m){
+      var ok=m.iniciar(esc,getP);
+      if(!ok){sin3d();return;}
+      requestAnimationFrame(function(){esc.classList.add('listo')});
+    }).catch(function(err){console.warn('3D no disponible',err);sin3d();});
+  },{rootMargin:'900px 0px'}).observe(hist);
+})();
+</script>
 </body>
+</html>
