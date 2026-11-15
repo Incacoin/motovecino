@@ -101,6 +101,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// www.motovecinoapp.com → motovecinoapp.com, en la misma ruta y con la misma
+// ?query (301). Así quien escriba "www." llega a la página y a la misma sesión
+// de la app (un solo origen), en vez de a una copia aparte (15-nov-2026).
+app.use((req, res, next) => {
+  if (req.hostname === "www.motovecinoapp.com") return res.redirect(301, "https://motovecinoapp.com" + req.originalUrl);
+  next();
+});
+
 // Dominio oficial para Google. Los dominios viejos (motomayaapp.com,
 // motoyaapp.com, tekax.*, motoyatekax.onrender.com) siguen sirviendo la app
 // para no romper QRs impresos ni apps ya instaladas, pero Google los estaba
