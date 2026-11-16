@@ -698,7 +698,7 @@ export function iniciar(cont, getP) {
     nuevo: etiqueta("evento", "<b>Pedido nuevo</b><small>2 × Ceviche · El Paisa</small>", [px, 6.0, pz]),
     uxmal: etiqueta("lugar gris", "<b>Uxmal</b><small>Zona arqueológica maya</small>", [ux, 13.2, uz]),
     hacienda: etiqueta("lugar gris", "<b>Hacienda henequenera</b><small>Herencia de Yucatán</small>", [hx, 7.0, hz]),
-    llegaUx: etiqueta("evento", "<b>Llegaste a Uxmal</b><small>Pirámide del Adivino</small>", [ux, 3.4, uz + 7.6]),
+    llegaUx: etiqueta("evento", "<b>Uxmal</b><small>Zona arqueológica maya</small>", [ux, 3.4, uz + 7.6]),
   };
 
   // ---------- Cámara: un punto de vista por capítulo (0 inicio … 6 final) ----------
