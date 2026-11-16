@@ -23,11 +23,12 @@ export const LUGARES = {
   paisa: { pos: [12.1, 0, -16], puerta: [8, -16] },
   aliado: { pos: [16, 0, 12.1], puerta: [16, 8] },
 };
-// Recorridos del mototaxi por capítulo (1 Muévete, 2 Pide, 4 Aliados, 5 Vende)
+// Recorridos del mototaxi por capítulo (1 Muévete, 2 Pide, 3 Agenda, 4 Aliados, 5 Vende)
 const RUTAS = {
   1: [[-24, -36], [-24, -8], [-8, -8], [-8, 16]],
   2: [[-8, 16], [-8, -8], [8, -8], [8, -16]],
-  4: [[8, -16], [8, 8], [16, 8]],
+  3: [[8, -16], [8, -8], [-8, -8], [-8, 16]],
+  4: [[-8, 16], [-8, 8], [16, 8]],
   5: [[16, 8], [8, 8], [8, -16]],
 };
 
@@ -614,7 +615,7 @@ export function iniciar(cont, getP) {
   scene.add(NA.grupo(true));
   const toldo2 = pieza(new THREE.PlaneGeometry(4.2, 1.2), new THREE.MeshStandardMaterial({ map: rayas("#e46b97", "#ffffff"), side: THREE.DoubleSide }), ax, 2.6, az - 2.3, false);
   toldo2.rotation.set(Math.PI + 0.75, 0, 0);
-  const rot2 = pieza(new THREE.PlaneGeometry(3.4, 0.9), new THREE.MeshBasicMaterial({ map: letrero("ALIADO", "Negocio", "#2a0f1c", "#ff9cc2"), toneMapped: false }), ax, 3.25, az - 1.85, false);
+  const rot2 = pieza(new THREE.PlaneGeometry(3.4, 0.9), new THREE.MeshBasicMaterial({ map: letrero("MJ AZARCOYA", "Calzado · Aliado", "#2a0f1c", "#ff9cc2", 600, 160), toneMapped: false }), ax, 3.25, az - 1.85, false);
   rot2.rotation.y = Math.PI;
   pieza(new THREE.BoxGeometry(2.4, 1.5, 0.08), new THREE.MeshBasicMaterial({ color: C.luz, toneMapped: false }), ax, 1.1, az - 1.84, false);
 
@@ -687,7 +688,7 @@ export function iniciar(cont, getP) {
     casa: etiqueta("lugar", "<b>Tu casa</b><small>Aquí pasan por ti</small>", [cx, 5.4, cz]),
     parada: etiqueta("lugar gris", "<b>La parada</b><small>A varias cuadras</small>", [qx, 4.4, qz]),
     paisa: etiqueta("lugar", "<b>Coctelería El Paisa</b><small>Negocio fundador</small>", [px, 6.0, pz]),
-    aliado: etiqueta("lugar", "<b>Negocio aliado</b><small>De tu municipio</small>", [ax, 5.4, az]),
+    aliado: etiqueta("lugar", "<b>MJ Azarcoya</b><small>Negocio aliado de Ticul</small>", [ax, 5.4, az]),
     llego: etiqueta("evento", "<b>Tu chofer llegó a tu puerta</b>", [LUGARES.casa.puerta[0], 4.4, LUGARES.casa.puerta[1]]),
     pedido: etiqueta("evento", "<b>Pedido en camino</b><small>De El Paisa a tu casa</small>", [8, 4.6, -8]),
     agenda: etiqueta("evento", "<b>Mañana, 6:00 a.m.</b><small>Un chofer confirmó tu viaje</small>", [cx, 9.2, cz]),
@@ -718,7 +719,7 @@ export function iniciar(cont, getP) {
   function estadoMoto(P) {
     // Cada recorrido va del capítulo k-0.7 a k (llega justo cuando sale su texto)
     let pos = { x: RUTAS[1][0][0], z: RUTAS[1][0][1], ang: Math.PI / 2 };
-    for (const k of [1, 2, 4, 5]) {
+    for (const k of [1, 2, 3, 4, 5]) {
       const f = clamp((P - (k - 0.7)) / 0.62, 0, 1);
       if (P >= k - 0.7) pos = enRuta(k, suave(f));
     }
@@ -761,7 +762,7 @@ export function iniciar(cont, getP) {
     tmpM.set(m.x, 0, m.z);
 
     // Rutas
-    for (const k of [1, 2, 4, 5]) {
+    for (const k of [1, 2, 3, 4, 5]) {
       const f = clamp((P - (k - 0.7)) / 0.62, 0, 1);
       const fuerza = P > 5.6 ? 1 : (Math.abs(P - k) < 0.6 ? 1 : 0.3);
       dibujaRuta(k, suave(f), fuerza);
