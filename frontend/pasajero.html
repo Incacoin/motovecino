@@ -66,6 +66,7 @@ function toggleRiderTheme() {
 <script src="vehiculos-mapa.js?v=3"></script>
 <script src="buscador.js?v=5"></script>
 <script src="huella.js?v=2"></script>
+<script src="turismo.js?v=1"></script>
 <style>
   .screen { display: none; flex-direction: column; height: 100vh; overflow-y: auto; }
   .screen.active { display: flex; }
@@ -2312,6 +2313,7 @@ function applyZone(zone, zoneLabel, com, soon, offer) {
     tabMoto.classList.add("unavailable");
     renderVehCards();
   }
+  tourApplyVehicle();
   updateFareEstimate();
 }
 
@@ -3060,11 +3062,14 @@ function checkTourSection() {
   const city = resolvedCityId || "tekax";
   if (tourCity === city) return;
   tourCity = city;
+  let failed = false;
   fetch(`turismo/${encodeURIComponent(city)}.json?v=1`)
     .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null)
+    .catch(() => { failed = true; return null; })
     .then((d) => {
       if (tourCity !== city) return;
+      // Sin señal: se vuelve a intentar la próxima vez (no es que no haya lugares).
+      if (failed) tourCity = null;
       tourData = d && Array.isArray(d.lugares) && d.lugares.length ? d : null;
       document.getElementById("tourRow").style.display = tourData ? "" : "none";
       if (tourData) {
@@ -3098,7 +3103,7 @@ function tourCardHtml(l) {
   const dist = km == null ? "" : km < 1.5 ? "En el centro" : `A unos ${Math.round(km)} km`;
   const veh = km == null ? "" : far ? "En taxi" : "Mototaxi o taxi";
   const credit = l.foto && tourData.creditos && tourData.creditos[l.foto];
-  return `<div class="tour-card">
+  return `<div class="tour-card" data-cat="${escapeHtml(l.cat || "")}">
     <div class="tour-ph">${l.foto ? tourPhotoHtml(l.foto) : `<div class="tour-nophoto"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 20v-4h14v4"/><path d="M7 16v-4h10v4"/><path d="M9 12V8h6v4"/></svg>Foto muy pronto</div>`}${cat ? `<span class="tour-tag">${escapeHtml(cat.label)}</span>` : ""}</div>
     <div class="tour-body">
       <h3>${escapeHtml(l.n)}</h3>
@@ -3116,14 +3121,21 @@ function renderTour() {
   if (!d) return;
   document.getElementById("tourTitle").textContent = d.titulo;
   const cats = [{ id: "todos", label: "Todos" }].concat(d.categorias || []);
-  const list = d.lugares.filter((l) => tourFilter === "todos" || l.cat === tourFilter);
   document.getElementById("tourBody").innerHTML = `
     <div class="tour-hero">${tourHeroHtml(d.portada)}<div class="tour-hero-txt"><b>${escapeHtml(d.titulo)}</b><span>${escapeHtml(d.lema || "")}</span></div></div>
     <div class="tour-road"></div>
     <p class="tour-intro">Lugares que vale la pena visitar. Toca <b>«Llévame aquí»</b> y te llevamos.</p>
     <div class="tour-filter">${cats.map((c) => `<button type="button" class="${c.id === tourFilter ? "on" : ""}" data-f="${escapeHtml(c.id)}">${escapeHtml(c.label)}</button>`).join("")}</div>
-    ${list.map(tourCardHtml).join("")}
+    ${d.lugares.map(tourCardHtml).join("")}
     <div class="tour-foot">MotoVecino solo te lleva: no somos guía de turistas ni vendemos entradas. Horarios y costos pregúntalos en cada lugar.<br>¿Falta un lugar o tienes una buena foto? Escríbenos en <b>Ayuda</b>.</div>`;
+  applyTourFilter();
+}
+
+// El filtro solo esconde tarjetas: no vuelve a armar la pantalla ni las fotos.
+function applyTourFilter() {
+  const body = document.getElementById("tourBody");
+  body.querySelectorAll(".tour-filter [data-f]").forEach((b) => b.classList.toggle("on", b.dataset.f === tourFilter));
+  body.querySelectorAll(".tour-card").forEach((c) => { c.style.display = tourFilter === "todos" || c.dataset.cat === tourFilter ? "" : "none"; });
 }
 
 function openTour() {
@@ -3147,35 +3159,67 @@ document.getElementById("tourBody").addEventListener("click", (e) => {
   const f = e.target.closest("[data-f]");
   if (f) {
     tourFilter = f.dataset.f;
-    renderTour();
+    applyTourFilter();
     return;
   }
   const go = e.target.closest("[data-go]");
   if (go) tourGo(go.dataset.go);
 });
 
+// El lugar elegido con "Llévame aquí" mientras siga siendo el destino.
+var tourTrip = null; // { p: L.latLng, n }
+var tourForcedTaxi = false; // el taxi lo puso esta sección (no el pasajero)
+
 function tourGo(id) {
   const l = tourData && tourData.lugares.find((x) => x.id === id);
   if (!l || !l.p || !map) return;
-  const km = tourKm(l);
   closeTour();
   const ll = L.latLng(l.p[0], l.p[1]);
+  tourTrip = { p: ll, n: l.n };
   if (pickup && pickStep !== "pickup") {
     setDestAt(ll, l.n);
   } else {
-    // Todavía no marca dónde pasan por él: el destino queda listo y, al
-    // confirmar la partida, setPickupAt brinca directo a "Tu viaje".
-    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+    // Todavía no marca dónde pasan por él: el destino queda listo (con su pin)
+    // y, al confirmar la partida, setPickupAt brinca directo a "Tu viaje".
+    if (destMarker) map.removeLayer(destMarker);
     dest = ll;
     destLabel = l.n;
     destDecided = true;
+    destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map);
     updateFareEstimate();
     setPickStep("pickup");
     document.getElementById("stepSub").textContent = `Vas a ${l.n}. Ahora marca dónde pasamos por ti.`;
   }
-  if (km != null && km > (tourData.motoKm || 6) && serviceType !== "taxi") {
+  tourApplyVehicle();
+}
+
+// Taxi si el viaje real (desde donde pasan por él) es largo; si después queda
+// corto y el taxi lo había puesto esta sección, regresa a mototaxi. Corre al
+// elegir el lugar y cada vez que cambia la partida (setPickupAt y applyZone).
+function tourApplyVehicle() {
+  if (!tourTrip) return;
+  if (!dest || dest.lat !== tourTrip.p.lat || dest.lng !== tourTrip.p.lng) {
+    tourTrip = null; // cambió el destino por otro lado: ya no es asunto de esta sección
+    tourForcedTaxi = false;
+    return;
+  }
+  const from = pickup || deviceCoords || (tourData && tourData.centro ? { lat: tourData.centro[0], lng: tourData.centro[1] } : null);
+  const want = MVTurismo.vehicleFor({ from, to: dest, motoKm: tourData && tourData.motoKm, serviceType, tourForcedTaxi, serviceZone });
+  if (want === "taxi") {
     setServiceType("taxi");
-    if (serviceType === "taxi") showToast(`Por la distancia, a ${l.n} vas en taxi`);
+    if (serviceType === "taxi") {
+      tourForcedTaxi = true;
+      zoneForcedTaxi = false; // que applyZone no lo regrese a mototaxi
+      showToast(`Por la distancia, a ${tourTrip.n} vas en taxi`);
+    }
+  } else if (want === "moto") {
+    tourForcedTaxi = false;
+    setServiceType("moto");
+  } else if (serviceType === "taxi" && pickup && MVTurismo.km(pickup, dest) > ((tourData && tourData.motoKm) || 6)) {
+    // Ya estaba en taxi (por la zona): ahora es de esta sección, para que
+    // applyZone no lo cambie a mototaxi si mueve la partida a la zona urbana.
+    tourForcedTaxi = true;
+    zoneForcedTaxi = false;
   }
 }
 
@@ -3278,6 +3322,7 @@ function setPickupAt(latlng, label) {
   if (pickupMarker) map.removeLayer(pickupMarker);
   pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map);
   checkPickupZone();
+  tourApplyVehicle();
   updateFareEstimate();
   if (destDecided) {
     if (dest && !destMarker) destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map);
