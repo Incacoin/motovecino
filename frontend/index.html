@@ -260,6 +260,14 @@ dialog.tuto-dlg[open]{animation:abre .45s cubic-bezier(.2,.7,.2,1)}
 .dlg-pasos b{color:#fff;font-weight:600}
 .dlg-nota{margin:18px 0 0;font-size:14px;color:var(--gris);padding:12px 14px;border-radius:14px;background:var(--vidrio);border:1px solid var(--linea)}
 .dlg-txt .acciones{margin-top:22px}
+.dlg-pasos a.lnk{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:8px 14px;border-radius:12px;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.45);color:#86efac;font-weight:700;font-size:15px;text-decoration:none}
+.dlg-pasos a.lnk:hover{background:rgba(34,197,94,.24)}
+.tester-btn{display:inline-flex;align-items:center;gap:8px;margin:12px 0 0 0;padding:9px 14px;border-radius:14px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.4);color:#bbf7d0;font:inherit;font-size:14px;font-weight:700;cursor:pointer;line-height:1.2;text-align:left}
+.tester-btn:hover{background:rgba(34,197,94,.18)}
+.tester-btn .ico{width:18px;height:18px;color:var(--v2);flex:none}
+.portada .gplay-fila{display:flex;flex-wrap:wrap;align-items:center;gap:0 14px}
+.portada .gplay-fila .tester-btn{margin-top:22px}
+.tuto.destacado{grid-column:1/-1;border-color:rgba(34,197,94,.45);background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(34,197,94,.03))}
 .cerrar{position:sticky;top:12px;float:right;margin:12px 12px 0 0;width:42px;height:42px;border-radius:50%;border:1px solid var(--linea);background:rgba(20,24,30,.9);display:grid;place-items:center;cursor:pointer;z-index:2}
 .cerrar:hover{background:#1c222b}
 @media (min-width:760px){.dlg-in{grid-template-columns:auto 1fr;padding:36px;gap:40px;align-items:center}}
@@ -437,7 +445,7 @@ footer .wrap{display:grid;gap:26px}
         <ul class="servicios ent d6" aria-label="Servicios">
           <li>Mototaxi</li><li>Motocarro</li><li>Taxi</li><li>Domicilio para negocios</li>
         </ul>
-        <div class="ent d6"><span class="gplay" role="img" aria-label="Muy pronto en Google Play"><span class="gi"><img src="/inicio/google-play.png" alt="" width="22" height="25"></span><span><small>MUY PRONTO EN</small><b>Google Play</b></span></span></div>
+        <div class="ent d6 gplay-fila"><span class="gplay" role="img" aria-label="Muy pronto en Google Play"><span class="gi"><img src="/inicio/google-play.png" alt="" width="22" height="25"></span><span><small>MUY PRONTO EN</small><b>Google Play</b></span></span><button class="tester-btn" data-tuto="tester"><svg class="ico"><use href="#i-android"/></svg>¿Tienes Android? Ayúdanos a probarla</button></div>
       </div>
       <div class="escena ent d3" aria-hidden="true">
         <div class="chips">
@@ -572,6 +580,7 @@ footer .wrap{display:grid;gap:26px}
         <button class="tuto rev r2" data-tuto="chofer"><span class="ti"><svg class="ico"><use href="#i-route"/></svg></span><span><strong>Darme de alta como chofer</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
         <button class="tuto rev r3" data-tuto="negocio"><span class="ti"><svg class="ico"><use href="#i-store"/></svg></span><span><strong>Registrar mi negocio</strong><small class="vid"><svg class="ico"><use href="#i-play"/></svg>Video</small></span></button>
         <button class="tuto rev r4" data-tuto="aliados"><span class="ti"><svg class="ico"><use href="#i-star"/></svg></span><span><strong>Negocios aliados</strong><small><svg class="ico"><use href="#i-steps"/></svg>Paso a paso</small></span></button>
+        <button class="tuto rev destacado" data-tuto="tester" id="probar"><span class="ti"><svg class="ico"><use href="#i-android"/></svg></span><span><strong>Pruébala en Google Play</strong><small><svg class="ico"><use href="#i-steps"/></svg>Hazte tester: 4 pasos · solo Android</small></span></button>
       </div>
     </div>
   </section>
@@ -819,6 +828,7 @@ footer .wrap{display:grid;gap:26px}
     pedir:{t:'Pedir a un negocio',s:'Los negocios de tu municipio, con choferes de aquí.',video:'/inicio/videos/pedir.mp4',poster:'/inicio/videos/pedir.jpg',pasos:['Abre MotoVecino y toca <b>Negocios</b>.','Elige el negocio y tus productos. ¿No ves lo que buscas? Haz un <b>pedido especial</b>.','Confirma tu pedido y cómo vas a pagar.','El negocio lo prepara y lo entrega, o pide un chofer de MotoVecino. Síguelo en <b>Mis pedidos</b>.'],acc:[['Ver negocios','/pasajero.html',1]]},
     chofer:{t:'Darme de alta como chofer',s:'Para mototaxi, motocarro o taxi con placa.',video:'/inicio/videos/chofer.mp4',poster:'/inicio/videos/chofer.jpg',pasos:['Entra a <b>www.motovecinoapp.com/quiero-ser-chofer.html</b>.','Llena tus datos: nombre, WhatsApp, municipio y tu vehículo.','Toma <b>una selfie</b> y <b>una foto con tu unidad</b> donde se vea la placa.','Agrega un contacto de emergencia, acepta los avisos y <b>firma con el dedo</b>.','Confirma con el código que te llega por WhatsApp. Te escribimos para completar tu alta y darte tu PIN.'],acc:[['Quiero ser chofer','/quiero-ser-chofer.html',1]]},
     negocio:{t:'Registrar mi negocio',s:'Te registras tú mismo, desde tu celular.',video:'/inicio/videos/negocio.mp4',poster:'/inicio/videos/negocio.jpg',pasos:['Entra a MotoVecino y toca <b>Registrar mi negocio</b>.','Llena tu solicitud con los datos de tu negocio.','Revisamos tu solicitud y <b>te avisamos ahí mismo</b>.','Sube tu logo, tus fotos y tu menú, y empieza a recibir pedidos.'],nota:'Los primeros negocios de cada municipio son negocios fundadores.',acc:[['Sumar mi negocio','/negocio.html',1]]},
+    tester:{t:'Pruébala en Google Play',s:'MotoVecino está en prueba en Google Play. Para que Google la publique para todos, necesitamos más personas que la prueben. Solo celulares Android con cuenta de Gmail.',icono:'i-android',pasos:['Únete al grupo de prueba con tu cuenta de Gmail. Toca <b>Unirse al grupo</b>.<br><a class="lnk" href="https://groups.google.com/g/testers-motovecino" target="_blank" rel="noopener">Unirse al grupo ↗</a>','Hazte verificador. Toca <b>Convertirse en verificador</b>.<br><a class="lnk" href="https://play.google.com/apps/testing/com.motovecino.app" target="_blank" rel="noopener">Hazte verificador ↗</a>','Instala MotoVecino desde Google Play. Toca <b>Instalar</b>.<br><a class="lnk" href="https://play.google.com/store/apps/details?id=com.motovecino.app" target="_blank" rel="noopener">Instalar desde Google Play ↗</a>','Úsala y déjanos tu opinión en Google Play: baja hasta <b>Envía comentarios al desarrollador</b>. Solo lo vemos nosotros; ¡con una línea basta!'],nota:'Usa la misma cuenta de Gmail de tu Play Store. Si en el paso 3 dice «no se encontró», espera unos minutos y vuelve a intentar. Por favor no la desinstales: si la borras, ya no cuentas para la prueba.',acc:[['¿Dudas? Escríbenos por WhatsApp',WA,0]]},
     aliados:{t:'Negocios aliados',s:'Tu negocio, a la vista mientras la gente espera su viaje.',img:'/inicio/app-aliado.webp',pasos:['Mientras alguien busca o espera su chofer, la app le muestra <b>un negocio aliado</b> de su municipio.','Con un toque le puede <b>escribir por WhatsApp</b>.','Los negocios aliados salen <b>parejo, por turnos</b>.'],acc:[['Quiero ser negocio aliado',WA,1]]}
   };
   var dlg=document.getElementById('tutoDlg'),media=document.getElementById('tutoMedia');
@@ -838,6 +848,7 @@ footer .wrap{display:grid;gap:26px}
   function cerrar(){var v=media.querySelector('video'); if(v) v.pause(); dlg.close();}
   document.addEventListener('click',function(e){var b=e.target.closest('[data-tuto]'); if(b){e.preventDefault(); abrir(b.getAttribute('data-tuto'));}});
   document.getElementById('tutoCerrar').addEventListener('click',cerrar);
+  if(location.hash==='#probar') setTimeout(function(){abrir('tester')},400);
   dlg.addEventListener('click',function(e){if(e.target!==dlg) return; var r=dlg.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) cerrar();});
   dlg.addEventListener('close',function(){var v=media.querySelector('video'); if(v) v.pause();});
 
