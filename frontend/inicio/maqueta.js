@@ -307,7 +307,7 @@ export function iniciar(cont, getP) {
     llego: etiqueta("evento", "<b>Tu chofer llegó a tu puerta</b>", [LUGARES.casa.puerta[0], 4.4, LUGARES.casa.puerta[1]]),
     pedido: etiqueta("evento", "<b>Pedido en camino</b><small>De El Paisa a tu casa</small>", [8, 4.6, -8]),
     agenda: etiqueta("evento", "<b>Mañana, 6:00 a.m.</b><small>Un chofer confirmó tu viaje</small>", [cx, 9.2, cz]),
-    nuevo: etiqueta("evento", "<b>Pedido nuevo</b><small>2 × Ceviche</small>", [px, 7.4, pz]),
+    nuevo: etiqueta("evento", "<b>Pedido nuevo</b><small>2 × Ceviche · El Paisa</small>", [px, 5.8, pz]),
   };
 
   // Cámara: un punto de vista por capítulo (0 inicio … 6 final)
@@ -336,6 +336,7 @@ export function iniciar(cont, getP) {
   let ancho = 1, alto = 1, mx = 0, my = 0, Ps = getP();
   function medir() {
     ancho = cont.clientWidth; alto = cont.clientHeight;
+    for (const e of Object.values(ets)) e.w = 0;
     renderer.setSize(ancho, alto, false);
     camera.aspect = ancho / alto; camera.fov = ancho < 700 ? 52 : 38;
     if (ancho >= 900) camera.setViewOffset(ancho, alto, -ancho * 0.18, 0, ancho, alto);
@@ -391,16 +392,28 @@ export function iniciar(cont, getP) {
 
     // Etiquetas
     const mostrar = {
-      casa: true, parada: P < 1.6 || P > 5.6, paisa: true, aliado: P > 2.5,
       llego: P > 0.9 && P < 1.4, pedido: P > 1.7 && P < 2.45, agenda: P > 2.7 && P < 3.35, nuevo: P > 4.7 && P < 5.45,
+      parada: P < 1.6 || P > 5.6, aliado: P > 2.5,
     };
+    // Si sale un aviso encima de un lugar, se esconde la etiqueta del lugar para que no se encimen
+    mostrar.casa = !mostrar.llego;
+    mostrar.paisa = !mostrar.nuevo;
     const foco = { casa: [1, 3], paisa: [2, 5], aliado: [4], parada: [1] };
     for (const [k, e] of Object.entries(ets)) {
       proy.copy(e.p).project(camera);
-      const vis = mostrar[k] && proy.z < 1 && Math.abs(proy.x) < 0.88 && Math.abs(proy.y) < 0.95;
+      const vis = mostrar[k] && proy.z < 1 && Math.abs(proy.x) < 1.1 && Math.abs(proy.y) < 0.95;
       e.d.classList.toggle("ve", !!vis);
       e.d.classList.toggle("foco", (foco[k] || []).some((c) => Math.abs(P - c) < 0.5));
-      if (vis) e.d.style.transform = `translate(${((proy.x + 1) / 2) * ancho}px, ${((1 - proy.y) / 2) * alto}px) translate(-50%, -100%)`;
+      if (vis) {
+        // Que la etiqueta no se salga por los lados: se recorre y la flechita sigue apuntando al lugar
+        if (!e.w) { e.w = e.d.offsetWidth; e.h = e.d.offsetHeight; }
+        const x = ((proy.x + 1) / 2) * ancho, mitad = e.w / 2 + 10;
+        const xc = Math.min(Math.max(x, mitad), Math.max(mitad, ancho - mitad));
+        e.d.style.setProperty("--dx", `${Math.max(-e.w / 2 + 14, Math.min(e.w / 2 - 14, x - xc))}px`);
+        // ...y que no quede escondida debajo de la barra de arriba (logo y "Abrir app")
+        const y = Math.max(((1 - proy.y) / 2) * alto, e.h + 84);
+        e.d.style.transform = `translate(${xc}px, ${y}px) translate(-50%, -100%)`;
+      }
     }
 
     renderer.render(scene, camera);
