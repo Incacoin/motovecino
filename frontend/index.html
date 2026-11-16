@@ -116,6 +116,7 @@ h1 em{font-style:normal;background:var(--degradado);-webkit-background-clip:text
 .chip.c1{animation:flota 6s ease-in-out infinite .6s}
 .chip.c2{margin-left:-24px;animation:flota 6.5s ease-in-out infinite 1.4s}
 .chip.c3{animation:flota 7s ease-in-out infinite 2.2s}
+.chip.c4{margin-left:-24px;animation:flota 6.8s ease-in-out infinite 3s}
 @media (max-width:899px){.escena{padding-top:0}.chips{display:none}}
 @media (min-width:900px){
   .portada{padding:56px 0 70px}
@@ -226,7 +227,8 @@ h2 em{font-style:normal;background:var(--degradado);-webkit-background-clip:text
 .paso:hover .cel{transform:translateY(-14px)}
 .paso .luz{position:absolute;left:50%;bottom:-120px;width:340px;height:260px;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(34,197,94,.3),transparent);pointer-events:none}
 @media (min-width:640px){.tres{grid-template-columns:1fr 1fr}}
-@media (min-width:1000px){.tres{grid-template-columns:repeat(4,1fr);gap:18px}.paso{padding:24px 20px 0}.paso h3{font-size:24px}.paso .cel{--w:200px}}
+@media (min-width:640px) and (max-width:999px){.tres .paso:last-child{grid-column:1/-1;max-width:calc(50% - 9px);justify-self:center;width:100%}}
+@media (min-width:1000px){.tres{grid-template-columns:repeat(5,1fr);gap:14px}.paso{padding:22px 16px 0}.paso h3{font-size:22px}.paso p{font-size:15px}.paso .cel{--w:178px}}
 
 /* ¿Cómo funciona? */
 .tutos{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:44px}
@@ -383,6 +385,7 @@ footer .wrap{display:grid;gap:26px}
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-piramide" viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M5 20v-4h14v4"/><path d="M7 16v-4h10v4"/><path d="M9 12V8h6v4"/><path d="M11 8V5h2v3"/></symbol>
   <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 10v10h16V10"/><path d="M2 10l2-6h16l2 6c0 1.7-1.3 3-3 3s-3-1.3-3-3c0 1.7-1.3 3-3 3s-3-1.3-3-3c0 1.7-1.3 3-3 3s-3-1.3-3-3z"/><path d="M10 20v-5h4v5"/></symbol>
   <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></symbol>
@@ -437,9 +440,10 @@ footer .wrap{display:grid;gap:26px}
       </div>
       <div class="escena ent d3" aria-hidden="true">
         <div class="chips">
-          <div class="chip c1"><span class="ci"><svg class="ico"><use href="#i-pin"/></svg></span><span><b>Desde tu puerta</b><small>El chofer ve dónde estás</small></span></div>
-          <div class="chip c2"><span class="ci"><svg class="ico"><use href="#i-chat"/></svg></span><span><b>Tú propones el precio</b><small>Todo claro desde el principio</small></span></div>
-          <div class="chip c3"><span class="ci"><svg class="ico"><use href="#i-clock"/></svg></span><span><b>Agenda tu viaje</b><small>Para mañana temprano</small></span></div>
+          <div class="chip c1"><span class="ci"><svg class="ico"><use href="#i-chat"/></svg></span><span><b>Tú propones el precio</b><small>Todo claro desde el principio</small></span></div>
+          <div class="chip c2"><span class="ci"><svg class="ico"><use href="#i-clock"/></svg></span><span><b>Agenda tu viaje</b><small>Para mañana temprano</small></span></div>
+          <div class="chip c3"><span class="ci"><svg class="ico"><use href="#i-store"/></svg></span><span><b>Pide a un negocio local</b><small>Los negocios de tu municipio</small></span></div>
+          <div class="chip c4"><span class="ci"><svg class="ico"><use href="#i-piramide"/></svg></span><span><b>Conoce lugares milenarios</b><small>En Ticul · pronto en más municipios</small></span></div>
         </div>
         <div class="cel"><img src="/inicio/app-en-camino.webp" alt="" width="600" height="1298" fetchpriority="high"></div>
       </div>
@@ -536,32 +540,12 @@ footer .wrap{display:grid;gap:26px}
           <div class="cel"><img src="/inicio/app-panel-negocio.webp" alt="Panel de pedidos de un negocio" width="600" height="1298" loading="lazy"></div>
           <div class="luz"></div>
         </article>
-      </div>
-    </div>
-  </section>
-
-  <!-- CONOCE TICUL -->
-  <section class="bloque" id="conoce-ticul" aria-labelledby="t-turismo">
-    <div class="wrap partida">
-      <div>
-        <p class="etq rev">Nuevo en Ticul</p>
-        <h2 id="t-turismo" class="rev r2">Conoce Ticul <em>y sus alrededores.</em></h2>
-        <p class="intro rev r3">Zonas mayas, cenotes, haciendas y lo mejor de Ticul, ahora dentro de MotoVecino. Elige un lugar y toca <b>«Llévame aquí»</b>.</p>
-        <ul class="lista">
-          <li class="rev"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Zonas mayas:</b> Uxmal, Kabah, Sayil, Labná y más.</span></li>
-          <li class="rev r2"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Cenotes y grutas:</b> Loltún, Mucuyché y más.</span></li>
-          <li class="rev r3"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Haciendas y conventos:</b> Tabi, Maní y más.</span></li>
-          <li class="rev r4"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Toca «Llévame aquí»</b> y la app pone el destino por ti.</span></li>
-          <li class="rev r5"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Mototaxi o taxi, según la distancia.</b> Para los lugares lejanos te recuerda acordar el regreso con tu chofer.</span></li>
-        </ul>
-        <div class="acciones rev"><a class="btn verde" href="/pasajero.html">Abrir MotoVecino</a></div>
-        <p class="credito-fotos">Búscalo en la app como «Conoce Ticul». Fotos de los lugares: Wikimedia Commons (cada una con su autor y licencia dentro de la app).</p>
-      </div>
-      <div class="visual rev r2">
-        <div class="duo">
-          <div class="cel atras"><img src="/inicio/app-conoce-ticul-uxmal.webp" alt="" width="600" height="1298" loading="lazy"></div>
-          <div class="cel frente"><img src="/inicio/app-conoce-ticul.webp" alt="Pantalla Conoce Ticul con la iglesia de San Antonio, Uxmal y el botón Llévame aquí" width="600" height="1298" loading="lazy"></div>
-        </div>
+        <article class="paso rev r5">
+          <div class="cab"><span class="num">5</span><h3>Conoce</h3></div>
+          <p><b>Lugares milenarios de Yucatán,</b> empezando por Ticul. Toca «Llévame aquí».</p>
+          <div class="cel"><img src="/inicio/app-conoce-uxmal.webp" alt="Conoce Ticul mostrando Uxmal con el botón Llévame aquí" width="600" height="1298" loading="lazy"></div>
+          <div class="luz"></div>
+        </article>
       </div>
     </div>
   </section>
@@ -652,6 +636,32 @@ footer .wrap{display:grid;gap:26px}
         <div class="duo">
           <div class="cel atras"><img src="/inicio/app-panel-negocio.webp" alt="" width="600" height="1298" loading="lazy"></div>
           <div class="cel frente"><img src="/inicio/app-vitrina.webp" alt="Vitrina de Coctelería El Paisa con su logo, fotos y menú" width="600" height="1298" loading="lazy"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONOCE TICUL -->
+  <section class="bloque" id="conoce-ticul" aria-labelledby="t-turismo">
+    <div class="wrap partida">
+      <div>
+        <p class="etq rev">Nuevo · Lugares milenarios</p>
+        <h2 id="t-turismo" class="rev r2">Conoce Ticul <em>y sus alrededores.</em></h2>
+        <p class="intro rev r3">Zonas mayas, cenotes, haciendas y lo mejor de Ticul, ahora dentro de MotoVecino. Elige un lugar y toca <b>«Llévame aquí»</b>. <b>Empezamos por Ticul; pronto, más municipios de Yucatán.</b></p>
+        <ul class="lista">
+          <li class="rev"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Zonas mayas:</b> Uxmal, Kabah, Sayil, Labná y más.</span></li>
+          <li class="rev r2"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Cenotes y grutas:</b> Loltún, Mucuyché y más.</span></li>
+          <li class="rev r3"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Haciendas y conventos:</b> Tabi, Maní y más.</span></li>
+          <li class="rev r4"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Toca «Llévame aquí»</b> y la app pone el destino por ti.</span></li>
+          <li class="rev r5"><span class="palomita"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span><b>Mototaxi o taxi, según la distancia.</b> Para los lugares lejanos te recuerda acordar el regreso con tu chofer.</span></li>
+        </ul>
+        <div class="acciones rev"><a class="btn verde" href="/pasajero.html">Abrir MotoVecino</a></div>
+        <p class="credito-fotos">Búscalo en la app como «Conoce Ticul». Fotos de los lugares: Wikimedia Commons (cada una con su autor y licencia dentro de la app).</p>
+      </div>
+      <div class="visual rev r2">
+        <div class="duo">
+          <div class="cel atras"><img src="/inicio/app-conoce-ticul-uxmal.webp" alt="" width="600" height="1298" loading="lazy"></div>
+          <div class="cel frente"><img src="/inicio/app-conoce-ticul.webp" alt="Pantalla Conoce Ticul con la iglesia de San Antonio, Uxmal y el botón Llévame aquí" width="600" height="1298" loading="lazy"></div>
         </div>
       </div>
     </div>
