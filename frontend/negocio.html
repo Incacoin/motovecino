@@ -379,7 +379,7 @@
     <div class="facade" id="regFacade" onclick="pickFacade(true)">Toca para tomar la foto.<br>Así sabemos que tu negocio existe y lo aprobamos rápido.</div>
     <button type="button" class="gps-btn" onclick="pickFacade(false)">🖼️ O elige una foto de tu galería</button>
     <input type="file" id="regFacadeInput" accept="image/*" style="display:none" onchange="onFacadePicked(event)" />
-    <div class="note">Registrarte no te cuesta nada. Revisamos tu solicitud y te avisamos aquí mismo.</div>
+    <div class="note">Revisamos tu solicitud y te avisamos aquí mismo.</div>
   </div>
   <button class="bigbtn" id="regSendBtn" onclick="sendApplication()">Mandar solicitud</button>
 </div>
@@ -1321,7 +1321,7 @@ function renderApplication(d) {
   const a = regApp;
   if (!a) {
     box.innerHTML = `<div class="reg-card"><h3>Registra tu negocio</h3>
-      Vende a más clientes de tu municipio desde la app. <b>Registrarte no te cuesta nada.</b>
+      Vende a más clientes de tu municipio desde la app.
       <ol><li>Nos dices el nombre, qué vendes y dónde está.</li><li>Tomas una foto de tu fachada o mostrador.</li><li>Lo revisamos y te avisamos aquí.</li><li>Subes tu logo, portada y productos, y ¡listo!</li></ol>
       <button class="go2" onclick="openRegister()">Registrar mi negocio</button></div>`;
     return;
