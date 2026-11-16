@@ -3,13 +3,11 @@
 //     viaje real es largo, regresa a mototaxi solo si el taxi lo puso la sección.
 //  2. Los archivos frontend/turismo/<ciudad>.json: lugares completos, cerca del
 //     municipio, fotos que existen y con su crédito.
-//  3. El servidor acepta el viaje en taxi de Ticul a Uxmal y es de Ticul.
-//   BASE=http://localhost:3077 node tools/test-turismo.js
+// No usa el servidor (no gasta los límites de seguridad): que el taxi pueda
+// recoger en Ticul y alrededores ya lo revisa test-comisarias.js.
+//   node tools/test-turismo.js
 const path = require("node:path");
 const fs = require("node:fs");
-process.loadEnvFile(path.join(__dirname, "..", ".env"));
-const BASE = process.env.BASE || "http://localhost:3077";
-if (!/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(BASE)) throw new Error("Esto solo se corre en localhost: " + BASE);
 
 const FRONT = path.join(__dirname, "..", "..", "frontend");
 const T = require(path.join(FRONT, "turismo.js"));
@@ -23,20 +21,13 @@ function check(label, cond, extra) {
     console.log("✗", label, extra !== undefined ? JSON.stringify(extra).slice(0, 300) : "");
   }
 }
-async function api(method, url, body) {
-  const res = await fetch(BASE + "/api" + url, { method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
-  let data = null;
-  try { data = await res.json(); } catch {}
-  return { status: res.status, data };
-}
-const post = (u, b) => api("POST", u, b);
 
 const TICUL = { lat: 20.39528, lng: -89.53389 };
 const UXMAL = { lat: 20.36095, lng: -89.76975 };
 const IGLESIA = { lat: 20.396776, lng: -89.534032 };
 const north = (km) => ({ lat: TICUL.lat + km / 111, lng: TICUL.lng });
 
-async function main() {
+function main() {
   // 1. Regla de vehículo.
   const v = (o) => T.vehicleFor({ motoKm: 6, serviceZone: "in", ...o });
   check("Uxmal desde el centro en mototaxi → taxi", v({ from: TICUL, to: UXMAL, serviceType: "moto" }) === "taxi");
@@ -84,16 +75,7 @@ async function main() {
     for (const k of [].concat(d.portada || [])) check(`${f}: foto de portada ${k} existe`, fs.existsSync(path.join(dir, "fotos", k + ".webp")));
   }
 
-  // 3. El viaje en taxi a Uxmal desde el centro de Ticul.
-  const stamp = String(Date.now()).slice(-6);
-  const reg = await post("/riders/register", { name: "Pasajero Turismo", phone: `97600${stamp}`.slice(0, 10) });
-  check("registro de pasajero", reg.status === 200 || reg.status === 201, reg);
-  const R = { rider_phone: reg.data.phone, rider_pin: reg.data.pin };
-  const ride = await post("/rides", { ...R, pickup_lat: TICUL.lat, pickup_lng: TICUL.lng, dest_lat: UXMAL.lat, dest_lng: UXMAL.lng, dest_label: "Uxmal", ride_type: "taxi", offer_price: 330 });
-  check("taxi de Ticul a Uxmal: se puede pedir y es de Ticul", ride.status === 201 && ride.data.city === "ticul", ride);
-  if (ride.data && ride.data.id) await post(`/rides/${ride.data.id}/cancel`, { riderPhone: R.rider_phone, riderPin: R.rider_pin });
-
   console.log(`\n${fail ? "✗" : "✓"} ${pass} bien, ${fail} mal`);
-  process.exit(fail ? 1 : 0);
+  process.exitCode = fail ? 1 : 0;
 }
-main().catch((e) => { console.error("✗ La prueba se cayó:", e); process.exit(1); });
+try { main(); } catch (e) { console.error("✗ La prueba se cayó:", e); process.exitCode = 1; }
