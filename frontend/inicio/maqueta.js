@@ -692,7 +692,6 @@ export function iniciar(cont, getP) {
     reloj.position.y = 6.6 + Math.sin(t * 2) * 0.15; brilloReloj.position.copy(reloj.position); brilloReloj.material.opacity = vr * 0.5;
     minutos.rotation.z = -t * 2.4; horas.rotation.z = -t * 0.2;
     for (const s of focos) s.material.opacity = 0.75 + Math.sin(t * 2 + s.position.x) * 0.08;
-    palC.rotation.y = Math.sin(t * 0.8) * 0.004;
 
     // Etiquetas
     const mostrar = {
