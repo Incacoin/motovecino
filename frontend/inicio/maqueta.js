@@ -1,9 +1,9 @@
 // Maqueta 3D del municipio para la página de inicio.
 // Centro inspirado en Ticul: iglesia de San Antonio, parque con palmeras y letras de
 // colores, casas coloniales con molduras blancas y balcones, y mototaxis de verdad.
-// Al bajar con el dedo el mototaxi recorre 5 paradas: Muévete, Pide, Agenda, Aliados y Vende.
+// Al bajar con el dedo el mototaxi recorre 6 paradas: Muévete, Pide, Agenda, Aliados, Vende y Conoce (Uxmal).
 // Todo se dibuja con figuras propias (sin modelos ni fotos de terceros).
-// La página le pasa el avance (0 a 6) con getP(); aquí solo se dibuja.
+// La página le pasa el avance (0 a 7) con getP(); aquí solo se dibuja.
 import * as THREE from "three";
 
 const C = {
@@ -23,13 +23,14 @@ export const LUGARES = {
   paisa: { pos: [12.1, 0, -16], puerta: [8, -16] },
   aliado: { pos: [16, 0, 12.1], puerta: [16, 8] },
 };
-// Recorridos del mototaxi por capítulo (1 Muévete, 2 Pide, 3 Agenda, 4 Aliados, 5 Vende)
+// Recorridos del mototaxi por capítulo (1 Muévete, 2 Pide, 3 Agenda, 4 Aliados, 5 Vende, 6 Conoce: de El Paisa a Uxmal)
 const RUTAS = {
   1: [[-24, -36], [-24, -8], [-8, -8], [-8, 16]],
   2: [[-8, 16], [-8, -8], [8, -8], [8, -16]],
   3: [[8, -16], [8, -8], [-8, -8], [-8, 16]],
   4: [[-8, 16], [-8, 8], [16, 8]],
   5: [[16, 8], [8, 8], [8, -16]],
+  6: [[8, -16], [8, -24], [-34.5, -24], [-34.5, -27.4]],
 };
 
 function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -495,6 +496,8 @@ export function iniciar(cont, getP) {
   for (const sx of [-1.25, 1.25]) PY.box(piedra, 0.35, Lr, 0.8, ux + sx, 0.3 + altoP / 2, (z0 + z1) / 2 - 0.2, th);
   for (let i = 0; i < 24; i++) { const t = (i + 0.5) / 24; PY.box(piedra, 2.1, altoP / 24, 0.28, ux, 0.3 + t * altoP - altoP / 48, z0 - t * dzE + 0.08); }
   scene.add(PY.grupo(true));
+  // Sacbé (camino blanco) de la calle a la escalinata, por donde llega el mototaxi
+  { const sb = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 5.2), new THREE.MeshStandardMaterial({ color: 0xd9ceb4, roughness: 1 })); sb.rotation.x = -Math.PI / 2; sb.position.set(ux, 0.32, uz + 8.9); sb.receiveShadow = true; scene.add(sb); }
   for (const [dx, dz] of [[-6, 5], [6, 5], [0, 7.2], [-7.5, -1], [7.5, -1]]) resplandor(ux + dx, 0.9, uz + dz, 0xffb066, 6, 0.55);
   resplandor(ux, yp + 1, uz + 1.5, 0xffc27a, 9, 0.25);
   // Monte bajo alrededor
@@ -695,6 +698,7 @@ export function iniciar(cont, getP) {
     nuevo: etiqueta("evento", "<b>Pedido nuevo</b><small>2 × Ceviche · El Paisa</small>", [px, 6.0, pz]),
     uxmal: etiqueta("lugar gris", "<b>Uxmal</b><small>Zona arqueológica maya</small>", [ux, 13.2, uz]),
     hacienda: etiqueta("lugar gris", "<b>Hacienda henequenera</b><small>Herencia de Yucatán</small>", [hx, 7.0, hz]),
+    llegaUx: etiqueta("evento", "<b>Llegaste a Uxmal</b><small>Pirámide del Adivino</small>", [ux, 3.4, uz + 7.6]),
   };
 
   // ---------- Cámara: un punto de vista por capítulo (0 inicio … 6 final) ----------
@@ -713,13 +717,15 @@ export function iniciar(cont, getP) {
     () => ({ pos: v3(cx + 10, 21, cz + 12), tgt: v3(cx - 1, 3, cz) }),
     () => ({ pos: tmpM.clone().add(v3(5, 24, -9)), tgt: tmpM.clone().add(v3(0, 1, 1)) }),
     () => ({ pos: v3(px - 11, 21, pz - 8), tgt: v3(px - 3, 1.5, pz) }),
+    // 6 Conoce: cámara baja frente a la Pirámide del Adivino, con el mototaxi chiquito enfrente
+    () => ({ pos: v3(ux + 6 + Math.sin(t * 0.25) * 2, ancho < 700 ? 15 : 13, uz + 29), tgt: v3(ux - 1, ancho < 700 ? 5 : 5.5, uz + 2) }),
     () => orbita(66, 44, 12),
   ];
 
   function estadoMoto(P) {
     // Cada recorrido va del capítulo k-0.7 a k (llega justo cuando sale su texto)
     let pos = { x: RUTAS[1][0][0], z: RUTAS[1][0][1], ang: Math.PI / 2 };
-    for (const k of [1, 2, 3, 4, 5]) {
+    for (const k of [1, 2, 3, 4, 5, 6]) {
       const f = clamp((P - (k - 0.7)) / 0.62, 0, 1);
       if (P >= k - 0.7) pos = enRuta(k, suave(f));
     }
@@ -762,16 +768,18 @@ export function iniciar(cont, getP) {
     tmpM.set(m.x, 0, m.z);
 
     // Rutas
-    for (const k of [1, 2, 3, 4, 5]) {
+    for (const k of [1, 2, 3, 4, 5, 6]) {
       const f = clamp((P - (k - 0.7)) / 0.62, 0, 1);
-      const fuerza = P > 5.6 ? 1 : (Math.abs(P - k) < 0.6 ? 1 : 0.3);
+      const fuerza = P > 6.6 ? 1 : (Math.abs(P - k) < 0.6 ? 1 : 0.3);
       dibujaRuta(k, suave(f), fuerza);
     }
 
     // Cámara entre los dos capítulos más cercanos
-    const i = clamp(Math.floor(P), 0, 5), f = suave(clamp(P - i, 0, 1));
+    const i = clamp(Math.floor(P), 0, 6), f = suave(clamp(P - i, 0, 1));
     const a = vistas[i](), b = vistas[i + 1]();
     const objPos = a.pos.lerp(b.pos, f), objTgt = a.tgt.lerp(b.tgt, f);
+    // De El Paisa a Uxmal (y de regreso a la vista final) la cámara vuela por arriba de las casas
+    if (i === 5 || i === 6) objPos.y += Math.sin(f * Math.PI) * 16;
     objPos.x += mx * 3; objPos.y -= my * 2;
     camPos.lerp(objPos, Math.min(1, dt * 4)); camTgt.lerp(objTgt, Math.min(1, dt * 4));
     camera.position.copy(camPos); camera.lookAt(camTgt);
@@ -787,7 +795,8 @@ export function iniciar(cont, getP) {
     // Etiquetas
     const mostrar = {
       llego: P > 0.9 && P < 1.4, pedido: P > 1.7 && P < 2.45, agenda: P > 2.7 && P < 3.35, nuevo: P > 4.7 && P < 5.45,
-      parada: P < 1.6 || P > 5.6, aliado: P > 2.5, uxmal: P < 0.6 || P > 5.6, hacienda: P < 0.6 || P > 5.6,
+      parada: P < 1.6 || P > 6.6, aliado: P > 2.5, uxmal: P < 0.6 || P > 6.6, hacienda: P < 0.6 || P > 6.6,
+      llegaUx: P > 5.75 && P < 6.45,
     };
     // Si sale un aviso encima de un lugar, se esconde la etiqueta del lugar para que no se encimen
     mostrar.casa = !mostrar.llego && !mostrar.agenda;

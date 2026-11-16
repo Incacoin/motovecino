@@ -149,7 +149,7 @@ h1 em{font-style:normal;background:var(--degradado);-webkit-background-clip:text
 .desliza,.puntos-hist,.cargando{display:none}
 
 /* Con 3D: la maqueta se queda fija y la historia avanza al bajar */
-.js .historia:not(.sin3d){height:760vh;padding:0}
+.js .historia:not(.sin3d){height:880vh;padding:0}
 .js .historia:not(.sin3d) .pegado{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden}
 .js .historia:not(.sin3d) .escenario{display:block;position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 60% 45%,rgba(34,197,94,.12),transparent 70%)}
 .js .historia:not(.sin3d) .escenario::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(var(--noche),transparent 14%,transparent 80%,var(--noche))}
@@ -457,7 +457,7 @@ footer .wrap{display:grid;gap:26px}
       <div class="cargando" aria-hidden="true"><i></i>Armando tu municipio…</div>
       <div class="desliza" id="desliza" aria-hidden="true"><i></i>Desliza para recorrerlo</div>
       <ol class="puntos-hist" id="puntosHist" aria-hidden="true">
-        <li data-k="1">Muévete</li><li data-k="2">Pide</li><li data-k="3">Agenda</li><li data-k="4">Aliados</li><li data-k="5">Vende</li>
+        <li data-k="1">Muévete</li><li data-k="2">Pide</li><li data-k="3">Agenda</li><li data-k="4">Aliados</li><li data-k="5">Vende</li><li data-k="6">Conoce</li>
       </ol>
       <div class="paneles">
         <article class="panel p0" data-k="0">
@@ -500,7 +500,14 @@ footer .wrap{display:grid;gap:26px}
           <div class="cel panel-img"><img src="/inicio/app-panel-negocio.webp" alt="Panel de pedidos del negocio" width="600" height="1298" loading="lazy"></div>
           <div class="acciones"><button class="btn vidrio chico" data-tuto="negocio"><svg class="ico" style="width:18px;height:18px"><use href="#i-play"/></svg>Ver video: registra tu negocio</button></div>
         </article>
-        <article class="panel p6" data-k="6">
+        <article class="panel" data-k="6">
+          <p class="etq">Parada 6 · Conoce</p>
+          <h3>Lugares milenarios, <em>a un toque.</em></h3>
+          <p>Uxmal, cenotes, grutas y haciendas. Elige un lugar, toca <b>«Llévame aquí»</b> y te llevamos. Empezamos por Ticul; pronto, más municipios de Yucatán.</p>
+          <div class="cel panel-img"><img src="/inicio/app-conoce-uxmal.webp" alt="Conoce Ticul mostrando Uxmal" width="600" height="1298" loading="lazy"></div>
+          <div class="acciones"><a class="btn vidrio chico" href="#conoce-ticul"><svg class="ico" style="width:18px;height:18px"><use href="#i-piramide"/></svg>Ver los lugares</a></div>
+        </article>
+        <article class="panel p6" data-k="7">
           <p class="etq">Todo en una sola app</p>
           <h2>Muévete, pide <em>y vende.</em></h2>
           <p>Con choferes de aquí y los negocios de tu municipio. Cuando pides por MotoVecino, <b>el dinero se queda en casa</b>.</p>
@@ -832,7 +839,7 @@ footer .wrap{display:grid;gap:26px}
   function getP(){
     if(hist.classList.contains('sin3d')) return 0;
     var r=hist.getBoundingClientRect(),total=hist.offsetHeight-window.innerHeight;
-    return Math.max(0,Math.min(1,-r.top/total))*6;
+    return Math.max(0,Math.min(1,-r.top/total))*7;
   }
   var actual=-1;
   function marcar(){
