@@ -268,7 +268,8 @@ dialog.tuto-dlg[open]{animation:abre .45s cubic-bezier(.2,.7,.2,1)}
 .portada .gplay-fila{display:flex;flex-wrap:wrap;align-items:center;gap:0 14px}
 .portada .gplay-fila .tester-btn{margin-top:22px}
 .gal-w{width:min(360px,84vw)}
-@media (max-width:759px){.gal-w{margin-top:40px}}
+@media (max-width:759px){.dlg-in{grid-template-columns:minmax(0,1fr)}dialog.tuto-dlg .cerrar{float:none;margin:12px 12px -54px auto}.dlg-in{padding-top:56px}.gal-w{width:100%;max-width:360px}}
+
 .gal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;border-radius:20px;scrollbar-width:none}
 .gal::-webkit-scrollbar{display:none}
 .gal a{flex:0 0 100%;scroll-snap-align:center}
@@ -276,6 +277,11 @@ dialog.tuto-dlg[open]{animation:abre .45s cubic-bezier(.2,.7,.2,1)}
 .gal-nav{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:14px;font-weight:700;color:var(--gris)}
 .gal-nav button{width:42px;height:42px;border-radius:50%;border:1px solid var(--linea);background:var(--vidrio);color:#fff;font:inherit;font-size:20px;cursor:pointer}
 .gal-nav button:disabled{opacity:.3}
+.iab{grid-column:1/-1;margin:0 0 18px;padding:16px 18px;border-radius:18px;background:linear-gradient(135deg,rgba(250,204,21,.16),rgba(250,204,21,.05));border:1px solid rgba(250,204,21,.5);color:#fef9c3;font-size:15.5px;line-height:1.45}
+.iab b{color:#fff}
+.iab .btn{display:flex;justify-content:center;width:100%;margin:12px 0 8px;font-size:17px}
+.iab small{display:block;color:#d6d3c4;font-size:13.5px;line-height:1.4}
+
 .tuto.destacado{grid-column:1/-1;border-color:rgba(34,197,94,.45);background:linear-gradient(135deg,rgba(34,197,94,.14),rgba(34,197,94,.03))}
 .cerrar{position:sticky;top:12px;float:right;margin:12px 12px 0 0;width:42px;height:42px;border-radius:50%;border:1px solid var(--linea);background:rgba(20,24,30,.9);display:grid;place-items:center;cursor:pointer;z-index:2}
 .cerrar:hover{background:#1c222b}
@@ -802,6 +808,7 @@ footer .wrap{display:grid;gap:26px}
 <dialog class="tuto-dlg" id="tutoDlg" aria-labelledby="tutoTitulo">
   <button class="cerrar" id="tutoCerrar" aria-label="Cerrar"><svg class="ico" style="width:20px;height:20px"><use href="#i-x"/></svg></button>
   <div class="dlg-in">
+    <div class="iab" id="tutoIab" hidden></div>
     <div class="dlg-media" id="tutoMedia"></div>
     <div class="dlg-txt">
       <h3 id="tutoTitulo"></h3>
@@ -841,12 +848,25 @@ footer .wrap{display:grid;gap:26px}
     aliados:{t:'Negocios aliados',s:'Tu negocio, a la vista mientras la gente espera su viaje.',img:'/inicio/app-aliado.webp',pasos:['Mientras alguien busca o espera su chofer, la app le muestra <b>un negocio aliado</b> de su municipio.','Con un toque le puede <b>escribir por WhatsApp</b>.','Los negocios aliados salen <b>parejo, por turnos</b>.'],acc:[['Quiero ser negocio aliado',WA,1]]}
   };
   var dlg=document.getElementById('tutoDlg'),media=document.getElementById('tutoMedia');
+  // Navegador interno de Facebook/Instagram/etc.: ahí no está la cuenta de Google de la persona,
+  // así que el grupo de prueba dice "No tienes permiso". En Android lo mandamos a Chrome.
+  var UA=navigator.userAgent||'', ANDROID=/Android/i.test(UA);
+  var IAB=/FBAN|FBAV|FB_IAB|FBIOS|Instagram|; wv\)/i.test(UA);
+  var IAB_APP=/Instagram/i.test(UA)?'Instagram':/FBAN|FBAV|FB_IAB|FBIOS/i.test(UA)?'Facebook':'esta app';
+  function enChrome(url){return 'intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme='+(url.indexOf('http:')===0?'http':'https')+';package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(url)+';end';}
   function abrir(id){
     var d=T[id]; if(!d||!dlg.showModal) return;
     document.getElementById('tutoTitulo').textContent=d.t;
     document.getElementById('tutoSub').textContent=d.s;
     document.getElementById('tutoPasos').innerHTML=d.pasos.map(function(p){return '<li><span>'+p+'</span></li>'}).join('');
     var n=document.getElementById('tutoNota'); n.hidden=!d.nota; n.textContent=d.nota||'';
+    var iab=document.getElementById('tutoIab'); iab.hidden=!(id==='tester'&&IAB);
+    if(!iab.hidden){
+      iab.innerHTML=ANDROID
+        ? '<b>Estás dentro de '+IAB_APP+'.</b> Aquí no está tu cuenta de Google y el grupo te dirá «No tienes permiso». Primero ábrela en Chrome:<a class="btn verde" href="'+enChrome(location.origin+'/?probar=1')+'">Abrir en Chrome</a><small>¿No se abrió? Toca los tres puntitos ⋮ de arriba a la derecha y elige «Abrir en navegador externo» o «Abrir en Chrome».</small>'
+        : '<b>Estás dentro de '+IAB_APP+'.</b> Aquí no está tu cuenta de Google. Toca los tres puntitos de arriba y elige «Abrir en navegador externo». <small>Recuerda: la prueba es solo para celulares Android.</small>';
+      if(ANDROID) [].forEach.call(document.querySelectorAll('#tutoPasos a.lnk'),function(a){a.href=enChrome(a.href);a.removeAttribute('target');});
+    }
     document.getElementById('tutoAcc').innerHTML=d.acc.map(function(a){var ext=a[1].indexOf('http')===0;return '<a class="btn '+(a[2]?'verde':'vidrio')+'" href="'+a[1]+'"'+(ext?' rel="noopener"':'')+'>'+a[0]+'</a>'}).join('');
     if(d.galeria){
       media.innerHTML='<div class="gal-w"><div class="gal">'+d.galeria.map(function(g,i){return '<a href="'+g+'" target="_blank" rel="noopener"><img src="'+g+'" alt="Paso '+(i+1)+' de '+d.galeria.length+'" width="864" height="1080"'+(i?' loading="lazy"':'')+'></a>'}).join('')+'</div><div class="gal-nav"><button type="button" aria-label="Anterior">‹</button><span>Desliza · <b>1</b> de '+d.galeria.length+'</span><button type="button" aria-label="Siguiente">›</button></div></div>';
@@ -865,7 +885,7 @@ footer .wrap{display:grid;gap:26px}
   function cerrar(){var v=media.querySelector('video'); if(v) v.pause(); dlg.close();}
   document.addEventListener('click',function(e){var b=e.target.closest('[data-tuto]'); if(b){e.preventDefault(); abrir(b.getAttribute('data-tuto'));}});
   document.getElementById('tutoCerrar').addEventListener('click',cerrar);
-  if(location.hash==='#probar') setTimeout(function(){abrir('tester')},400);
+  if(location.hash==='#probar'||/[?&]probar(=|&|$)/.test(location.search)) setTimeout(function(){abrir('tester')},400);
   dlg.addEventListener('click',function(e){if(e.target!==dlg) return; var r=dlg.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) cerrar();});
   dlg.addEventListener('close',function(){var v=media.querySelector('video'); if(v) v.pause();});
 
