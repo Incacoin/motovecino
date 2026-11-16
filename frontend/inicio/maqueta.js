@@ -300,7 +300,7 @@ export function iniciar(cont, getP) {
   const capa = document.createElement("div"); capa.className = "etiquetas3d"; cont.appendChild(capa);
   const etiqueta = (clase, html, pos) => { const d = document.createElement("div"); d.className = "et3 " + clase; d.innerHTML = html; capa.appendChild(d); return { d, p: new THREE.Vector3(...pos) }; };
   const ets = {
-    casa: etiqueta("lugar", "<b>Tu casa</b><small>Aquí te recogen</small>", [cx, 5.2, cz]),
+    casa: etiqueta("lugar", "<b>Tu casa</b><small>Aquí pasan por ti</small>", [cx, 5.2, cz]),
     parada: etiqueta("lugar gris", "<b>La parada</b><small>A varias cuadras</small>", [qx, 4.4, qz]),
     paisa: etiqueta("lugar", "<b>Coctelería El Paisa</b><small>Negocio fundador</small>", [px, 5.8, pz]),
     aliado: etiqueta("lugar", "<b>Negocio aliado</b><small>De tu municipio</small>", [ax, 5.4, az]),
