@@ -102,7 +102,7 @@ class Cajas {
     this.o = new THREE.Object3D(); this.c = new THREE.Color();
   }
   add(x, y, z, sx, sy, sz, color, ry = 0) {
-    if (this.n >= this.max) return;
+    if (this.off || this.n >= this.max) return;
     const o = this.o; o.position.set(x, y + sy / 2, z); o.scale.set(sx, sy, sz); o.rotation.set(0, ry, 0); o.updateMatrix();
     this.m.setMatrixAt(this.n, o.matrix); if (color != null) this.m.setColorAt(this.n, this.c.set(color)); this.n++;
   }
@@ -274,12 +274,16 @@ export function iniciar(cont, getP) {
   suelo.rotation.x = -Math.PI / 2; suelo.receiveShadow = true; scene.add(suelo);
   const IGLESIA = [0, -16], PARQUE = [0, 0];
   const esBloque = (b, x, z) => b[0] === x && b[1] === z;
+  // Las afueras: Uxmal en una esquina y una hacienda henequenera en la otra
+  const UXMAL = [-32, -32], HACIENDA = [32, -32];
+  const afuera = (x, z) => esBloque(UXMAL, x, z) || esBloque(HACIENDA, x, z);
   const losas = new Cajas(30, new THREE.MeshStandardMaterial({ roughness: 0.92 }), false);
-  for (const x of MANZANAS) for (const z of MANZANAS) losas.add(x, 0, z, 11, 0.3, 11, esBloque(PARQUE, x, z) ? C.pasto : esBloque(IGLESIA, x, z) ? 0x6d5a4a : C.banqueta);
+  for (const x of MANZANAS) for (const z of MANZANAS) losas.add(x, 0, z, 11, 0.3, 11, esBloque(PARQUE, x, z) ? C.pasto : esBloque(IGLESIA, x, z) ? 0x6d5a4a : esBloque(UXMAL, x, z) ? 0x24311d : esBloque(HACIENDA, x, z) ? 0x3a3424 : C.banqueta);
   scene.add(losas.fin());
   const orillas = new Cajas(120, new THREE.MeshStandardMaterial({ roughness: 0.6 }), false);
   for (const x of MANZANAS) for (const z of MANZANAS) {
     const col = (esBloque(PARQUE, x, z) || esBloque(IGLESIA, x, z) || (Math.abs(x) <= 16 && Math.abs(z) <= 16 && r() < 0.5)) ? C.amarillo : 0x6b7280;
+    if (afuera(x, z)) continue;
     orillas.add(x, 0, z + 5.45, 11.1, 0.34, 0.2, col); orillas.add(x, 0, z - 5.45, 11.1, 0.34, 0.2, col);
     orillas.add(x + 5.45, 0, z, 0.2, 0.34, 11.1, col); orillas.add(x - 5.45, 0, z, 0.2, 0.34, 11.1, col);
   }
@@ -347,9 +351,14 @@ export function iniciar(cont, getP) {
   }
   for (const bx of MANZANAS) for (const bz of MANZANAS) {
     if (esBloque(PARQUE, bx, bz) || esBloque(IGLESIA, bx, bz)) continue;
+    // En las afueras no se dibujan casas (se sigue el mismo sorteo para que el resto quede igual)
+    const fuera = afuera(bx, bz), nT = tinacos.length;
+    for (const c of [cuerpos, molduras, madera, ventanas, herreria]) c.off = fuera;
     for (const o of [-3.6, 0, 3.6]) { casa(bx + o, bz + 3.75, "S", 3.6, o !== 0); casa(bx + o, bz - 3.75, "N", 3.6, o !== 0); }
     casa(bx + 3.75, bz, "E", 3.6, false); casa(bx - 3.75, bz, "W", 3.6, false);
+    if (fuera) tinacos.length = nT;
   }
+  for (const c of [cuerpos, molduras, madera, ventanas, herreria]) c.off = false;
   scene.add(cuerpos.fin(), molduras.fin(), madera.fin(), ventanas.fin(), herreria.fin());
   // Tinacos negros en las azoteas
   const tin = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.42, 0.42, 0.75, 12), new THREE.MeshStandardMaterial({ color: 0x1c1d20, roughness: 0.6 }), tinacos.length);
@@ -437,7 +446,7 @@ export function iniciar(cont, getP) {
   // Palmeras (parque, atrio y calles) en una sola figura
   const PAL = geoPalmera();
   const sitiosPalma = [[-4.3, -4.3], [4.3, -4.3], [-4.3, 4.3], [4.3, 4.3], [-4.4, 0.6], [4.4, 1.6], [-1.5, 4.4], [ix - 4.3, iz + 4.2], [ix + 4.4, iz + 4.3]];
-  for (let i = 0; i < 10; i++) { const a = MANZANAS[Math.floor(r() * 5)], b = MANZANAS[Math.floor(r() * 5)]; if ((a || b) && !(a === 0 && b === -16)) sitiosPalma.push([a + (r() < 0.5 ? -1.2 : 1.2), b + (r() < 0.5 ? -1.2 : 1.2)]); }
+  for (let i = 0; i < 10; i++) { const a = MANZANAS[Math.floor(r() * 5)], b = MANZANAS[Math.floor(r() * 5)]; if ((a || b) && !(a === 0 && b === -16) && !afuera(a, b)) sitiosPalma.push([a + (r() < 0.5 ? -1.2 : 1.2), b + (r() < 0.5 ? -1.2 : 1.2)]); }
   const palT = new THREE.InstancedMesh(PAL.tronco, M(0x8a7560, { roughness: 0.95 }), sitiosPalma.length);
   const palC = new THREE.InstancedMesh(PAL.copa, new THREE.MeshStandardMaterial({ color: 0x3f9550, roughness: 0.75, flatShading: true, side: THREE.DoubleSide }), sitiosPalma.length);
   palT.castShadow = palC.castShadow = true;
@@ -454,6 +463,7 @@ export function iniciar(cont, getP) {
   for (const bx of MANZANAS) for (const bz of MANZANAS) {
     if (esBloque(PARQUE, bx, bz) || esBloque(IGLESIA, bx, bz) || r() < 0.25) continue;
     const x = bx + (r() - 0.5) * 1.4, z = bz + (r() - 0.5) * 1.4;
+    if (afuera(bx, bz)) { for (let k = 0; k < 6; k++) r(); continue; }
     troncos.add(x, 0.3, z, 0.3, 3.2, 0.3, null);
     copa(x, 4.6, z, 1.7, [0x2f7d4a, 0x3e9b5a, 0x2a6b42][nc % 3]); copa(x + 0.8, 4.1, z - 0.5, 1.15, 0x2a6b42);
   }
@@ -464,6 +474,78 @@ export function iniciar(cont, getP) {
   for (const sx of [-0.95, 0.95]) { macetas.add(ix + sx, 0.3, iz + 4.7, 0.42, 0.42, 0.42, null); copa(ix + sx, 1.15, iz + 4.7, 0.48, 0x3b8f4c); }
   copas.count = nc; copas.instanceMatrix.needsUpdate = true; copas.instanceColor.needsUpdate = true;
   scene.add(troncos.fin(), copas, macetas.fin());
+
+  // ---------- Afueras: Pirámide del Adivino (Uxmal) entre el monte ----------
+  const ra = rng(77), brillo2 = brilloTex();
+  const resplandor = (x, y, z, c, esc, op) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: brillo2, color: c, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending })); s.position.set(x, y, z); s.scale.setScalar(esc); scene.add(s); return s; };
+  const parche = (x, z, w, c) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w), new THREE.MeshStandardMaterial({ color: c, roughness: 1 })); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.02, z); m.receiveShadow = true; scene.add(m); };
+  const [ux, uz] = [-34.5, -35];
+  parche(-40, -40, 28, 0x1f2b19);
+  const piedra = M(0xc4b08a, { roughness: 0.95, emissive: 0x3a2610, emissiveIntensity: 0.35 }), piedra2 = M(0xa99673, { roughness: 0.95, emissive: 0x3a2610, emissiveIntensity: 0.3 });
+  const PY = new Armador(); let yp = 0.3;
+  for (let i = 0; i < 6; i++) { const h = 1.45, rB = 4.5 - i * 0.52, rT = rB - 0.32; PY.add(i % 2 ? piedra2 : piedra, new THREE.CylinderGeometry(rT, rB, h, 32), ux, yp + h / 2, uz, 0, 0, 0, 1.5, 1, 1); yp += h; }
+  // Templo de arriba con su puerta y crestería
+  PY.box(piedra, 3.4, 1.9, 2.0, ux, yp + 0.95, uz); PY.box(piedra2, 3.7, 0.35, 2.25, ux, yp + 1.75, uz);
+  PY.box(oscuroM, 0.75, 1.15, 0.1, ux, yp + 0.6, uz + 1.02);
+  for (const k of [-1.2, -0.4, 0.4, 1.2]) PY.box(piedra2, 0.35, 0.5, 0.35, ux + k, yp + 2.15, uz);
+  // Escalinata empinada hacia el frente
+  const altoP = yp - 0.3, z0 = uz + 6.3, z1 = uz + 1.3, dzE = z0 - z1, Lr = Math.hypot(altoP, dzE), th = -Math.atan2(dzE, altoP);
+  PY.box(piedra2, 2.3, Lr, 0.6, ux, 0.3 + altoP / 2, (z0 + z1) / 2 - 0.25, th);
+  for (const sx of [-1.25, 1.25]) PY.box(piedra, 0.35, Lr, 0.8, ux + sx, 0.3 + altoP / 2, (z0 + z1) / 2 - 0.2, th);
+  for (let i = 0; i < 24; i++) { const t = (i + 0.5) / 24; PY.box(piedra, 2.1, altoP / 24, 0.28, ux, 0.3 + t * altoP - altoP / 48, z0 - t * dzE + 0.08); }
+  scene.add(PY.grupo(true));
+  for (const [dx, dz] of [[-6, 5], [6, 5], [0, 7.2], [-7.5, -1], [7.5, -1]]) resplandor(ux + dx, 0.9, uz + dz, 0xffb066, 6, 0.55);
+  resplandor(ux, yp + 1, uz + 1.5, 0xffc27a, 9, 0.25);
+  // Monte bajo alrededor
+  const monte = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true }), 220);
+  monte.castShadow = true; let nm = 0; const om = new THREE.Object3D();
+  const arbusto = (x, z, s, c) => { if (nm >= 220) return; om.position.set(x, 0.3 + s * 0.6, z); om.scale.set(s, s * 0.8, s); om.rotation.set(ra(), ra(), ra()); om.updateMatrix(); monte.setMatrixAt(nm, om.matrix); monte.setColorAt(nm, col3.set(c)); nm++; };
+  for (let i = 0; i < 260; i++) {
+    const x = -54 + ra() * 27.5, z = -54 + ra() * 27.5;
+    if (((x - ux) / 8.2) ** 2 + ((z - uz - 1) / 8.6) ** 2 < 1) continue;
+    arbusto(x, z, 0.7 + ra() * 1.1, [0x23502f, 0x2f6b3c, 0x1d4428, 0x3a7a3f][Math.floor(ra() * 4)]);
+  }
+
+  // ---------- Afueras: hacienda henequenera (casa con arcos, chimenea y plantíos) ----------
+  const [hx, hz] = [33.5, -34];
+  parche(40, -40, 28, 0x3b3424);
+  const almagre = M(0xb9573a, { roughness: 0.8 }), ocreH = M(0xe0a93e, { roughness: 0.75 }), ladrillo = M(0x8f4630, { roughness: 0.9 });
+  const HA = new Armador();
+  HA.box(almagre, 9.6, 4.2, 4.0, hx, 2.4, hz - 0.6);
+  HA.box(blancaM, 9.8, 0.25, 4.2, hx, 4.55, hz - 0.6);
+  // Portal de arcos al frente
+  const fzH = hz + 2.6;
+  for (let k = 0; k <= 5; k++) HA.box(blancaM, 0.5, 2.55, 0.5, hx - 4.2 + k * 1.68, 1.58, fzH);
+  const enjuta = new THREE.Shape(); enjuta.moveTo(-0.84, 0); enjuta.lineTo(-0.59, 0); enjuta.absarc(0, 0, 0.59, Math.PI, 0, true); enjuta.lineTo(0.84, 0); enjuta.lineTo(0.84, 0.75); enjuta.lineTo(-0.84, 0.75); enjuta.closePath();
+  const enjutaG = new THREE.ExtrudeGeometry(enjuta, { depth: 0.5, bevelEnabled: false, curveSegments: 12 });
+  for (let k = 0; k < 5; k++) HA.add(almagre, enjutaG, hx - 4.2 + 0.84 + k * 1.68, 2.15, fzH - 0.25);
+  HA.box(almagre, 9.6, 0.7, 0.5, hx, 3.25, fzH); HA.box(blancaM, 9.8, 0.18, 2.9, hx, 3.65, hz + 1.35);
+  for (let k = 0; k < 5; k++) HA.box(madera.m.material, 0.8, 1.9, 0.08, hx - 4.2 + 0.84 + k * 1.68, 1.3, hz + 1.42);
+  // Casa de máquinas con su chimenea de ladrillo
+  HA.box(M(0xdcc79e), 4.2, 3.2, 3.6, hx + 2.6, 1.9, hz - 5.6); HA.box(blancaM, 4.3, 0.2, 3.7, hx + 2.6, 3.5, hz - 5.6);
+  HA.add(ladrillo, new THREE.CylinderGeometry(0.42, 0.75, 11, 14), hx + 5.4, 5.8, hz - 6.2);
+  HA.add(M(0x5a2a1c), new THREE.CylinderGeometry(0.55, 0.5, 0.45, 14), hx + 5.4, 11.4, hz - 6.2);
+  // Arco de entrada amarillo con remate escalonado
+  const gz = hz + 7.0;
+  for (const sx of [-1.7, 1.7]) HA.box(ocreH, 0.9, 3.3, 0.9, hx + sx, 1.95, gz);
+  HA.box(ocreH, 4.3, 1.0, 0.9, hx, 4.1, gz); HA.box(ocreH, 2.6, 0.7, 0.9, hx, 4.95, gz); HA.box(ocreH, 1.2, 0.5, 0.9, hx, 5.55, gz);
+  HA.box(blancaM, 4.5, 0.15, 1.0, hx, 4.6, gz); HA.box(blancaM, 2.8, 0.15, 1.0, hx, 5.3, gz);
+  for (const sx of [-1, 1]) { HA.box(almagre, 3.3, 1.0, 0.35, hx + sx * 3.85, 0.8, gz); HA.box(blancaM, 3.3, 0.1, 0.45, hx + sx * 3.85, 1.35, gz); }
+  scene.add(HA.grupo(true));
+  resplandor(hx, 2.2, fzH + 1.2, 0xffc27a, 10, 0.3); resplandor(hx, 3.0, gz + 0.8, 0xffc27a, 6, 0.35);
+  // Plantíos de henequén en hileras
+  const pencas = [], mp = new THREE.Matrix4(), qp = new THREE.Quaternion(), ep = new THREE.Euler();
+  const penca = new THREE.BoxGeometry(0.1, 1.15, 0.24); penca.translate(0, 0.55, 0);
+  for (let i = 0; i < 8; i++) { ep.set(0.55 + (i % 2) * 0.25, (i / 8) * Math.PI * 2, 0, "YXZ"); qp.setFromEuler(ep); mp.compose(new THREE.Vector3(), qp, new THREE.Vector3(1, 1, 1)); pencas.push([penca, mp.clone()]); }
+  ep.set(0, 0, 0); qp.setFromEuler(ep); mp.compose(new THREE.Vector3(), qp, new THREE.Vector3(1, 1.2, 1)); pencas.push([penca, mp.clone()]);
+  const sitiosH = [];
+  for (let x = 27; x <= 52; x += 1.6) for (let z = -53; z <= -41.5; z += 1.7) sitiosH.push([x, z]);
+  for (let x = 41.5; x <= 52; x += 1.6) for (let z = -39.5; z <= -27; z += 1.7) sitiosH.push([x, z]);
+  const hene = new THREE.InstancedMesh(fusionar(pencas), new THREE.MeshStandardMaterial({ color: 0x6f9f8a, roughness: 0.7 }), sitiosH.length);
+  sitiosH.forEach(([x, z], i) => { om.position.set(x + (ra() - 0.5) * 0.3, 0.05, z); om.rotation.set(0, ra() * 6.28, 0); om.scale.setScalar(0.8 + ra() * 0.35); om.updateMatrix(); hene.setMatrixAt(i, om.matrix); });
+  scene.add(hene);
+  for (let i = 0; i < 40; i++) { const x = 26 + ra() * 26, z = -54 + ra() * 27; if (x < 41 && z > -41) continue; if (x > 40.5 && z > -41 && ra() < 0.7) continue; arbusto(x, z, 0.8 + ra() * 0.9, [0x23502f, 0x2f6b3c][Math.floor(ra() * 2)]); }
+  monte.count = nm; monte.instanceMatrix.needsUpdate = true; monte.instanceColor.needsUpdate = true; scene.add(monte);
 
   // ---------- Faroles coloniales ----------
   const tex = brilloTex();
@@ -610,19 +692,27 @@ export function iniciar(cont, getP) {
     pedido: etiqueta("evento", "<b>Pedido en camino</b><small>De El Paisa a tu casa</small>", [8, 4.6, -8]),
     agenda: etiqueta("evento", "<b>Mañana, 6:00 a.m.</b><small>Un chofer confirmó tu viaje</small>", [cx, 9.2, cz]),
     nuevo: etiqueta("evento", "<b>Pedido nuevo</b><small>2 × Ceviche · El Paisa</small>", [px, 6.0, pz]),
+    uxmal: etiqueta("lugar gris", "<b>Uxmal</b><small>Zona arqueológica maya</small>", [ux, 13.2, uz]),
+    hacienda: etiqueta("lugar gris", "<b>Hacienda henequenera</b><small>Herencia de Yucatán</small>", [hx, 7.0, hz]),
   };
 
   // ---------- Cámara: un punto de vista por capítulo (0 inicio … 6 final) ----------
   const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
   const tmpM = new THREE.Vector3();
+  // Tomas de inicio y final: la cámara se mece despacio de un lado al otro para que se
+  // vean las dos orillas (Uxmal y la hacienda) aunque la pantalla sea angosta
+  const orbita = (radio, altura, adelanto) => {
+    const cel = ancho < 700, a = 1.66 - 0.8 * Math.cos(t * 0.15), lejos = radio * (cel ? 1.05 : 1), ad = adelanto * (cel ? 3.2 : 1);
+    return { pos: v3(-1 + Math.cos(a) * lejos, altura * (cel ? 1.55 : 1), -6 + Math.sin(a) * lejos), tgt: v3(-1 - Math.cos(a) * ad, 0, -6 - Math.sin(a) * ad) };
+  };
   const vistas = [
-    () => ({ pos: v3(40, 30, 44), tgt: v3(-1, 1, -6) }),
+    () => orbita(62, 32, 12),
     () => ({ pos: tmpM.clone().add(v3(7, 25, 10)), tgt: tmpM.clone().add(v3(0, 1, 0)) }),
     () => ({ pos: tmpM.clone().add(v3(9, 25, 8)), tgt: tmpM.clone().add(v3(0, 1, 0)) }),
     () => ({ pos: v3(cx + 10, 21, cz + 12), tgt: v3(cx - 1, 3, cz) }),
     () => ({ pos: tmpM.clone().add(v3(5, 24, -9)), tgt: tmpM.clone().add(v3(0, 1, 1)) }),
     () => ({ pos: v3(px - 11, 21, pz - 8), tgt: v3(px - 3, 1.5, pz) }),
-    () => ({ pos: v3(38, 46, 44), tgt: v3(0, 0, -5) }),
+    () => orbita(66, 44, 12),
   ];
 
   function estadoMoto(P) {
@@ -696,7 +786,7 @@ export function iniciar(cont, getP) {
     // Etiquetas
     const mostrar = {
       llego: P > 0.9 && P < 1.4, pedido: P > 1.7 && P < 2.45, agenda: P > 2.7 && P < 3.35, nuevo: P > 4.7 && P < 5.45,
-      parada: P < 1.6 || P > 5.6, aliado: P > 2.5,
+      parada: P < 1.6 || P > 5.6, aliado: P > 2.5, uxmal: P < 0.6 || P > 5.6, hacienda: P < 0.6 || P > 5.6,
     };
     // Si sale un aviso encima de un lugar, se esconde la etiqueta del lugar para que no se encimen
     mostrar.casa = !mostrar.llego && !mostrar.agenda;
