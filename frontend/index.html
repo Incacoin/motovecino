@@ -264,7 +264,7 @@ dialog.tuto-dlg[open]{animation:abre .45s cubic-bezier(.2,.7,.2,1)}
 .cerrar:hover{background:#1c222b}
 @media (min-width:760px){.dlg-in{grid-template-columns:auto 1fr;padding:36px;gap:40px;align-items:center}}
 
-/* Dos prioridades */
+/* Tres prioridades */
 .prioridades{display:grid;gap:16px;margin-top:44px}
 .prio{position:relative;border-radius:26px;padding:30px 28px;background:var(--vidrio);border:1px solid var(--linea);overflow:hidden}
 .prio::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(140deg,rgba(134,239,172,.6),transparent 45%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
@@ -276,7 +276,8 @@ dialog.tuto-dlg[open]{animation:abre .45s cubic-bezier(.2,.7,.2,1)}
 .prio li{display:flex;gap:10px;color:var(--gris);font-size:15.5px;line-height:1.45}
 .prio li::before{content:"";flex:none;width:7px;height:7px;margin-top:8px;border-radius:50%;background:var(--v3)}
 .prio li b{color:#fff;font-weight:600}
-@media (min-width:760px){.prioridades{grid-template-columns:1fr 1fr}}
+@media (min-width:760px){.prioridades{grid-template-columns:1fr 1fr}.prio:last-child{grid-column:1/-1}}
+@media (min-width:1000px){.prioridades{grid-template-columns:repeat(3,1fr)}.prio:last-child{grid-column:auto}}
 .nota{margin-top:16px;display:flex;gap:16px;padding:22px;border-radius:20px;background:linear-gradient(135deg,rgba(34,197,94,.12),rgba(34,197,94,.03));border:1px solid rgba(34,197,94,.28)}
 .nota .ico{color:var(--v2);margin-top:2px}
 .nota p{margin:0;color:var(--gris2);font-size:16px}
@@ -593,7 +594,7 @@ footer .wrap{display:grid;gap:26px}
     <div class="wrap">
       <p class="etq rev">Por qué nació MotoVecino</p>
       <h2 id="t-porque" class="rev r2">Que el dinero <em>se quede en casa.</em></h2>
-      <p class="intro rev r3">Las grandes aplicaciones casi no llegan a nuestros municipios. Y cuando llegan, el dinero se va lejos. Por eso nació MotoVecino, con <b>dos prioridades</b>. Todo lo que hacemos gira alrededor de ellas.</p>
+      <p class="intro rev r3">Las grandes aplicaciones casi no llegan a nuestros municipios. Y cuando llegan, el dinero se va lejos. Por eso nació MotoVecino, con <b>tres prioridades</b>. Todo lo que hacemos gira alrededor de ellas.</p>
       <div class="prioridades">
         <div class="prio rev">
           <span class="pi"><svg class="ico"><use href="#i-route"/></svg></span>
@@ -613,6 +614,16 @@ footer .wrap{display:grid;gap:26px}
             <li><span>El corazón de MotoVecino son <b>los pequeños y medianos negocios</b>.</span></li>
             <li><span><b>Llegan a clientes nuevos,</b> incluso en las colonias más alejadas.</span></li>
             <li><span>El domicilio <b>suma</b> a lo que ya hace cada negocio.</span></li>
+          </ul>
+        </div>
+        <div class="prio rev r3">
+          <span class="pi"><svg class="ico"><use href="#i-piramide"/></svg></span>
+          <small>Prioridad 3</small>
+          <p>Que el mundo conozca lo bello de Yucatán.</p>
+          <ul>
+            <li><span>Cada municipio yucateco tiene <b>lugares milenarios y con historia</b>: zonas mayas, cenotes, haciendas y conventos.</span></li>
+            <li><span>Los mostramos en la app y <b>te llevamos con choferes de aquí</b>. Empezamos por Ticul; pronto, más municipios.</span></li>
+            <li><span>Cuando nos visita gente de fuera, <b>crece todo el municipio</b>: sus choferes, sus negocios y su gente.</span></li>
           </ul>
         </div>
       </div>
