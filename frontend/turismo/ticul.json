@@ -1,0 +1,152 @@
+{
+  "city": "ticul",
+  "titulo": "Conoce Ticul",
+  "lema": "La Perla del Sur y todo lo que hay a su alrededor",
+  "portada": ["iglesia", "uxmal", "mucuyche"],
+  "centro": [20.39528, -89.53389],
+  "motoKm": 6,
+  "regresoKm": 12,
+  "categorias": [
+    { "id": "ticul", "label": "En Ticul" },
+    { "id": "maya", "label": "Zonas mayas" },
+    { "id": "agua", "label": "Cenotes y grutas" },
+    { "id": "historia", "label": "Haciendas y conventos" }
+  ],
+  "lugares": [
+    {
+      "id": "iglesia",
+      "n": "Iglesia de San Antonio de Padua",
+      "cat": "ticul",
+      "donde": "Centro de Ticul",
+      "p": [20.396776, -89.534032],
+      "d": "Templo y ex convento franciscano terminado en 1625, frente al parque principal. El corazón de Ticul.",
+      "foto": "iglesia"
+    },
+    {
+      "id": "alfareria",
+      "n": "Talleres de alfarería",
+      "cat": "ticul",
+      "donde": "Todo el municipio",
+      "d": "Ticul es el centro alfarero más importante de Yucatán: macetas, figuras y piezas de barro hechas a mano. Hay talleres por todo el municipio; pregúntale a tu chofer por el más cercano."
+    },
+    {
+      "id": "uxmal",
+      "n": "Uxmal",
+      "cat": "maya",
+      "donde": "Ruta Puuc · Santa Elena",
+      "p": [20.36095, -89.76975],
+      "d": "Ciudad maya Patrimonio de la Humanidad. Su Pirámide del Adivino, de esquinas redondeadas, es de las más famosas de Yucatán.",
+      "foto": "uxmal"
+    },
+    {
+      "id": "kabah",
+      "n": "Kabah",
+      "cat": "maya",
+      "donde": "Ruta Puuc · Santa Elena",
+      "p": [20.24935, -89.64921],
+      "d": "Su Codz Poop tiene toda la fachada cubierta de mascarones del dios Chaac. Tiene un arco maya del que salía el camino blanco (sacbé) hacia Uxmal.",
+      "foto": "kabah"
+    },
+    {
+      "id": "sayil",
+      "n": "Sayil",
+      "cat": "maya",
+      "donde": "Ruta Puuc",
+      "p": [20.17357, -89.65234],
+      "d": "Su Gran Palacio de tres pisos, con columnas y frisos de piedra labrada, es de lo más bonito de la Ruta Puuc.",
+      "foto": "sayil"
+    },
+    {
+      "id": "xlapak",
+      "n": "Xlapak",
+      "cat": "maya",
+      "donde": "Ruta Puuc",
+      "p": [20.17465, -89.6077],
+      "d": "La más pequeña de la ruta: un palacio con mascarones de Chaac en medio del monte, tranquilo y casi sin gente.",
+      "foto": "xlapak"
+    },
+    {
+      "id": "labna",
+      "n": "Labná",
+      "cat": "maya",
+      "donde": "Ruta Puuc",
+      "p": [20.17199, -89.57868],
+      "d": "Famosa por su arco maya, uno de los más bonitos que existen, y por su mirador con vista al monte.",
+      "foto": "labna"
+    },
+    {
+      "id": "mayapan",
+      "n": "Mayapán",
+      "cat": "maya",
+      "donde": "Tecoh",
+      "p": [20.62924, -89.46037],
+      "d": "La última gran capital maya de Yucatán. Su castillo se parece al de Chichén Itzá, pero con mucha menos gente.",
+      "foto": "mayapan"
+    },
+    {
+      "id": "loltun",
+      "n": "Grutas de Loltún",
+      "cat": "agua",
+      "donde": "Oxkutzcab",
+      "p": [20.25307, -89.45624],
+      "d": "Grutas enormes donde vivieron los antiguos mayas: hay pinturas, manos y figuras en la roca. Pregunta en la entrada cómo es la visita.",
+      "foto": "loltun"
+    },
+    {
+      "id": "sabakha",
+      "n": "Cenote Sabak Há",
+      "cat": "agua",
+      "donde": "Sacalum",
+      "p": [20.58018, -89.58819],
+      "d": "Cenote abierto, muy grande y profundo, rodeado de monte. Su nombre en maya habla de su agua oscura."
+    },
+    {
+      "id": "mucuyche",
+      "n": "Cenotes Hacienda Mucuyché",
+      "cat": "agua",
+      "donde": "Abalá",
+      "p": [20.62558, -89.60499],
+      "d": "Una antigua hacienda henequenera con cenotes de agua cristalina para nadar.",
+      "foto": "mucuyche"
+    },
+    {
+      "id": "tabi",
+      "n": "Ex Hacienda Tabi",
+      "cat": "historia",
+      "donde": "Al sur de Ticul",
+      "p": [20.27257, -89.5122],
+      "d": "La casa principal de una antigua hacienda, con sus arcos y corredores en medio del monte.",
+      "foto": "tabi"
+    },
+    {
+      "id": "mani",
+      "n": "Convento de San Miguel Arcángel",
+      "cat": "historia",
+      "donde": "Maní",
+      "p": [20.38843, -89.39235],
+      "d": "Convento franciscano del siglo XVI, de los más antiguos de Yucatán, con su gran atrio y capilla abierta.",
+      "foto": "mani"
+    },
+    {
+      "id": "santaelena",
+      "n": "Templo y museo de Santa Elena",
+      "cat": "historia",
+      "donde": "Santa Elena",
+      "p": [20.32791, -89.64148],
+      "d": "En el camino a Uxmal. Junto a su templo, en lo alto del pueblo, hay un pequeño museo con lo que se encontró en él."
+    }
+  ],
+  "creditos": {
+    "iglesia": { "autor": "Donna Yates", "licencia": "CC BY-SA 4.0", "fuente": "https://commons.wikimedia.org/wiki/File:Church_at_Ticul,_Yucat%C3%A1n,_Mexico_2.jpg" },
+    "uxmal": { "autor": "Dennis G. Jarvis", "licencia": "CC BY-SA 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Mexico-6286_-_Pyramid_of_the_Magician_(4682693077).jpg" },
+    "kabah": { "autor": "Gary Todd", "licencia": "CC0", "fuente": "https://commons.wikimedia.org/wiki/File:Kabah_Codz-Poop_-_10514362983.jpg" },
+    "sayil": { "autor": "Gary Todd", "licencia": "CC0", "fuente": "https://commons.wikimedia.org/wiki/File:Sayil_Palace.jpg" },
+    "xlapak": { "autor": "Gary Todd", "licencia": "CC0", "fuente": "https://commons.wikimedia.org/wiki/File:Xlapak_Structure_1_(the_Palace).jpg" },
+    "labna": { "autor": "jtyoder", "licencia": "CC0", "fuente": "https://commons.wikimedia.org/wiki/File:Labna_Arch,_Mayan_Mesoamerica.jpg" },
+    "loltun": { "autor": "Jimelovski Platano Macho", "licencia": "CC BY-SA 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Inframundo_-_Loltun.jpg" },
+    "mayapan": { "autor": "Joeldesalvatierra", "licencia": "CC BY-SA 3.0", "fuente": "https://commons.wikimedia.org/wiki/File:Mayapan_perspectiva_1.jpg" },
+    "mucuyche": { "autor": "Philip N. Cohen", "licencia": "CC BY-SA 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Cenote_Hacienda_Mucuych%C3%A9,_Yucat%C3%A1n_2024.jpg" },
+    "tabi": { "autor": "Sharon Hahn Darlin", "licencia": "CC BY 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Hacienda_Tabi,_Yucatan,_Mexico_Abril_2021_-_03.jpg" },
+    "mani": { "autor": "Dwalann", "licencia": "CC BY-SA 4.0", "fuente": "https://commons.wikimedia.org/wiki/File:Convento_de_Man%C3%AD_1.jpg" }
+  }
+}

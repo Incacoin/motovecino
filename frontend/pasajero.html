@@ -761,6 +761,48 @@ function toggleRiderTheme() {
   .acc-top h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
   .acc-back { width: 40px; height: 40px; border-radius: 13px; border: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text); background: rgba(15,23,42,0.06); flex-shrink: 0; }
   html[data-theme="dark"] .acc-back { background: rgba(255,255,255,0.08); }
+  /* "Conoce tu municipio" (15-nov-2026): lugares para visitar y "Llévame aquí". */
+  #tourChip { display: none; width: 100%; margin-top: 8px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-weight: 700; font-size: 14px; text-align: left; cursor: pointer; align-items: center; gap: 10px; }
+  #tourChip.show { display: flex; }
+  #tourChip .fc-ic { width: 30px; height: 30px; border-radius: 9px; background: #f6a623; color: #2a1a00; display: flex; align-items: center; justify-content: center; flex: 0 0 30px; }
+  #tourChip small { display: block; font-weight: 500; font-size: 12px; color: var(--text-dim); margin-top: 1px; }
+  #tourChip .fc-go { margin-left: auto; color: var(--text-faint); font-size: 18px; }
+  #tourScreen { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #tourBody { display: flex; flex-direction: column; gap: 14px; }
+  /* El botón de volver se queda arriba aunque baje mucho en la lista. */
+  #tourScreen .acc-top { position: sticky; top: -14px; z-index: 5; margin-top: -14px !important; padding: 14px 0 8px; background: var(--bg); }
+  .tour-hero { position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 16 / 10; background: #2b2417; box-shadow: var(--shadow-card); }
+  .tour-hero .th-grid { position: absolute; inset: 0; display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; }
+  .tour-hero .th-grid > div { overflow: hidden; background: #2b2417; }
+  .tour-hero .th-grid > div:first-child { grid-row: span 2; }
+  .tour-hero .th-grid.one { grid-template-columns: 1fr; }
+  .tour-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tour-hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.78) 100%); }
+  .tour-hero-txt { position: absolute; left: 16px; right: 16px; bottom: 14px; z-index: 1; color: #fff; }
+  .tour-hero-txt b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+  .tour-hero-txt span { display: block; font-size: 14px; opacity: 0.9; margin-top: 4px; }
+  .tour-road { height: 4px; border-radius: 4px; background: repeating-linear-gradient(90deg, #f6a623 0 18px, transparent 18px 28px); opacity: 0.85; }
+  .tour-intro { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text-dim); }
+  .tour-filter { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 4px; scrollbar-width: none; }
+  .tour-filter::-webkit-scrollbar { display: none; }
+  .tour-filter button { flex: 0 0 auto; border: 1px solid var(--border); background: var(--bg-card); color: var(--text); border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .tour-filter button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tour-card { border-radius: 18px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border); }
+  .tour-ph { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, #3a2f1c, #1d3a2a); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.5); }
+  .tour-ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tour-ph .tour-tag { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,0.62); color: #fff; font-size: 11px; font-weight: 700; padding: 5px 9px; border-radius: 999px; letter-spacing: 0.02em; }
+  .tour-ph .tour-nophoto { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .tour-body { padding: 13px 14px 14px; }
+  .tour-body h3 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); }
+  .tour-where { font-size: 13px; color: var(--text-dim); margin-top: 3px; display: flex; flex-wrap: wrap; gap: 2px 0; }
+  .tour-where > span + span::before { content: "·"; margin: 0 6px; color: var(--text-faint); font-weight: 400; }
+  .tour-where .tw-veh { font-weight: 700; color: var(--text); }
+  .tour-body p { margin: 9px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
+  .tour-back-note { margin-top: 8px; font-size: 12.5px; line-height: 1.4; color: var(--text-dim); background: rgba(246,166,35,0.12); border-radius: 10px; padding: 8px 10px; }
+  .tour-go { margin-top: 12px; width: 100%; }
+  .tour-credit { margin-top: 9px; font-size: 10.5px; color: var(--text-faint); }
+  .tour-credit a { color: inherit; }
+  .tour-foot { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); text-align: center; padding: 6px 4px 10px; }
   .acc-hero, .acc-level, .acc-list, .trip-card { background: rgba(15,23,42,0.045); border: 1px solid rgba(15,23,42,0.07); }
   html[data-theme="dark"] .acc-hero, html[data-theme="dark"] .acc-level, html[data-theme="dark"] .acc-list, html[data-theme="dark"] .trip-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
   .acc-hero { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 24px; cursor: pointer; font: inherit; color: var(--text); text-align: left; position: relative; }
@@ -1148,6 +1190,11 @@ function toggleRiderTheme() {
   </div>
 </div>
 
+<div id="tourScreen" class="screen acc-screen">
+  <div class="acc-top"><button class="acc-back" onclick="closeTour()" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><h1 id="tourTitle">Conoce tu municipio</h1></div>
+  <div id="tourBody"></div>
+</div>
+
 <div id="profileScreen" class="screen acc-screen">
   <div class="acc-top"><button class="acc-back" onclick="closeProfile()" aria-label="Volver"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button><h1>Mi cuenta</h1></div>
 
@@ -1258,6 +1305,7 @@ function toggleRiderTheme() {
   <div class="drawer-nav">
     <button class="drawer-row" onclick="openProfile()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span>Mi cuenta</button>
     <button class="drawer-row" id="foodRow" style="display:none" onclick="goFood()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span>Negocios · pide lo que necesites</button>
+    <button class="drawer-row" id="tourRow" style="display:none" onclick="openTour()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 20v-4h14v4"/><path d="M7 16v-4h10v4"/><path d="M9 12V8h6v4"/><path d="M11 8V5h2v3"/></svg></span><span id="tourRowLabel">Conoce tu municipio</span></button>
     <button class="drawer-row" id="bizRow" style="display:none" onclick="location.href='negocio.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span><span id="bizRowLabel">Mi negocio</span></button>
     <button class="drawer-row" onclick="openHistory()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Mis viajes</button>
     <button class="drawer-row" onclick="location.href='ayuda.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.3"/><path d="M12 17h.01"/></svg></span>Ayuda</button>
@@ -1300,6 +1348,7 @@ function toggleRiderTheme() {
         <div id="placeResults"></div>
       </div>
       <button type="button" id="foodChip" onclick="goFood()"><span class="fc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14a9 9 0 0 1 18 0z"/><path d="M2 14h20M12 5V3"/></svg></span><span>Negocios<small>Comida, farmacia, abarrotes y más</small></span><span class="fc-go">›</span></button>
+      <button type="button" id="tourChip" onclick="openTour()"><span class="fc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 20v-4h14v4"/><path d="M7 16v-4h10v4"/><path d="M9 12V8h6v4"/></svg></span><span id="tourChipLabel">Conoce tu municipio<small>Cenotes, zonas mayas, haciendas y más</small></span><span class="fc-go">›</span></button>
     </div>
     <div id="pickupStep" class="step-only step-block">
       <div class="row">
@@ -1655,7 +1704,7 @@ function initCityBrand(attempt) {
             const v = document.getElementById("entryVehRider");
             if (v) v.innerHTML = MVVeh.motoSide(124);
           }
-          if (data.city) { resolvedCityId = data.city; updateFareEstimate(); checkFoodSection(); }
+          if (data.city) { resolvedCityId = data.city; updateFareEstimate(); checkFoodSection(); checkTourSection(); }
           // Mientras no marque recogida, el aviso se basa en dónde está el celular.
           if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null);
         })
@@ -2977,6 +3026,7 @@ function enterMap() {
   startAvailableDriversPolling();
   checkMyBusiness();
   checkFoodSection();
+  checkTourSection();
 }
 
 // "Comida y negocios": se muestra solo cuando el admin la prende en la ciudad.
@@ -2995,6 +3045,138 @@ function checkFoodSection() {
 // La lista abre con los negocios del municipio donde está el pasajero.
 function goFood() {
   location.href = "comida.html?city=" + encodeURIComponent(resolvedCityId || "tekax");
+}
+
+// --- "Conoce tu municipio" (15-nov-2026) ---
+// Lugares para visitar (cenotes, zonas mayas, haciendas...) en un archivo por
+// municipio: frontend/turismo/<ciudad>.json. Si el municipio no tiene archivo,
+// la sección no aparece. No es guía de turistas: solo muestra el lugar y
+// "Llévame aquí" lo pone como destino del viaje. Lejos de la zona del mototaxi
+// (motoKm) el viaje se cambia a taxi.
+var tourData = null; // var: setPickStep la lee y puede correr antes de llegar aquí
+var tourCity = null;
+var tourFilter = "todos";
+function checkTourSection() {
+  const city = resolvedCityId || "tekax";
+  if (tourCity === city) return;
+  tourCity = city;
+  fetch(`turismo/${encodeURIComponent(city)}.json?v=1`)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null)
+    .then((d) => {
+      if (tourCity !== city) return;
+      tourData = d && Array.isArray(d.lugares) && d.lugares.length ? d : null;
+      document.getElementById("tourRow").style.display = tourData ? "" : "none";
+      if (tourData) {
+        document.getElementById("tourRowLabel").textContent = tourData.titulo;
+        document.getElementById("tourChipLabel").innerHTML = `${escapeHtml(tourData.titulo)}<small>Cenotes, zonas mayas, haciendas y más</small>`;
+      }
+      document.getElementById("tourChip").classList.toggle("show", !!tourData && pickStep === "pickup");
+    });
+}
+
+function tourKm(l) {
+  if (!l.p || !tourData.centro) return null;
+  return haversine(tourData.centro[0], tourData.centro[1], l.p[0], l.p[1]);
+}
+
+function tourPhotoHtml(key) {
+  return `<img loading="lazy" decoding="async" src="turismo/fotos/${encodeURIComponent(key)}.webp" alt="" onerror="this.remove()" />`;
+}
+
+// Portada: una foto o un mosaico (la grande a la izquierda, dos chicas a la derecha).
+function tourHeroHtml(portada) {
+  const keys = (Array.isArray(portada) ? portada : portada ? [portada] : []).slice(0, 3);
+  if (!keys.length) return "";
+  return `<div class="th-grid${keys.length < 3 ? " one" : ""}">${(keys.length < 3 ? keys.slice(0, 1) : keys).map((k) => `<div>${tourPhotoHtml(k)}</div>`).join("")}</div>`;
+}
+
+function tourCardHtml(l) {
+  const cat = (tourData.categorias || []).find((c) => c.id === l.cat);
+  const km = tourKm(l);
+  const far = km != null && km > (tourData.motoKm || 6);
+  const dist = km == null ? "" : km < 1.5 ? "En el centro" : `A unos ${Math.round(km)} km`;
+  const veh = km == null ? "" : far ? "En taxi" : "Mototaxi o taxi";
+  const credit = l.foto && tourData.creditos && tourData.creditos[l.foto];
+  return `<div class="tour-card">
+    <div class="tour-ph">${l.foto ? tourPhotoHtml(l.foto) : `<div class="tour-nophoto"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 20v-4h14v4"/><path d="M7 16v-4h10v4"/><path d="M9 12V8h6v4"/></svg>Foto muy pronto</div>`}${cat ? `<span class="tour-tag">${escapeHtml(cat.label)}</span>` : ""}</div>
+    <div class="tour-body">
+      <h3>${escapeHtml(l.n)}</h3>
+      <div class="tour-where"><span>${escapeHtml(l.donde || "")}</span>${dist ? `<span>${dist}</span>` : ""}${veh ? `<span class="tw-veh">${veh}</span>` : ""}</div>
+      <p>${escapeHtml(l.d || "")}</p>
+      ${km != null && km > (tourData.regresoKm || 12) ? `<div class="tour-back-note">Queda lejos: para el regreso, acuerda con tu chofer que te espere o que pase por ti a una hora.</div>` : ""}
+      ${l.p ? `<button class="btn tour-go" data-go="${escapeHtml(l.id)}">Llévame aquí</button>` : ""}
+      ${credit ? `<div class="tour-credit">Foto: ${escapeHtml(credit.autor)} · <a href="${escapeHtml(credit.fuente)}" target="_blank" rel="noopener">${escapeHtml(credit.licencia)}</a></div>` : ""}
+    </div>
+  </div>`;
+}
+
+function renderTour() {
+  const d = tourData;
+  if (!d) return;
+  document.getElementById("tourTitle").textContent = d.titulo;
+  const cats = [{ id: "todos", label: "Todos" }].concat(d.categorias || []);
+  const list = d.lugares.filter((l) => tourFilter === "todos" || l.cat === tourFilter);
+  document.getElementById("tourBody").innerHTML = `
+    <div class="tour-hero">${tourHeroHtml(d.portada)}<div class="tour-hero-txt"><b>${escapeHtml(d.titulo)}</b><span>${escapeHtml(d.lema || "")}</span></div></div>
+    <div class="tour-road"></div>
+    <p class="tour-intro">Lugares que vale la pena visitar. Toca <b>«Llévame aquí»</b> y te llevamos.</p>
+    <div class="tour-filter">${cats.map((c) => `<button type="button" class="${c.id === tourFilter ? "on" : ""}" data-f="${escapeHtml(c.id)}">${escapeHtml(c.label)}</button>`).join("")}</div>
+    ${list.map(tourCardHtml).join("")}
+    <div class="tour-foot">MotoVecino solo te lleva: no somos guía de turistas ni vendemos entradas. Horarios y costos pregúntalos en cada lugar.<br>¿Falta un lugar o tienes una buena foto? Escríbenos en <b>Ayuda</b>.</div>`;
+}
+
+function openTour() {
+  if (!tourData) return;
+  closeDrawer();
+  tourFilter = "todos";
+  renderTour();
+  document.getElementById("mapScreen").classList.remove("active");
+  const scr = document.getElementById("tourScreen");
+  scr.classList.add("active");
+  scr.scrollTop = 0;
+}
+
+function closeTour() {
+  document.getElementById("tourScreen").classList.remove("active");
+  document.getElementById("mapScreen").classList.add("active");
+  if (map) setTimeout(() => map.invalidateSize(), 60);
+}
+
+document.getElementById("tourBody").addEventListener("click", (e) => {
+  const f = e.target.closest("[data-f]");
+  if (f) {
+    tourFilter = f.dataset.f;
+    renderTour();
+    return;
+  }
+  const go = e.target.closest("[data-go]");
+  if (go) tourGo(go.dataset.go);
+});
+
+function tourGo(id) {
+  const l = tourData && tourData.lugares.find((x) => x.id === id);
+  if (!l || !l.p || !map) return;
+  const km = tourKm(l);
+  closeTour();
+  const ll = L.latLng(l.p[0], l.p[1]);
+  if (pickup && pickStep !== "pickup") {
+    setDestAt(ll, l.n);
+  } else {
+    // Todavía no marca dónde pasan por él: el destino queda listo y, al
+    // confirmar la partida, setPickupAt brinca directo a "Tu viaje".
+    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+    dest = ll;
+    destLabel = l.n;
+    destDecided = true;
+    updateFareEstimate();
+    setPickStep("pickup");
+    document.getElementById("stepSub").textContent = `Vas a ${l.n}. Ahora marca dónde pasamos por ti.`;
+  }
+  if (km != null && km > (tourData.motoKm || 6) && serviceType !== "taxi") {
+    setServiceType("taxi");
+    if (serviceType === "taxi") showToast(`Por la distancia, a ${l.n} vas en taxi`);
+  }
 }
 
 // Si esta cuenta es de un negocio (lo da de alta el admin), el menú muestra
@@ -3053,6 +3235,8 @@ function setPickStep(step) {
   clearPlaceSearch(false);
   const foodChip = document.getElementById("foodChip");
   if (foodChip) foodChip.classList.toggle("show", foodOn && step === "pickup");
+  const tourChip = document.getElementById("tourChip");
+  if (tourChip) tourChip.classList.toggle("show", !!tourData && step === "pickup");
   const placeInput = document.getElementById("placeInput");
   if (placeInput) placeInput.placeholder = step === "dest" ? 'Busca a dónde vas · ej. "50 x 47"' : 'Busca calle o lugar · ej. "50 x 47"';
   const hello = document.getElementById("stepHello");
