@@ -2,7 +2,7 @@
   "city": "ticul",
   "titulo": "Conoce Ticul",
   "lema": "La Perla del Sur y todo lo que hay a su alrededor",
-  "portada": ["iglesia", "uxmal", "mucuyche"],
+  "portada": ["uxmal", "kankirixche", "mucuyche"],
   "centro": [20.39528, -89.53389],
   "motoKm": 6,
   "regresoKm": 12,
@@ -13,22 +13,6 @@
     { "id": "historia", "label": "Haciendas y conventos" }
   ],
   "lugares": [
-    {
-      "id": "iglesia",
-      "n": "Iglesia de San Antonio de Padua",
-      "cat": "ticul",
-      "donde": "Centro de Ticul",
-      "p": [20.396776, -89.534032],
-      "d": "Templo y ex convento franciscano terminado en 1625, frente al parque principal. El corazón de Ticul.",
-      "foto": "iglesia"
-    },
-    {
-      "id": "alfareria",
-      "n": "Talleres de alfarería",
-      "cat": "ticul",
-      "donde": "Todo el municipio",
-      "d": "Ticul es el centro alfarero más importante de Yucatán: macetas, figuras y piezas de barro hechas a mano. Hay talleres por todo el municipio; pregúntale a tu chofer por el más cercano."
-    },
     {
       "id": "uxmal",
       "n": "Uxmal",
@@ -110,6 +94,15 @@
       "foto": "mucuyche"
     },
     {
+      "id": "kankirixche",
+      "n": "Cenote Kankirixché",
+      "cat": "agua",
+      "donde": "Abalá · cerca de Mucuyché",
+      "p": [20.637301, -89.632987],
+      "d": "Cenote de agua azul cristalina, con raíces de árbol que cuelgan hasta el agua. Queda a unos minutos de Mucuyché: puedes conocer los dos el mismo día. Pregunta en la entrada cómo es la visita.",
+      "foto": "kankirixche"
+    },
+    {
       "id": "tabi",
       "n": "Ex Hacienda Tabi",
       "cat": "historia",
@@ -134,10 +127,16 @@
       "donde": "Santa Elena",
       "p": [20.32791, -89.64148],
       "d": "En el camino a Uxmal. Junto a su templo, en lo alto del pueblo, hay un pequeño museo con lo que se encontró en él."
+    },
+    {
+      "id": "alfareria",
+      "n": "Talleres de alfarería",
+      "cat": "ticul",
+      "donde": "Todo el municipio",
+      "d": "Ticul es el centro alfarero más importante de Yucatán: macetas, figuras y piezas de barro hechas a mano. Hay talleres por todo el municipio; pregúntale a tu chofer por el más cercano."
     }
   ],
   "creditos": {
-    "iglesia": { "autor": "Donna Yates", "licencia": "CC BY-SA 4.0", "fuente": "https://commons.wikimedia.org/wiki/File:Church_at_Ticul,_Yucat%C3%A1n,_Mexico_2.jpg" },
     "uxmal": { "autor": "Dennis G. Jarvis", "licencia": "CC BY-SA 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Mexico-6286_-_Pyramid_of_the_Magician_(4682693077).jpg" },
     "kabah": { "autor": "Gary Todd", "licencia": "CC0", "fuente": "https://commons.wikimedia.org/wiki/File:Kabah_Codz-Poop_-_10514362983.jpg" },
     "sayil": { "autor": "Gary Todd", "licencia": "CC0", "fuente": "https://commons.wikimedia.org/wiki/File:Sayil_Palace.jpg" },
@@ -147,6 +146,7 @@
     "mayapan": { "autor": "Joeldesalvatierra", "licencia": "CC BY-SA 3.0", "fuente": "https://commons.wikimedia.org/wiki/File:Mayapan_perspectiva_1.jpg" },
     "mucuyche": { "autor": "Philip N. Cohen", "licencia": "CC BY-SA 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Cenote_Hacienda_Mucuych%C3%A9,_Yucat%C3%A1n_2024.jpg" },
     "tabi": { "autor": "Sharon Hahn Darlin", "licencia": "CC BY 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Hacienda_Tabi,_Yucatan,_Mexico_Abril_2021_-_03.jpg" },
-    "mani": { "autor": "Dwalann", "licencia": "CC BY-SA 4.0", "fuente": "https://commons.wikimedia.org/wiki/File:Convento_de_Man%C3%AD_1.jpg" }
+    "mani": { "autor": "Dwalann", "licencia": "CC BY-SA 4.0", "fuente": "https://commons.wikimedia.org/wiki/File:Convento_de_Man%C3%AD_1.jpg" },
+    "kankirixche": { "autor": "Elizabeth K. Joseph", "licencia": "CC BY 2.0", "fuente": "https://commons.wikimedia.org/wiki/File:Cenote_Kankirixch%C3%A9_(8727761794).jpg" }
   }
 }
