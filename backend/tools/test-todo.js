@@ -27,6 +27,7 @@ const TESTS = [
   ["celestun", []],
   ["comisarias", []],
   ["turismo", []],
+  ["moto-lejos", []],
   ["agendar", ["DATABASE_URL"]],
   ["agendar-oferta", ["DATABASE_URL"]],
   ["envio-asegurado", ["DATABASE_URL"]],

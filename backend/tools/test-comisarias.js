@@ -73,6 +73,30 @@ async function main() {
   check("taxi a 15 km: igual que antes (Tekax)", taxi15.status === 201 && taxi15.data.city === "tekax", taxi15);
   if (taxi15.data && taxi15.data.id) await cancel(taxi15.data.id);
 
+  // 17-nov-2026: el mototaxi tampoco DEJA fuera de su municipio (antes se
+  // podía pedir mototaxi de Ticul a Uxmal por $17). Ver test-moto-lejos.js.
+  const UXMAL = { lat: 20.36095, lng: -89.76975 };
+  const uxMoto = await post("/rides", { ...R, pickup_lat: TICUL.lat, pickup_lng: TICUL.lng, dest_lat: UXMAL.lat, dest_lng: UXMAL.lng, ride_type: "moto", offer_price: 17 });
+  check("mototaxi Ticul → Uxmal: no", uxMoto.status === 400 && /no llega/.test(uxMoto.data && uxMoto.data.error), uxMoto);
+  if (uxMoto.data && uxMoto.data.id) await cancel(uxMoto.data.id);
+  const uxCaro = await post("/rides", { ...R, pickup_lat: TICUL.lat, pickup_lng: TICUL.lng, dest_lat: UXMAL.lat, dest_lng: UXMAL.lng, ride_type: "moto", offer_price: 500 });
+  check("mototaxi Ticul → Uxmal: tampoco pagando más", uxCaro.status === 400, uxCaro);
+  if (uxCaro.data && uxCaro.data.id) await cancel(uxCaro.data.id);
+  const motoTo9 = await post("/rides", { ...R, pickup_lat: TICUL.lat, pickup_lng: TICUL.lng, dest_lat: p9.lat, dest_lng: p9.lng, ride_type: "moto", offer_price: 40 });
+  check("mototaxi del centro a una comisaría a 9 km: no", motoTo9.status === 400, motoTo9);
+  if (motoTo9.data && motoTo9.data.id) await cancel(motoTo9.data.id);
+  const uxTaxi = await post("/rides", { ...R, pickup_lat: TICUL.lat, pickup_lng: TICUL.lng, dest_lat: UXMAL.lat, dest_lng: UXMAL.lng, ride_type: "taxi", offer_price: 330 });
+  check("taxi Ticul → Uxmal: sí", uxTaxi.status === 201, uxTaxi);
+  if (uxTaxi.data && uxTaxi.data.id) await cancel(uxTaxi.data.id);
+  const p2 = north(2);
+  const moto2 = await post("/rides", { ...R, pickup_lat: TICUL.lat, pickup_lng: TICUL.lng, dest_lat: p2.lat, dest_lng: p2.lng, ride_type: "moto", offer_price: 17 });
+  check("mototaxi dentro de Ticul (2 km): sí", moto2.status === 201, moto2);
+  if (moto2.data && moto2.data.id) await cancel(moto2.data.id);
+  // Tekax → Akil (otro municipio, ~9 km): tampoco en mototaxi.
+  const akil = await post("/rides", { ...R, pickup_lat: 20.2071, pickup_lng: -89.2809, dest_lat: 20.2656, dest_lng: -89.3475, ride_type: "moto", offer_price: 17 });
+  check("mototaxi Tekax → Akil: no", akil.status === 400, akil);
+  if (akil.data && akil.data.id) await cancel(akil.data.id);
+
   console.log(`\n${fail ? "✗" : "✓"} ${pass} bien, ${fail} mal`);
   process.exit(fail ? 1 : 0);
 }

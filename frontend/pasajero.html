@@ -1707,7 +1707,7 @@ function initCityBrand(attempt) {
           }
           if (data.city) { resolvedCityId = data.city; updateFareEstimate(); checkFoodSection(); checkTourSection(); }
           // Mientras no marque recogida, el aviso se basa en dónde está el celular.
-          if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null);
+          if (!pickup) applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null, data.motoReach ?? null);
         })
         .catch(() => {});
     },
@@ -2219,6 +2219,36 @@ var rideWord = "mototaxi"; // "motocarro" en las comisarías de Progreso
 let zoneCheckSeq = 0;
 // true si la app cambió sola a Taxi por estar fuera de zona (no lo eligió él).
 let zoneForcedTaxi = false;
+// Hasta dónde deja el mototaxi (17-nov-2026): { lat, lng, km } del municipio de
+// la recogida (motoReach de /api/cities/resolve). null = sin límite.
+let motoReach = null;
+// true si la app cambió sola a Taxi porque el destino queda lejos.
+let destForcedTaxi = false;
+function destTooFarForMoto() {
+  return !!(motoReach && dest && !comisaria && haversine(dest.lat, dest.lng, motoReach.lat, motoReach.lng) > motoReach.km);
+}
+// Destino fuera del alcance del mototaxi (Uxmal, otro municipio...): la tarjeta
+// del mototaxi queda gris y el viaje pasa a taxi. Si después el destino queda
+// cerca y el taxi lo puso esto (no el pasajero), regresa a mototaxi.
+// Corre cada vez que cambia el destino o la zona de la recogida.
+function applyDestReach() {
+  if (serviceZone !== "in") return; // fuera de zona applyZone ya dejó solo taxi
+  const far = destTooFarForMoto();
+  document.getElementById("tabMoto").classList.toggle("unavailable", far);
+  document.getElementById("tabOferta").classList.toggle("unavailable", far);
+  renderVehCards(far ? "Queda lejos: solo taxi" : undefined);
+  if (far && serviceType !== "taxi") {
+    setServiceType("taxi");
+    if (serviceType === "taxi") {
+      destForcedTaxi = true;
+      showToast("Hasta allá el mototaxi no llega: tu viaje va en taxi");
+    }
+  } else if (!far && destForcedTaxi) {
+    destForcedTaxi = false;
+    if (serviceType === "taxi") setServiceType("moto");
+  }
+  markActiveCard();
+}
 
 // --- Tarjetas de vehículo ---
 // #tabMoto = Exprés (precio fijo), #tabOferta = Propón tu precio (mototaxi /
@@ -2272,8 +2302,9 @@ function greetingText() {
 
 // offer: reglas de "Propón tu precio" del pueblo (cityOffer de /api/cities/resolve);
 // undefined = no vino (resetPins), se quedan las de antes.
-function applyZone(zone, zoneLabel, com, soon, offer) {
+function applyZone(zone, zoneLabel, com, soon, offer, reach) {
   if (offer !== undefined) cityOffer = offer;
+  if (reach !== undefined) motoReach = reach;
   setComisaria(com);
   if (motoOfferOnly() && serviceType === "moto" && priceMode !== "oferta") { priceMode = "oferta"; markActiveCard(); }
   serviceZone = zone || "in";
@@ -2288,7 +2319,8 @@ function applyZone(zone, zoneLabel, com, soon, offer) {
     notice.style.display = "none";
     tabMoto.classList.remove("unavailable");
     renderVehCards();
-    if (zoneForcedTaxi) { zoneForcedTaxi = false; setServiceType("moto"); }
+    // Si el destino queda lejos, el taxi se queda (ahora por el destino).
+    if (zoneForcedTaxi) { zoneForcedTaxi = false; if (destTooFarForMoto()) destForcedTaxi = true; else setServiceType("moto"); }
   } else if (serviceZone === "taxi") {
     notice.innerHTML = motoSoon
       ? `<strong>Mototaxi en ${escapeHtml(town)}: muy pronto.</strong> Por ahora pide Taxi.`
@@ -2313,6 +2345,7 @@ function applyZone(zone, zoneLabel, com, soon, offer) {
     tabMoto.classList.add("unavailable");
     renderVehCards();
   }
+  applyDestReach();
   tourApplyVehicle();
   updateFareEstimate();
 }
@@ -2359,7 +2392,7 @@ function checkPickupZone() {
   const seq = ++zoneCheckSeq;
   fetch(API + `/api/cities/resolve?lat=${pickup.lat}&lng=${pickup.lng}`)
     .then((r) => r.json())
-    .then((data) => { if (seq === zoneCheckSeq && pickup) { zoneOutsideYucatan = data.inYucatan === false; applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null); setFamilyAvailable(data.familyRides); } })
+    .then((data) => { if (seq === zoneCheckSeq && pickup) { zoneOutsideYucatan = data.inYucatan === false; applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null, data.motoReach ?? null); setFamilyAvailable(data.familyRides); } })
     .catch(() => {});
 }
 
@@ -2374,12 +2407,17 @@ function setServiceType(type) {
       : "MotoVecino todavía no llega a tu zona.");
     return;
   }
+  if (wantMoto && destTooFarForMoto()) {
+    showToast("El mototaxi no llega hasta allá. Para ese viaje pide Taxi.");
+    return;
+  }
   if (type === "taxi" && comisaria) return;
   if (type === "moto" && motoOfferOnly()) type = "oferta";
   const newType = wantMoto ? "moto" : "taxi";
   const newMode = type === "oferta" ? "oferta" : "fijo";
   if (serviceType === newType && (newType === "taxi" || priceMode === newMode)) return;
   const vehicleChanged = serviceType !== newType;
+  if (wantMoto) destForcedTaxi = false;
   serviceType = newType;
   if (wantMoto) priceMode = newMode;
   markActiveCard();
@@ -3186,6 +3224,7 @@ function tourGo(id) {
     destLabel = l.n;
     destDecided = true;
     destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map);
+    applyDestReach();
     updateFareEstimate();
     setPickStep("pickup");
     document.getElementById("stepSub").textContent = `Vas a ${l.n}. Ahora marca dónde pasamos por ti.`;
@@ -3212,7 +3251,7 @@ function tourApplyVehicle() {
       zoneForcedTaxi = false; // que applyZone no lo regrese a mototaxi
       showToast(`Por la distancia, a ${tourTrip.n} vas en taxi`);
     }
-  } else if (want === "moto") {
+  } else if (want === "moto" && !destTooFarForMoto()) {
     tourForcedTaxi = false;
     setServiceType("moto");
   } else if (serviceType === "taxi" && pickup && MVTurismo.km(pickup, dest) > ((tourData && tourData.motoKm) || 6)) {
@@ -3339,6 +3378,7 @@ function setDestAt(latlng, label) {
   if (destMarker) map.removeLayer(destMarker);
   destMarker = L.marker(dest, { icon: numberedIcon(2, "#3498db") }).addTo(map);
   if (pickup && !pickupMarker) pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map);
+  applyDestReach();
   updateFareEstimate();
   setPickStep("trip");
 }
@@ -3418,6 +3458,7 @@ function skipDest() {
   dest = null; destMarker = null; destLabel = null;
   destDecided = true;
   if (pickup && !pickupMarker) pickupMarker = L.marker(pickup, { icon: numberedIcon(1, "#f6a623") }).addTo(map);
+  applyDestReach();
   updateFareEstimate();
   setPickStep("trip");
 }

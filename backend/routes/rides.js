@@ -3,7 +3,7 @@ const express = require("express");
 const db = require("../db");
 const livePos = require("../livePos");
 const realtime = require("../realtime");
-const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide, cityMinOffer } = require("../cities");
+const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide, cityMinOffer, motoReachesDest } = require("../cities");
 const { haversineKm } = require("../geo");
 
 // Si el celular de quien pide está a más de esto del punto de encuentro, al
@@ -160,6 +160,10 @@ function checkRideRequest(body) {
         return { error: "Revisa el precio que ofreces" };
       }
     }
+  } else if (ride_type !== "taxi" && dest_lat != null && dest_lng != null && !motoReachesDest(city, dest_lat, dest_lng)) {
+    // 17-nov-2026: el mototaxi deja solo dentro de su municipio (el mismo radio
+    // en el que recoge). Para Uxmal, otro municipio, etc. es taxi.
+    return { error: "El mototaxi no llega hasta allá. Para ese viaje pide Taxi." };
   } else if (ride_type !== "taxi" && cityCfg?.offerOnly && offer_price == null) {
     // Tekax, Ticul, Oxkutzcab y Akil (9-oct-2026): ya no hay Exprés de precio
     // fijo. Una app vieja guardada en el celular todavía lo puede mandar.

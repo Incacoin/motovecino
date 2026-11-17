@@ -29,7 +29,7 @@ const livePos = require("./livePos");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
 const { migrateImagesToFiles } = require("./imageStore");
-const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP, cityOfferRules, isInYucatan } = require("./cities");
+const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP, cityOfferRules, isInYucatan, motoReach } = require("./cities");
 
 const app = express();
 app.disable("x-powered-by");
@@ -253,9 +253,12 @@ app.get("/api/cities/resolve", async (req, res) => {
   // inYucatan: sin municipio cercano, ¿sigue en Yucatán o ya es otro
   // estado/país? Fuera de Yucatán la app dice solo "MotoVecino" (17-oct-2026).
   const inYucatan = isInYucatan(lat, lng) !== false;
+  // motoReach (17-nov-2026): hasta dónde deja el mototaxi (centro + km). La app
+  // no deja elegir mototaxi si el destino queda más lejos (POST /rides igual).
+  const reach = motoReach(zoneCityId);
   res.json(city
-    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon, cityOffer, inYucatan }
-    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false, cityOffer, inYucatan });
+    ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon, cityOffer, inYucatan, motoReach: reach }
+    : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false, cityOffer, inYucatan, motoReach: reach });
 });
 
 app.use("/api", driverRoutes);

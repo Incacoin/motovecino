@@ -244,6 +244,24 @@ function isWithinServiceRadius(cityId, lat, lng, rideType) {
   return haversineKm(lat, lng, city.lat, city.lng) <= radius;
 }
 
+// Hasta dónde llega el mototaxi de un municipio (17-nov-2026): el mismo radio
+// en el que recoge (serviceRadiusKm desde el centro). Antes solo se revisaba
+// la recogida y se podía pedir mototaxi de Ticul a Uxmal (30 km) por $17.
+// null = sin límite (municipio sin radio, o por comisarías: esas ya revisan
+// que el viaje termine en la misma comisaría).
+function motoReach(cityId) {
+  const city = getCityById(cityId);
+  if (!city || city.zones || city.serviceRadiusKm == null) return null;
+  return { lat: city.lat, lng: city.lng, km: city.serviceRadiusKm };
+}
+
+// ¿El mototaxi de este municipio puede dejar al pasajero en (lat, lng)?
+function motoReachesDest(cityId, lat, lng) {
+  const r = motoReach(cityId);
+  if (!r || lat == null || lng == null) return true;
+  return haversineKm(Number(lat), Number(lng), r.lat, r.lng) <= r.km;
+}
+
 // Reglas de "Propón tu precio" de un pueblo offerOnly (sin Exprés), para la
 // app del pasajero (/api/cities/resolve). null si el pueblo tiene precio fijo.
 function cityOfferRules(city) {
@@ -299,6 +317,8 @@ module.exports = {
   resolveCity,
   getCityById,
   isWithinServiceRadius,
+  motoReach,
+  motoReachesDest,
   rideCityAt,
   sameCityForRide,
   zoneAt,
