@@ -2224,8 +2224,18 @@ let zoneForcedTaxi = false;
 let motoReach = null;
 // true si la app cambió sola a Taxi porque el destino queda lejos.
 let destForcedTaxi = false;
+// La misma regla que el servidor (motoReachesDest en backend/cities.js): dentro
+// del radio Y que el destino no sea de otro municipio (el centro más cercano,
+// igual que resolveCity). Sin motoReach (todavía no llega o falló) no bloquea:
+// el servidor de todos modos lo revisa al pedir.
 function destTooFarForMoto() {
-  return !!(motoReach && dest && !comisaria && haversine(dest.lat, dest.lng, motoReach.lat, motoReach.lng) > motoReach.km);
+  if (!motoReach || !dest || comisaria) return false;
+  const own = haversine(dest.lat, dest.lng, motoReach.lat, motoReach.lng);
+  if (own > motoReach.km) return true;
+  return (motoReach.others || []).some((o) => {
+    const d = haversine(dest.lat, dest.lng, o.lat, o.lng);
+    return d <= o.km && d < own;
+  });
 }
 // Destino fuera del alcance del mototaxi (Uxmal, otro municipio...): la tarjeta
 // del mototaxi queda gris y el viaje pasa a taxi. Si después el destino queda
@@ -2245,7 +2255,13 @@ function applyDestReach() {
     }
   } else if (!far && destForcedTaxi) {
     destForcedTaxi = false;
-    if (serviceType === "taxi") setServiceType("moto");
+    if (serviceType === "taxi") {
+      // Destino de "Llévame aquí": el taxi pasa a ser de esa sección y ella
+      // decide (tourApplyVehicle corre justo después). Así no cambia a
+      // mototaxi y otra vez a taxi con dos avisos seguidos.
+      if (tourTrip && dest.lat === tourTrip.p.lat && dest.lng === tourTrip.p.lng) tourForcedTaxi = true;
+      else setServiceType("moto");
+    }
   }
   markActiveCard();
 }
@@ -2390,6 +2406,9 @@ function gripTouchEnd(e) {
 function checkPickupZone() {
   if (!pickup) return;
   const seq = ++zoneCheckSeq;
+  // El alcance del mototaxi es del municipio de la recogida: mientras llega el
+  // nuevo (o si falla por la señal), no se usa el de antes.
+  motoReach = null;
   fetch(API + `/api/cities/resolve?lat=${pickup.lat}&lng=${pickup.lng}`)
     .then((r) => r.json())
     .then((data) => { if (seq === zoneCheckSeq && pickup) { zoneOutsideYucatan = data.inYucatan === false; applyZone(data.zone, data.zoneLabel, data.comisaria, data.motoSoon, data.cityOffer ?? null, data.motoReach ?? null); setFamilyAvailable(data.familyRides); } })

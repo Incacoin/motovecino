@@ -255,7 +255,8 @@ app.get("/api/cities/resolve", async (req, res) => {
   const inYucatan = isInYucatan(lat, lng) !== false;
   // motoReach (17-nov-2026): hasta dónde deja el mototaxi (centro + km). La app
   // no deja elegir mototaxi si el destino queda más lejos (POST /rides igual).
-  const reach = motoReach(zoneCityId);
+  // Solo donde sí hay mototaxi (zone "in" de un municipio real); fuera, null.
+  const reach = city && zone === "in" ? motoReach(zoneCityId) : null;
   res.json(city
     ? { city: city.id, label: comisaria ? comisaria.label : city.label, inService, zone, zoneLabel, familyRides: familyOn, rideStyle: city.rideStyle || null, comisaria, motoSoon, cityOffer, inYucatan, motoReach: reach }
     : { city: null, label: null, inService: false, zone, zoneLabel, familyRides: familyOn, rideStyle: null, comisaria: null, motoSoon: false, cityOffer, inYucatan, motoReach: reach });

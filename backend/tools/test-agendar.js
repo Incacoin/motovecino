@@ -205,6 +205,30 @@ async function main() {
   for (const b of [l1, l5]) if (b) await post(`/rides/${b.ride_id}/cancel`, { riderPhone: R.riderPhone, riderPin: R.riderPin });
   check("cancelar el viaje ya salido no se hace desde la agenda", (await post(`/bookings/${b1.data.id}/cancel`, R)).status === 409);
 
+  // 17-nov-2026: el mototaxi no deja fuera de su municipio (Tekax → Akil).
+  // Agendar uno nuevo así: no. Uno agendado ANTES de la regla (aquí: se le
+  // cambia el destino directo en la base) se respeta: se le puede subir el
+  // precio y sale a su hora, no se cancela solo.
+  if (b2.data && b2.data.id) await post(`/bookings/${b2.data.id}/cancel`, R);
+  const AKIL = { lat: 20.2656, lng: -89.3475 };
+  const newFar = await post("/bookings", { ...trip, dest_lat: AKIL.lat, dest_lng: AKIL.lng, ...R, scheduled_at_ms: at(1100) });
+  check("agendar mototaxi Tekax → Akil: no", newFar.status === 400 && /no llega/.test(newFar.data && newFar.data.error), newFar);
+  const old = await post("/bookings", { ...trip, ...R, scheduled_at_ms: at(1200) });
+  check("agenda uno normal", old.status === 201, old);
+  if (old.data && old.data.id) {
+    await db.prepare("UPDATE ride_bookings SET dest_lat = ?, dest_lng = ? WHERE id = ?").run(AKIL.lat, AKIL.lng, old.data.id);
+    const up = await post(`/bookings/${old.data.id}/price`, { ...R, price: 25 });
+    check("agendado de antes a Akil: se le puede subir el precio", up.status === 200, up);
+    await setWhen(old.data.id, at(5));
+    const lo = await waitFor(async () => { const b = await getBooking(old.data.id); return b.status === "lanzado" || b.status === "fallido" ? b : null; });
+    check("agendado de antes a Akil: sale a su hora (no se cancela)", lo && lo.status === "lanzado", lo);
+    if (lo && lo.ride_id) {
+      const ride = await db.prepare("SELECT ride_type, dest_lat, offer_price FROM rides WHERE id = ?").get(lo.ride_id);
+      check("sale como mototaxi a Akil al precio subido", ride && ride.ride_type === "moto" && Math.abs(ride.dest_lat - AKIL.lat) < 1e-6 && ride.offer_price === 25, ride);
+      await post(`/rides/${lo.ride_id}/cancel`, { riderPhone: R.riderPhone, riderPin: R.riderPin });
+    } else if (lo) await post(`/bookings/${old.data.id}/cancel`, R);
+  }
+
   console.log(fail ? `✗ ${fail} mal, ${pass} bien` : `✓ ${pass} bien`);
   await db.close();
   process.exit(fail ? 1 : 0);

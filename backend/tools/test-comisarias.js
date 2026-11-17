@@ -96,6 +96,10 @@ async function main() {
   const akil = await post("/rides", { ...R, pickup_lat: 20.2071, pickup_lng: -89.2809, dest_lat: 20.2656, dest_lng: -89.3475, ride_type: "moto", offer_price: 17 });
   check("mototaxi Tekax → Akil: no", akil.status === 400, akil);
   if (akil.data && akil.data.id) await cancel(akil.data.id);
+  // Oxkutzcab → orilla de Akil (dentro de los 7 km de Oxkutzcab, pero ya es Akil).
+  const oxAk = await post("/rides", { ...R, pickup_lat: OX.lat, pickup_lng: OX.lng, dest_lat: 20.2766, dest_lng: -89.3743, ride_type: "moto", offer_price: 17 });
+  check("mototaxi Oxkutzcab → orilla de Akil: no", oxAk.status === 400, oxAk);
+  if (oxAk.data && oxAk.data.id) await cancel(oxAk.data.id);
 
   console.log(`\n${fail ? "✗" : "✓"} ${pass} bien, ${fail} mal`);
   process.exit(fail ? 1 : 0);

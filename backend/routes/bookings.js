@@ -515,7 +515,7 @@ router.post("/bookings/:id/price", async (req, res) => {
   const checked = rides.checkRideRequest({
     pickup_lat: b.pickup_lat, pickup_lng: b.pickup_lng, dest_lat: b.dest_lat, dest_lng: b.dest_lng,
     passengers: b.passengers, children: b.children, ride_type: b.ride_type, service_kind: "pasaje", offer_price: price,
-  });
+  }, { keepMotoDest: true }); // el destino ya se revisó al agendar (ver checkRideRequest)
   if (checked.error) return res.status(400).json({ error: checked.error });
   const r = await db
     .prepare("UPDATE ride_bookings SET offer_price = ?, updated_at = datetime('now') WHERE id = ? AND status = 'agendado' AND offer_price = ?")
@@ -618,7 +618,9 @@ async function launchBooking(b) {
         passengers: b.passengers, children: b.children,
         ride_type: b.ride_type, service_kind: "pasaje", offer_price: b.offer_price,
       };
-      const checked = rides.checkRideRequest(body);
+      // keepMotoDest: el destino ya se revisó al agendar. Un mototaxi lejano
+      // agendado antes del 17-nov-2026 (y quizá ya aceptado) no se cancela.
+      const checked = rides.checkRideRequest(body, { keepMotoDest: true });
       if (checked.error) return failBooking(b, checked.error);
 
       ride = await rides.insertRide(rider, body, checked, b.id);

@@ -249,17 +249,29 @@ function isWithinServiceRadius(cityId, lat, lng, rideType) {
 // la recogida y se podía pedir mototaxi de Ticul a Uxmal (30 km) por $17.
 // null = sin límite (municipio sin radio, o por comisarías: esas ya revisan
 // que el viaje termine en la misma comisaría).
+// others: los demás municipios (centro y radio de etiqueta) para que la app
+// sepa si el destino ya es de otro (Oxkutzcab y Akil se enciman: sus centros
+// están a ~8.4 km y el radio de Oxkutzcab es 7).
 function motoReach(cityId) {
   const city = getCityById(cityId);
   if (!city || city.zones || city.serviceRadiusKm == null) return null;
-  return { lat: city.lat, lng: city.lng, km: city.serviceRadiusKm };
+  const others = CITIES
+    .filter((c) => c.id !== city.id && !c.zones && !c.testOnly)
+    .map((c) => ({ lat: c.lat, lng: c.lng, km: c.labelRadiusKm ?? CITY_RADIUS_KM }));
+  return { lat: city.lat, lng: city.lng, km: city.serviceRadiusKm, others };
 }
 
 // ¿El mototaxi de este municipio puede dejar al pasajero en (lat, lng)?
+// Dentro de su radio Y sin que el punto sea de otro municipio (el que
+// resolveCity da para ese punto: el centro más cercano).
 function motoReachesDest(cityId, lat, lng) {
   const r = motoReach(cityId);
   if (!r || lat == null || lng == null) return true;
-  return haversineKm(Number(lat), Number(lng), r.lat, r.lng) <= r.km;
+  lat = Number(lat);
+  lng = Number(lng);
+  if (haversineKm(lat, lng, r.lat, r.lng) > r.km) return false;
+  const there = resolveCity(lat, lng);
+  return !there || there.id === cityId || !!there.testOnly || !!there.zones;
 }
 
 // Reglas de "Propón tu precio" de un pueblo offerOnly (sin Exprés), para la

@@ -93,7 +93,8 @@ async function driverPinValid(driverId, pin) {
 // destino). Lo usan el viaje normal y el viaje agendado (routes/bookings.js),
 // así los dos pasan por las mismas reglas. Regresa { error } o los datos ya
 // limpios: { city, offerPrice, cleanServiceKind }.
-function checkRideRequest(body) {
+// opts.keepMotoDest: no revisar hasta dónde llega el mototaxi (ver abajo).
+function checkRideRequest(body, opts = {}) {
   const { pickup_lat, pickup_lng, dest_lat, dest_lng, passengers, children, ride_type, service_kind, offer_price } = body;
   // El extra voluntario (+$5 / +$10) se quitó el 5-oct-2026: quien quiera
   // pagar más usa "Propón tu precio". Una app vieja que lo mande se ignora.
@@ -133,6 +134,17 @@ function checkRideRequest(body) {
   // empieza y termina en la misma comisaría. "Propón tu precio" es un viaje
   // de moto con offer_price (el chofer acepta o contraoferta, igual que el taxi).
   const cityCfg = getCityById(city);
+
+  // 17-nov-2026: el mototaxi deja solo dentro de su municipio (el mismo radio
+  // en el que recoge, y que el destino no sea de otro municipio). Para Uxmal,
+  // Akil desde Tekax, etc. es taxi. Las comisarías de Progreso tienen su
+  // propia regla abajo. keepMotoDest: viaje agendado ANTES de esta regla
+  // (al llegar su hora o al subirle el precio) — ya estaba aceptado, se respeta.
+  if (ride_type !== "taxi" && !cityCfg?.zones && !opts.keepMotoDest &&
+      dest_lat != null && dest_lng != null && !motoReachesDest(city, dest_lat, dest_lng)) {
+    return { error: "El mototaxi no llega hasta allá. Para ese viaje pide Taxi." };
+  }
+
   if (cityCfg?.zones) {
     if (ride_type === "taxi") return { error: "Aquí solo hay motocarro" };
     if (dest_lat == null || dest_lng == null) {
@@ -160,10 +172,6 @@ function checkRideRequest(body) {
         return { error: "Revisa el precio que ofreces" };
       }
     }
-  } else if (ride_type !== "taxi" && dest_lat != null && dest_lng != null && !motoReachesDest(city, dest_lat, dest_lng)) {
-    // 17-nov-2026: el mototaxi deja solo dentro de su municipio (el mismo radio
-    // en el que recoge). Para Uxmal, otro municipio, etc. es taxi.
-    return { error: "El mototaxi no llega hasta allá. Para ese viaje pide Taxi." };
   } else if (ride_type !== "taxi" && cityCfg?.offerOnly && offer_price == null) {
     // Tekax, Ticul, Oxkutzcab y Akil (9-oct-2026): ya no hay Exprés de precio
     // fijo. Una app vieja guardada en el celular todavía lo puede mandar.
