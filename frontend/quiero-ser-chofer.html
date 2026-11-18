@@ -57,7 +57,7 @@
   #playBox { display: none; margin-top: 18px; padding: 14px; border-radius: 16px; background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.35); text-align: left; }
   #playBox b { display: block; font-size: 15px; color: var(--text); margin-bottom: 4px; }
   #playBox span { display: block; font-size: 13.5px; line-height: 1.45; color: var(--text-dim); margin-bottom: 12px; }
-  #playBox .btn { display: block; text-align: center; text-decoration: none; background: #16a34a; color: #fff; font-weight: 800; border-radius: 14px; }
+  #playBox .btn { display: block; text-align: center; text-decoration: none; }
   #okScreen, #ticulSoonScreen, #comingSoonScreen { display: none; padding: 26px 20px; text-align: center; }
   #okScreen .big, #ticulSoonScreen .big, #comingSoonScreen .big { font-size: 38px; }
   #okScreen h2, #ticulSoonScreen h2, #comingSoonScreen h2 { color: var(--accent); font-size: 19px; margin: 10px 0 6px; }
@@ -776,7 +776,7 @@ async function submitApplication() {
   try {
     const isAndroid = /Android/i.test(navigator.userAgent);
     const inApp = sessionStorage.getItem("mv_play") === "1" ||
-      document.referrer.startsWith("android-app://") ||
+      document.referrer.startsWith("android-app://com.motovecino.app") ||
       window.matchMedia("(display-mode: standalone)").matches;
     if (isAndroid && !inApp) document.getElementById("playBox").style.display = "block";
   } catch (e) {}
