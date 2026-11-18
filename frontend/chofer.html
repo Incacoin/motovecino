@@ -3844,7 +3844,7 @@ function shareInvite() {
   const text = `¡Hola! Yo ya manejo con MotoVecino, la app para pedir mototaxi y taxi ${place}. ` +
     `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación` +
     (promo ? `; cuando completes ${promo.trips} viajes, los dos ganamos $${promo.amount} de descuento en la cuota` : "") +
-    `:\n${link}`;
+    `:\n${link}\n\nSi tienes Android, después descarga la app de Google Play aquí:\nwww.motovecinoapp.com/#probar`;
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
 
