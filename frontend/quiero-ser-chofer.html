@@ -220,6 +220,11 @@
   .grupoOpt { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; cursor: pointer;
     border: 1.5px solid var(--border); background: var(--bg-card); }
   .grupoOpt input { position: absolute; opacity: 0; pointer-events: none; }
+  .vehOpt .vehIco { width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-dim); background: rgba(127,127,127,0.12); }
+  .vehOpt.sel .vehIco { color: #15803d; background: rgba(34,197,94,0.14); }
+  html[data-theme="dark"] .vehOpt.sel .vehIco { color: #34d399; background: rgba(52,211,153,0.12); }
+  .vehOpt .dotSel { margin-left: auto; }
+  .photoBtn svg { flex-shrink: 0; }
   .grupoOpt .dotSel { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--text-faint); }
   .grupoOpt b { display: block; font-size: 15.5px; font-weight: 700; color: var(--text); }
   .grupoOpt small { display: block; font-size: 13px; color: var(--text-dim); margin-top: 2px; }
@@ -274,10 +279,16 @@
     </div>
     <div class="field">
       <label>¿Con qué vehículo trabajas?</label>
-      <select id="vehicleType" onchange="updateVehicleLabels()">
-        <option value="moto">🛵 Mototaxi o motocarro</option>
-        <option value="taxi">🚕 Taxi o carro</option>
+      <!-- Tarjetas con ícono propio (18-nov-2026): los emojis 🛵🚕 se veían de caricatura.
+           El select escondido sigue siendo el valor que lee el resto del código. -->
+      <select id="vehicleType" onchange="updateVehicleLabels()" style="display:none" aria-hidden="true">
+        <option value="moto">Mototaxi o motocarro</option>
+        <option value="taxi">Taxi o carro</option>
       </select>
+      <div class="grupoOpts" id="vehOpts">
+        <label class="grupoOpt vehOpt sel" data-veh="moto" onclick="pickVehicle('moto')"><span class="vehIco"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5h11.5a1 1 0 0 1 1 1v8.5"/><path d="M8 5 5.5 11.5"/><path d="M3.5 15v-2a1.5 1.5 0 0 1 1.5-1.5h9V8.5h6.5"/><path d="M3.5 15h17"/><path d="M14 11.5h6.5"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="17.5" cy="17.5" r="2"/></svg></span><span><b id="vehMotoTitle">Mototaxi o motocarro</b></span><span class="dotSel"></span></label>
+        <label class="grupoOpt vehOpt" data-veh="taxi" id="vehTaxiOpt" onclick="pickVehicle('taxi')"><span class="vehIco"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3.5a.5.5 0 0 1-.5-.5V12l2.2-4.6A2 2 0 0 1 7 6.3h10a2 2 0 0 1 1.8 1.1L21 12v4.5a.5.5 0 0 1-.5.5H19"/><path d="M3 12h18"/><path d="M10 6.3V4.5h4v1.8"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/></svg></span><span><b>Taxi o carro</b></span><span class="dotSel"></span></label>
+      </div>
     </div>
     <div class="field">
       <label id="vehicleColorLabel">¿De qué color es tu mototaxi?</label>
@@ -297,14 +308,14 @@
       <label>Foto de tu rostro</label>
       <p class="fieldHint">Una selfie clara de tu cara. Esta es la foto que le va a aparecer al pasajero cuando le llegue su viaje, para que te reconozca.</p>
       <input type="file" class="photoInput" id="photo" accept="image/*" capture="user" onchange="handlePhoto(event, 'photoPreview')" />
-      <label for="photo" class="photoBtn" id="photoBtn">📷 Tomar selfie</label>
+      <label for="photo" class="photoBtn" id="photoBtn"></label>
       <img id="photoPreview" />
     </div>
     <div class="field">
       <label id="photoPlacaLabel">Foto de ti con tu mototaxi</label>
       <p class="fieldHint">Que se vea tu vehículo completo y su placa. Solo para verificación interna — el pasajero nunca ve esta foto.</p>
       <input type="file" class="photoInput" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
-      <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn">📷 Tomar foto con tu mototaxi</label>
+      <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn"></label>
       <img id="photoPlacaPreview" />
     </div>
     </div>
@@ -579,7 +590,9 @@ function tryLocateCity(attempt) {
           if (data.rideStyle === "comisarias") {
             isComisaria = true;
             const sel = document.getElementById("vehicleType");
-            sel.innerHTML = '<option value="moto">🛵 Motocarro</option>';
+            sel.innerHTML = '<option value="moto">Motocarro</option>';
+            document.getElementById("vehTaxiOpt").style.display = "none";
+            document.getElementById("vehMotoTitle").textContent = "Motocarro";
             sel.value = "moto";
             // En las comisarías de Progreso solo hay motocarros: sin dibujo de taxi.
             document.getElementById("qsVeh").innerHTML = MVVeh.motoSide(140);
@@ -627,12 +640,28 @@ function vehicleWord() {
   if (isComisaria) return "motocarro";
   return document.getElementById("vehicleType").value === "taxi" ? "taxi" : "mototaxi";
 }
+// Ícono de cámara de línea (el mismo de "Tus fotos"), en vez del emoji 📷.
+const CAM_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>';
+function setPhotoBtn(btn, text) {
+  btn.innerHTML = CAM_SVG + "<span></span>";
+  btn.lastChild.textContent = text;
+}
+// Tarjetas de vehículo: marcan la elegida y cambian el select escondido.
+function pickVehicle(v) {
+  const sel = document.getElementById("vehicleType");
+  if (![...sel.options].some((o) => o.value === v)) return;
+  sel.value = v;
+  document.querySelectorAll("#vehOpts .vehOpt").forEach((l) => l.classList.toggle("sel", l.dataset.veh === v));
+  updateVehicleLabels();
+}
 function updateVehicleLabels() {
   document.getElementById("photoPlacaLabel").textContent = "Foto de ti con tu " + vehicleWord();
   document.getElementById("vehicleColorLabel").textContent = "¿De qué color es tu " + vehicleWord() + "?";
   const btn = document.getElementById("photoPlacaBtn");
-  if (!btn.classList.contains("done")) btn.textContent = "📷 Tomar foto con tu " + vehicleWord();
+  if (!btn.classList.contains("done")) setPhotoBtn(btn, "Tomar foto con tu " + vehicleWord());
 }
+setPhotoBtn(document.getElementById("photoBtn"), "Tomar selfie");
+updateVehicleLabels();
 
 function handlePhoto(event, previewId) {
   const file = event.target.files[0];
