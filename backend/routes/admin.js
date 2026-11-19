@@ -9,7 +9,7 @@ const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido } = require("..
 const { COLORES_VEHICULO, colorValido } = require("../colores");
 
 // Agrupación que manda el admin para un chofer: en municipio con lista solo
-// vale una de la lista, "Por su cuenta" o vacío (= sin elegir); en los demás
+// vale una de la lista, "Por su cuenta" (= «Otra agrupación») o vacío (= sin elegir); en los demás
 // sigue el texto libre de antes. undefined = no es válida.
 function adminGrupo(cityId, grupo) {
   const texto = typeof grupo === "string" ? grupo.trim() : "";

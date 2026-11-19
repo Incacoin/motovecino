@@ -1606,6 +1606,7 @@ function colorOptions(selected) {
 }
 function grupoLabel(grupo) {
   const a = agrupacionesAdmin().find((x) => x.nombre === grupo);
+  if (grupo === porSuCuenta) return "Otra agrupación (aún no en la lista)";
   return a ? `${a.nombre} · Líder: ${a.lider}` : grupo;
 }
 function grupoOptions(selected) {
@@ -1617,7 +1618,7 @@ function grupoOptions(selected) {
 // ---- Padrón por agrupación (18-nov-2026) ----
 // Para el líder de cada agrupación y la Dirección de Transporte: nombre,
 // servicio, desde cuándo y si se conecta. Nunca teléfono ni ubicación.
-// "Por su cuenta" y "Sin elegir" son solo para MotoVecino (no se reparten).
+// "Otra agrupación" (valor guardado "Por su cuenta") y "Sin elegir" son solo para MotoVecino (no se reparten).
 function padronGrupos() {
   const reales = driversCache.filter((d) => !d.es_prueba);
   const grupos = agrupacionesAdmin().map((a) => ({ key: a.nombre, titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false }));

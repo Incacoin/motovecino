@@ -1,5 +1,5 @@
 // Prueba del padrón por agrupación (18-nov-2026): en Ticul el registro de
-// chofer obliga a elegir Jaguar / Alcones Alfa / "Por su cuenta"; el admin la
+// chofer obliga a elegir Jaguar / Alcones Alfa / «Otra agrupación» (valor "Por su cuenta"); el admin la
 // conserva al aprobar y al editar (antes editar la borraba); el pasajero nunca
 // ve "Por su cuenta"; en Tekax no se pregunta nada. Color del vehículo:
 // obligatorio en el registro, se conserva al editar y el pasajero lo ve.

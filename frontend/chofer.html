@@ -4048,9 +4048,11 @@ function renderProfile(p) {
   document.getElementById("founderBadge").style.display = p.esFundador ? "inline-block" : "none";
   document.getElementById("pfAv").classList.toggle("gold", !!p.esFundador);
   document.getElementById("pfUnitImg").innerHTML = p.vehicleType === "taxi" ? MVVeh.taxiSide(118) : MVVeh.motoSide(108);
+  // "Por su cuenta" es el valor guardado de la opción «Otra agrupación» (19-nov).
+  const grupoVisible = (g) => (g === "Por su cuenta" ? "Otra agrupación" : g);
   document.getElementById("profileSub").textContent =
     (p.vehicleType === "taxi" ? "Taxi" : "Mototaxi") +
-    (p.grupo ? ` · ${p.grupo}` : "") +
+    (grupoVisible(p.grupo) ? ` · ${grupoVisible(p.grupo)}` : "") +
     (p.createdAt ? ` · Desde ${fmtDate(p.createdAt)}` : "");
 
   const starsRow = document.getElementById("profileStarsRow");
@@ -4128,7 +4130,7 @@ function renderProfile(p) {
     row("Teléfono", p.phone),
     row("Unidad", escapeHtml(p.vehicle || "—")),
     row("Color", escapeHtml(p.vehicleColor || "—")),
-    row("Agrupación", escapeHtml(p.grupo || "—")),
+    row("Agrupación", escapeHtml(grupoVisible(p.grupo) || "—")),
     row("Tipo", p.vehicleType === "taxi" ? "Taxi" : "Mototaxi"),
     p.cancelCount ? row("Viajes cancelados por ti", p.cancelCount, p.cancelCount >= 3 ? "warn" : "") : "",
   ].join("");

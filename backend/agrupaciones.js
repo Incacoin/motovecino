@@ -5,7 +5,7 @@
 // Transporte. Municipio sin lista aquí = no se pregunta nada.
 //
 // En drivers.grupo / driver_applications.grupo se guarda el `nombre` tal cual
-// (o POR_SU_CUENTA). Si se renombra una agrupación, actualizar también las
+// (o POR_SU_CUENTA = la opción «Otra agrupación»). Si se renombra una agrupación, actualizar también las
 // filas viejas, o el padrón las va a mostrar como "Sin elegir".
 const AGRUPACIONES = {
   ticul: [
