@@ -127,11 +127,12 @@
     for (const m of gliding) {
       const g = m._vehGlide;
       if (!m._map) { gliding.delete(m); continue; }
-      // Mientras el mapa hace zoom Leaflet acomoda los marcadores solo.
-      if (m._map._animatingZoom) continue;
-      const t = Math.min(1, (now - g.start) / g.ms);
+      // Mientras el mapa hace zoom Leaflet acomoda los marcadores solo; el
+      // reloj del deslizado se recorre para que al terminar no brinque.
+      if (m._map._animatingZoom) { g.start += now - (g.last || now); g.last = now; continue; }
+      g.last = now;
+      const t = Math.max(0, Math.min(1, (now - g.start) / g.ms));
       m.setLatLng([g.from.lat + (g.to.lat - g.from.lat) * t, g.from.lng + (g.to.lng - g.from.lng) * t]);
-      applyRot(m);
       if (t >= 1) gliding.delete(m);
     }
     if (gliding.size) frame = requestAnimationFrame(tick);
@@ -168,9 +169,8 @@
     const anchor = marker._vehAnchor || marker.getLatLng();
     const dy = lat - anchor.lat;
     const dx = (lng - anchor.lng) * Math.cos((lat * Math.PI) / 180);
-    const meters = Math.sqrt(dx * dx + dy * dy) * 111320;
     if (!marker._vehAnchor) marker._vehAnchor = { lat: anchor.lat, lng: anchor.lng };
-    if (meters > 8) {
+    if (metersBetween(anchor, { lat, lng }) > 8) {
       const bearing = (Math.atan2(dx, dy) * 180) / Math.PI; // 0 = norte, 90 = este
       // El dibujo mira hacia el sur. Se gira por el lado más corto (sin dar la vuelta completa).
       let rot = bearing + 180;

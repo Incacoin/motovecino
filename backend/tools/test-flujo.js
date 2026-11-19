@@ -122,22 +122,18 @@ async function main() {
   // (livePos.js) guarda en la base, cada 10 s: antes de eso no sale en el mapa.
   await sleep(11000);
   const avail = await get(`/drivers/available?lat=${TEKAX.lat}&lng=${TEKAX.lng}`);
-  // El mapa ya no trae el número de chofer ni la posición exacta (24-oct; desde
-  // 19-nov va corrida 40-60 m): se reconoce por estar a menos de ~1 cuadra.
+  // El mapa ya no trae el número de chofer ni la posición exacta (24-oct): se
+  // reconoce cada uno por estar a menos de ~1 cuadra de donde se reportó.
   const onMap = (pos) => avail.data.some((d) => Math.abs(d.lat - pos.lat) < 0.0011 && Math.abs(d.lng - pos.lng) < 0.0011);
   check("choferes disponibles (mensajes tempranos del socket)", avail.status === 200 && avail.data.length >= 2 && onMap(near(0.002)) && onMap(near(0.003)), avail.data);
   const availMe = await get(`/drivers/available?lat=${TEKAX.lat}&lng=${TEKAX.lng}&me=${moto.id}`);
   check("el chofer no se ve a sí mismo en su mapa", availMe.data.length === avail.data.length - 1, availMe.data);
   check("mapa sin número de chofer", avail.data.every((d) => typeof d.id === "string" && !/^\d+$/.test(d.id)), avail.data);
 
-  const metros = (a, b) => Math.hypot((a.lat - b.lat) * 111320, (a.lng - b.lng) * 111320 * Math.cos((a.lat * Math.PI) / 180));
-  const reales = [near(0.002), near(0.003)];
-  // La moto más cercana a cada punto real tiene que estar entre 30 y 70 m (40-60 más el redondeo).
-  const masCercana = (p) => Math.min(...avail.data.map((d) => metros(d, p)));
-  check("mapa: posición corrida 30-70 m de la real", reales.every((p) => masCercana(p) >= 30 && masCercana(p) <= 70), reales.map(masCercana));
+  check("mapa: posición en la cuadrícula de ~100 m (no la exacta)", avail.data.every((d) => Number(d.lat.toFixed(3)) === d.lat && Number(d.lng.toFixed(3)) === d.lng), avail.data);
   const avail2 = await get(`/drivers/available?lat=${TEKAX.lat}&lng=${TEKAX.lng}`);
   const mismo = avail.data.every((d) => avail2.data.some((e) => e.id === d.id && e.lat === d.lat && e.lng === d.lng));
-  check("mapa: el corrimiento no cambia de una consulta a otra (no tiembla)", mismo, avail2.data);
+  check("mapa: la cuadra no cambia de una consulta a otra (no tiembla)", mismo, avail2.data);
 
   const wsBad = new WebSocket(`${BASE.replace("http", "ws")}/ws?role=driver&driverId=${moto.id}&pin=0000`);
   const closeCode = await new Promise((r) => wsBad.on("close", (c) => r(c)));
