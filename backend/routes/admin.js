@@ -6,6 +6,7 @@ const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
 const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido } = require("../agrupaciones");
+const { COLORES_VEHICULO, colorValido } = require("../colores");
 
 // Agrupación que manda el admin para un chofer: en municipio con lista solo
 // vale una de la lista, "Por su cuenta" o vacío (= sin elegir); en los demás
@@ -212,12 +213,13 @@ router.post("/admin/login", checkAdminPin, async (req, res) => {
     // Agrupaciones por municipio (padrón): el selector de cada chofer y el PDF.
     agrupaciones: AGRUPACIONES,
     porSuCuenta: POR_SU_CUENTA,
+    coloresVehiculo: COLORES_VEHICULO,
   });
 });
 
 router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   const {
-    name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, grupo,
+    name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, vehicleColor, grupo,
     emergencyContactName, emergencyContactPhone, referredBy, referredByDriverId,
   } = req.body;
   if (!name || !phone) {
@@ -242,6 +244,9 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   }
   const grupoAlta = adminGrupo(cityId, grupo);
   if (grupoAlta === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
+  // Color: opcional desde el admin (vacío = sin dato), pero si viene tiene que ser de la lista.
+  const colorAlta = vehicleColor ? colorValido(vehicleColor) : null;
+  if (vehicleColor && !colorAlta) return res.status(400).json({ error: "Ese color no está en la lista" });
 
   const existingPhone = await db
     .prepare("SELECT id, name FROM drivers WHERE phone = ? AND deleted_at IS NULL")
@@ -271,10 +276,10 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
 
   const result = await db
     .prepare(
-      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador, zone) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador, zone) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
-      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", grupoAlta, cityId,
+      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", colorAlta, grupoAlta, cityId,
       emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0, zone ? zone.id : null
     );
   await ensureInviteCode(db, result.lastInsertRowid);
@@ -283,7 +288,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   await recomputeFounders(db);
 
   const driver = await db
-    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, grupo, city, zone, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
+    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, city, zone, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
 
   res.status(201).json(inflateRow(driver, DRIVER_IMG_COLS));
@@ -293,7 +298,7 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
   const drivers = await db
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
-              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.zone, d.created_at,
+              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.zone, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               d.play_last_open, d.play_opens,
               (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
@@ -479,7 +484,7 @@ router.post("/admin/drivers/:id/vouch", checkAdminPin, async (req, res) => {
 
 router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("drivers", req, res)) return;
-  const { name, phone, vehicle, tipo, vehicleType, grupo } = req.body;
+  const { name, phone, vehicle, tipo, vehicleType, vehicleColor, grupo } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
   }
@@ -512,18 +517,22 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
     grupoNuevo = adminGrupo(cityId, grupo);
     if (grupoNuevo === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
   }
+  // Igual con el color: solo se toca si vino ("" = quitarlo).
+  const conColor = vehicleColor !== undefined;
+  const colorNuevo = vehicleColor ? colorValido(vehicleColor) : null;
+  if (vehicleColor && !colorNuevo) return res.status(400).json({ error: "Ese color no está en la lista" });
 
   const conGrupo = grupo !== undefined;
   await db.prepare(
-    `UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, ${conGrupo ? "grupo = ?, " : ""}city = ? WHERE id = ?`
+    `UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, ${conGrupo ? "grupo = ?, " : ""}${conColor ? "vehicle_color = ?, " : ""}city = ? WHERE id = ?`
   ).run(
     name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto",
-    ...(conGrupo ? [grupoNuevo] : []), cityId, req.params.id
+    ...(conGrupo ? [grupoNuevo] : []), ...(conColor ? [colorNuevo] : []), cityId, req.params.id
   );
 
   const driver = await db
     .prepare(
-      "SELECT id, name, phone, vehicle, pin, status, last_seen, paid_until, tipo, vehicle_type, grupo, city, created_at FROM drivers WHERE id = ?"
+      "SELECT id, name, phone, vehicle, pin, status, last_seen, paid_until, tipo, vehicle_type, vehicle_color, grupo, city, created_at FROM drivers WHERE id = ?"
     )
     .get(req.params.id);
   res.json(driver);
@@ -584,7 +593,7 @@ router.post("/admin/drivers/:id/move-city", checkAdminPin, async (req, res) => {
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) => {
   const apps = await db
     .prepare(
-      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
+      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.vehicle_color, a.grupo, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
   res.json(req.body.photoRefs ? apps : apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));

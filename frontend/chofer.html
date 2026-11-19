@@ -4127,6 +4127,7 @@ function renderProfile(p) {
   document.getElementById("dataRows").innerHTML = [
     row("Teléfono", p.phone),
     row("Unidad", p.vehicle || "—"),
+    row("Color", p.vehicleColor || "—"),
     row("Agrupación", p.grupo || "—"),
     row("Tipo", p.vehicleType === "taxi" ? "Taxi" : "Mototaxi"),
     p.cancelCount ? row("Viajes cancelados por ti", p.cancelCount, p.cancelCount >= 3 ? "warn" : "") : "",

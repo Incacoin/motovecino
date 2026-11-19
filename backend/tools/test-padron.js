@@ -1,7 +1,8 @@
 // Prueba del padrón por agrupación (18-nov-2026): en Ticul el registro de
 // chofer obliga a elegir Jaguar / Alcones Alfa / "Por su cuenta"; el admin la
 // conserva al aprobar y al editar (antes editar la borraba); el pasajero nunca
-// ve "Por su cuenta"; en Tekax no se pregunta nada.
+// ve "Por su cuenta"; en Tekax no se pregunta nada. Color del vehículo:
+// obligatorio en el registro, se conserva al editar y el pasajero lo ve.
 //   BASE=http://localhost:3077 node tools/test-padron.js
 const path = require("node:path");
 process.loadEnvFile(path.join(__dirname, "..", ".env"));
@@ -45,8 +46,14 @@ async function main() {
   const base = {
     name: `Chofer Padrón ${stamp}`, phone: `98100${stamp}`.slice(0, 10), photo: JPG, photoPlaca: JPG, signature: PNG,
     acceptedLegal: true, vehicleType: "moto", city: "ticul", lat: TI.lat, lng: TI.lng,
-    emergencyContactName: "Mamá", emergencyContactPhone: "9990000000",
+    emergencyContactName: "Mamá", emergencyContactPhone: "9990000000", vehicleColor: "Rojo",
   };
+  const colores = await api("GET", "/colores-vehiculo");
+  check("lista de colores con Rojo y Otro", (colores.data?.colores || []).some((c) => c.nombre === "Rojo") && colores.data.colores.some((c) => c.nombre === "Otro"), colores.data);
+  const sinColor = await post("/chofer-solicitudes", { ...base, grupo: "Jaguar", vehicleColor: undefined });
+  check("sin color no se puede registrar", sinColor.status === 400 && /color/i.test(sinColor.data?.error || ""), sinColor);
+  const colorMalo = await post("/chofer-solicitudes", { ...base, grupo: "Jaguar", vehicleColor: "Fosforescente" });
+  check("color inventado no", colorMalo.status === 400, colorMalo);
   const sin = await post("/chofer-solicitudes", base);
   check("Ticul: sin agrupación no se puede registrar", sin.status === 400 && /agrupaci/i.test(sin.data?.error || ""), sin);
   const mala = await post("/chofer-solicitudes", { ...base, grupo: "Inventada" });
@@ -57,20 +64,23 @@ async function main() {
   const apps = await post("/admin/chofer-solicitudes/list", { adminPin: ADMIN, adminZone: "ticul" });
   const app = (apps.data || []).find((a) => a.phone === base.phone);
   check("el admin ve la solicitud con su agrupación", app && app.grupo === "Jaguar", app);
+  check("el admin ve el color de la solicitud", app && app.vehicle_color === "Rojo", app);
 
   // Alta desde el admin (como "Usar datos"): la agrupación se guarda.
   const malaAlta = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: `Otro ${stamp}`, phone: `98300${stamp}`.slice(0, 10), acceptedLegal: true, vehicleType: "moto", grupo: "Inventada" });
   check("admin: agrupación inventada no", malaAlta.status === 400, malaAlta);
-  const alta = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: base.name, phone: base.phone, acceptedLegal: true, vehicleType: "moto", grupo: "Jaguar" });
+  const alta = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: base.name, phone: base.phone, acceptedLegal: true, vehicleType: "moto", grupo: "Jaguar", vehicleColor: "Rojo" });
   check("admin: alta en Ticul", alta.status === 201 || alta.status === 200, alta);
   const d = alta.data;
   const listaDe = async () => ((await post("/admin/drivers/list", { adminPin: ADMIN, adminZone: "ticul", photoRefs: true })).data || []).find((x) => x.id === d.id);
   check("admin: queda en Jaguar", (await listaDe())?.grupo === "Jaguar");
+  check("admin: queda en Rojo", (await listaDe())?.vehicle_color === "Rojo");
 
   // Editar sin mandar grupo (ej. corregir el nombre) ya no la borra.
   const ed = await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto" });
   check("editar sin grupo responde bien", ed.status === 200, ed);
   check("editar sin grupo NO la borra", (await listaDe())?.grupo === "Jaguar");
+  check("editar sin color NO lo borra", (await listaDe())?.vehicle_color === "Rojo");
   await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto", grupo: "Por su cuenta" });
   check("editar a Por su cuenta", (await listaDe())?.grupo === "Por su cuenta");
   const edMala = await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto", grupo: "Inventada" });
@@ -90,11 +100,23 @@ async function main() {
   const drv = visto.data?.driver;
   check("el pasajero ve al chofer", !!drv, visto);
   check("el pasajero NO ve 'Por su cuenta'", drv && !drv.grupo, drv);
+  check("el pasajero ve el color Rojo", drv && drv.vehicle_color === "Rojo" && /^#[0-9a-f]{6}$/i.test(drv.vehicle_color_hex || ""), drv);
   await post(`/rides/${r.data.id}/cancel`, { driverId: d.id, pin: d.pin });
 
   // El login del admin trae las agrupaciones para el selector y el padrón.
   const login = await post("/admin/login", { adminPin: ADMIN, adminZone: "ticul" });
-  check("login del admin trae agrupaciones", login.data?.agrupaciones?.ticul?.length === 2 && login.data?.porSuCuenta === "Por su cuenta", login.data);
+  // "Otro" no le dice nada al pasajero: no se le manda.
+  await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto", vehicleColor: "Otro" });
+  check("editar a Otro color", (await listaDe())?.vehicle_color === "Otro");
+  const r2 = await post("/rides", { ...R, pickup_lat: TI.lat, pickup_lng: TI.lng, dest_lat: TI.lat + 0.01, dest_lng: TI.lng, ride_type: "moto", offer_price: 20 });
+  await post(`/rides/${r2.data.id}/accept`, { driverId: d.id, pin: d.pin });
+  const visto2 = (await api("GET", `/rides/${r2.data.id}?t=${r2.data.share_token}`)).data?.driver;
+  check("con 'Otro' el pasajero no ve color", visto2 && !visto2.vehicle_color, visto2);
+  await post(`/rides/${r2.data.id}/cancel`, { driverId: d.id, pin: d.pin });
+  const edColorMalo = await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto", vehicleColor: "Fosforescente" });
+  check("editar a color inventado no", edColorMalo.status === 400, edColorMalo);
+
+  check("login del admin trae agrupaciones", login.data?.agrupaciones?.ticul?.length === 2 && login.data?.porSuCuenta === "Por su cuenta" && login.data?.coloresVehiculo?.length > 5, login.data);
 
   console.log(fail ? `NO: ${fail} fallaron, ${pass} bien` : `Todo bien (${pass})`);
   await db.close?.();

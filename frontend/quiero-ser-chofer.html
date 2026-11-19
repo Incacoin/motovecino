@@ -279,6 +279,11 @@
         <option value="taxi">🚕 Taxi o carro</option>
       </select>
     </div>
+    <div class="field">
+      <label id="vehicleColorLabel">¿De qué color es tu mototaxi?</label>
+      <select id="vehicleColor"><option value="">Elige el color</option></select>
+      <p class="fieldHint">Así el pasajero reconoce tu vehículo cuando llegas.</p>
+    </div>
     <!-- Solo en municipios con agrupaciones (Ticul). Las opciones las pone loadAgrupaciones(). -->
     <div class="field" id="grupoField" style="display:none;">
       <label>¿A qué agrupación perteneces?</label>
@@ -484,6 +489,15 @@ function loadAgrupaciones(city) {
     })
     .catch(() => {});
 }
+// Colores del vehículo (lista fija del servidor, 18-nov-2026).
+fetch("/api/colores-vehiculo")
+  .then((r) => r.json())
+  .then((data) => {
+    const sel = document.getElementById("vehicleColor");
+    sel.innerHTML = '<option value="">Elige el color</option>' +
+      (data.colores || []).map((c) => `<option value="${escapeAttr(c.nombre)}">${escapeAttr(c.nombre === "Otro" ? "Otro color" : c.nombre)}</option>`).join("");
+  })
+  .catch(() => {});
 function escapeAttr(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -615,6 +629,7 @@ function vehicleWord() {
 }
 function updateVehicleLabels() {
   document.getElementById("photoPlacaLabel").textContent = "Foto de ti con tu " + vehicleWord();
+  document.getElementById("vehicleColorLabel").textContent = "¿De qué color es tu " + vehicleWord() + "?";
   const btn = document.getElementById("photoPlacaBtn");
   if (!btn.classList.contains("done")) btn.textContent = "📷 Tomar foto con tu " + vehicleWord();
 }
@@ -760,6 +775,12 @@ async function submitApplication() {
     err.textContent = "El teléfono debe tener 10 dígitos";
     return;
   }
+  const vehicleColor = document.getElementById("vehicleColor").value;
+  if (!vehicleColor) {
+    err.textContent = "Elige el color de tu " + vehicleWord();
+    document.getElementById("vehicleColor").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   const grupoSel = document.querySelector('input[name="grupo"]:checked');
   if (agrupacionesCount && !grupoSel) {
     err.textContent = "Elige tu agrupación (o «Entré por mi cuenta»)";
@@ -815,6 +836,7 @@ async function submitApplication() {
       name, phone, photo: photoDataUrl, photoPlaca: photoPlacaDataUrl, acceptedLegal: true,
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
       grupo: grupoSel ? grupoSel.value : null,
+      vehicleColor,
       emergencyContactName: emergencyName, emergencyContactPhone: emergencyPhone,
       referredBy: document.getElementById("referredBy").value.trim() || null,
       inviteCode,

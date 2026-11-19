@@ -4,6 +4,7 @@ const db = require("../db");
 const livePos = require("../livePos");
 const realtime = require("../realtime");
 const { grupoParaPasajero } = require("../agrupaciones");
+const { colorParaPasajero } = require("../colores");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide, cityMinOffer, motoReachesDest } = require("../cities");
 const { haversineKm } = require("../geo");
 
@@ -369,11 +370,11 @@ async function riderInfoFor(phone) {
 // grande para el visor) en vez de base64 pegado en cada mensaje.
 async function driverForRide(driverId) {
   const driver = await db
-    .prepare("SELECT id, name, phone, vehicle, grupo, lat, lng, photo, es_fundador FROM drivers WHERE id = ?")
+    .prepare("SELECT id, name, phone, vehicle, vehicle_color, grupo, lat, lng, photo, es_fundador FROM drivers WHERE id = ?")
     .get(driverId);
   if (!driver) return driver;
   livePos.overlay(driver);
-  return { ...driver, grupo: grupoParaPasajero(driver.grupo), phone: maskPhoneTail(driver.phone), ...photoUrls("d", driver.id, driver.photo) };
+  return { ...driver, ...colorParaPasajero(driver.vehicle_color), grupo: grupoParaPasajero(driver.grupo), phone: maskPhoneTail(driver.phone), ...photoUrls("d", driver.id, driver.photo) };
 }
 
 // El viaje que el chofer ya tiene en curso (aceptado / llegué / en curso). La
@@ -535,7 +536,7 @@ router.get("/taxi/suggest", async (req, res) => {
 // Motivos que el chofer puede elegir al pedir más (ver OFFER_REASONS en chofer.html y pasajero.html).
 const OFFER_REASONS = ["lluvia", "lejos", "noche", "camino", "otro"];
 
-const OFFER_SELECT = "SELECT o.id, o.price, o.deposit_amount, o.reason, o.created_at, d.id AS driver_id, d.name, d.vehicle, d.photo, d.es_fundador FROM ride_offers o JOIN drivers d ON d.id = o.driver_id";
+const OFFER_SELECT = "SELECT o.id, o.price, o.deposit_amount, o.reason, o.created_at, d.id AS driver_id, d.name, d.vehicle, d.vehicle_color, d.photo, d.es_fundador FROM ride_offers o JOIN drivers d ON d.id = o.driver_id";
 
 // Lo que ve el pasajero de cada contraoferta: quién ofrece y cuánto. El
 // teléfono del chofer no: ese solo se entrega cuando el pasajero acepta.
@@ -557,7 +558,7 @@ function offerForRider(o) {
     depositAmount: o.deposit_amount || null,
     reason: o.reason || null,
     expiresInSec: Math.max(0, Math.round(TAXI_OFFER_TTL_SEC - ageSec)),
-    driver: { id: o.driver_id, name: o.name, vehicle: o.vehicle, es_fundador: o.es_fundador, ...photoUrls("d", o.driver_id, o.photo) },
+    driver: { id: o.driver_id, name: o.name, vehicle: o.vehicle, ...colorParaPasajero(o.vehicle_color), es_fundador: o.es_fundador, ...photoUrls("d", o.driver_id, o.photo) },
   };
 }
 

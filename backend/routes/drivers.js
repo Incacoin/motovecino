@@ -9,6 +9,7 @@ const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { agrupacionesDe, grupoValido } = require("../agrupaciones");
+const { colorValido } = require("../colores");
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide, openZoneAt } = require("../cities");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
 const { rideFee } = require("../fees");
@@ -280,7 +281,7 @@ router.post("/drivers/profile", async (req, res) => {
   }
   const driver = await db
     .prepare(
-      `SELECT id, name, phone, vehicle, vehicle_type, grupo, photo, tipo, pin, created_at,
+      `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, photo, tipo, pin, created_at,
               paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, deposit_changed_at, city
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
@@ -364,6 +365,7 @@ router.post("/drivers/profile", async (req, res) => {
     phone: driver.phone,
     vehicle: driver.vehicle,
     vehicleType: driver.vehicle_type,
+    vehicleColor: driver.vehicle_color,
     grupo: driver.grupo,
     ...photoUrls("d", driver.id, driver.photo),
     pin: driver.pin,
@@ -532,7 +534,7 @@ router.post("/chofer-solicitudes", async (req, res) => {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const {
-    name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, grupo, viaLiderLink, formalIntent, city,
+    name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, vehicleColor, grupo, viaLiderLink, formalIntent, city,
     emergencyContactName, emergencyContactPhone, referredBy, inviteCode, lat, lng,
   } = req.body;
   for (const img of [photo, photoPlaca, signature]) {
@@ -596,6 +598,8 @@ router.post("/chofer-solicitudes", async (req, res) => {
     grupoLimpio = grupoValido(cityId, grupo);
     if (!grupoLimpio) return res.status(400).json({ error: "Elige tu agrupación (o «Entré por mi cuenta»)" });
   }
+  const color = colorValido(vehicleColor);
+  if (!color) return res.status(400).json({ error: "Elige el color de tu vehículo" });
   const tipo = formalIntent ? "formal" : "informal";
 
   if (!photoPlaca) {
@@ -622,10 +626,10 @@ router.post("/chofer-solicitudes", async (req, res) => {
   }
 
   await db.prepare(
-    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, vehicle_color, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     // Comisarías (Progreso): solo motocarro, y queda en la comisaría donde se registró.
-    name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", grupoLimpio || null, tipo, toStored(signature), cityId,
+    name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", color, grupoLimpio || null, tipo, toStored(signature), cityId,
     emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
     inviterId,

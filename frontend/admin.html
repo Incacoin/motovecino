@@ -793,6 +793,10 @@
       <option value="taxi">Taxi (viajes largos)</option>
     </select>
   </div>
+  <div class="field">
+    <label>Color del vehículo</label>
+    <select id="driverColor" class="tipo-select"></select>
+  </div>
   <div class="field" id="driverGrupoField" style="display:none">
     <label>Agrupación</label>
     <select id="driverGrupo" class="tipo-select"></select>
@@ -1593,6 +1597,13 @@ let adminCityLabel = "Tekax";
 let agrupacionesMap = {};
 let porSuCuenta = "Por su cuenta";
 const agrupacionesAdmin = () => agrupacionesMap[adminCity] || [];
+// Colores del vehículo (lista fija del servidor).
+let coloresVehiculo = [];
+function colorOptions(selected) {
+  const opts = [["", "— Sin color —"], ...coloresVehiculo.map((c) => [c.nombre, c.nombre === "Otro" ? "Otro color" : c.nombre])];
+  if (selected && !opts.some(([v]) => v === selected)) opts.push([selected, selected]);
+  return opts.map(([v, t]) => `<option value="${escapeHtml(v)}"${v === (selected || "") ? " selected" : ""}>${escapeHtml(t)}</option>`).join("");
+}
 function grupoLabel(grupo) {
   const a = agrupacionesAdmin().find((x) => x.nombre === grupo);
   return a ? `${a.nombre} · Líder: ${a.lider}` : grupo;
@@ -1647,7 +1658,7 @@ function printPadron(i) {
   if (!w) { showToast("Tu navegador bloqueó la ventana del padrón"); return; }
   const hoy = new Date().toLocaleDateString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "long", year: "numeric" });
   const activos = g.choferes.filter((d) => padronActividad(d) === "Activo esta semana").length;
-  const filas = g.choferes.map((d, n) => `<tr><td>${n + 1}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`).join("");
+  const filas = g.choferes.map((d, n) => `<tr><td>${n + 1}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`).join("");
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Padrón ${escapeHtml(g.titulo)} · MotoVecino ${escapeHtml(adminCityLabel)}</title>
 <style>
@@ -1671,7 +1682,7 @@ function printPadron(i) {
 <p class="sub">${escapeHtml(g.sub)}</p>
 <p class="fecha">Al ${escapeHtml(hoy)}</p>
 ${g.interno ? `<div class="interno">USO INTERNO DE MOTOVECINO — NO COMPARTIR CON LÍDERES</div>` : ""}
-${g.choferes.length ? `<table><thead><tr><th>#</th><th>Nombre</th><th>Servicio</th><th>En la app desde</th><th>Actividad</th></tr></thead><tbody>${filas}</tbody></table>
+${g.choferes.length ? `<table><thead><tr><th>#</th><th>Nombre</th><th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead><tbody>${filas}</tbody></table>
 <p class="tot">Total: ${g.choferes.length} chofer${g.choferes.length === 1 ? "" : "es"} · ${activos} activo${activos === 1 ? "" : "s"} esta semana</p>` : `<p>Todavía no hay choferes en esta lista.</p>`}
 <p class="nota">Lista generada desde MotoVecino. No incluye teléfonos ni ubicación de los choferes.</p>
 </body></html>`);
@@ -2007,6 +2018,9 @@ async function login(withSavedToken) {
   comisarias = loginData.comisarias || [];
   agrupacionesMap = loginData.agrupaciones || {};
   porSuCuenta = loginData.porSuCuenta || porSuCuenta;
+  coloresVehiculo = loginData.coloresVehiculo || [];
+  const dc = document.getElementById("driverColor");
+  if (dc) dc.innerHTML = colorOptions("");
   document.body.classList.toggle("role-progreso", adminRoleNow === "progreso");
   document.getElementById("tabBtn-soporte").style.display = adminRoleNow === "tekax" ? "" : "none";
   if (adminRoleNow === "tekax") loadSupport();
@@ -2158,6 +2172,7 @@ function renderApplications(apps) {
             ${a.inviter_name
               ? `<span class="meta">Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
               : a.referred_by ? `<span class="meta">Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
+            ${a.vehicle_color ? `<span class="meta">Color: <b>${escapeHtml(a.vehicle_color)}</b></span>` : ""}
             ${a.grupo ? `<span class="meta">Agrupación: <b>${escapeHtml(grupoLabel(a.grupo))}</b></span>` : ""}
             ${a.emergency_contact_name ? `<span class="meta">Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
           </div>
@@ -2189,6 +2204,7 @@ function useApplication(id) {
   document.getElementById("driverEmergencyPhone").value = app.emergency_contact_phone || "";
   document.getElementById("driverReferredBy").value = app.referred_by || "";
   if (agrupacionesAdmin().length) document.getElementById("driverGrupo").innerHTML = grupoOptions(app.grupo || "");
+  document.getElementById("driverColor").innerHTML = colorOptions(app.vehicle_color || "");
   pendingDriverPhoto = app.photo || null;
   pendingDriverPhotoPlaca = app.photo_placa || null;
   pendingDriverSignature = app.signature || null;
@@ -2446,6 +2462,7 @@ async function registerDriver() {
       adminPin, name, phone, vehicle, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature,
       zone: isZonedAdmin() ? document.getElementById("driverZone").value : null,
       grupo: agrupacionesAdmin().length ? document.getElementById("driverGrupo").value || null : undefined,
+      vehicleColor: document.getElementById("driverColor").value || null,
       emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
       // Si la solicitud llegó con el link de invitación de un chofer.
       referredByDriverId: pendingApplicationId ? applicationsCache.find((a) => a.id === pendingApplicationId)?.referred_by_driver_id ?? null : null,
@@ -2469,6 +2486,7 @@ async function registerDriver() {
   document.getElementById("driverEmergencyName").value = "";
   document.getElementById("driverEmergencyPhone").value = "";
   renderGrupoField();
+  document.getElementById("driverColor").innerHTML = colorOptions("");
   document.getElementById("driverReferredBy").value = "";
   document.getElementById("driverVehicleType").value = "moto";
   document.getElementById("driverAcceptedLegal").checked = false;
@@ -2685,7 +2703,7 @@ async function saveEdit(id) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // grupo solo si hay selector (municipio con agrupaciones); si no va, el servidor no la toca.
-    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value }),
+    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, vehicleColor: document.getElementById(`edit-color-${id}`)?.value }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo guardar");
@@ -2909,7 +2927,7 @@ function renderDriverRows() {
             <input id="edit-phone-${d.id}" value="${escapeHtml(d.phone)}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" />
           </div>
         </td>
-        <td>${vehicleTypeSelect(d.id, d.vehicle_type)}${agrupacionesAdmin().length ? `<select id="edit-grupo-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Agrupación">${grupoOptions(d.grupo || "")}</select>` : ""}</td>
+        <td>${vehicleTypeSelect(d.id, d.vehicle_type)}<select id="edit-color-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Color">${colorOptions(d.vehicle_color || "")}</select>${agrupacionesAdmin().length ? `<select id="edit-grupo-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Agrupación">${grupoOptions(d.grupo || "")}</select>` : ""}</td>
         <td>${cityLabel(d.city)}</td>
         <td><span class="dot ${d.status}"></span>${d.status}</td>
         <td>${activityBadge(d.last_connected_at)}</td>
@@ -2966,7 +2984,7 @@ function renderDriverRows() {
       <td>${nameCell}</td>
       <td>${pinCell(d.id, d.pin)}</td>
       <td>${d.phone}</td>
-      <td>${vehicleTypeBadge(d.vehicle_type)}</td>
+      <td>${vehicleTypeBadge(d.vehicle_type)}${d.vehicle_color ? `<div class="meta" style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(d.vehicle_color)}</div>` : ""}</td>
       <td>${cityLabel(d.city)}${d.zone ? `<div class="meta" style="font-size:11.5px;color:var(--accent);font-weight:700;">${escapeHtml(comisariaLabel(d.zone))}</div>` : ""}</td>
       <td><span class="dot ${d.status}"></span>${d.status}</td>
       <td>

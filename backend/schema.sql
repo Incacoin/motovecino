@@ -731,3 +731,6 @@ CREATE TABLE IF NOT EXISTS booking_offers (
 CREATE INDEX IF NOT EXISTS idx_booking_offers_booking ON booking_offers(booking_id, status);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_offers_one_live ON booking_offers(booking_id, driver_id) WHERE status = 'pendiente';
 ALTER TABLE rides ADD COLUMN IF NOT EXISTS booking_id INTEGER;
+-- Color del vehículo (18-nov-2026): el chofer lo elige al registrarse; el pasajero lo ve.
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS vehicle_color TEXT;
+ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS vehicle_color TEXT;
