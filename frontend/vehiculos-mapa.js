@@ -104,6 +104,60 @@
     });
   }
 
+  // --- Deslizado suave (19-nov-2026) ---
+  // Antes la moto brincaba de punto en punto cada vez que llegaba el GPS y,
+  // si el siguiente tardaba, se veía la pausa y luego el salto ("no inspira
+  // confianza"). Ahora se desliza a velocidad pareja hasta el punto nuevo en
+  // el mismo tiempo que tardó en llegar ese punto (como Uber): va ~1 s atrás
+  // de la posición real en el viaje y ~4 s en el mapa de motos libres.
+  const GLIDE_MIN_MS = 300;
+  const GLIDE_MAX_MS = 4500;
+  const JUMP_M = 400; // más que esto = se reconectó o cambió mucho: se pone directo
+  const JITTER_M = 2; // temblor del GPS con la moto parada: no se mueve
+  const gliding = new Set();
+  let frame = 0;
+  const metersBetween = (a, b) => {
+    const dy = b.lat - a.lat;
+    const dx = (b.lng - a.lng) * Math.cos((a.lat * Math.PI) / 180);
+    return Math.sqrt(dx * dx + dy * dy) * 111320;
+  };
+  function tick(now) {
+    frame = 0;
+    for (const m of gliding) {
+      const g = m._vehGlide;
+      if (!m._map) { gliding.delete(m); continue; }
+      // Mientras el mapa hace zoom Leaflet acomoda los marcadores solo.
+      if (m._map._animatingZoom) continue;
+      const t = Math.min(1, (now - g.start) / g.ms);
+      m.setLatLng([g.from.lat + (g.to.lat - g.from.lat) * t, g.from.lng + (g.to.lng - g.from.lng) * t]);
+      applyRot(m);
+      if (t >= 1) gliding.delete(m);
+    }
+    if (gliding.size) frame = requestAnimationFrame(tick);
+  }
+  function glideTo(marker, lat, lng) {
+    const now = performance.now();
+    const gap = marker._vehAt ? now - marker._vehAt : 1000;
+    marker._vehAt = now;
+    const from = marker.getLatLng();
+    const dist = metersBetween(from, { lat, lng });
+    if (dist < JITTER_M && !gliding.has(marker)) return;
+    if (document.hidden || dist > JUMP_M || !marker._map) {
+      gliding.delete(marker);
+      marker.setLatLng([lat, lng]);
+      return;
+    }
+    marker._vehGlide = { from: { lat: from.lat, lng: from.lng }, to: { lat, lng }, start: now, ms: Math.max(GLIDE_MIN_MS, Math.min(GLIDE_MAX_MS, gap)) };
+    gliding.add(marker);
+    if (!frame) frame = requestAnimationFrame(tick);
+  }
+  function applyRot(marker) {
+    // Leaflet puede volver a crear el ícono: el giro se aplica siempre.
+    const el = marker.getElement && marker.getElement();
+    const veh = el && el.querySelector(".veh");
+    if (veh && marker._vehRot != null) veh.style.transform = `rotate(${marker._vehRot}deg)`;
+  }
+
   // Mueve el marcador y lo gira hacia donde avanza. El rumbo se mide desde el
   // último punto donde giró (no desde el punto anterior): el GPS llega cada
   // segundo y un mototaxi avanza ~5 m por segundo, así que comparando punto
@@ -126,11 +180,8 @@
       marker._vehRot = rot;
       marker._vehAnchor = { lat, lng };
     }
-    marker.setLatLng([lat, lng]);
-    // Leaflet puede volver a crear el ícono: el giro se aplica siempre.
-    const el = marker.getElement && marker.getElement();
-    const veh = el && el.querySelector(".veh");
-    if (veh && marker._vehRot != null) veh.style.transform = `rotate(${marker._vehRot}deg)`;
+    glideTo(marker, lat, lng);
+    applyRot(marker);
   }
 
   window.MVVeh = { vehIcon, moveVeh, motoSide, taxiSide };

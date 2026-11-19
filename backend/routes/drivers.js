@@ -58,16 +58,55 @@ function availableDriverRows(type) {
 // igual): esta lista es pública (sin cuenta), así que con la posición exacta
 // y el número de chofer cualquiera podía seguir a un chofer en vivo hasta
 // donde se estaciona o a su casa (24-oct-2026). Ahora:
-//   - la posición sale redondeada a una cuadrícula de ~100 m (una cuadra);
+//   - la posición sale CORRIDA 40-60 m hacia un lado al azar (ver mapFuzz);
 //     el filtro de distancia de arriba sigue usando la exacta, y el viaje se
 //     sigue mandando con la exacta (eso no pasa por aquí);
 //   - en vez del número de chofer va un código que cambia cada día (y si se
 //     reinicia el server), solo para que el mapa sepa qué motito mover.
 // El mapa del chofer manda &me=<su id> para no verse a sí mismo.
-const MAP_GRID_DEG = 0.001; // ~111 m norte-sur, ~104 m este-oeste en Yucatán
 const mapCodeKey = crypto.randomBytes(32);
 const LOCAL_OFFSET_MS = -6 * 60 * 60 * 1000; // día de Yucatán (igual que LOCAL_OFFSET)
-const snapToGrid = (v) => Number((Math.round(v / MAP_GRID_DEG) * MAP_GRID_DEG).toFixed(3));
+
+// Corrimiento del mapa público (19-nov-2026). Del 24-oct al 19-nov la posición
+// se redondeaba a una cuadrícula de ~100 m: la moto se quedaba quieta y luego
+// brincaba una cuadra entera, y choferes y pasajeros la veían "falsa". Ahora
+// cada chofer sale corrido una distancia fija (40-60 m, rumbo al azar; la
+// cuadrícula corría ~38 m en promedio, así que protege lo mismo): se
+// mueve continuo y natural, pero nadie sabe su punto exacto. El corrimiento
+// cambia (la moto se desliza a su nuevo lugar):
+//   - cada vez que el chofer vuelve a la lista después de >30 s fuera (al
+//     terminar un viaje, al reconectarse): quien viajó con él y vio dónde lo
+//     dejó no puede calcular el corrimiento y seguirlo después;
+//   - cada hora: quien junta muchas lecturas de un chofer estacionado no
+//     llega a su punto exacto promediando corrimientos de distintos días;
+//   - si el servidor se reinicia (clave nueva).
+const MAP_FUZZ_MIN_M = 40;
+const MAP_FUZZ_MAX_M = 60;
+const MAP_FUZZ_GONE_MS = 30000;
+const MAP_FUZZ_HOUR_MS = 60 * 60 * 1000;
+const mapFuzzState = new Map(); // driverId -> { nonce, lastAt }
+function mapFuzz(driverId, lat, lng, now = Date.now()) {
+  let st = mapFuzzState.get(driverId);
+  if (!st || now - st.lastAt > MAP_FUZZ_GONE_MS) {
+    // phase: cada chofer cambia a distinta hora (no todas las motos brincan juntas).
+    st = { nonce: crypto.randomBytes(8).toString("hex"), phase: crypto.randomInt(MAP_FUZZ_HOUR_MS), lastAt: now };
+    mapFuzzState.set(driverId, st);
+  }
+  st.lastAt = now;
+  const hour = Math.floor((now + st.phase) / MAP_FUZZ_HOUR_MS);
+  const h = crypto.createHmac("sha256", mapCodeKey).update(`fuzz|${hour}|${st.nonce}|${driverId}`).digest();
+  const angle = (h.readUInt32BE(0) / 2 ** 32) * 2 * Math.PI;
+  const r = MAP_FUZZ_MIN_M + (h.readUInt32BE(4) / 2 ** 32) * (MAP_FUZZ_MAX_M - MAP_FUZZ_MIN_M);
+  const dLat = (r * Math.cos(angle)) / 111320;
+  const dLng = (r * Math.sin(angle)) / (111320 * Math.cos((lat * Math.PI) / 180));
+  // 4 decimales (~11 m): no hace falta más y no delata la exacta por redondeo.
+  return { lat: Number((lat + dLat).toFixed(4)), lng: Number((lng + dLng).toFixed(4)) };
+}
+// Limpia la memoria de choferes que ya no salen (cada hora).
+setInterval(() => {
+  const cut = Date.now() - MAP_FUZZ_HOUR_MS;
+  for (const [id, st] of mapFuzzState) if (st.lastAt < cut) mapFuzzState.delete(id);
+}, MAP_FUZZ_HOUR_MS).unref();
 function mapCode(driverId) {
   const day = new Date(Date.now() + LOCAL_OFFSET_MS).toISOString().slice(0, 10);
   return crypto.createHmac("sha256", mapCodeKey).update(`${day}|${driverId}`).digest("base64url").slice(0, 12);
@@ -100,7 +139,7 @@ router.get("/drivers/available", async (req, res) => {
   res.json(
     nearby
       .filter((d) => d.id !== me)
-      .map((d) => ({ id: mapCode(d.id), lat: snapToGrid(d.lat), lng: snapToGrid(d.lng), vehicle_type: d.vehicle_type }))
+      .map((d) => ({ id: mapCode(d.id), ...mapFuzz(d.id, d.lat, d.lng), vehicle_type: d.vehicle_type }))
   );
 });
 
