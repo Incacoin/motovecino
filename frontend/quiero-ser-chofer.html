@@ -473,7 +473,7 @@ function applyCityFromDetection(city, label) {
 }
 
 // Agrupaciones del municipio (padrón, 18-nov-2026). Cada una con el nombre de
-// su líder a un lado, más "Entré por mi cuenta". Sin lista = no se pregunta.
+// su líder a un lado, más "Otra agrupación" (19-nov: antes "Entré por mi cuenta / No pertenezco a ninguna", sonaba a pirata; en Ticul hay ~13 agrupaciones). Sin lista = no se pregunta.
 let agrupacionesCity = "";
 let agrupacionesCount = 0;
 // Listas cargadas (o confirmado que no hay): si la señal falló, al enviar se
@@ -500,7 +500,7 @@ function loadAgrupaciones(city) {
         `<label class="grupoOpt"><input type="radio" name="grupo" value="${escapeAttr(value)}" /><span class="dotSel"></span><span><b>${escapeAttr(title)}</b>${sub}</span></label>`;
       document.getElementById("grupoOpts").innerHTML =
         list.map((a) => opt(a.nombre, a.nombre, `<small>Líder: <strong>${escapeAttr(a.lider)}</strong></small>`)).join("") +
-        opt(data.porSuCuenta, "Entré por mi cuenta", "<small>No pertenezco a ninguna agrupación</small>");
+        opt(data.porSuCuenta, "Otra agrupación", "<small>Tu agrupación todavía no aparece en la lista</small>");
       // Marca con clase (no :has(), que no existe en Chrome viejo de celulares sencillos).
       document.querySelectorAll('#grupoOpts input[name="grupo"]').forEach((inp) => inp.addEventListener("change", () => {
         document.querySelectorAll("#grupoOpts .grupoOpt").forEach((l) => l.classList.toggle("sel", l.contains(document.querySelector('#grupoOpts input:checked'))));
@@ -850,7 +850,7 @@ async function submitApplication() {
   }
   const grupoSel = document.querySelector('input[name="grupo"]:checked');
   if (agrupacionesCount && !grupoSel) {
-    err.textContent = "Elige tu agrupación (o «Entré por mi cuenta»)";
+    err.textContent = "Elige tu agrupación (o «Otra agrupación»)";
     document.getElementById("grupoField").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }

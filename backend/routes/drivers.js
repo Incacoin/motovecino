@@ -591,7 +591,7 @@ router.post("/chofer-solicitudes", async (req, res) => {
   // Ya no hay gremios ni líderes que avalen a nadie — todo chofer que aplica
   // entra por su cuenta, así que la segunda foto (chofer con su moto, para
   // verificación interna del admin) se exige siempre, sin importar tipo.
-  // Municipio con agrupaciones (Ticul): elegir una, o "Entré por mi cuenta",
+  // Municipio con agrupaciones (Ticul): elegir una, o "Otra agrupación",
   // es obligatorio — es lo que arma el padrón de cada líder.
   // Si no viene el campo (formulario abierto antes de esta versión) se acepta
   // y queda "Sin elegir"/sin color, para no tirarle lo que ya llenó; el
@@ -599,7 +599,7 @@ router.post("/chofer-solicitudes", async (req, res) => {
   let grupoLimpio = typeof grupo === "string" ? grupo.trim().slice(0, 60) : "";
   if (agrupacionesDe(cityId).length && grupo !== undefined) {
     grupoLimpio = grupoValido(cityId, grupo);
-    if (!grupoLimpio) return res.status(400).json({ error: "Elige tu agrupación (o «Entré por mi cuenta»)" });
+    if (!grupoLimpio) return res.status(400).json({ error: "Elige tu agrupación (o «Otra agrupación»)" });
   }
   const color = vehicleColor === undefined ? null : colorValido(vehicleColor);
   if (vehicleColor !== undefined && !color) return res.status(400).json({ error: "Elige el color de tu vehículo" });

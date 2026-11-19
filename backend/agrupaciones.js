@@ -1,6 +1,6 @@
 // Agrupaciones de choferes por municipio (padrón, 18-nov-2026).
 // En el registro el chofer elige la suya —junto al nombre del líder, para que
-// los líderes vean que la app les suma— o "Entré por mi cuenta". Con eso el
+// los líderes vean que la app les suma— o "Otra agrupación". Con eso el
 // admin saca el padrón de cada agrupación para su líder y para la Dirección de
 // Transporte. Municipio sin lista aquí = no se pregunta nada.
 //
@@ -14,6 +14,8 @@ const AGRUPACIONES = {
   ],
 };
 
+// Valor guardado de "Otra agrupación" (19-nov se cambió solo el texto que se
+// ve; el valor guardado sigue igual para no tocar filas viejas).
 const POR_SU_CUENTA = "Por su cuenta";
 
 function agrupacionesDe(cityId) {

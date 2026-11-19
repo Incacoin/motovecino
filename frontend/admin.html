@@ -1609,7 +1609,7 @@ function grupoLabel(grupo) {
   return a ? `${a.nombre} · Líder: ${a.lider}` : grupo;
 }
 function grupoOptions(selected) {
-  const opts = [["", "— Sin elegir —"], ...agrupacionesAdmin().map((a) => [a.nombre, `${a.nombre} (líder: ${a.lider})`]), [porSuCuenta, "Entró por su cuenta"]];
+  const opts = [["", "— Sin elegir —"], ...agrupacionesAdmin().map((a) => [a.nombre, `${a.nombre} (líder: ${a.lider})`]), [porSuCuenta, "Otra agrupación (aún no en la lista)"]];
   // Un valor viejo que ya no está en la lista se conserva visible para no perderlo sin querer.
   if (selected && !opts.some(([v]) => v === selected)) opts.push([selected, selected + " (viejo)"]);
   return opts.map(([v, t]) => `<option value="${escapeHtml(v)}"${v === (selected || "") ? " selected" : ""}>${escapeHtml(t)}</option>`).join("");
@@ -1621,7 +1621,7 @@ function grupoOptions(selected) {
 function padronGrupos() {
   const reales = driversCache.filter((d) => !d.es_prueba);
   const grupos = agrupacionesAdmin().map((a) => ({ key: a.nombre, titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false }));
-  grupos.push({ key: porSuCuenta, titulo: "Entraron por su cuenta", sub: "Sin agrupación", interno: true });
+  grupos.push({ key: porSuCuenta, titulo: "Otra agrupación", sub: "Su agrupación aún no está en la lista", interno: true });
   grupos.push({ key: "", titulo: "Sin elegir agrupación", sub: "Falta preguntarles", interno: true });
   const conocidos = new Set(grupos.map((g) => g.key));
   grupos.forEach((g) => {
