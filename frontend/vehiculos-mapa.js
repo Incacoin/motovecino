@@ -6,27 +6,28 @@
   let uid = 0;
   const dark = () => document.documentElement.dataset.theme === "dark";
   // Verde esmeralda de MotoVecino: más claro de noche, más oscuro de día (se lee al sol).
-  const motoColors = () => (dark() ? { body: "#4ade80", bodyDark: "#15803d" } : { body: "#22c55e", bodyDark: "#15803d" });
+  const motoColors = () => (dark() ? { body: "#4ade80", bodyDark: "#16a34a" } : { body: "#22c55e", bodyDark: "#15803d" });
 
-  // Motocarro desde arriba: toldo negro grande y la cabina pintada con nariz
-  // redondeada, parabrisas, espejos y faro. El frente apunta hacia abajo (+y).
-  function motoTop({ body, bodyDark, roof = "#1f1f23", light = "#fde68a" }) {
+  // Motocarro desde arriba (pulido 19-nov-2026, estilo Uber): la misma forma de
+  // antes (toldo negro y nariz pintada) pero más limpia: orilla blanca fina para
+  // que resalte en el mapa oscuro o claro, sin espejitos (en chico parecían
+  // manchas), sombra suave y el haz del faro hacia adelante. El frente apunta hacia abajo (+y).
+  function motoTop({ body, bodyDark }) {
     const u = "vm" + ++uid;
-    return `<defs><linearGradient id="${u}c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0d0d10"/><stop offset=".5" stop-color="${roof}"/><stop offset="1" stop-color="#0d0d10"/></linearGradient>
+    return `<defs>
 <linearGradient id="${u}b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${bodyDark}"/><stop offset=".5" stop-color="${body}"/><stop offset="1" stop-color="${bodyDark}"/></linearGradient>
-<linearGradient id="${u}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b7684"/><stop offset=".5" stop-color="#1a222d"/><stop offset="1" stop-color="#0b1016"/></linearGradient>
-<filter id="${u}f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter></defs>
-<ellipse cx="1" cy="2" rx="14" ry="24" fill="rgba(0,0,0,.35)" filter="url(#${u}f)"/>
-<rect x="-14.5" y="-19" width="4" height="10" rx="2" fill="#0b0b0d"/><rect x="10.5" y="-19" width="4" height="10" rx="2" fill="#0b0b0d"/>
-<rect x="-2" y="18" width="4" height="7" rx="2" fill="#0b0b0d"/>
-<path d="M-12 -21 Q-12 -23 -10 -23 L10 -23 Q12 -23 12 -21 L12 6 Q12 17 5 21.5 Q0 24 -5 21.5 Q-12 17 -12 6 Z" fill="url(#${u}b)"/>
-<path d="M-10.8 -22 L10.8 -22 L10.8 4 Q0 6.2 -10.8 4 Z" fill="url(#${u}c)"/>
-<path d="M-4 -21 V3.5 M4 -21 V3.5" stroke="rgba(255,255,255,.07)" stroke-width="1"/>
-<path d="M-9.5 -21 H9.5" stroke="rgba(255,255,255,.22)" stroke-width="1.2" stroke-linecap="round"/>
-<path d="M-9.6 6 Q0 8.2 9.6 6 L8.4 11.5 Q0 13 -8.4 11.5 Z" fill="url(#${u}g)"/>
-<path d="M-6 8 Q-2 9 1 8.6" stroke="rgba(255,255,255,.45)" stroke-width="1" fill="none" stroke-linecap="round"/>
-<path d="M-11.5 7 L-14 5.5 M11.5 7 L14 5.5" stroke="#111" stroke-width="1.2"/><circle cx="-14.4" cy="5.2" r="1.7" fill="#111"/><circle cx="14.4" cy="5.2" r="1.7" fill="#111"/>
-<circle cx="0" cy="20.6" r="1.8" fill="${light}"/><circle cx="0" cy="20.6" r="4.2" fill="${light}" opacity=".22"/>`;
+<linearGradient id="${u}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2d33"/><stop offset="1" stop-color="#111316"/></linearGradient>
+<radialGradient id="${u}l" cx=".5" cy="0" r="1"><stop offset="0" stop-color="rgba(254,240,170,.55)"/><stop offset="1" stop-color="rgba(254,240,170,0)"/></radialGradient>
+<filter id="${u}f" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+<path d="M-7 23 L7 23 L13 40 L-13 40 Z" fill="url(#${u}l)"/>
+<ellipse cx="0" cy="3" rx="15" ry="25" fill="rgba(0,0,0,.28)" filter="url(#${u}f)"/>
+<path d="M-12.5 -21.5 Q-12.5 -24 -10 -24 L10 -24 Q12.5 -24 12.5 -21.5 L12.5 6 Q12.5 17.5 5 22 Q0 24.6 -5 22 Q-12.5 17.5 -12.5 6 Z" fill="#fff"/>
+<path d="M-11 -21 Q-11 -22.6 -9.4 -22.6 L9.4 -22.6 Q11 -22.6 11 -21 L11 6 Q11 16.6 4.4 20.6 Q0 22.8 -4.4 20.6 Q-11 16.6 -11 6 Z" fill="url(#${u}b)"/>
+<rect x="-9.6" y="-21.2" width="19.2" height="25" rx="3.5" fill="url(#${u}r)"/>
+<path d="M-7.5 -19.5 H7.5" stroke="rgba(255,255,255,.18)" stroke-width="1.4" stroke-linecap="round"/>
+<path d="M-8.4 7 Q0 9 8.4 7 L7.4 11.6 Q0 12.8 -7.4 11.6 Z" fill="#0f172a"/>
+<path d="M-5 8.6 Q-1.5 9.4 1.5 9" stroke="rgba(255,255,255,.5)" stroke-width="1" fill="none" stroke-linecap="round"/>
+<circle cx="0" cy="19.4" r="1.9" fill="#fef3c7"/>`;
   }
 
   // Taxi desde arriba: parabrisas, vidrio trasero, letrero en el techo, faros y calaveras.
