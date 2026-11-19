@@ -207,13 +207,14 @@ app.get("/api/cities", (req, res) => {
 
 // Agrupaciones del municipio para el registro de chofer (vacío = no se pregunta).
 // Son públicas a propósito: nombre de la agrupación y de su líder, nada más.
+const { agrupacionesDe, POR_SU_CUENTA } = require("./agrupaciones");
+const { COLORES_VEHICULO } = require("./colores");
 app.get("/api/agrupaciones", (req, res) => {
-  const { agrupacionesDe, POR_SU_CUENTA } = require("./agrupaciones");
   res.json({ agrupaciones: agrupacionesDe(String(req.query.city || "")), porSuCuenta: POR_SU_CUENTA });
 });
 // Colores para "¿De qué color es tu mototaxi?" del registro.
 app.get("/api/colores-vehiculo", (req, res) => {
-  res.json({ colores: require("./colores").COLORES_VEHICULO });
+  res.json({ colores: COLORES_VEHICULO });
 });
 
 // A qué ciudad de la red pertenece esta coordenada (o null si está fuera de

@@ -66,21 +66,33 @@ async function main() {
   delete viejo.vehicleColor;
   const okViejo = await post("/chofer-solicitudes", viejo);
   check("formulario viejo sin color ni agrupación se acepta", okViejo.status === 201, okViejo);
+  // Teléfono con texto colado: se guarda solo con números (antes se guardaba tal cual y se pintaba en el admin).
+  const sucio = { ...base, grupo: "Jaguar", name: `Sucio ${stamp}`, phone: `98500${stamp}`.slice(0, 10) + "<img src=x onerror=alert()>" };
+  const okSucio = await post("/chofer-solicitudes", sucio);
+  check("teléfono con texto extra se acepta limpio", okSucio.status === 201, okSucio);
+  const emergMala = await post("/chofer-solicitudes", { ...base, grupo: "Jaguar", name: `Emerg ${stamp}`, phone: `98600${stamp}`.slice(0, 10), emergencyContactPhone: "999<b>" });
+  check("teléfono de emergencia que no son 10 números no", emergMala.status === 400, emergMala);
 
   const apps = await post("/admin/chofer-solicitudes/list", { adminPin: ADMIN, adminZone: "ticul" });
   const app = (apps.data || []).find((a) => a.phone === base.phone);
   check("el admin ve la solicitud con su agrupación", app && app.grupo === "Jaguar", app);
   check("el admin ve el color de la solicitud", app && app.vehicle_color === "Rojo", app);
+  const appSucio = (apps.data || []).find((a) => a.name === `Sucio ${stamp}`);
+  check("se guardó solo el número", appSucio && /^\d{10}$/.test(appSucio.phone), appSucio && appSucio.phone);
+  // Al aprobar, se guarda la versión del aviso que aceptó en su solicitud.
+  await db.prepare("UPDATE driver_applications SET accepted_legal_version = ? WHERE id = ?").run("2026-09-23", app.id);
 
   // Alta desde el admin (como "Usar datos"): la agrupación se guarda.
   const malaAlta = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: `Otro ${stamp}`, phone: `98300${stamp}`.slice(0, 10), acceptedLegal: true, vehicleType: "moto", grupo: "Inventada" });
   check("admin: agrupación inventada no", malaAlta.status === 400, malaAlta);
-  const alta = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: base.name, phone: base.phone, acceptedLegal: true, vehicleType: "moto", grupo: "Jaguar", vehicleColor: "Rojo" });
+  const alta = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: base.name, phone: base.phone, acceptedLegal: true, vehicleType: "moto", grupo: "Jaguar", vehicleColor: "Rojo", applicationId: app.id });
   check("admin: alta en Ticul", alta.status === 201 || alta.status === 200, alta);
   const d = alta.data;
   const listaDe = async () => ((await post("/admin/drivers/list", { adminPin: ADMIN, adminZone: "ticul", photoRefs: true })).data || []).find((x) => x.id === d.id);
   check("admin: queda en Jaguar", (await listaDe())?.grupo === "Jaguar");
   check("admin: queda en Rojo", (await listaDe())?.vehicle_color === "Rojo");
+  const ver = await db.prepare("SELECT accepted_legal_version FROM drivers WHERE id = ?").get(d.id);
+  check("guarda la versión del aviso de su solicitud", ver?.accepted_legal_version === "2026-09-23", ver);
 
   // Editar sin mandar grupo (ej. corregir el nombre) ya no la borra.
   const ed = await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto" });

@@ -220,7 +220,7 @@ router.post("/admin/login", checkAdminPin, async (req, res) => {
 router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   const {
     name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, vehicleColor, grupo,
-    emergencyContactName, emergencyContactPhone, referredBy, referredByDriverId,
+    emergencyContactName, emergencyContactPhone, referredBy, referredByDriverId, applicationId,
   } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
@@ -268,6 +268,13 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
 
   const pin = await generateDriverPin();
 
+  // Si viene de una solicitud, la versión del aviso es la que el chofer aceptó
+  // al mandarla (puede ser anterior a la de hoy); si no, la actual.
+  const fromApp = Number.isInteger(applicationId)
+    ? await db.prepare("SELECT accepted_legal_version FROM driver_applications WHERE id = ? AND city = ?").get(applicationId, cityId)
+    : null;
+  const legalVersion = fromApp?.accepted_legal_version || AVISO_LEGAL_VERSION;
+
   // Viene de una solicitud que llegó con el link "Invita a otro chofer": el
   // que invitó tiene que ser un chofer real de esta misma ciudad.
   const inviterId = Number.isInteger(referredByDriverId)
@@ -279,7 +286,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
       "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador, zone) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
-      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", colorAlta, grupoAlta, cityId,
+      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", legalVersion, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", colorAlta, grupoAlta, cityId,
       emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0, zone ? zone.id : null
     );
   await ensureInviteCode(db, result.lastInsertRowid);
@@ -528,10 +535,10 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   if (conColor && vehicleColor && !colorNuevo) return res.status(400).json({ error: "Ese color no está en la lista" });
 
   await db.prepare(
-    `UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, ${conGrupo ? "grupo = ?, " : ""}${conColor ? "vehicle_color = ?, " : ""}city = ? WHERE id = ?`
+    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, vehicle_color = ?, city = ? WHERE id = ?"
   ).run(
     name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto",
-    ...(conGrupo ? [grupoNuevo] : []), ...(conColor ? [colorNuevo] : []), cityId, req.params.id
+    conGrupo ? grupoNuevo : actual?.grupo ?? null, conColor ? colorNuevo : actual?.vehicle_color ?? null, cityId, req.params.id
   );
 
   const driver = await db
@@ -590,7 +597,9 @@ router.post("/admin/drivers/:id/move-city", checkAdminPin, async (req, res) => {
   if (active) {
     return res.status(409).json({ error: "Tiene un viaje en curso. Espera a que termine para cambiarlo." });
   }
-  await db.prepare("UPDATE drivers SET city = ?, zone = NULL WHERE id = ?").run(toCity, req.params.id);
+  // La agrupación es de cada municipio (Jaguar es de Ticul): al mudarlo se
+  // borra y se vuelve a elegir en el municipio nuevo.
+  await db.prepare("UPDATE drivers SET city = ?, zone = NULL, grupo = NULL WHERE id = ?").run(toCity, req.params.id);
   res.json({ ok: true, city: toCity, cityLabel: getCityById(toCity).label });
 });
 

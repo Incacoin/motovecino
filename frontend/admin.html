@@ -1697,6 +1697,10 @@ function renderGrupoField() {
   document.getElementById("driverGrupo").innerHTML = has ? grupoOptions("") : "";
   const b = document.getElementById("padronBtn");
   if (b) b.style.display = has ? "" : "none";
+  // Al cambiar de municipio se cierra la lista de padrones abierta: sus botones
+  // eran del municipio anterior.
+  const box = document.getElementById("padronBox");
+  if (box) { box.style.display = "none"; box.innerHTML = ""; }
 }
 let launchRankingCache = [];
 let driversCache = [];
@@ -2127,7 +2131,7 @@ async function loadAlertas() {
       <tr>
         <td>${escapeHtml(p.driver_name)}</td>
         <td>${escapeHtml(p.rider_name) || "—"}</td>
-        <td>${p.rider_phone}</td>
+        <td>${escapeHtml(p.rider_phone)}</td>
         <td>${p.veces}</td>
         <td>${timeAgo(p.ultima_vez)}</td>
       </tr>`).join("")
@@ -2137,7 +2141,7 @@ async function loadAlertas() {
     ? inasistencias.map((r) => `
       <tr>
         <td>${escapeHtml(r.name) || "—"}</td>
-        <td>${r.phone}</td>
+        <td>${escapeHtml(r.phone)}</td>
         <td><span class="pct-badge alto">${r.no_show_count}</span></td>
       </tr>`).join("")
     : `<tr><td colspan="3" class="ago">Nada que revisar por ahora.</td></tr>`;
@@ -2166,7 +2170,7 @@ function renderApplications(apps) {
           ${a.signature ? `<img class="thumb" style="background:#fff" src="${a.signature}" onclick="viewImage('${a.signature}')" title="Firma" />` : ""}
           <div class="who">
             <span class="name">${escapeHtml(a.name)}</span>
-            <span class="meta">${a.phone} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
+            <span class="meta">${escapeHtml(a.phone)} · ${timeAgo(a.created_at)} · ${vehicleTypeBadge(a.vehicle_type)}</span>
             <span class="meta">${a.phone_verified ? "Teléfono verificado" : "Teléfono sin verificar"}</span>
             <span class="meta">${a.city ? cityLabel(a.city) : "ciudad no detectada"}${a.zone ? " · " + escapeHtml(comisariaLabel(a.zone)) : ""}</span>
             ${a.inviter_name
@@ -2174,7 +2178,7 @@ function renderApplications(apps) {
               : a.referred_by ? `<span class="meta">Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
             ${a.vehicle_color ? `<span class="meta">Color: <b>${escapeHtml(a.vehicle_color)}</b></span>` : ""}
             ${a.grupo ? `<span class="meta">Agrupación: <b>${escapeHtml(grupoLabel(a.grupo))}</b></span>` : ""}
-            ${a.emergency_contact_name ? `<span class="meta">Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
+            ${a.emergency_contact_name ? `<span class="meta">Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${escapeHtml(a.emergency_contact_phone)}</span>` : ""}
           </div>
         </div>
         <div class="row-actions" id="appActions${a.id}">
@@ -2465,6 +2469,8 @@ async function registerDriver() {
       vehicleColor: document.getElementById("driverColor").value || null,
       emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
       // Si la solicitud llegó con el link de invitación de un chofer.
+      // Para guardar la versión del aviso que aceptó en SU solicitud, no la de hoy.
+      applicationId: pendingApplicationId || null,
       referredByDriverId: pendingApplicationId ? applicationsCache.find((a) => a.id === pendingApplicationId)?.referred_by_driver_id ?? null : null,
     }),
   });
@@ -2610,7 +2616,7 @@ function renderRiderRows() {
   document.getElementById("riderRows").innerHTML = visible.map((r) => `
     <tr>
       <td>${escapeHtml(r.name) || "—"}${playTag(r)}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">prueba</span>` : ""}</td>
-      <td>${r.phone}</td>
+      <td>${escapeHtml(r.phone)}</td>
       <td>${r.trips}</td>
       <td>${r.no_show_count >= 2 ? `<span style="color:var(--danger);font-weight:600;">${r.no_show_count}</span>` : (r.no_show_count || 0)}</td>
       <td>${r.created_at ? r.created_at.slice(0, 10) : ""}</td>
@@ -2983,7 +2989,7 @@ function renderDriverRows() {
     <tr>
       <td>${nameCell}</td>
       <td>${pinCell(d.id, d.pin)}</td>
-      <td>${d.phone}</td>
+      <td>${escapeHtml(d.phone)}</td>
       <td>${vehicleTypeBadge(d.vehicle_type)}${d.vehicle_color ? `<div class="meta" style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(d.vehicle_color)}</div>` : ""}</td>
       <td>${cityLabel(d.city)}${d.zone ? `<div class="meta" style="font-size:11.5px;color:var(--accent);font-weight:700;">${escapeHtml(comisariaLabel(d.zone))}</div>` : ""}</td>
       <td><span class="dot ${d.status}"></span>${d.status}</td>

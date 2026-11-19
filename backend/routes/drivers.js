@@ -612,9 +612,16 @@ router.post("/chofer-solicitudes", async (req, res) => {
   // Vino con el link de invitación de un chofer: se guarda quién fue. Nadie
   // puede invitarse a sí mismo (mismo teléfono).
   const inviter = await findInviter(db, inviteCode);
-  const inviterId = inviter && inviter.phone !== phone ? inviter.id : null;
-
+  // Se guarda SOLO la versión con números: antes se guardaba el texto tal
+  // cual llegaba y alguien podía colar HTML después de sus 10 dígitos (el
+  // código por WhatsApp se revisa con los números limpios), que luego se
+  // pintaba en el admin.
   const cleanPhone = String(phone).replace(/\D/g, "");
+  if (cleanPhone.length !== 10) return res.status(400).json({ error: "El teléfono debe tener 10 dígitos" });
+  const cleanEmergencyPhone = String(emergencyContactPhone).replace(/\D/g, "");
+  if (cleanEmergencyPhone.length !== 10) return res.status(400).json({ error: "El teléfono del contacto de emergencia debe tener 10 dígitos" });
+  const inviterId = inviter && inviter.phone !== cleanPhone ? inviter.id : null;
+
   if (await db.prepare("SELECT id FROM driver_applications WHERE phone = ? AND status = 'pendiente'").get(cleanPhone)) {
     return res.status(409).json({ error: "Ya recibimos tu solicitud con ese teléfono. Te escribimos pronto por WhatsApp." });
   }
@@ -622,7 +629,6 @@ router.post("/chofer-solicitudes", async (req, res) => {
   // el código no se gasta y puede corregir sin pedir otro.
   let phoneVerified = 0;
   if (otpEnabled()) {
-    if (cleanPhone.length !== 10) return res.status(400).json({ error: "El teléfono debe tener 10 dígitos" });
     const check = await verifyOtp(cleanPhone, req.body.code, "+52" + cleanPhone);
     if (!check.ok) return res.status(check.status).json({ error: check.error });
     phoneVerified = 1;
@@ -632,8 +638,8 @@ router.post("/chofer-solicitudes", async (req, res) => {
     "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, vehicle_color, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     // Comisarías (Progreso): solo motocarro, y queda en la comisaría donde se registró.
-    name, phone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", color, grupoLimpio || null, tipo, toStored(signature), cityId,
-    emergencyContactName.trim().slice(0, 80), emergencyContactPhone.trim().slice(0, 20),
+    name, cleanPhone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", color, grupoLimpio || null, tipo, toStored(signature), cityId,
+    emergencyContactName.trim().slice(0, 80), cleanEmergencyPhone,
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
     inviterId,
     phoneVerified,

@@ -17,7 +17,7 @@ const AGRUPACIONES = {
 const POR_SU_CUENTA = "Por su cuenta";
 
 function agrupacionesDe(cityId) {
-  return AGRUPACIONES[cityId] || [];
+  return Object.hasOwn(AGRUPACIONES, cityId) ? AGRUPACIONES[cityId] : [];
 }
 
 // El texto a guardar si `valor` es una opción válida de ese municipio; null si no.
