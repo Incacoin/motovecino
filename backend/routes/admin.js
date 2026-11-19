@@ -512,17 +512,21 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
 
   // La agrupación solo se toca si el admin la mandó: antes, editar el nombre
   // (sin mandar grupo) la dejaba vacía y el chofer se salía del padrón.
+  // Si manda el mismo valor que ya tiene (aunque sea uno viejo que ya no está
+  // en la lista, ej. texto libre de antes), no se valida ni se toca: así se
+  // puede corregir el nombre sin que lo obligue a cambiar la agrupación.
+  const actual = await db.prepare("SELECT grupo, vehicle_color FROM drivers WHERE id = ?").get(req.params.id);
+  const conGrupo = grupo !== undefined && (grupo || null) !== (actual?.grupo || null);
   let grupoNuevo;
-  if (grupo !== undefined) {
+  if (conGrupo) {
     grupoNuevo = adminGrupo(cityId, grupo);
     if (grupoNuevo === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
   }
-  // Igual con el color: solo se toca si vino ("" = quitarlo).
-  const conColor = vehicleColor !== undefined;
-  const colorNuevo = vehicleColor ? colorValido(vehicleColor) : null;
-  if (vehicleColor && !colorNuevo) return res.status(400).json({ error: "Ese color no está en la lista" });
+  // Igual con el color: solo se toca si vino y cambió ("" = quitarlo).
+  const conColor = vehicleColor !== undefined && (vehicleColor || null) !== (actual?.vehicle_color || null);
+  const colorNuevo = conColor && vehicleColor ? colorValido(vehicleColor) : null;
+  if (conColor && vehicleColor && !colorNuevo) return res.status(400).json({ error: "Ese color no está en la lista" });
 
-  const conGrupo = grupo !== undefined;
   await db.prepare(
     `UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, ${conGrupo ? "grupo = ?, " : ""}${conColor ? "vehicle_color = ?, " : ""}city = ? WHERE id = ?`
   ).run(

@@ -50,16 +50,22 @@ async function main() {
   };
   const colores = await api("GET", "/colores-vehiculo");
   check("lista de colores con Rojo y Otro", (colores.data?.colores || []).some((c) => c.nombre === "Rojo") && colores.data.colores.some((c) => c.nombre === "Otro"), colores.data);
-  const sinColor = await post("/chofer-solicitudes", { ...base, grupo: "Jaguar", vehicleColor: undefined });
+  const sinColor = await post("/chofer-solicitudes", { ...base, grupo: "Jaguar", vehicleColor: "" });
   check("sin color no se puede registrar", sinColor.status === 400 && /color/i.test(sinColor.data?.error || ""), sinColor);
   const colorMalo = await post("/chofer-solicitudes", { ...base, grupo: "Jaguar", vehicleColor: "Fosforescente" });
   check("color inventado no", colorMalo.status === 400, colorMalo);
-  const sin = await post("/chofer-solicitudes", base);
+  const sin = await post("/chofer-solicitudes", { ...base, grupo: "" });
   check("Ticul: sin agrupación no se puede registrar", sin.status === 400 && /agrupaci/i.test(sin.data?.error || ""), sin);
   const mala = await post("/chofer-solicitudes", { ...base, grupo: "Inventada" });
   check("Ticul: agrupación inventada no", mala.status === 400, mala);
   const ok = await post("/chofer-solicitudes", { ...base, grupo: "Jaguar" });
   check("Ticul: registro con Jaguar", ok.status === 201, ok);
+  // Formulario abierto antes de esta versión (no manda color ni agrupación):
+  // se acepta y queda "Sin elegir", para no tirarle lo que ya llenó.
+  const viejo = { ...base, name: `Viejo ${stamp}`, phone: `98400${stamp}`.slice(0, 10) };
+  delete viejo.vehicleColor;
+  const okViejo = await post("/chofer-solicitudes", viejo);
+  check("formulario viejo sin color ni agrupación se acepta", okViejo.status === 201, okViejo);
 
   const apps = await post("/admin/chofer-solicitudes/list", { adminPin: ADMIN, adminZone: "ticul" });
   const app = (apps.data || []).find((a) => a.phone === base.phone);
@@ -83,7 +89,12 @@ async function main() {
   check("editar sin color NO lo borra", (await listaDe())?.vehicle_color === "Rojo");
   await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto", grupo: "Por su cuenta" });
   check("editar a Por su cuenta", (await listaDe())?.grupo === "Por su cuenta");
-  const edMala = await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " B", phone: base.phone, vehicleType: "moto", grupo: "Inventada" });
+  // Agrupación vieja (texto libre de antes): editar el nombre sin tocarla no falla.
+  await db.prepare("UPDATE drivers SET grupo = ? WHERE id = ?").run("Gremio viejo", d.id);
+  const edViejo = await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " C", phone: base.phone, vehicleType: "moto", grupo: "Gremio viejo", vehicleColor: "Rojo" });
+  check("editar con agrupación vieja sin cambiarla funciona", edViejo.status === 200 && (await listaDe())?.grupo === "Gremio viejo", edViejo);
+  await db.prepare("UPDATE drivers SET grupo = ? WHERE id = ?").run("Por su cuenta", d.id);
+  const edMala = await post(`/admin/drivers/${d.id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: base.name + " C", phone: base.phone, vehicleType: "moto", grupo: "Inventada" });
   check("editar a una inventada no", edMala.status === 400 && (await listaDe())?.grupo === "Por su cuenta", edMala);
 
   // El pasajero no ve "Por su cuenta".

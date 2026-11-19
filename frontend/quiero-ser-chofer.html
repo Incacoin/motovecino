@@ -475,15 +475,21 @@ function applyCityFromDetection(city, label) {
 // su líder a un lado, más "Entré por mi cuenta". Sin lista = no se pregunta.
 let agrupacionesCity = "";
 let agrupacionesCount = 0;
+// Listas cargadas (o confirmado que no hay): si la señal falló, al enviar se
+// vuelven a pedir en vez de dejar al chofer sin opciones (el servidor las pide).
+let agrupacionesLoadedFor = "";
+let coloresLoaded = false;
 function loadAgrupaciones(city) {
   agrupacionesCity = city;
   agrupacionesCount = 0;
+  agrupacionesLoadedFor = "";
   document.getElementById("grupoField").style.display = "none";
   document.getElementById("grupoOpts").innerHTML = "";
-  fetch("/api/agrupaciones?city=" + encodeURIComponent(city))
-    .then((r) => r.json())
+  return fetch("/api/agrupaciones?city=" + encodeURIComponent(city))
+    .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
     .then((data) => {
       if (agrupacionesCity !== city) return; // ya cambió de municipio
+      agrupacionesLoadedFor = city;
       const list = data.agrupaciones || [];
       if (!list.length) return;
       agrupacionesCount = list.length;
@@ -501,14 +507,22 @@ function loadAgrupaciones(city) {
     .catch(() => {});
 }
 // Colores del vehículo (lista fija del servidor, 18-nov-2026).
-fetch("/api/colores-vehiculo")
-  .then((r) => r.json())
-  .then((data) => {
-    const sel = document.getElementById("vehicleColor");
-    sel.innerHTML = '<option value="">Elige el color</option>' +
-      (data.colores || []).map((c) => `<option value="${escapeAttr(c.nombre)}">${escapeAttr(c.nombre === "Otro" ? "Otro color" : c.nombre)}</option>`).join("");
-  })
-  .catch(() => {});
+function loadColores() {
+  return fetch("/api/colores-vehiculo")
+    .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+    .then((data) => {
+      const colores = data.colores || [];
+      if (!colores.length) return;
+      const sel = document.getElementById("vehicleColor");
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Elige el color</option>' +
+        colores.map((c) => `<option value="${escapeAttr(c.nombre)}">${escapeAttr(c.nombre === "Otro" ? "Otro color" : c.nombre)}</option>`).join("");
+      sel.value = prev;
+      coloresLoaded = true;
+    })
+    .catch(() => {});
+}
+loadColores();
 function escapeAttr(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -795,6 +809,14 @@ async function submitApplication() {
   const phone = document.getElementById("phone").value.trim();
   const err = document.getElementById("err");
   err.textContent = "";
+
+  // Si alguna lista no cargó (mala señal), se intenta otra vez antes de seguir.
+  if (!coloresLoaded) await loadColores();
+  if (detectedCity && agrupacionesLoadedFor !== detectedCity) await loadAgrupaciones(detectedCity);
+  if (!coloresLoaded || (detectedCity && agrupacionesLoadedFor !== detectedCity)) {
+    err.textContent = "No se pudo cargar el formulario completo. Revisa tu señal e intenta de nuevo.";
+    return;
+  }
 
   if (!name || !phone) {
     err.textContent = "Escribe tu nombre y teléfono";

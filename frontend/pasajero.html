@@ -5485,7 +5485,7 @@ function startBookingsPolling() {
 
 function bookingStateHtml(b) {
   if (b.status === "confirmado" && b.driver) {
-    return `<div class="bk-state ok">✅ ${escapeHtml(b.driver.name)} confirmó${b.driver.vehicle ? ` · ${escapeHtml(b.driver.vehicle)}` : ""}</div>`;
+    return `<div class="bk-state ok">✅ ${escapeHtml(b.driver.name)} confirmó${b.driver.vehicle ? ` · ${escapeHtml(b.driver.vehicle)}` : ""}${b.driver.vehicle_color ? ` · ${escapeHtml(b.driver.vehicle_color)}` : ""}</div>`;
   }
   if (b.status === "agendado" && (b.offers || []).length) return `<div class="bk-state">Un chofer te propone otro precio. Acepta o recházalo:</div>`;
   if (b.status === "agendado") return `<div class="bk-state">Esperando que un chofer lo confirme</div>`;
@@ -5499,7 +5499,7 @@ function bookingStateHtml(b) {
 function bookingOffersHtml(b) {
   if (b.status !== "agendado") return "";
   return (b.offers || []).map((o) => `<div class="bk-off">
-    <div class="who">${o.driver.photo ? `<img src="${escapeHtml(o.driver.photo)}" alt="">` : ""}<div><b>${escapeHtml(o.driver.name)}</b>${o.driver.es_fundador ? " ⭐" : ""}<small>${escapeHtml(o.driver.vehicle || (b.ride_type === "taxi" ? "Taxi" : "Mototaxi"))}</small></div><div class="price">$${o.price}</div></div>
+    <div class="who">${o.driver.photo ? `<img src="${escapeHtml(o.driver.photo)}" alt="">` : ""}<div><b>${escapeHtml(o.driver.name)}</b>${o.driver.es_fundador ? " ⭐" : ""}<small>${escapeHtml(o.driver.vehicle || (b.ride_type === "taxi" ? "Taxi" : "Mototaxi"))}${o.driver.vehicle_color ? " · " + escapeHtml(o.driver.vehicle_color) : ""}</small></div><div class="price">$${o.price}</div></div>
     ${o.reason ? `<div class="why">Motivo: ${escapeHtml(o.reason)}</div>` : ""}
     <div class="row"><button class="btn btn-secondary" data-bkreject="${b.id}:${o.id}">Rechazar</button><button class="btn" data-bkaccept="${b.id}:${o.id}">Aceptar $${o.price}</button></div>
   </div>`).join("");

@@ -593,13 +593,16 @@ router.post("/chofer-solicitudes", async (req, res) => {
   // verificación interna del admin) se exige siempre, sin importar tipo.
   // Municipio con agrupaciones (Ticul): elegir una, o "Entré por mi cuenta",
   // es obligatorio — es lo que arma el padrón de cada líder.
+  // Si no viene el campo (formulario abierto antes de esta versión) se acepta
+  // y queda "Sin elegir"/sin color, para no tirarle lo que ya llenó; el
+  // formulario nuevo siempre lo manda. Lo que sí venga tiene que ser válido.
   let grupoLimpio = typeof grupo === "string" ? grupo.trim().slice(0, 60) : "";
-  if (agrupacionesDe(cityId).length) {
+  if (agrupacionesDe(cityId).length && grupo !== undefined) {
     grupoLimpio = grupoValido(cityId, grupo);
     if (!grupoLimpio) return res.status(400).json({ error: "Elige tu agrupación (o «Entré por mi cuenta»)" });
   }
-  const color = colorValido(vehicleColor);
-  if (!color) return res.status(400).json({ error: "Elige el color de tu vehículo" });
+  const color = vehicleColor === undefined ? null : colorValido(vehicleColor);
+  if (vehicleColor !== undefined && !color) return res.status(400).json({ error: "Elige el color de tu vehículo" });
   const tipo = formalIntent ? "formal" : "informal";
 
   if (!photoPlaca) {

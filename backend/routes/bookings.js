@@ -11,6 +11,7 @@ const push = require("../push");
 const realtime = require("../realtime");
 const { photoUrls } = require("../photos");
 const { getCityById, zoneAt, sameCityForRide, isWithinServiceRadius } = require("../cities");
+const { colorParaPasajero } = require("../colores");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const rides = require("./rides");
 const orders = require("./orders");
@@ -189,8 +190,8 @@ async function riderView(b) {
     ride: null,
   };
   if (b.driver_id && b.status === "confirmado") {
-    const d = await db.prepare("SELECT id, name, vehicle, photo, es_fundador FROM drivers WHERE id = ?").get(b.driver_id);
-    if (d) out.driver = { name: firstName(d.name), vehicle: d.vehicle, es_fundador: d.es_fundador, photo: photoUrls("d", d.id, d.photo).photo };
+    const d = await db.prepare("SELECT id, name, vehicle, vehicle_color, photo, es_fundador FROM drivers WHERE id = ?").get(b.driver_id);
+    if (d) out.driver = { name: firstName(d.name), vehicle: d.vehicle, ...colorParaPasajero(d.vehicle_color), es_fundador: d.es_fundador, photo: photoUrls("d", d.id, d.photo).photo };
   }
   if (b.ride_id) {
     const r = await db.prepare("SELECT id, status, share_token FROM rides WHERE id = ?").get(b.ride_id);
@@ -202,7 +203,7 @@ async function riderView(b) {
   if (b.status === "agendado") {
     const list = await db
       .prepare(
-        `SELECT o.id, o.price, o.reason, d.id AS driver_id, d.name, d.vehicle, d.photo, d.es_fundador
+        `SELECT o.id, o.price, o.reason, d.id AS driver_id, d.name, d.vehicle, d.vehicle_color, d.photo, d.es_fundador
          FROM booking_offers o JOIN drivers d ON d.id = o.driver_id
          WHERE o.booking_id = ? AND o.status = 'pendiente' AND d.deleted_at IS NULL ORDER BY o.price, o.id`
       )
@@ -211,7 +212,7 @@ async function riderView(b) {
       id: o.id,
       price: o.price,
       reason: BOOKING_OFFER_REASONS[o.reason] || null,
-      driver: { name: firstName(o.name), vehicle: o.vehicle, es_fundador: o.es_fundador, photo: photoUrls("d", o.driver_id, o.photo).photo },
+      driver: { name: firstName(o.name), vehicle: o.vehicle, ...colorParaPasajero(o.vehicle_color), es_fundador: o.es_fundador, photo: photoUrls("d", o.driver_id, o.photo).photo },
     }));
   }
   return out;
@@ -784,8 +785,8 @@ async function businessView(b) {
     ride: null,
   };
   if (b.driver_id && b.status === "confirmado") {
-    const d = await db.prepare("SELECT name, vehicle FROM drivers WHERE id = ?").get(b.driver_id);
-    if (d) out.driver = { name: firstName(d.name), vehicle: d.vehicle };
+    const d = await db.prepare("SELECT name, vehicle, vehicle_color FROM drivers WHERE id = ?").get(b.driver_id);
+    if (d) out.driver = { name: firstName(d.name), vehicle: d.vehicle, ...colorParaPasajero(d.vehicle_color) };
   }
   if (b.ride_id) {
     const r = await db.prepare("SELECT id, status FROM rides WHERE id = ?").get(b.ride_id);
