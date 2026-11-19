@@ -205,6 +205,13 @@ app.get("/api/cities", (req, res) => {
   res.json(CITIES);
 });
 
+// Agrupaciones del municipio para el registro de chofer (vacío = no se pregunta).
+// Son públicas a propósito: nombre de la agrupación y de su líder, nada más.
+app.get("/api/agrupaciones", (req, res) => {
+  const { agrupacionesDe, POR_SU_CUENTA } = require("./agrupaciones");
+  res.json({ agrupaciones: agrupacionesDe(String(req.query.city || "")), porSuCuenta: POR_SU_CUENTA });
+});
+
 // A qué ciudad de la red pertenece esta coordenada (o null si está fuera de
 // todas). El frontend lo usa para mostrar "Estás en Ticul" en vez de tener
 // el nombre de una sola ciudad escrito a mano en toda la app.

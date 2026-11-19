@@ -793,6 +793,10 @@
       <option value="taxi">Taxi (viajes largos)</option>
     </select>
   </div>
+  <div class="field" id="driverGrupoField" style="display:none">
+    <label>Agrupación</label>
+    <select id="driverGrupo" class="tipo-select"></select>
+  </div>
   <div class="field">
     <label>Ciudad</label>
     <div id="driverCityDisplay" style="padding:10px 0;color:var(--accent);font-weight:700;">Tekax</div>
@@ -817,6 +821,8 @@
 
   <div class="section-card">
   <h1>Choferes registrados</h1>
+  <button class="btn-sm" id="padronBtn" style="display:none;margin:0 0 10px;" onclick="showPadron()">📋 Padrón por agrupación</button>
+  <div id="padronBox" style="display:none;margin:0 0 12px;"></div>
   <input type="text" id="driverSearch" class="admin-search" placeholder="Buscar por nombre o teléfono..." oninput="renderDriverRows()" />
   <div class="table-wrap">
     <table>
@@ -1583,6 +1589,104 @@ async function loadAudit() {
     : `<tr><td colspan="3" class="ago">Todavía no hay movimientos.</td></tr>`;
 }
 let adminCityLabel = "Tekax";
+// Agrupaciones por municipio (padrón, 18-nov-2026) — llegan en el login.
+let agrupacionesMap = {};
+let porSuCuenta = "Por su cuenta";
+const agrupacionesAdmin = () => agrupacionesMap[adminCity] || [];
+function grupoLabel(grupo) {
+  const a = agrupacionesAdmin().find((x) => x.nombre === grupo);
+  return a ? `${a.nombre} · Líder: ${a.lider}` : grupo;
+}
+function grupoOptions(selected) {
+  const opts = [["", "— Sin elegir —"], ...agrupacionesAdmin().map((a) => [a.nombre, `${a.nombre} (líder: ${a.lider})`]), [porSuCuenta, "Entró por su cuenta"]];
+  // Un valor viejo que ya no está en la lista se conserva visible para no perderlo sin querer.
+  if (selected && !opts.some(([v]) => v === selected)) opts.push([selected, selected + " (viejo)"]);
+  return opts.map(([v, t]) => `<option value="${escapeHtml(v)}"${v === (selected || "") ? " selected" : ""}>${escapeHtml(t)}</option>`).join("");
+}
+// ---- Padrón por agrupación (18-nov-2026) ----
+// Para el líder de cada agrupación y la Dirección de Transporte: nombre,
+// servicio, desde cuándo y si se conecta. Nunca teléfono ni ubicación.
+// "Por su cuenta" y "Sin elegir" son solo para MotoVecino (no se reparten).
+function padronGrupos() {
+  const reales = driversCache.filter((d) => !d.es_prueba);
+  const grupos = agrupacionesAdmin().map((a) => ({ key: a.nombre, titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false }));
+  grupos.push({ key: porSuCuenta, titulo: "Entraron por su cuenta", sub: "Sin agrupación", interno: true });
+  grupos.push({ key: "", titulo: "Sin elegir agrupación", sub: "Falta preguntarles", interno: true });
+  const conocidos = new Set(grupos.map((g) => g.key));
+  grupos.forEach((g) => {
+    g.choferes = reales
+      .filter((d) => (g.key === "" ? !d.grupo || !conocidos.has(d.grupo) : d.grupo === g.key))
+      .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  });
+  return grupos;
+}
+function showPadron() {
+  const box = document.getElementById("padronBox");
+  if (box.style.display !== "none") { box.style.display = "none"; return; }
+  const grupos = padronGrupos();
+  box.innerHTML = `<div class="section-hint" style="margin-bottom:8px">Toca una agrupación para abrir su padrón y guardarlo en PDF. Sin teléfonos ni ubicación. Las de abajo son <b>solo para MotoVecino</b>: no se comparten con los líderes.</div>` +
+    grupos.map((g, i) => `<button class="btn-sm" style="margin:0 6px 6px 0" onclick="printPadron(${i})">${g.interno ? "🔒 " : "📄 "}${escapeHtml(g.titulo)} (${g.choferes.length})</button>`).join("");
+  box.style.display = "";
+}
+function padronActividad(d) {
+  if (!d.last_connected_at) return "Nunca se ha conectado";
+  const days = Math.floor((Date.now() - new Date(`${d.last_connected_at.replace(" ", "T")}Z`).getTime()) / 86400000);
+  return days < INACTIVE_AFTER_DAYS ? "Activo esta semana" : `Sin conectarse hace ${days} días`;
+}
+// La base guarda en hora UTC: de noche ya sería "mañana". Se muestra en hora de Yucatán.
+function padronFecha(createdAt) {
+  if (!createdAt) return "";
+  const s = String(createdAt);
+  const d = new Date(/Z$|[+-]\d\d:?\d\d$/.test(s) ? s : s.replace(" ", "T") + "Z");
+  return isNaN(d) ? "" : escapeHtml(d.toLocaleDateString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "short", year: "numeric" }));
+}
+function printPadron(i) {
+  const g = padronGrupos()[i];
+  if (!g) return;
+  const w = window.open("", "_blank");
+  if (!w) { showToast("Tu navegador bloqueó la ventana del padrón"); return; }
+  const hoy = new Date().toLocaleDateString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "long", year: "numeric" });
+  const activos = g.choferes.filter((d) => padronActividad(d) === "Activo esta semana").length;
+  const filas = g.choferes.map((d, n) => `<tr><td>${n + 1}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`).join("");
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Padrón ${escapeHtml(g.titulo)} · MotoVecino ${escapeHtml(adminCityLabel)}</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #111; margin: 24px; }
+  .marca { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #15803d; font-weight: 700; }
+  h1 { font-size: 24px; margin: 6px 0 2px; }
+  .sub { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+  .fecha { color: #555; font-size: 13px; margin: 0 0 14px; }
+  .interno { border: 2px solid #b91c1c; color: #b91c1c; font-weight: 800; padding: 8px 10px; border-radius: 8px; margin: 0 0 14px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #ddd; }
+  th { background: #f1f5f2; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .tot { margin-top: 12px; font-weight: 700; }
+  .nota { margin-top: 18px; color: #666; font-size: 11.5px; }
+  .imp { margin: 0 0 16px; padding: 10px 16px; font-size: 15px; font-weight: 700; border: 0; border-radius: 10px; background: #16a34a; color: #fff; }
+  @media print { .imp { display: none; } body { margin: 12mm; } }
+</style></head><body>
+<button class="imp" onclick="print()">Imprimir / Guardar PDF</button>
+<div class="marca">MotoVecino · ${escapeHtml(adminCityLabel)}</div>
+<h1>Padrón de choferes · ${escapeHtml(g.titulo)}</h1>
+<p class="sub">${escapeHtml(g.sub)}</p>
+<p class="fecha">Al ${escapeHtml(hoy)}</p>
+${g.interno ? `<div class="interno">USO INTERNO DE MOTOVECINO — NO COMPARTIR CON LÍDERES</div>` : ""}
+${g.choferes.length ? `<table><thead><tr><th>#</th><th>Nombre</th><th>Servicio</th><th>En la app desde</th><th>Actividad</th></tr></thead><tbody>${filas}</tbody></table>
+<p class="tot">Total: ${g.choferes.length} chofer${g.choferes.length === 1 ? "" : "es"} · ${activos} activo${activos === 1 ? "" : "s"} esta semana</p>` : `<p>Todavía no hay choferes en esta lista.</p>`}
+<p class="nota">Lista generada desde MotoVecino. No incluye teléfonos ni ubicación de los choferes.</p>
+</body></html>`);
+  w.document.close();
+}
+
+function renderGrupoField() {
+  const f = document.getElementById("driverGrupoField");
+  if (!f) return;
+  const has = agrupacionesAdmin().length > 0;
+  f.style.display = has ? "" : "none";
+  document.getElementById("driverGrupo").innerHTML = has ? grupoOptions("") : "";
+  const b = document.getElementById("padronBtn");
+  if (b) b.style.display = has ? "" : "none";
+}
 let launchRankingCache = [];
 let driversCache = [];
 let showAllDrivers = false;
@@ -1901,6 +2005,8 @@ async function login(withSavedToken) {
   adminZones = loginData.zones || [];
   adminRoleNow = loginData.role || null;
   comisarias = loginData.comisarias || [];
+  agrupacionesMap = loginData.agrupaciones || {};
+  porSuCuenta = loginData.porSuCuenta || porSuCuenta;
   document.body.classList.toggle("role-progreso", adminRoleNow === "progreso");
   document.getElementById("tabBtn-soporte").style.display = adminRoleNow === "tekax" ? "" : "none";
   if (adminRoleNow === "tekax") loadSupport();
@@ -1931,6 +2037,7 @@ function applyAdminZone(id, label) {
   const cityBadge = document.getElementById("adminCityBadge");
   const cityField = document.getElementById("driverCityDisplay");
   if (cityField) cityField.textContent = label;
+  renderGrupoField();
   const wrap = document.getElementById("zoneSelectWrap");
   if (adminZones.length > 1) {
     const opts = adminZones.map((z) => `<option value="${escapeHtml(z.id)}"${z.id === id ? " selected" : ""}>${escapeHtml(zoneTxt(z))}</option>`).join("");
@@ -2051,6 +2158,7 @@ function renderApplications(apps) {
             ${a.inviter_name
               ? `<span class="meta">Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
               : a.referred_by ? `<span class="meta">Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
+            ${a.grupo ? `<span class="meta">Agrupación: <b>${escapeHtml(grupoLabel(a.grupo))}</b></span>` : ""}
             ${a.emergency_contact_name ? `<span class="meta">Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${a.emergency_contact_phone}</span>` : ""}
           </div>
         </div>
@@ -2080,6 +2188,7 @@ function useApplication(id) {
   document.getElementById("driverEmergencyName").value = app.emergency_contact_name || "";
   document.getElementById("driverEmergencyPhone").value = app.emergency_contact_phone || "";
   document.getElementById("driverReferredBy").value = app.referred_by || "";
+  if (agrupacionesAdmin().length) document.getElementById("driverGrupo").innerHTML = grupoOptions(app.grupo || "");
   pendingDriverPhoto = app.photo || null;
   pendingDriverPhotoPlaca = app.photo_placa || null;
   pendingDriverSignature = app.signature || null;
@@ -2336,6 +2445,7 @@ async function registerDriver() {
     body: JSON.stringify({
       adminPin, name, phone, vehicle, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature,
       zone: isZonedAdmin() ? document.getElementById("driverZone").value : null,
+      grupo: agrupacionesAdmin().length ? document.getElementById("driverGrupo").value || null : undefined,
       emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
       // Si la solicitud llegó con el link de invitación de un chofer.
       referredByDriverId: pendingApplicationId ? applicationsCache.find((a) => a.id === pendingApplicationId)?.referred_by_driver_id ?? null : null,
@@ -2358,6 +2468,7 @@ async function registerDriver() {
   document.getElementById("driverVehicle").value = "";
   document.getElementById("driverEmergencyName").value = "";
   document.getElementById("driverEmergencyPhone").value = "";
+  renderGrupoField();
   document.getElementById("driverReferredBy").value = "";
   document.getElementById("driverVehicleType").value = "moto";
   document.getElementById("driverAcceptedLegal").checked = false;
@@ -2573,7 +2684,8 @@ async function saveEdit(id) {
   const res = await fetch(API + `/api/admin/drivers/${id}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType }),
+    // grupo solo si hay selector (municipio con agrupaciones); si no va, el servidor no la toca.
+    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo guardar");
@@ -2797,7 +2909,7 @@ function renderDriverRows() {
             <input id="edit-phone-${d.id}" value="${escapeHtml(d.phone)}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" />
           </div>
         </td>
-        <td>${vehicleTypeSelect(d.id, d.vehicle_type)}</td>
+        <td>${vehicleTypeSelect(d.id, d.vehicle_type)}${agrupacionesAdmin().length ? `<select id="edit-grupo-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Agrupación">${grupoOptions(d.grupo || "")}</select>` : ""}</td>
         <td>${cityLabel(d.city)}</td>
         <td><span class="dot ${d.status}"></span>${d.status}</td>
         <td>${activityBadge(d.last_connected_at)}</td>
@@ -2841,6 +2953,7 @@ function renderDriverRows() {
     // "Invita a otro chofer": quién lo trajo (con su link, o lo que escribió
     // a mano) y a cuántos ha traído él.
     const referralLines = [
+      d.grupo ? `Agrupación: ${escapeHtml(grupoLabel(d.grupo))}` : agrupacionesAdmin().length ? "Agrupación: sin elegir" : "",
       d.inviter_name ? `Lo invitó ${escapeHtml(d.inviter_name)} (chofer)` : d.referred_by ? `Invitado por ${escapeHtml(d.referred_by)}` : "",
       d.invited_count ? `Ha invitado a ${d.invited_count} chofer${d.invited_count === 1 ? "" : "es"}` : "",
     ].filter(Boolean).map((t) => `<div class="meta" style="color:var(--text-dim);font-size:11.5px;">${t}</div>`).join("");

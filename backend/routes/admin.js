@@ -5,6 +5,17 @@ const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_
 const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
+const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido } = require("../agrupaciones");
+
+// Agrupación que manda el admin para un chofer: en municipio con lista solo
+// vale una de la lista, "Por su cuenta" o vacío (= sin elegir); en los demás
+// sigue el texto libre de antes. undefined = no es válida.
+function adminGrupo(cityId, grupo) {
+  const texto = typeof grupo === "string" ? grupo.trim() : "";
+  if (!texto) return null;
+  if (!agrupacionesDe(cityId).length) return texto.slice(0, 60);
+  return grupoValido(cityId, texto) || undefined;
+}
 const { otpDailyStatus } = require("../whatsappOtp");
 const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
@@ -198,6 +209,9 @@ router.post("/admin/login", checkAdminPin, async (req, res) => {
     zones: req.adminZones.map(zoneInfo),
     // Comisarías de Progreso, para las pestañas y el alta de motocarros.
     comisarias: PROGRESO_ZONES,
+    // Agrupaciones por municipio (padrón): el selector de cada chofer y el PDF.
+    agrupaciones: AGRUPACIONES,
+    porSuCuenta: POR_SU_CUENTA,
   });
 });
 
@@ -226,6 +240,8 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   if (!acceptedLegal) {
     return res.status(400).json({ error: "Confirma que el chofer aceptó el aviso legal" });
   }
+  const grupoAlta = adminGrupo(cityId, grupo);
+  if (grupoAlta === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
 
   const existingPhone = await db
     .prepare("SELECT id, name FROM drivers WHERE phone = ? AND deleted_at IS NULL")
@@ -258,7 +274,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
       "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, grupo, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador, zone) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
-      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", grupo || null, cityId,
+      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", AVISO_LEGAL_VERSION, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", grupoAlta, cityId,
       emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0, zone ? zone.id : null
     );
   await ensureInviteCode(db, result.lastInsertRowid);
@@ -489,9 +505,21 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
     });
   }
 
+  // La agrupación solo se toca si el admin la mandó: antes, editar el nombre
+  // (sin mandar grupo) la dejaba vacía y el chofer se salía del padrón.
+  let grupoNuevo;
+  if (grupo !== undefined) {
+    grupoNuevo = adminGrupo(cityId, grupo);
+    if (grupoNuevo === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
+  }
+
+  const conGrupo = grupo !== undefined;
   await db.prepare(
-    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, city = ? WHERE id = ?"
-  ).run(name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto", grupo || null, cityId, req.params.id);
+    `UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, ${conGrupo ? "grupo = ?, " : ""}city = ? WHERE id = ?`
+  ).run(
+    name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto",
+    ...(conGrupo ? [grupoNuevo] : []), cityId, req.params.id
+  );
 
   const driver = await db
     .prepare(

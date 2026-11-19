@@ -3,6 +3,7 @@ const express = require("express");
 const db = require("../db");
 const livePos = require("../livePos");
 const realtime = require("../realtime");
+const { grupoParaPasajero } = require("../agrupaciones");
 const { resolveCity, DEFAULT_CITY_ID, isWithinServiceRadius, getCityById, zoneAt, rideCityAt, sameCityForRide, cityMinOffer, motoReachesDest } = require("../cities");
 const { haversineKm } = require("../geo");
 
@@ -372,7 +373,7 @@ async function driverForRide(driverId) {
     .get(driverId);
   if (!driver) return driver;
   livePos.overlay(driver);
-  return { ...driver, phone: maskPhoneTail(driver.phone), ...photoUrls("d", driver.id, driver.photo) };
+  return { ...driver, grupo: grupoParaPasajero(driver.grupo), phone: maskPhoneTail(driver.phone), ...photoUrls("d", driver.id, driver.photo) };
 }
 
 // El viaje que el chofer ya tiene en curso (aceptado / llegué / en curso). La

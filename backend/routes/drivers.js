@@ -8,6 +8,7 @@ const { normalizeAccount } = require("../bankAccount");
 const { haversineKm } = require("../geo");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
+const { agrupacionesDe, grupoValido } = require("../agrupaciones");
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide, openZoneAt } = require("../cities");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
 const { rideFee } = require("../fees");
@@ -588,7 +589,13 @@ router.post("/chofer-solicitudes", async (req, res) => {
   // Ya no hay gremios ni líderes que avalen a nadie — todo chofer que aplica
   // entra por su cuenta, así que la segunda foto (chofer con su moto, para
   // verificación interna del admin) se exige siempre, sin importar tipo.
-  const grupoLimpio = typeof grupo === "string" ? grupo.trim().slice(0, 60) : "";
+  // Municipio con agrupaciones (Ticul): elegir una, o "Entré por mi cuenta",
+  // es obligatorio — es lo que arma el padrón de cada líder.
+  let grupoLimpio = typeof grupo === "string" ? grupo.trim().slice(0, 60) : "";
+  if (agrupacionesDe(cityId).length) {
+    grupoLimpio = grupoValido(cityId, grupo);
+    if (!grupoLimpio) return res.status(400).json({ error: "Elige tu agrupación (o «Entré por mi cuenta»)" });
+  }
   const tipo = formalIntent ? "formal" : "informal";
 
   if (!photoPlaca) {

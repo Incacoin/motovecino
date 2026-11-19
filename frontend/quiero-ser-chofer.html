@@ -215,6 +215,19 @@
   button.btn, a.btn { font-weight: 600 !important; letter-spacing: .03em; border-radius: 14px !important; }
   html[data-theme="dark"] button.btn, html[data-theme="dark"] a.btn { background: #34d399 !important; color: #052e1f !important; box-shadow: 0 10px 28px rgba(52,211,153,.22) !important; }
 
+  /* Agrupación (padrón, 18-nov-2026): tarjetas grandes con el nombre del líder. */
+  .grupoOpts { display: flex; flex-direction: column; gap: 8px; }
+  .grupoOpt { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; cursor: pointer;
+    border: 1.5px solid var(--border); background: var(--bg-card); }
+  .grupoOpt input { position: absolute; opacity: 0; pointer-events: none; }
+  .grupoOpt .dotSel { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; border: 2px solid var(--text-faint); }
+  .grupoOpt b { display: block; font-size: 15.5px; font-weight: 700; color: var(--text); }
+  .grupoOpt small { display: block; font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+  .grupoOpt small strong { color: var(--text); font-weight: 700; }
+  .grupoOpt.sel { border-color: #16a34a; background: rgba(34,197,94,0.10); }
+  .grupoOpt.sel .dotSel { border-color: #16a34a; background: radial-gradient(circle, #16a34a 45%, transparent 50%); }
+  html[data-theme="dark"] .grupoOpt.sel { border-color: #34d399; background: rgba(52,211,153,0.10); }
+  html[data-theme="dark"] .grupoOpt.sel .dotSel { border-color: #34d399; background: radial-gradient(circle, #34d399 45%, transparent 50%); }
 </style>
 </head>
 <body>
@@ -265,6 +278,12 @@
         <option value="moto">🛵 Mototaxi o motocarro</option>
         <option value="taxi">🚕 Taxi o carro</option>
       </select>
+    </div>
+    <!-- Solo en municipios con agrupaciones (Ticul). Las opciones las pone loadAgrupaciones(). -->
+    <div class="field" id="grupoField" style="display:none;">
+      <label>¿A qué agrupación perteneces?</label>
+      <div class="grupoOpts" id="grupoOpts"></div>
+      <p class="fieldHint" style="margin-top:8px;">Tu nombre y tu agrupación se comparten con la Dirección de Transporte del municipio y, si eres de una agrupación, con su líder. Nunca tu teléfono ni tu ubicación.</p>
     </div>
     </div>
     <div class="qs-card">
@@ -433,6 +452,40 @@ function applyCityFromDetection(city, label) {
   document.getElementById("cityLabelInline").textContent = label;
   document.title = "MotoVecino " + label + " — Quiero ser chofer";
   // 13-oct-2026: Ticul ya recibe choferes desde aquí (cajón Ticul del admin), igual que Oxkutzcab y Akil.
+  loadAgrupaciones(city);
+}
+
+// Agrupaciones del municipio (padrón, 18-nov-2026). Cada una con el nombre de
+// su líder a un lado, más "Entré por mi cuenta". Sin lista = no se pregunta.
+let agrupacionesCity = "";
+let agrupacionesCount = 0;
+function loadAgrupaciones(city) {
+  agrupacionesCity = city;
+  agrupacionesCount = 0;
+  document.getElementById("grupoField").style.display = "none";
+  document.getElementById("grupoOpts").innerHTML = "";
+  fetch("/api/agrupaciones?city=" + encodeURIComponent(city))
+    .then((r) => r.json())
+    .then((data) => {
+      if (agrupacionesCity !== city) return; // ya cambió de municipio
+      const list = data.agrupaciones || [];
+      if (!list.length) return;
+      agrupacionesCount = list.length;
+      const opt = (value, title, sub) =>
+        `<label class="grupoOpt"><input type="radio" name="grupo" value="${escapeAttr(value)}" /><span class="dotSel"></span><span><b>${escapeAttr(title)}</b>${sub}</span></label>`;
+      document.getElementById("grupoOpts").innerHTML =
+        list.map((a) => opt(a.nombre, a.nombre, `<small>Líder: <strong>${escapeAttr(a.lider)}</strong></small>`)).join("") +
+        opt(data.porSuCuenta, "Entré por mi cuenta", "<small>No pertenezco a ninguna agrupación</small>");
+      // Marca con clase (no :has(), que no existe en Chrome viejo de celulares sencillos).
+      document.querySelectorAll('#grupoOpts input[name="grupo"]').forEach((inp) => inp.addEventListener("change", () => {
+        document.querySelectorAll("#grupoOpts .grupoOpt").forEach((l) => l.classList.toggle("sel", l.contains(document.querySelector('#grupoOpts input:checked'))));
+      }));
+      document.getElementById("grupoField").style.display = "";
+    })
+    .catch(() => {});
+}
+function escapeAttr(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 // GPS sí resolvió una ubicación real, pero fuera del radio de servicio de
@@ -707,6 +760,12 @@ async function submitApplication() {
     err.textContent = "El teléfono debe tener 10 dígitos";
     return;
   }
+  const grupoSel = document.querySelector('input[name="grupo"]:checked');
+  if (agrupacionesCount && !grupoSel) {
+    err.textContent = "Elige tu agrupación (o «Entré por mi cuenta»)";
+    document.getElementById("grupoField").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   if (!photoDataUrl) {
     err.textContent = "Falta la foto de tu rostro";
     return;
@@ -755,6 +814,7 @@ async function submitApplication() {
     body: JSON.stringify({
       name, phone, photo: photoDataUrl, photoPlaca: photoPlacaDataUrl, acceptedLegal: true,
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
+      grupo: grupoSel ? grupoSel.value : null,
       emergencyContactName: emergencyName, emergencyContactPhone: emergencyPhone,
       referredBy: document.getElementById("referredBy").value.trim() || null,
       inviteCode,
