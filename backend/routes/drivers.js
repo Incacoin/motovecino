@@ -1,4 +1,3 @@
-const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
 const livePos = require("../livePos");
@@ -6,6 +5,7 @@ const { MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
 const { AVISO_LEGAL_VERSION, MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, DRIVER_STALE_SECONDS, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, TAXI_WAIT_RATE_PER_MIN, TAXI_PICKUP_GRACE_MIN, MONTHLY_FEE, TRIAL_END_DATE, DEPOSIT_SUGGESTED_RATE } = require("../constants");
 const { normalizeAccount } = require("../bankAccount");
 const { haversineKm } = require("../geo");
+const { mapCode } = require("../mapCode");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
 const { agrupacionesDe, grupoValido } = require("../agrupaciones");
@@ -58,14 +58,14 @@ function availableDriverRows(type) {
 // igual): esta lista es pública (sin cuenta), así que con la posición exacta
 // y el número de chofer cualquiera podía seguir a un chofer en vivo hasta
 // donde se estaciona o a su casa (24-oct-2026). Ahora:
-//   - la posición sale redondeada a una cuadrícula de ~100 m (una cuadra);
-//     el filtro de distancia de arriba sigue usando la exacta, y el viaje se
-//     sigue mandando con la exacta (eso no pasa por aquí);
-//   - en vez del número de chofer va un código que cambia cada día (y si se
-//     reinicia el server), solo para que el mapa sepa qué motito mover.
-// El mapa del chofer manda &me=<su id> para no verse a sí mismo.
-const mapCodeKey = crypto.randomBytes(32);
-const LOCAL_OFFSET_MS = -6 * 60 * 60 * 1000; // día de Yucatán (igual que LOCAL_OFFSET)
+//   - la posición sale redondeada a una cuadrícula de ~100 m (una cuadra), y
+//     desde el 20-nov también el filtro de distancia y de zona usa esa celda:
+//     con la exacta, moviendo el punto de consulta hasta el borde donde el
+//     taxi aparece o desaparece (radio 60 km), se podía triangular su posición
+//     exacta. El viaje se sigue mandando con la exacta (eso no pasa por aquí);
+//   - en vez del número de chofer va un código que cambia cada día (mapCode.js).
+//     El chofer recibe el suyo por su conexión en vivo y se esconde solo; ya no
+//     se acepta &me= (dejaba saber qué número era cada moto).
 
 // Cuadrícula de ~100 m (una cuadra). El 19-nov se probó cambiarla por un
 // corrimiento al azar para que la moto se viera más natural, pero la revisión
@@ -96,10 +96,6 @@ setInterval(() => {
   const cut = Date.now() - MAP_CELL_KEEP_MS;
   for (const [id, c] of mapCells) if (c.at < cut) mapCells.delete(id);
 }, MAP_CELL_KEEP_MS).unref();
-function mapCode(driverId) {
-  const day = new Date(Date.now() + LOCAL_OFFSET_MS).toISOString().slice(0, 10);
-  return crypto.createHmac("sha256", mapCodeKey).update(`${day}|${driverId}`).digest("base64url").slice(0, 12);
-}
 
 router.get("/drivers/available", async (req, res) => {
   const type = req.query.type === "taxi" ? "taxi" : "moto";
@@ -112,7 +108,13 @@ router.get("/drivers/available", async (req, res) => {
   // se usaba en los primeros segundos, antes de que el GPS resolviera.
   const ref = hasRef ? { lat: refLat, lng: refLng } : getCityById(DEFAULT_CITY_ID);
 
-  const drivers = (await availableDriverRows(type)).map((d) => livePos.overlay({ ...d }));
+  // De aquí en adelante solo se usa la celda de ~100 m, nunca la posición
+  // exacta (ni para filtrar): así lo que se puede deducir de las respuestas
+  // nunca es más fino que una cuadra.
+  const drivers = (await availableDriverRows(type)).map((d) => {
+    const live = livePos.overlay({ ...d });
+    return { id: d.id, city: d.city, zone: d.zone, vehicle_type: d.vehicle_type, ...mapCell(d.id, live.lat, live.lng) };
+  });
 
   const maxDistance = type === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   // En Progreso solo se ven los motocarros de la misma comisaría.
@@ -124,12 +126,7 @@ router.get("/drivers/available", async (req, res) => {
       sameCityForRide(type, rideCity, d.city) &&
       (!refCity || sameComisaria(refCity.id, ref.lat, ref.lng, d.lat, d.lng, d.zone))
   );
-  const me = Number(req.query.me);
-  res.json(
-    nearby
-      .filter((d) => d.id !== me)
-      .map((d) => ({ id: mapCode(d.id), ...mapCell(d.id, d.lat, d.lng), vehicle_type: d.vehicle_type }))
-  );
+  res.json(nearby.map((d) => ({ id: mapCode(d.id), lat: d.lat, lng: d.lng, vehicle_type: d.vehicle_type })));
 });
 
 // Insignia de "top chofer": los 3 con más viajes en los últimos 30 días,

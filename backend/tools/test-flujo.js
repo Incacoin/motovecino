@@ -126,9 +126,27 @@ async function main() {
   // reconoce cada uno por estar a menos de ~1 cuadra de donde se reportó.
   const onMap = (pos) => avail.data.some((d) => Math.abs(d.lat - pos.lat) < 0.0011 && Math.abs(d.lng - pos.lng) < 0.0011);
   check("choferes disponibles (mensajes tempranos del socket)", avail.status === 200 && avail.data.length >= 2 && onMap(near(0.002)) && onMap(near(0.003)), avail.data);
+  // 20-nov: &me=<número> dejaba saber qué número era cada moto. Ya no se le
+  // hace caso; el chofer recibe SU código por la conexión en vivo (con PIN).
   const availMe = await get(`/drivers/available?lat=${TEKAX.lat}&lng=${TEKAX.lng}&me=${moto.id}`);
-  check("el chofer no se ve a sí mismo en su mapa", availMe.data.length === avail.data.length - 1, availMe.data);
+  check("mapa: &me= ya no esconde a nadie (no revela el número de chofer)", availMe.data.length === avail.data.length, availMe.data);
+  const myCodeMsg = ws1.msgs.find((m) => m.type === "map_code");
+  const motoCell = avail.data.slice().sort((a, b) =>
+    Math.hypot(a.lat - near(0.002).lat, a.lng - near(0.002).lng) - Math.hypot(b.lat - near(0.002).lat, b.lng - near(0.002).lng))[0];
+  check("el chofer recibe su código del mapa por la conexión en vivo (para no verse a sí mismo)",
+    myCodeMsg && motoCell && myCodeMsg.payload.code === motoCell.id, { myCodeMsg, motoCell });
   check("mapa sin número de chofer", avail.data.every((d) => typeof d.id === "string" && !/^\d+$/.test(d.id)), avail.data);
+  // 20-nov: el filtro de distancia usaba la posición EXACTA, así que moviendo
+  // el punto de consulta hasta el borde donde la moto aparece o desaparece se
+  // triangulaba su posición. Ahora filtra con la celda: un punto justo al sur
+  // de la celda, a (radio - 4 m) de ella pero a más del radio de la posición
+  // exacta (que está ~11 m más al norte), SÍ debe ver la moto.
+  const { MAX_MATCH_DISTANCE_KM } = require("../constants");
+  const R_KM = 6371;
+  const edgeLat = motoCell.lat - ((MAX_MATCH_DISTANCE_KM - 0.004) / R_KM) * (180 / Math.PI);
+  const edge = await get(`/drivers/available?lat=${edgeLat}&lng=${motoCell.lng}`);
+  check("mapa: el filtro de distancia usa la cuadra, no la posición exacta (no se puede triangular)",
+    edge.status === 200 && edge.data.some((d) => d.id === motoCell.id), { edgeLat, data: edge.data });
 
   check("mapa: posición en la cuadrícula de ~100 m (no la exacta)", avail.data.every((d) => Number(d.lat.toFixed(3)) === d.lat && Number(d.lng.toFixed(3)) === d.lng), avail.data);
   const avail2 = await get(`/drivers/available?lat=${TEKAX.lat}&lng=${TEKAX.lng}`);

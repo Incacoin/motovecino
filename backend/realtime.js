@@ -7,6 +7,7 @@ const { recordError } = require("./errorAlerts");
 const { photoUrls } = require("./photos");
 const push = require("./push");
 const livePos = require("./livePos");
+const { mapCode } = require("./mapCode");
 const { sameComisaria, sameCityForRide } = require("./cities");
 const { MAX_MATCH_DISTANCE_KM, MAX_MATCH_DISTANCE_KM_TAXI, ABANDONED_AFTER_MIN_TAXI, TAXI_SEARCH_MS, TAXI_OFFER_TTL_SEC, DRIVER_STALE_SECONDS } = require("./constants");
 
@@ -375,11 +376,22 @@ async function setupConnection(ws, req, early, keepEarly) {
     ).run(driverId);
     await db.prepare("INSERT INTO driver_activity_log (driver_id) VALUES (?)").run(driverId);
 
+    // Su código del mapa de choferes libres (mapCode.js), para que su app no
+    // lo pinte a él mismo. Cambia a medianoche: se le vuelve a mandar con la
+    // siguiente ubicación que llegue después del cambio.
+    let sentMapCode = mapCode(driverId);
+    send(ws, "map_code", { code: sentMapCode });
+
     const onMessage = serialHandler("driver_ws", async (msg) => {
       if (msg.type === "location") {
         const { lat, lng } = msg;
         // Al pizarrón (memoria); a la base pasa en lote (ver livePos.js).
         livePos.set(driverId, Number(lat), Number(lng));
+        const code = mapCode(driverId);
+        if (code !== sentMapCode) {
+          sentMapCode = code;
+          send(ws, "map_code", { code });
+        }
 
         const activeRide = await activeRideForLocation(driverId);
         if (activeRide) {

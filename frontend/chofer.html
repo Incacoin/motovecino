@@ -1265,6 +1265,7 @@ function centerOnMe() {
 let todayCount = 0;
 let otherDriverMarkers = new Map();
 let otherDriversPollTimer = null;
+let myMapCode = null; // su código en el mapa de choferes libres (llega por la conexión en vivo)
 let didFitOtherDrivers = false;
 let cancellingOwnRide = false;
 
@@ -2117,11 +2118,13 @@ function forgetPushOnThisPhone() {
 
 async function loadOtherDrivers() {
   const refQuery = myPos ? `&lat=${myPos.lat}&lng=${myPos.lng}` : "";
-  const res = await fetch(API + `/api/drivers/available?type=${driver.vehicle_type}${refQuery}&me=${driver.id}`);
+  const res = await fetch(API + `/api/drivers/available?type=${driver.vehicle_type}${refQuery}`);
   if (!res.ok) return;
   const drivers = await res.json();
   const seen = new Set();
   for (const d of drivers) {
+    // Él mismo: su código llega por la conexión en vivo ("map_code").
+    if (d.id === myMapCode) continue;
     seen.add(d.id);
     const pos = [d.lat, d.lng];
     if (otherDriverMarkers.has(d.id)) {
@@ -2167,6 +2170,8 @@ function connectWs() {
   };
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
+    // Si ya se estaba pintando él mismo, la siguiente vuelta (4 s) lo quita.
+    if (type === "map_code") myMapCode = payload.code;
     if (type === "new_ride") addPendingRide(payload);
     if (type === "ride_taken") { delete myOffers[payload.rideId]; removePendingRide(payload.rideId); }
     if (type === "offer_closed") onOfferClosed(payload);
