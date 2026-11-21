@@ -2117,6 +2117,9 @@ function forgetPushOnThisPhone() {
 }
 
 async function loadOtherDrivers() {
+  // Sin su código todavía no se puede saber cuál moto es él: se espera a que
+  // llegue por la conexión en vivo (llega al conectarse).
+  if (!myMapCode) return;
   const refQuery = myPos ? `&lat=${myPos.lat}&lng=${myPos.lng}` : "";
   const res = await fetch(API + `/api/drivers/available?type=${driver.vehicle_type}${refQuery}`);
   if (!res.ok) return;
@@ -2170,8 +2173,9 @@ function connectWs() {
   };
   ws.onmessage = (ev) => {
     const { type, payload } = JSON.parse(ev.data);
-    // Si ya se estaba pintando él mismo, la siguiente vuelta (4 s) lo quita.
-    if (type === "map_code") myMapCode = payload.code;
+    // Con el código nuevo se vuelve a pedir el mapa de una vez (y si ya se
+    // estaba pintando él mismo con un código viejo, desaparece).
+    if (type === "map_code") { myMapCode = payload.code; if (otherDriversPollTimer) loadOtherDrivers(); }
     if (type === "new_ride") addPendingRide(payload);
     if (type === "ride_taken") { delete myOffers[payload.rideId]; removePendingRide(payload.rideId); }
     if (type === "offer_closed") onOfferClosed(payload);

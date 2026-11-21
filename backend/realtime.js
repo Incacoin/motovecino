@@ -271,10 +271,23 @@ function recordDriverFailure(ip, driverId, pin) {
   recordFailedAttempt(ip, { driverId, pin });
 }
 
+// Código del mapa (mapCode.js) que tiene cada chofer conectado. Solo se le
+// manda de nuevo cuando cambia (a medianoche de Yucatán).
+function sendMapCode(ws, driverId) {
+  const code = mapCode(driverId);
+  if (ws.mvMapCode === code) return;
+  ws.mvMapCode = code;
+  send(ws, "map_code", { code });
+}
+function sendMapCodes() {
+  for (const [driverId, ws] of driverSockets) sendMapCode(ws, driverId);
+}
+
 function attach(httpServer, trustFn) {
   trustProxy = trustFn || null;
   const wss = new WebSocketServer({ server: httpServer, path: "/ws" });
   setInterval(sweepStaleRides, SWEEP_INTERVAL_MS);
+  setInterval(sendMapCodes, 30 * 1000).unref();
 
   wss.on("connection", (ws, req) => {
     // Revisar el PIN/token en la base toma unos milisegundos; lo que mande el
@@ -377,21 +390,15 @@ async function setupConnection(ws, req, early, keepEarly) {
     await db.prepare("INSERT INTO driver_activity_log (driver_id) VALUES (?)").run(driverId);
 
     // Su código del mapa de choferes libres (mapCode.js), para que su app no
-    // lo pinte a él mismo. Cambia a medianoche: se le vuelve a mandar con la
-    // siguiente ubicación que llegue después del cambio.
-    let sentMapCode = mapCode(driverId);
-    send(ws, "map_code", { code: sentMapCode });
+    // lo pinte a él mismo. Cambia a medianoche: sendMapCodes() (cada 30 s) se
+    // lo vuelve a mandar aunque esté parado y su GPS no mande nada.
+    sendMapCode(ws, driverId);
 
     const onMessage = serialHandler("driver_ws", async (msg) => {
       if (msg.type === "location") {
         const { lat, lng } = msg;
         // Al pizarrón (memoria); a la base pasa en lote (ver livePos.js).
         livePos.set(driverId, Number(lat), Number(lng));
-        const code = mapCode(driverId);
-        if (code !== sentMapCode) {
-          sentMapCode = code;
-          send(ws, "map_code", { code });
-        }
 
         const activeRide = await activeRideForLocation(driverId);
         if (activeRide) {
