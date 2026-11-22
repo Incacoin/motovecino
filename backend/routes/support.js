@@ -237,7 +237,10 @@ async function adminThread(id, res) {
 const RIDE_STATUS = { buscando: "Buscando chofer", aceptado: "Chofer en camino", llegue: "Chofer llegó", en_curso: "En viaje", completado: "Completado", cancelado: "Cancelado" };
 async function rideOf(t, user) {
   if (!["whatsapp", "pasajero"].includes(t.user_type) || !user || !user.phone) return null;
-  const msgs = await db.prepare("SELECT text FROM support_messages WHERE thread_id = ? AND sender = 'usuario' ORDER BY id DESC LIMIT 50").all(t.id);
+  // Solo mensajes de los últimos 3 días: la plática de WhatsApp es la misma
+  // para siempre, y una queja vieja (#120, ya resuelta) no debe salir cuando
+  // la persona escribe de otra cosa semanas después.
+  const msgs = await db.prepare("SELECT text FROM support_messages WHERE thread_id = ? AND sender = 'usuario' AND created_at >= datetime('now', '-3 days') ORDER BY id DESC LIMIT 50").all(t.id);
   let id = null;
   for (const m of msgs) {
     const hit = /viaje\s*#\s*(\d{1,9})/i.exec(m.text || "");
@@ -247,7 +250,7 @@ async function rideOf(t, user) {
   const r = await db.prepare("SELECT id, rider_name, rider_phone, status, driver_id, ride_type, service_kind, city, created_at FROM rides WHERE id = ?").get(id);
   if (!r) return { id, found: false };
   if (String(r.rider_phone) !== String(user.phone)) return { id, found: true, mine: false };
-  const d = r.driver_id ? await db.prepare("SELECT name, vehicle_type FROM drivers WHERE id = ?").get(r.driver_id) : null;
+  const d = r.driver_id ? await db.prepare("SELECT name FROM drivers WHERE id = ?").get(r.driver_id) : null;
   return {
     id: r.id, found: true, mine: true, city: cityLabel(r.city), created_at: r.created_at,
     rider: r.rider_name, driver: d ? d.name : null, vehicle: r.ride_type === "taxi" ? "taxi" : "mototaxi",

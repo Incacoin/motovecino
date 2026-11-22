@@ -68,9 +68,24 @@ async function main() {
   const r4 = (await post(`/admin/support/${t4}`, { adminPin: ADMIN })).data.ride;
   check("sin número de viaje: sin tarjeta", r4 === null, r4);
 
-  // 4) Sin PIN de admin no se abre.
+  // 4) Queja vieja (más de 3 días): ya no sale la tarjeta.
+  const t5 = await waThread(`96677${stamp}`.slice(0, 10), "Z", "hola de nuevo");
+  await db.prepare("INSERT INTO support_messages (thread_id, sender, text, created_at) VALUES (?, 'usuario', ?, datetime('now', '-5 days'))").run(t5, `viaje #${rideId}`);
+  const r5 = (await post(`/admin/support/${t5}`, { adminPin: ADMIN })).data.ride;
+  check("queja de hace 5 días: sin tarjeta", r5 === null, r5);
+
+  // 5) Sin PIN de admin no se abre.
   const sinPin = await post(`/admin/support/${t1}`, {});
   check("sin PIN de admin: rechazado", sinPin.status === 401 || sinPin.status === 403, sinPin.status);
+
+  // Limpieza: que no queden pláticas "esperando" ni viajes de más en la copia.
+  for (const t of [t1, t2, t3, t4, t5]) {
+    const th = await db.prepare("SELECT user_id FROM support_threads WHERE id = ?").get(t);
+    await db.prepare("DELETE FROM support_messages WHERE thread_id = ?").run(t);
+    await db.prepare("DELETE FROM support_threads WHERE id = ?").run(t);
+    if (th) await db.prepare("DELETE FROM whatsapp_contacts WHERE id = ?").run(th.user_id);
+  }
+  await db.prepare("DELETE FROM rides WHERE id = ?").run(rideId);
 
   console.log(`\n${fail ? "✗" : "✓"} ${pass} bien, ${fail} mal`);
   process.exit(fail ? 1 : 0);
