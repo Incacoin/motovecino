@@ -3420,9 +3420,34 @@ function confirmDest() { setDestAt(map.getCenter(), searchedLabelHere()); }
 var searchedPlace = null; // { label, p: L.latLng } del último resultado elegido
 // La búsqueda en sí vive en buscador.js (la comparte "Mi negocio").
 // Progreso va por comisarías: cada una tiene su archivo (repiten números de calle).
+// 21-nov: se busca en el municipio DONDE ESTÁ EL MAPA, no en el del GPS del
+// celular al abrir la app. Antes, si el GPS tardaba o fallaba, se quedaba en
+// Tekax: en Ticul u Oxkutzcab el pasajero escribía "50 x 47" y el punto 2 le
+// salía en Tekax (los números de calle se repiten). Para el destino el mapa
+// sigue donde quedó la recogida (el mototaxi no sale de su municipio); el
+// taxi a otro municipio: se mueve el mapa allá y busca ahí.
+const placeCityCache = new Map(); // celda de ~1 km -> "ciudad" o "ciudad-comisaría"
+function placeFileAt(lat, lng) {
+  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  if (placeCityCache.has(key)) return placeCityCache.get(key);
+  const p = fetch(API + `/api/cities/resolve?lat=${lat}&lng=${lng}`)
+    .then((r) => (r.ok ? r.json() : Promise.reject()))
+    .then((data) => {
+      if (!data.city) return null;
+      return data.comisaria && data.comisaria.id ? `${data.city}-${data.comisaria.id}` : data.city;
+    })
+    .catch(() => null);
+  // Si falló (sin señal) no se guarda: la siguiente búsqueda vuelve a preguntar.
+  p.then((f) => { if (!f) placeCityCache.delete(key); });
+  placeCityCache.set(key, p);
+  return p;
+}
 function loadPlaceData() {
   const city = resolvedCityId || "tekax";
-  return MVBuscador.load(comisaria && comisaria.id ? `${city}-${comisaria.id}` : city);
+  const fallback = comisaria && comisaria.id ? `${city}-${comisaria.id}` : city;
+  const c = map && map.getCenter();
+  if (!c) return MVBuscador.load(fallback);
+  return placeFileAt(c.lat, c.lng).then((file) => MVBuscador.load(file || fallback));
 }
 const PS_ICONS = MVBuscador.ICONS;
 const placeMatches = MVBuscador.matches;
