@@ -229,8 +229,34 @@ async function adminThread(id, res) {
   if (!t) { res.status(404).json({ error: "Conversación no encontrada" }); return null; }
   return t;
 }
+// Tarjeta del viaje (21-nov): si en la plática la persona escribió "viaje #974"
+// (lo pone solo el botón "Quejas o sugerencias" al terminar el viaje), el
+// panel enseña ese viaje. Solo si el teléfono que escribe ES el del pasajero
+// de ese viaje; si no, solo se avisa, sin datos. Esto lo ve únicamente el
+// dueño en el panel: el asistente no lo sabe ni se lo dice a nadie.
+const RIDE_STATUS = { buscando: "Buscando chofer", aceptado: "Chofer en camino", llegue: "Chofer llegó", en_curso: "En viaje", completado: "Completado", cancelado: "Cancelado" };
+async function rideOf(t, user) {
+  if (!["whatsapp", "pasajero"].includes(t.user_type) || !user || !user.phone) return null;
+  const msgs = await db.prepare("SELECT text FROM support_messages WHERE thread_id = ? AND sender = 'usuario' ORDER BY id DESC LIMIT 50").all(t.id);
+  let id = null;
+  for (const m of msgs) {
+    const hit = /viaje\s*#\s*(\d{1,9})/i.exec(m.text || "");
+    if (hit) { id = Number(hit[1]); break; }
+  }
+  if (!id) return null;
+  const r = await db.prepare("SELECT id, rider_name, rider_phone, status, driver_id, ride_type, service_kind, city, created_at FROM rides WHERE id = ?").get(id);
+  if (!r) return { id, found: false };
+  if (String(r.rider_phone) !== String(user.phone)) return { id, found: true, mine: false };
+  const d = r.driver_id ? await db.prepare("SELECT name, vehicle_type FROM drivers WHERE id = ?").get(r.driver_id) : null;
+  return {
+    id: r.id, found: true, mine: true, city: cityLabel(r.city), created_at: r.created_at,
+    rider: r.rider_name, driver: d ? d.name : null, vehicle: r.ride_type === "taxi" ? "taxi" : "mototaxi",
+    kind: r.service_kind, status: RIDE_STATUS[r.status] || r.status,
+  };
+}
 async function adminView(t) {
-  return { id: t.id, mode: t.mode, waiting: !!t.needs_human, reason: t.handoff_reason, user: await userOf(t), messages: await messagesOf(t.id, 200) };
+  const user = await userOf(t);
+  return { id: t.id, mode: t.mode, waiting: !!t.needs_human, reason: t.handoff_reason, user, ride: await rideOf(t, user), messages: await messagesOf(t.id, 200) };
 }
 
 router.post("/admin/support/:id", checkAdminPin, ownerOnly, async (req, res) => {

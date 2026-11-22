@@ -560,6 +560,7 @@
   .sup-m.equipo { align-self: flex-end; background: #22c55e; color: #04130a; }
   .sup-m.asistente { align-self: flex-end; background: rgba(34,197,94,.15); }
   .sup-media { margin-top: 6px; font-size: 12px; opacity: .8; }
+  .sup-ride { color: var(--text); margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: rgba(34,197,94,.10); border: 1px solid rgba(34,197,94,.35); font-size: 13px; line-height: 1.45; }
   .sup-media img, .sup-media video { display: block; max-width: 100%; max-height: 260px; border-radius: 10px; }
   .sup-media audio { max-width: 100%; }
   .sup-m a { color: inherit; text-decoration: underline; }
@@ -1521,12 +1522,22 @@ function renderSupportThread(t) {
     (u.account ? `${u.city ? " · " : ""}${escapeHtml(u.account)}` : "") +
     (u.type === "whatsapp" ? "<br>Tu respuesta le llega por WhatsApp (997 140 7972), solo si te escribió en las últimas 24 h." : "") +
     (t.mode === "humano" ? " · <b>La atiendes tú</b> (el asistente no contesta)" : " · Contesta el asistente") +
-    (t.waiting && t.reason ? `<br><b>Motivo:</b> ${escapeHtml(t.reason)}` : "");
+    (t.waiting && t.reason ? `<br><b>Motivo:</b> ${escapeHtml(t.reason)}` : "") +
+    supportRideCard(t.ride);
   const who = { usuario: u.name ? u.name.split(/\s+/)[0] : "Persona", asistente: "Asistente", equipo: "Tú" };
   const box = document.getElementById("supportMsgs");
   box.innerHTML = t.messages.map((m) => `<div class="sup-m ${m.sender}">${supportText(m.text)}${m.media_type ? `<div class="sup-media" data-mid="${m.id}" data-type="${escapeHtml(m.media_type)}">Cargando…</div>` : ""}<small>${escapeHtml(who[m.sender] || m.sender)} · ${escapeHtml(supportWhen(m.created_at))}</small></div>`).join("");
   box.scrollTop = box.scrollHeight;
   box.querySelectorAll(".sup-media").forEach(loadSupportMedia);
+}
+// Tarjeta del viaje del que habla ("viaje #974"); ver rideOf en routes/support.js.
+function supportRideCard(r) {
+  if (!r) return "";
+  if (!r.found) return `<div class="sup-ride">🧾 Habla del viaje #${Number(r.id)}, pero ese viaje no existe.</div>`;
+  if (!r.mine) return `<div class="sup-ride">🧾 Habla del viaje #${Number(r.id)}, pero ese viaje <b>no es de este número</b>.</div>`;
+  const kind = r.kind && r.kind !== "pasaje" ? ` (${escapeHtml(r.kind)})` : "";
+  return `<div class="sup-ride">🧾 <b>Viaje #${Number(r.id)}</b> · ${escapeHtml(r.city || "")} · ${escapeHtml(supportWhen(r.created_at))}<br>` +
+    `Pasajero: ${escapeHtml(r.rider || "")} · Chofer: ${escapeHtml(r.driver || "sin chofer")} · ${escapeHtml(r.vehicle)}${kind} · ${escapeHtml(r.status)}</div>`;
 }
 // Ubicación de WhatsApp: el link al mapa se puede tocar.
 function supportText(text) {

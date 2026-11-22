@@ -5150,8 +5150,10 @@ function onCancelledByDriver() {
 // Pendiente: reemplazar con el número real que dé el líder del gremio de
 // Tekax (solo dígitos, sin "52" ni "+" — waLink() ya antepone el código de
 // país, igual que en admin.html).
-// Quejas y sugerencias van al WhatsApp de soporte (14-oct; antes estaba vacío y no abría nada).
-const QUEJAS_WHATSAPP_NUMBER = "9979739422";
+// Quejas y sugerencias (21-nov): al 997 140 7972, el WhatsApp automático
+// (Twilio). Contesta el Asistente al momento, pasa la queja a admin → Soporte
+// y ahí sale la tarjeta del viaje (#número). Antes iba al 9422 (a mano).
+const QUEJAS_WHATSAPP_NUMBER = "9971407972";
 
 // Número de soporte para "¿Olvidaste tu PIN?". Vacío = el botón no aparece.
 // Cuando llegue la WhatsApp API, cambiar solo esta línea (y la de chofer.html).
@@ -5186,7 +5188,9 @@ async function forgotPin() {
 
 function reportViaWhatsapp() {
   const rideInfo = ride ? ` (viaje #${ride.id})` : "";
-  const text = `Hola, quiero dejar una queja o sugerencia sobre mi viaje en MotoVecino ${resolvedCityLabel}${rideInfo}: `;
+  // Sin municipio conocido no queda "MotoVecino  (viaje" con doble espacio.
+  const brand = ["MotoVecino", resolvedCityLabel].filter(Boolean).join(" ");
+  const text = `Hola, quiero dejar una queja o sugerencia sobre mi viaje en ${brand}${rideInfo}: `;
   window.open(waLink(QUEJAS_WHATSAPP_NUMBER, text), "_blank");
 }
 
