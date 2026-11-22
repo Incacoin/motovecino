@@ -256,6 +256,7 @@
     <div id="inviteBanner">🤝 Te invitó <b id="inviteName"></b></div>
     <p class="lead">Regístrate como conductor y empieza a recibir viajes en <span id="cityLabelInline">tu zona</span>. Déjanos tu nombre y teléfono — te contactamos por WhatsApp para completar tu alta y darte tu PIN.</p>
 
+    <p id="draftNote" style="display:none;text-align:center;margin:0 0 12px;padding:12px;border-radius:14px;background:#e9f8ef;color:#14532d;font-size:14px;line-height:1.4;"></p>
     <div class="qs-card">
     <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg></span>Tus datos</div>
     <div class="field">
@@ -306,15 +307,15 @@
     <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></span>Tus fotos</div>
     <div class="field">
       <label>Foto de tu rostro</label>
-      <p class="fieldHint">Una selfie clara de tu cara. Esta es la foto que le va a aparecer al pasajero cuando le llegue su viaje, para que te reconozca.</p>
-      <input type="file" class="photoInput" id="photo" accept="image/*" capture="user" onchange="handlePhoto(event, 'photoPreview')" />
+      <p class="fieldHint">Puedes tomarla con la cámara o escogerla de tu galería. Una selfie clara de tu cara. Esta es la foto que le va a aparecer al pasajero cuando le llegue su viaje, para que te reconozca.</p>
+      <input type="file" class="photoInput" id="photo" accept="image/*" onchange="handlePhoto(event, 'photoPreview')" />
       <label for="photo" class="photoBtn" id="photoBtn"></label>
       <img id="photoPreview" />
     </div>
     <div class="field">
       <label id="photoPlacaLabel">Foto de ti con tu mototaxi</label>
       <p class="fieldHint">Que se vea tu vehículo completo y su placa. Solo para verificación interna — el pasajero nunca ve esta foto.</p>
-      <input type="file" class="photoInput" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
+      <input type="file" class="photoInput" id="photoPlaca" accept="image/*" onchange="handlePhoto(event, 'photoPlacaPreview')" />
       <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn"></label>
       <img id="photoPlacaPreview" />
     </div>
@@ -505,6 +506,7 @@ function loadAgrupaciones(city) {
         document.querySelectorAll("#grupoOpts .grupoOpt").forEach((l) => l.classList.toggle("sel", l.contains(document.querySelector('#grupoOpts input:checked'))));
       }));
       document.getElementById("grupoField").style.display = "";
+      applyDraftLists();
     })
     .catch(() => {});
 }
@@ -521,6 +523,7 @@ function loadColores() {
         colores.map((c) => `<option value="${escapeAttr(c.nombre)}">${escapeAttr(c.nombre === "Otro" ? "Otro color" : c.nombre)}</option>`).join("");
       sel.value = prev;
       coloresLoaded = true;
+      applyDraftLists();
     })
     .catch(() => {});
 }
@@ -631,11 +634,15 @@ if (navigator.geolocation) {
   showManualCityPicker();
 }
 function resizeToDataUrl(file, onDone, onError) {
+  // URL directa al archivo en vez de leerlo entero como texto: en celulares
+  // sencillos, una foto de 12 MP leída como texto llenaba la memoria y el
+  // celular cerraba la página (22-nov-2026).
   const img = new Image();
-  const reader = new FileReader();
-  reader.onload = (e) => { img.src = e.target.result; };
-  reader.onerror = () => onError();
+  let objUrl = null;
+  try { objUrl = URL.createObjectURL(file); } catch (e) { onError(); return; }
+  img.onerror = () => { URL.revokeObjectURL(objUrl); onError(); };
   img.onload = () => {
+    URL.revokeObjectURL(objUrl);
     let { width, height } = img;
     const maxDim = 900;
     if (width > height && width > maxDim) { height = Math.round(height * (maxDim / width)); width = maxDim; }
@@ -645,9 +652,11 @@ function resizeToDataUrl(file, onDone, onError) {
     canvas.width = width;
     canvas.height = height;
     canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-    onDone(canvas.toDataURL("image/jpeg", 0.72));
+    const out = canvas.toDataURL("image/jpeg", 0.72);
+    canvas.width = canvas.height = 0; // suelta la memoria del dibujo
+    onDone(out);
   };
-  reader.readAsDataURL(file);
+  img.src = objUrl;
 }
 
 // La foto de verificación dice "mototaxi" o "taxi" según el vehículo elegido.
@@ -697,23 +706,109 @@ function handlePhoto(event, previewId) {
   const err = document.getElementById("err");
   err.textContent = "";
   const setUrl = previewId === "photoPlacaPreview" ? (v) => (photoPlacaDataUrl = v) : (v) => (photoDataUrl = v);
-  if (!file) {
-    setUrl("");
-    return;
-  }
+  if (!file) return; // canceló la cámara: se queda la foto que ya tenía
   resizeToDataUrl(
     file,
     (dataUrl) => {
       setUrl(dataUrl);
-      const preview = document.getElementById(previewId);
-      preview.src = dataUrl;
-      preview.style.display = "block";
-      const btn = document.getElementById(previewId === "photoPlacaPreview" ? "photoPlacaBtn" : "photoBtn");
-      btn.textContent = "✓ Foto lista · Cambiar";
-      btn.classList.add("done");
+      showPhoto(previewId, dataUrl);
+      saveDraft();
     },
     () => { err.textContent = "No se pudo leer la foto, intenta de nuevo"; }
   );
+}
+
+function showPhoto(previewId, dataUrl) {
+  const preview = document.getElementById(previewId);
+  preview.src = dataUrl;
+  preview.style.display = "block";
+  const btn = document.getElementById(previewId === "photoPlacaPreview" ? "photoPlacaBtn" : "photoBtn");
+  btn.textContent = "✓ Foto lista · Cambiar";
+  btn.classList.add("done");
+}
+
+// ---- Borrador (22-nov-2026) ----
+// Al abrir la cámara, celulares con poca memoria cierran la página por detrás
+// y al regresar se borraba todo. Lo llenado se guarda SOLO en este celular,
+// dura 24 h y se borra al enviar la solicitud. La firma no se guarda: se
+// vuelve a firmar.
+const DRAFT_KEY = "mv_reg_chofer";
+const DRAFT_FIELDS = ["name", "phone", "vehicleColor", "emergencyName", "emergencyPhone", "referredBy"];
+let draftPending = null; // color/agrupación esperan a que carguen sus listas
+let draftSubmitted = false; // ya se envió: no volver a guardar nada
+let draftTimer = null;
+function saveDraftSoon() { // al escribir: guarda medio segundo después, no en cada letra
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 500);
+}
+function saveDraft() {
+  clearTimeout(draftTimer);
+  if (draftSubmitted) return;
+  try {
+    const d = { t: Date.now(), photo: photoDataUrl, photoPlaca: photoPlacaDataUrl };
+    DRAFT_FIELDS.forEach((id) => (d[id] = document.getElementById(id).value));
+    // Si la lista aún no cargó, conserva lo recuperado en vez de borrarlo.
+    if (!d.vehicleColor && draftPending && draftPending.vehicleColor) d.vehicleColor = draftPending.vehicleColor;
+    d.vehicleType = document.getElementById("vehicleType").value;
+    const g = document.querySelector('input[name="grupo"]:checked');
+    d.grupo = g ? g.value : (draftPending && draftPending.grupo) || "";
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }
+    catch (e) { // sin espacio: al menos los datos escritos
+      d.photo = d.photoPlaca = "";
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    }
+  } catch (e) {}
+}
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+// Celular prestado (registro en persona con el líder): el que sigue puede
+// borrar lo del anterior con un toque.
+function startOver() {
+  draftSubmitted = true;
+  clearDraft();
+  location.reload();
+}
+function applyDraftLists() {
+  if (!draftPending) return;
+  const sel = document.getElementById("vehicleColor");
+  if (draftPending.vehicleColor && !sel.value && [...sel.options].some((o) => o.value === draftPending.vehicleColor)) {
+    sel.value = draftPending.vehicleColor;
+    draftPending.vehicleColor = "";
+  }
+  if (draftPending.grupo && document.querySelector('#grupoOpts input[name="grupo"]')) {
+    const inp = [...document.querySelectorAll('#grupoOpts input[name="grupo"]')].find((i) => i.value === draftPending.grupo);
+    if (inp) {
+      inp.checked = true;
+      inp.dispatchEvent(new Event("change"));
+    }
+    draftPending.grupo = ""; // ya cargó la lista: si no está, no se arrastra
+  }
+}
+function restoreDraft() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch (e) {}
+  if (!d) return;
+  if (!d.t || Date.now() - d.t > 6 * 3600 * 1000) { clearDraft(); return; }
+  DRAFT_FIELDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (d[id] && !el.value) el.value = d[id];
+  });
+  if (d.vehicleType) pickVehicle(d.vehicleType);
+  if (d.photo) { photoDataUrl = d.photo; showPhoto("photoPreview", d.photo); }
+  if (d.photoPlaca) { photoPlacaDataUrl = d.photoPlaca; showPhoto("photoPlacaPreview", d.photoPlaca); }
+  draftPending = { vehicleColor: d.vehicleColor || "", grupo: d.grupo || "" };
+  applyDraftLists();
+  if (d.name || d.phone || d.photo || d.photoPlaca) {
+    const note = document.getElementById("draftNote");
+    note.textContent = "Recuperamos lo que ya habías llenado" + (d.name ? " (" + d.name + ")" : "") +
+      ". Solo vuelve a aceptar el aviso y a firmar. ";
+    const again = document.createElement("button");
+    again.type = "button";
+    again.className = "btn-clear-sign";
+    again.textContent = "¿No eres tú? Empezar de nuevo";
+    again.onclick = startOver;
+    note.appendChild(again);
+    note.style.display = "block";
+  }
 }
 
 const sigCanvas = document.getElementById("signaturePad");
@@ -754,6 +849,12 @@ function clearSignature() {
   hasSignature = false;
   document.getElementById("sigStatus").textContent = "Sin firmar";
 }
+
+restoreDraft();
+document.getElementById("formScreen").addEventListener("input", saveDraftSoon);
+document.getElementById("formScreen").addEventListener("change", (e) => { if (e.target.type !== "file") saveDraft(); });
+["photoBtn", "photoPlacaBtn"].forEach((id) => document.getElementById(id).addEventListener("click", saveDraft));
+document.addEventListener("visibilitychange", () => { if (document.hidden) saveDraft(); });
 
 // ---- Código por WhatsApp (6-oct-2026) ----
 // otpPhone: a qué teléfono ya se le mandó código. Si lo cambia, se pide otro.
@@ -916,6 +1017,8 @@ async function submitApplication() {
     return;
   }
 
+  draftSubmitted = true;
+  clearDraft();
   document.getElementById("okName").textContent = name;
   document.getElementById("formScreen").style.display = "none";
   document.getElementById("okScreen").style.display = "block";
