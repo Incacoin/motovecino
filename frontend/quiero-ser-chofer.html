@@ -93,6 +93,8 @@
   .photoRow { display: flex; gap: 8px; }
   .photoRow .photoBtn { flex: 1 1 0; min-width: 0; text-align: center; }
   .photoRow .photoGalBtn { flex: 0 0 auto; }
+  .camHint { display: none; margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; background: rgba(245,158,11,0.12); color: #b45309; font-size: 14px; line-height: 1.4; }
+  html[data-theme="dark"] .camHint { color: #fbbf24; }
 
   /* ================================================================
      TEMA FORMAL (tipo Uber) — igual que pasajero.html, 2026-09-26.
@@ -320,6 +322,7 @@
         <label for="photo" class="photoBtn" id="photoBtn"></label>
         <label for="photoGal" class="photoBtn photoGalBtn" id="photoGalBtn"></label>
       </div>
+      <p class="camHint" id="photoCamHint"></p>
       <img id="photoPreview" />
     </div>
     <div class="field">
@@ -331,6 +334,7 @@
         <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn"></label>
         <label for="photoPlacaGal" class="photoBtn photoGalBtn" id="photoPlacaGalBtn"></label>
       </div>
+      <p class="camHint" id="photoPlacaCamHint"></p>
       <img id="photoPlacaPreview" />
     </div>
     </div>
@@ -723,16 +727,18 @@ function handlePhoto(event, previewId) {
   const err = document.getElementById("err");
   err.textContent = "";
   const setUrl = previewId === "photoPlacaPreview" ? (v) => (photoPlacaDataUrl = v) : (v) => (photoDataUrl = v);
-  if (!file) return; // canceló la cámara: se queda la foto que ya tenía
-  event.target.value = ""; // así se puede volver a escoger la misma foto
+  camOpening = "";
+  if (!file) { saveDraft(); return; } // canceló la cámara: se queda la foto que ya tenía
+  const input = event.target;
   resizeToDataUrl(
     file,
     (dataUrl) => {
+      input.value = ""; // ya leída: así se puede volver a escoger la misma foto
       setUrl(dataUrl);
       showPhoto(previewId, dataUrl);
       saveDraft();
     },
-    () => { err.textContent = "No se pudo leer la foto, intenta de nuevo"; }
+    () => { input.value = ""; err.textContent = "No se pudo leer la foto, intenta de nuevo"; }
   );
 }
 
@@ -740,9 +746,13 @@ function showPhoto(previewId, dataUrl) {
   const preview = document.getElementById(previewId);
   preview.src = dataUrl;
   preview.style.display = "block";
-  const btn = document.getElementById(previewId === "photoPlacaPreview" ? "photoPlacaBtn" : "photoBtn");
-  btn.textContent = "✓ Lista · Otra";
+  const placa = previewId === "photoPlacaPreview";
+  const btn = document.getElementById(placa ? "photoPlacaBtn" : "photoBtn");
+  const gal = document.getElementById(placa ? "photoPlacaGalBtn" : "photoGalBtn");
+  setPhotoBtn(btn, "✓ Lista · Tomar otra");
   btn.classList.add("done");
+  gal.classList.add("done");
+  document.getElementById(placa ? "photoPlacaCamHint" : "photoCamHint").style.display = "none";
 }
 
 // ---- Borrador (22-nov-2026) ----
@@ -755,6 +765,10 @@ const DRAFT_FIELDS = ["name", "phone", "vehicleColor", "emergencyName", "emergen
 let draftPending = null; // color/agrupación esperan a que carguen sus listas
 let draftSubmitted = false; // ya se envió: no volver a guardar nada
 let draftTimer = null;
+// Cámara abierta (22-nov-2026): si el celular cierra la página mientras la
+// cámara está abierta, al regresar se avisa que use Galería, para que no se
+// quede dando vueltas tomando la foto con el botón de cámara.
+let camOpening = "";
 function saveDraftSoon() { // al escribir: guarda medio segundo después, no en cada letra
   clearTimeout(draftTimer);
   draftTimer = setTimeout(saveDraft, 500);
@@ -763,7 +777,7 @@ function saveDraft() {
   clearTimeout(draftTimer);
   if (draftSubmitted) return;
   try {
-    const d = { t: Date.now(), photo: photoDataUrl, photoPlaca: photoPlacaDataUrl };
+    const d = { t: Date.now(), photo: photoDataUrl, photoPlaca: photoPlacaDataUrl, cam: camOpening };
     DRAFT_FIELDS.forEach((id) => (d[id] = document.getElementById(id).value));
     // Si la lista aún no cargó, conserva lo recuperado en vez de borrarlo.
     if (!d.vehicleColor && draftPending && draftPending.vehicleColor) d.vehicleColor = draftPending.vehicleColor;
@@ -813,6 +827,14 @@ function restoreDraft() {
   if (d.vehicleType) pickVehicle(d.vehicleType);
   if (d.photo) { photoDataUrl = d.photo; showPhoto("photoPreview", d.photo); }
   if (d.photoPlaca) { photoPlacaDataUrl = d.photoPlaca; showPhoto("photoPlacaPreview", d.photoPlaca); }
+  const camLost = (d.cam === "photoPreview" && !d.photo) || (d.cam === "photoPlacaPreview" && !d.photoPlaca);
+  if (camLost) {
+    const hint = document.getElementById(d.cam === "photoPlacaPreview" ? "photoPlacaCamHint" : "photoCamHint");
+    hint.textContent = "Tu celular cerró la página al abrir la cámara. Toma la foto con la app de cámara de tu celular y luego escógela aquí con «Galería».";
+    hint.style.display = "block";
+    setTimeout(() => hint.scrollIntoView({ block: "center" }), 300);
+    saveDraft(); // ya avisamos: quita la bandera
+  }
   draftPending = { vehicleColor: d.vehicleColor || "", grupo: d.grupo || "" };
   applyDraftLists();
   if (d.name || d.phone || d.photo || d.photoPlaca) {
@@ -871,8 +893,14 @@ function clearSignature() {
 restoreDraft();
 document.getElementById("formScreen").addEventListener("input", saveDraftSoon);
 document.getElementById("formScreen").addEventListener("change", (e) => { if (e.target.type !== "file") saveDraft(); });
-["photoBtn", "photoPlacaBtn", "photoGalBtn", "photoPlacaGalBtn"].forEach((id) => document.getElementById(id).addEventListener("click", saveDraft));
-document.addEventListener("visibilitychange", () => { if (document.hidden) saveDraft(); });
+document.getElementById("photoBtn").addEventListener("click", () => { camOpening = "photoPreview"; saveDraft(); });
+document.getElementById("photoPlacaBtn").addEventListener("click", () => { camOpening = "photoPlacaPreview"; saveDraft(); });
+["photoGalBtn", "photoPlacaGalBtn"].forEach((id) => document.getElementById(id).addEventListener("click", () => { camOpening = ""; saveDraft(); }));
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { saveDraft(); return; }
+  // Regresó y la página sigue viva: la cámara no la cerró.
+  if (camOpening) setTimeout(() => { camOpening = ""; saveDraft(); }, 1500);
+});
 
 // ---- Código por WhatsApp (6-oct-2026) ----
 // otpPhone: a qué teléfono ya se le mandó código. Si lo cambia, se pide otro.
