@@ -1951,18 +1951,23 @@ function resetPinMessage({ pin, role, name }) {
     `Ya restablecimos tu PIN. Tu nuevo PIN es:`,
     ``,
     `🔑 *${pin}*`,
-    ``,
-    `👉 Entra aquí: ${link}`,
-    `Escribe tu número de celular y este PIN.`,
     `💡 Guárdalo bien y no se lo compartas a nadie.`,
     ``,
     ...(isDriver ? [
-      `📢 Estamos arrancando: primero estamos sumando choferes y luego vamos a dar a conocer la app para que la gente empiece a pedir viajes. Te pedimos un poquito de paciencia.`,
+      `📲 *Baja la app (Android):*`,
+      PLAY_TESTER_LINK,
+      `Son 4 pasos con tu cuenta de Gmail. Si ya la tienes, solo ábrela y entra con tu número de celular y este PIN.`,
+      ``,
+      `🍎 *Si tienes iPhone*, entra aquí:`,
+      CHOFER_WEB_LINK,
       ``,
       `🤝 Si conoces a otros compañeros choferes, pásales la voz. Entre más seamos, mejor servicio vamos a dar y más rápido van a llegar los viajes para todos.`,
       ``,
       `¡Gracias por ser parte del equipo MotoVecino! 🙌`,
     ] : [
+      `👉 Entra aquí: ${link}`,
+      `Escribe tu número de celular y este PIN.`,
+      ``,
       `📢 Estamos arrancando y sumando choferes. Si al pedir tu viaje todavía no te toma nadie, te pedimos un poquito de paciencia: cada chofer que se une nos ayuda a darte un mejor servicio.`,
       ``,
       `🤝 Si conoces a algún chofer de mototaxi o taxi, cuéntale de MotoVecino. Entre más choferes seamos, mejor vamos a poder atenderte.`,
@@ -1978,20 +1983,26 @@ function closeResetPinModal() {
   document.getElementById("resetPinModal").classList.remove("active");
 }
 
+// 23-nov-2026: lleva el enlace de probador de Google Play (#probar) para que
+// el chofer baje la app y no se pierda en el navegador; chofer.html queda
+// solo para iPhone.
+const PLAY_TESTER_LINK = "www.motovecinoapp.com/#probar";
+const CHOFER_WEB_LINK = "www.motovecinoapp.com/chofer.html";
 function welcomeMessage(driver) {
-  const link = `${PUBLIC_ORIGIN}/chofer.html`;
   const firstName = String(driver.name || "").trim().split(/\s+/)[0];
   return `¡Hola ${firstName}! 👋 Te escribimos del equipo de MotoVecino.\n\n` +
     `Gracias por registrarte como chofer, ya recibimos tus datos. 🙌\n\n` +
-    `Te queremos ser sinceros desde el principio: la app apenas está empezando en ${adminCityLabel} y todavía se está dando a conocer. Por eso es probable que por ahora todavía no te lleguen viajes.\n\n` +
-    `Te pedimos un poquito de paciencia 🙏. Estamos trabajando en dos cosas:\n` +
-    `✅ Sumar más choferes para que la gente encuentre servicio cuando pida.\n` +
-    `✅ Hacer publicaciones y dar a conocer la app para que más personas empiecen a pedir viajes.\n\n` +
-    `También te pedimos una ayuda: si conoces a otros compañeros choferes, pásales la voz para que se unan. Entre más choferes seamos, más rápido la gente va a confiar en la app y van a empezar a llegar los viajes para todos. Esto lo sacamos adelante entre todos 🤝\n\n` +
-    `Tu PIN de acceso de chofer es: ${driver.pin}\n` +
-    `Entra aquí con tu PIN: ${link}\n` +
-    `Si algún día quieres cambiar tu PIN o lo olvidas, escríbenos y te lo cambiamos.\n\n` +
-    `Cualquier duda, aquí estamos para ayudarte. ¡Bienvenido a MotoVecino! 🛵`;
+    `Eres de los *primeros choferes de MotoVecino en ${adminCityLabel}*. Estamos arrancando y dando a conocer la app para que cada vez más personas pidan su viaje por aquí.\n\n` +
+    `🔑 *Tu PIN de acceso: ${driver.pin}*\n` +
+    `Guárdalo bien y no se lo compartas a nadie.\n\n` +
+    `📲 *Baja la app (Android):*\n` +
+    `${PLAY_TESTER_LINK}\n` +
+    `Son 4 pasos con tu cuenta de Gmail. Ya instalada, entras con tu número de celular y este PIN.\n\n` +
+    `🍎 *Si tienes iPhone*, entra aquí:\n` +
+    `${CHOFER_WEB_LINK}\n\n` +
+    `Si conoces a otros compañeros choferes, pásales la voz: entre más seamos, más rápido llegan los viajes para todos. 🤝\n\n` +
+    `Si olvidas tu PIN, escríbenos y te lo cambiamos.\n\n` +
+    `¡Bienvenido a MotoVecino! 🛵`;
 }
 
 function sendLastWhatsapp() {
