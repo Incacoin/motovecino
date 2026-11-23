@@ -51,7 +51,7 @@ async function main() {
   // 1) Escribe el mismo pasajero del viaje: se ve la tarjeta completa.
   const t1 = await waThread(riderPhone, "Pasajera", `Hola, quiero dejar una queja o sugerencia sobre mi viaje en MotoVecino Ticul (viaje #${rideId}). Motivo: Llegó tarde. Lo que pasó: se tardó mucho`);
   const v1 = await post(`/admin/support/${t1}`, { adminPin: ADMIN });
-  const r1 = v1.data && v1.data.ride;
+  const r1 = v1.data && v1.data?.ride;
   check("panel abre la plática", v1.status === 200, v1);
   check("tarjeta: viaje correcto y es de este número", r1 && r1.id === Number(rideId) && r1.found && r1.mine, r1);
   check("tarjeta: municipio del VIAJE (Ticul)", r1 && r1.city === "Ticul", r1);
@@ -63,33 +63,44 @@ async function main() {
   check("tarjeta: número, color y agrupación de la unidad", r1 && r1.numero === "45" && r1.color === "Rojo" && r1.grupo === "Alcones Alfa", r1);
   check("tarjeta: teléfono del chofer (solo panel del dueño)", r1 && r1.driverPhone === drvPhone, r1);
   check("tarjeta: horas del viaje", r1 && r1.arrivedMs === pidioMs + 14 * 60000 && r1.startedMs === pidioMs + 16 * 60000 && !!r1.completed_at && r1.canceled_at === null, r1);
-  check("tarjeta: precio", r1 && r1.price === 25, r1);
+  check("tarjeta: precio cobrado", r1 && r1.price === 25, r1);
+
+  // La lista de motivos es la misma en la app del pasajero y en el servidor.
+  const fs = require("node:fs");
+  const listaDe = (file) => {
+    const src = fs.readFileSync(path.join(__dirname, "..", "..", file), "utf8");
+    const m = /const QUEJA_MOTIVOS = \[([\s\S]*?)\];/.exec(src);
+    return m ? (/m: "/.test(m[1]) ? [...m[1].matchAll(/m: "([^"]+)"/g)] : [...m[1].matchAll(/"([^"]+)"/g)]).map((x) => x[1]) : [];
+  };
+  const enApp = listaDe("frontend/pasajero.html");
+  const enServidor = listaDe("backend/routes/support.js");
+  check("motivos: misma lista en la app y en el servidor", enApp.length === 7 && JSON.stringify(enApp) === JSON.stringify(enServidor), { enApp, enServidor });
 
   // 1b) Motivo inventado (no está en la lista de la app): no se enseña.
   const t6 = await waThread(`96688${stamp}`.slice(0, 10), "Pasajera", "x");
   await db.prepare("UPDATE whatsapp_contacts SET phone = ? WHERE id = (SELECT user_id FROM support_threads WHERE id = ?)").run(riderPhone, t6);
   await db.prepare("INSERT INTO support_messages (thread_id, sender, text) VALUES (?, 'usuario', ?)").run(t6, `viaje #${rideId}. Motivo: <b>hola</b>`);
-  const r6 = (await post(`/admin/support/${t6}`, { adminPin: ADMIN })).data.ride;
+  const r6 = (await post(`/admin/support/${t6}`, { adminPin: ADMIN })).data?.ride;
   check("motivo fuera de la lista: no sale", r6 && r6.mine && r6.motivo === null, r6);
 
   // 2) Otro número dice el mismo viaje: NO se enseñan datos.
   const t2 = await waThread(otherPhone, "Otro", `queja del viaje #${rideId}`);
-  const r2 = (await post(`/admin/support/${t2}`, { adminPin: ADMIN })).data.ride;
+  const r2 = (await post(`/admin/support/${t2}`, { adminPin: ADMIN })).data?.ride;
   check("otro número: avisa que no es suyo", r2 && r2.found && r2.mine === false, r2);
   check("otro número: sin datos del viaje", r2 && !r2.rider && !r2.driver && !r2.city && !r2.driverPhone && !r2.numero, r2);
 
   // 3) Viaje que no existe y plática sin número de viaje.
   const t3 = await waThread(`96655${stamp}`.slice(0, 10), "X", "viaje #999999999");
-  const r3 = (await post(`/admin/support/${t3}`, { adminPin: ADMIN })).data.ride;
+  const r3 = (await post(`/admin/support/${t3}`, { adminPin: ADMIN })).data?.ride;
   check("viaje inexistente: found false", r3 && r3.found === false, r3);
   const t4 = await waThread(`96666${stamp}`.slice(0, 10), "Y", "hola, ¿cuánto cuesta?");
-  const r4 = (await post(`/admin/support/${t4}`, { adminPin: ADMIN })).data.ride;
+  const r4 = (await post(`/admin/support/${t4}`, { adminPin: ADMIN })).data?.ride;
   check("sin número de viaje: sin tarjeta", r4 === null, r4);
 
   // 4) Queja vieja (más de 3 días): ya no sale la tarjeta.
   const t5 = await waThread(`96677${stamp}`.slice(0, 10), "Z", "hola de nuevo");
   await db.prepare("INSERT INTO support_messages (thread_id, sender, text, created_at) VALUES (?, 'usuario', ?, datetime('now', '-5 days'))").run(t5, `viaje #${rideId}`);
-  const r5 = (await post(`/admin/support/${t5}`, { adminPin: ADMIN })).data.ride;
+  const r5 = (await post(`/admin/support/${t5}`, { adminPin: ADMIN })).data?.ride;
   check("queja de hace 5 días: sin tarjeta", r5 === null, r5);
 
   // 5) Sin PIN de admin no se abre.

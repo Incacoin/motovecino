@@ -1543,7 +1543,8 @@ function supportRideCard(r) {
   let html = `<div class="sup-ride">🧾 <b>Viaje #${Number(r.id)}</b> · ${escapeHtml(r.city || "")} · ${escapeHtml(supportWhen(r.created_at))}<br>`;
   if (r.motivo) html += `<b>Motivo: ${escapeHtml(r.motivo)}</b><br>`;
   html += `Pasajero: ${escapeHtml(r.rider || "")} · ${escapeHtml(r.vehicle)}${kind} · ${escapeHtml(r.status)}`;
-  if (r.price != null && Number.isFinite(Number(r.price))) html += ` · $${Number(r.price)}`;
+  if (r.price != null && Number.isFinite(Number(r.price))) html += ` · cobró $${Number(r.price)}`;
+  else if (r.offered != null && Number.isFinite(Number(r.offered))) html += ` · ofreció $${Number(r.offered)} (no se cobró)`;
   // Chofer con su unidad (23-nov): número, color, agrupación y teléfono para llamarle.
   if (r.driver) {
     const unidad = [r.numero ? `#${escapeHtml(r.numero)}` : "", r.color ? escapeHtml(r.color) : "", r.grupo ? escapeHtml(r.grupo) : ""].filter(Boolean).join(" · ");
@@ -1566,11 +1567,11 @@ function supportRideCard(r) {
   if (ok(pidio)) pasos.push(`pidió ${hora(pidio)}`);
   if (ok(llego)) {
     const min = ok(pidio) ? Math.round((llego - pidio) / 60000) : null;
-    pasos.push(`chofer llegó ${hora(llego)}${min != null && min >= 0 ? ` (${min} min)` : ""}`);
+    pasos.push(`chofer llegó ${hora(llego)}${min != null && min >= 0 ? ` (${min} min desde que pidió)` : ""}`);
   }
   if (ok(subio)) pasos.push(`subió ${hora(subio)}`);
   if (ok(termino)) pasos.push(`terminó ${hora(termino)}`);
-  else if (ok(cancelo)) pasos.push(`cancelado ${hora(cancelo)}`);
+  else if (ok(cancelo)) pasos.push(`cancelado ~${hora(cancelo)}`);
   if (pasos.length) html += `<br>⏱ ${pasos.join(" → ")}`;
   return html + `</div>`;
 }

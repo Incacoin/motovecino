@@ -270,8 +270,11 @@ async function rideOf(t, user) {
     driverPhone: d ? d.phone : null, numero: d ? d.numero_unidad || null : null,
     color: d ? d.vehicle_color || null : null, grupo: d ? d.grupo || null : null,
     arrivedMs: ms(r.arrived_at_ms), startedMs: ms(r.started_at_ms), completed_at: r.completed_at || null,
+    // Sin columna propia: es la última actualización del viaje (aproximada).
     canceled_at: r.status === "cancelado" ? r.updated_at : null,
-    price: r.agreed_price != null ? Number(r.agreed_price) : r.offer_price != null ? Number(r.offer_price) : null,
+    // Cobrado solo si se completó; si no, lo que el pasajero ofreció (no se cobró).
+    price: r.status === "completado" && r.agreed_price != null ? Number(r.agreed_price) : null,
+    offered: r.offer_price != null ? Number(r.offer_price) : null,
   };
 }
 async function adminView(t) {

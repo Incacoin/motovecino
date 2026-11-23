@@ -5210,6 +5210,7 @@ const QUEJA_MOTIVOS = [
   { m: "Otro", i: "✏️" },
 ];
 function reportViaWhatsapp() {
+  if (document.querySelector(".qj-box")) return; // doble toque: una sola ventana
   const ov = document.createElement("div");
   ov.className = "mv-confirm";
   ov.innerHTML = `<div class="mv-confirm-box qj-box" role="dialog" aria-modal="true" aria-label="Quejas y sugerencias"><p>¿Qué pasó en tu viaje?</p><div class="qj-grid"></div><button class="btn btn-secondary qj-cancel" type="button">Cancelar</button></div>`;
