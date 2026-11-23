@@ -56,6 +56,9 @@ async function main() {
   // Formulario abierto antes de esta versión (no manda el campo): se acepta.
   const viejo = await post("/chofer-solicitudes", { ...base, name: `Viejo Num ${stamp}`, phone: tel("97200") });
   check("formulario viejo sin el campo se acepta", viejo.status === 201, viejo);
+  // Taxi en Ticul: opcional.
+  const taxi = await post("/chofer-solicitudes", { ...base, name: `Taxi Num ${stamp}`, phone: tel("97800"), vehicleType: "taxi", numeroUnidad: "" });
+  check("Ticul: taxi sin número sí se puede registrar", taxi.status === 201, taxi);
   // Tekax (sin agrupaciones): opcional.
   const tk = await post("/chofer-solicitudes", { ...base, name: `Tekax Num ${stamp}`, phone: tel("97300"), city: "tekax", lat: TK.lat, lng: TK.lng, grupo: undefined, numeroUnidad: "" });
   check("Tekax: sin número sí se puede registrar", tk.status === 201, tk);
@@ -78,6 +81,10 @@ async function main() {
   // Mismo número en otra agrupación: no avisa.
   const otra = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: `Otra Agr ${stamp}`, phone: tel("97600"), acceptedLegal: true, vehicleType: "moto", grupo: "Jaguar", numeroUnidad: "45" });
   check("admin: mismo número en otra agrupación no avisa", otra.status === 201 && !otra.data?.numeroRepetido, otra.data);
+  // «Otra agrupación» junta choferes de agrupaciones distintas: no se compara.
+  const o1 = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: `Otra1 ${stamp}`, phone: tel("97900"), acceptedLegal: true, vehicleType: "moto", grupo: "Por su cuenta", numeroUnidad: "77" });
+  const o2 = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: `Otra2 ${stamp}`, phone: tel("96900"), acceptedLegal: true, vehicleType: "moto", grupo: "Por su cuenta", numeroUnidad: "77" });
+  check("admin: en «Otra agrupación» el mismo número no avisa", o1.status === 201 && o2.status === 201 && !o2.data?.numeroRepetido, o2.data);
 
   const listaDe = async (id) => ((await post("/admin/drivers/list", { adminPin: ADMIN, adminZone: "ticul", photoRefs: true })).data || []).find((x) => x.id === id);
   check("lista del admin trae el número", (await listaDe(d.id))?.numero_unidad === "45");
@@ -110,10 +117,18 @@ async function main() {
   check("editar con vacío lo quita", !(await listaDe(d.id))?.numero_unidad);
 
   // Limpieza: que no queden choferes ni solicitudes de prueba en la copia.
-  for (const id of [d.id, rep.data?.id, otra.data?.id].filter(Boolean)) {
+  for (const id of [d.id, rep.data?.id, otra.data?.id, o1.data?.id, o2.data?.id].filter(Boolean)) {
     await db.prepare("UPDATE drivers SET deleted_at = datetime('now') WHERE id = ?").run(id);
   }
-  await db.prepare("DELETE FROM driver_applications WHERE phone IN (?, ?, ?)").run(tel("97100"), tel("97200"), tel("97300"));
+  await db.prepare("DELETE FROM driver_applications WHERE phone IN (?, ?, ?, ?)").run(tel("97100"), tel("97200"), tel("97300"), tel("97800"));
+  const rider = await db.prepare("SELECT id FROM riders WHERE phone = ?").get(R.rider_phone);
+  if (rider) {
+    for (const t of ["ride_offers", "ally_ad_events", "rider_push_subs"]) {
+      await db.prepare(`DELETE FROM ${t} WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ?)`).run(rider.id);
+    }
+    await db.prepare("DELETE FROM rides WHERE rider_id = ?").run(rider.id);
+    await db.prepare("DELETE FROM riders WHERE id = ?").run(rider.id);
+  }
 
   console.log(fail ? `NO: ${fail} fallaron, ${pass} bien` : `Todo bien (${pass})`);
   await db.close?.();

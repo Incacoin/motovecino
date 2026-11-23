@@ -6,13 +6,15 @@ const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
 const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, numeroValido } = require("../agrupaciones");
-// Otro chofer del mismo municipio y agrupación con ese número (error de dedo o
-// dos con el mismo número): no se bloquea, solo se avisa al admin.
-async function numeroRepetido(cityId, grupo, numero, exceptId) {
-  if (!numero) return null;
+// Otro chofer del mismo municipio, agrupación y tipo de vehículo con ese
+// número (error de dedo o dos con el mismo número): no se bloquea, solo se
+// avisa al admin. «Otra agrupación» y sin agrupación no se comparan: ahí hay
+// choferes de agrupaciones distintas que pueden tener el mismo número.
+async function numeroRepetido(cityId, grupo, vehicleType, numero, exceptId) {
+  if (!numero || !grupo || grupo === POR_SU_CUENTA) return null;
   const otro = await db
-    .prepare("SELECT name FROM drivers WHERE city = ? AND numero_unidad = ? AND COALESCE(grupo, '') = COALESCE(?, '') AND id != ? AND deleted_at IS NULL")
-    .get(cityId, numero, grupo || null, exceptId || 0);
+    .prepare("SELECT name FROM drivers WHERE city = ? AND numero_unidad = ? AND grupo = ? AND COALESCE(vehicle_type, 'moto') = ? AND id != ? AND deleted_at IS NULL")
+    .get(cityId, numero, grupo, vehicleType === "taxi" ? "taxi" : "moto", exceptId || 0);
   return otro ? otro.name : null;
 }
 // "" o nada = sin número; si viene, tiene que ser válido (undefined = inválido).
@@ -262,7 +264,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   const colorAlta = vehicleColor ? colorValido(vehicleColor) : null;
   if (vehicleColor && !colorAlta) return res.status(400).json({ error: "Ese color no está en la lista" });
   const numeroAlta = adminNumero(numeroUnidad);
-  if (numeroAlta === undefined) return res.status(400).json({ error: "El número del mototaxi debe ser solo números (hasta 4 cifras)" });
+  if (numeroAlta === undefined) return res.status(400).json({ error: "El número del vehículo debe ser solo números, del 1 al 9999" });
 
   const existingPhone = await db
     .prepare("SELECT id, name FROM drivers WHERE phone = ? AND deleted_at IS NULL")
@@ -313,7 +315,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   const driver = await db
     .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, numero_unidad, city, zone, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
-  driver.numeroRepetido = await numeroRepetido(cityId, grupoAlta, numeroAlta, driver.id);
+  driver.numeroRepetido = await numeroRepetido(cityId, grupoAlta, driver.vehicle_type, numeroAlta, driver.id);
 
   res.status(201).json(inflateRow(driver, DRIVER_IMG_COLS));
 });
@@ -553,7 +555,7 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   // El número también solo se toca si vino ("" = quitarlo).
   const conNumero = numeroUnidad !== undefined;
   const numeroNuevo = conNumero ? adminNumero(numeroUnidad) : actual?.numero_unidad ?? null;
-  if (numeroNuevo === undefined) return res.status(400).json({ error: "El número del mototaxi debe ser solo números (hasta 4 cifras)" });
+  if (numeroNuevo === undefined) return res.status(400).json({ error: "El número del vehículo debe ser solo números, del 1 al 9999" });
 
   await db.prepare(
     "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, vehicle_color = ?, numero_unidad = ?, city = ? WHERE id = ?"
@@ -567,7 +569,7 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
       "SELECT id, name, phone, vehicle, pin, status, last_seen, paid_until, tipo, vehicle_type, vehicle_color, grupo, numero_unidad, city, created_at FROM drivers WHERE id = ?"
     )
     .get(req.params.id);
-  driver.numeroRepetido = await numeroRepetido(cityId, driver.grupo, driver.numero_unidad, driver.id);
+  driver.numeroRepetido = await numeroRepetido(cityId, driver.grupo, driver.vehicle_type, driver.numero_unidad, driver.id);
   res.json(driver);
 });
 

@@ -719,11 +719,14 @@ function syncVehicleCards() {
     if (r) r.checked = on;
   });
 }
-// Obligatorio solo donde hay agrupaciones (Ticul).
+// Obligatorio solo donde hay agrupaciones (Ticul) y no para taxi.
+function numeroObligatorio() {
+  return !!agrupacionesCount && document.getElementById("vehicleType").value !== "taxi";
+}
 function updateNumeroLabel() {
   let w = "mototaxi";
   try { w = vehicleWord(); } catch (e) {} // si se llama antes de que cargue todo el script
-  document.getElementById("numeroLabel").textContent = "Número de tu " + w + (agrupacionesCount ? "" : " (opcional)");
+  document.getElementById("numeroLabel").textContent = "Número de tu " + w + (numeroObligatorio() ? "" : " (opcional)");
 }
 function updateVehicleLabels() {
   document.getElementById("photoPlacaLabel").textContent = "Foto de ti con tu " + vehicleWord();
@@ -1018,12 +1021,12 @@ async function submitApplication() {
   }
   const numeroEl = document.getElementById("numeroUnidad");
   const numeroUnidad = numeroEl.value.trim();
-  if (numeroUnidad && !/^\d{1,4}$/.test(numeroUnidad)) {
-    err.textContent = "El número de tu " + vehicleWord() + " debe ser solo números";
+  if (numeroUnidad && (!/^\d{1,4}$/.test(numeroUnidad) || /^0+$/.test(numeroUnidad))) {
+    err.textContent = "El número de tu " + vehicleWord() + " debe ser solo números, del 1 al 9999";
     numeroEl.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
-  if (agrupacionesCount && !numeroUnidad) {
+  if (numeroObligatorio() && !numeroUnidad) {
     err.textContent = "Escribe el número de tu " + vehicleWord();
     numeroEl.scrollIntoView({ behavior: "smooth", block: "center" });
     return;

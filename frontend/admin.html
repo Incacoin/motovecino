@@ -1655,9 +1655,12 @@ function showPadron() {
     grupos.map((g, i) => `<button class="btn-sm" style="margin:0 6px 6px 0" onclick="printPadron(${i})">${g.interno ? "🔒 " : "📄 "}${escapeHtml(g.titulo)} (${g.choferes.length})</button>`).join("");
   box.style.display = "";
 }
-// Otro chofer (mismo municipio y agrupación) con el mismo número.
+// Otro chofer (mismo municipio, agrupación y tipo de vehículo) con el mismo
+// número. «Otra agrupación» y sin agrupación no se comparan (igual que el servidor).
 function numeroRepetidoEnLista(d) {
-  return !!d.numero_unidad && driversCache.some((x) => x.id !== d.id && x.city === d.city && x.numero_unidad === d.numero_unidad && (x.grupo || "") === (d.grupo || ""));
+  if (!d.numero_unidad || !d.grupo || d.grupo === porSuCuenta) return false;
+  const tipo = (v) => (v === "taxi" ? "taxi" : "moto");
+  return driversCache.some((x) => x.id !== d.id && x.city === d.city && x.numero_unidad === d.numero_unidad && x.grupo === d.grupo && tipo(x.vehicle_type) === tipo(d.vehicle_type));
 }
 function padronActividad(d) {
   if (!d.last_connected_at) return "Nunca se ha conectado";

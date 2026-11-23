@@ -632,11 +632,13 @@ router.post("/chofer-solicitudes", async (req, res) => {
   // Número del mototaxi: obligatorio donde hay agrupaciones (Ticul), opcional
   // en los demás. Igual que la agrupación, un formulario viejo que no lo manda
   // se acepta sin número.
+  // Taxi: opcional (el número de agrupación es de los mototaxis).
+  const palabra = vehicleType === "taxi" ? "taxi" : "mototaxi";
   const vacio = numeroUnidad === undefined || numeroUnidad === null || String(numeroUnidad).trim() === "";
   const numero = vacio ? null : numeroValido(numeroUnidad);
-  if (!vacio && !numero) return res.status(400).json({ error: "El número de tu mototaxi debe ser solo números (hasta 4 cifras)" });
-  if (agrupacionesDe(cityId).length && numeroUnidad !== undefined && !numero) {
-    return res.status(400).json({ error: "Escribe el número de tu mototaxi" });
+  if (!vacio && !numero) return res.status(400).json({ error: `El número de tu ${palabra} debe ser solo números, del 1 al 9999` });
+  if (agrupacionesDe(cityId).length && vehicleType !== "taxi" && numeroUnidad !== undefined && !numero) {
+    return res.status(400).json({ error: `Escribe el número de tu ${palabra}` });
   }
   const tipo = formalIntent ? "formal" : "informal";
 
