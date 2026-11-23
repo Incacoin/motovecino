@@ -51,7 +51,21 @@
   .phoneRow { display: flex; gap: 8px; align-items: center; }
   .phoneRow .prefix { padding: 13px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-dim); font-size: 16px; flex-shrink: 0; }
   .phoneRow input { flex: 1; min-width: 0; }
-  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-start; }
+  /* 23-nov-2026: Restablecer PIN / prueba / municipio / Eliminar van escondidos
+     en «Más opciones», lejos de Editar, para no tocarlos por error en el celular. */
+  .more-actions { flex-basis: 100%; margin-top: 4px; }
+  .more-actions summary { cursor: pointer; font-size: 12.5px; color: var(--text-dim); padding: 6px 0; list-style: none; }
+  .more-actions summary::-webkit-details-marker { display: none; }
+  .more-actions summary::before { content: "⋯ "; }
+  .more-actions-list { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--border); }
+  /* Editar chofer: ventana con todo hacia abajo (cómodo en el celular). */
+  .edit-card { max-width: 440px; max-height: 88vh; }
+  .edit-card .field { margin-bottom: 12px; }
+  .edit-card label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 4px; }
+  .edit-card input, .edit-card select { width: 100%; box-sizing: border-box; }
+  .edit-card .edit-btns { display: flex; gap: 8px; position: sticky; bottom: -20px; background: inherit; padding: 12px 0 4px; margin-top: 6px; }
+  .edit-card .edit-btns .btn { flex: 1; }
   .legalCheck { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--text-dim); line-height: 1.5; cursor: pointer; }
   .legalCheck input { margin-top: 3px; flex-shrink: 0; }
   .legalCheck a { color: var(--accent); }
@@ -2792,14 +2806,38 @@ function refEditField(d) {
   return `<input id="edit-ref-${d.id}" list="refList-${d.id}" maxlength="80" placeholder="¿Quién lo invitó?" aria-label="Quién lo invitó" value="${escapeHtml(d.referred_by || "")}" style="margin-top:6px;width:100%" />${lista}${nota}`;
 }
 
+// Editar chofer en una ventana (23-nov-2026): antes la fila de la tabla se
+// volvía casillas regadas en 12 columnas y en el celular había que deslizar
+// a los lados. Usa los mismos ids (edit-name-ID…) que lee saveEdit.
 function startEdit(id) {
+  const d = driversCache.find((x) => x.id === id);
+  if (!d) return;
+  cancelEdit();
   editingId = id;
-  renderDriverRows();
+  const ov = document.createElement("div");
+  ov.className = "modal-overlay active";
+  ov.id = "editDriverModal";
+  ov.innerHTML = `<div class="modal-card edit-card" role="dialog" aria-label="Editar chofer">
+    <h2>Editar chofer</h2>
+    <div class="field"><label for="edit-name-${d.id}">Nombre</label><input id="edit-name-${d.id}" value="${escapeHtml(d.name)}" /></div>
+    <div class="field"><label for="edit-phone-${d.id}">Teléfono (WhatsApp)</label>
+      <div class="phoneRow"><span class="prefix">+52</span><input id="edit-phone-${d.id}" value="${escapeHtml(d.phone)}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" /></div></div>
+    <div class="field"><label for="edit-vehicletype-${d.id}">Vehículo</label>${vehicleTypeSelect(d.id, d.vehicle_type)}</div>
+    <div class="field"><label for="edit-color-${d.id}">Color</label><select id="edit-color-${d.id}" class="tipo-select">${colorOptions(d.vehicle_color || "")}</select></div>
+    <div class="field"><label for="edit-numero-${d.id}">Número del mototaxi</label><input id="edit-numero-${d.id}" type="text" inputmode="numeric" maxlength="4" placeholder="Ej. 45" value="${escapeHtml(d.numero_unidad || "")}" /></div>
+    ${agrupacionesAdmin().length ? `<div class="field"><label for="edit-grupo-${d.id}">Agrupación</label><select id="edit-grupo-${d.id}" class="tipo-select">${grupoOptions(d.grupo || "")}</select></div>` : ""}
+    <div class="field"><label for="edit-vehicle-${d.id}">Placa / descripción (opcional)</label><input id="edit-vehicle-${d.id}" value="${escapeHtml(d.vehicle || "")}" placeholder="Vehículo" /></div>
+    <div class="field"><label for="edit-ref-${d.id}">¿Quién lo invitó?</label>${refEditField(d).replace('style="margin-top:6px;width:100%"', "")}</div>
+    <div class="edit-btns"><button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button><button class="btn" onclick="saveEdit(${d.id})">Guardar</button></div>
+  </div>`;
+  // Tocar fuera de la tarjeta cierra (como las otras ventanas del admin).
+  ov.addEventListener("click", (e) => { if (e.target === ov) cancelEdit(); });
+  document.body.appendChild(ov);
 }
 
 function cancelEdit() {
   editingId = null;
-  renderDriverRows();
+  document.getElementById("editDriverModal")?.remove();
 }
 
 async function saveEdit(id) {
@@ -2823,7 +2861,7 @@ async function saveEdit(id) {
   }
   const saved = await res.json().catch(() => ({}));
   if (saved.numeroRepetido) showToast(`Ojo: ${saved.numeroRepetido} ya tiene el número ${saved.numero_unidad} en la misma agrupación`);
-  editingId = null;
+  cancelEdit();
   loadDrivers();
 }
 
@@ -3030,30 +3068,6 @@ function renderDriverRows() {
   }
   const visible = applyPreviewCap(filtered, query, showAllDrivers, "driverShowMore", "toggleShowAllDrivers");
   document.getElementById("driverRows").innerHTML = visible.map((d) => {
-    if (editingId === d.id) {
-      return `
-      <tr>
-        <td><input id="edit-name-${d.id}" value="${escapeHtml(d.name)}" />${refEditField(d)}</td>
-        <td>${pinCell(d.id, d.pin)}</td>
-        <td>
-          <div class="phoneRow">
-            <span class="prefix">+52</span>
-            <input id="edit-phone-${d.id}" value="${escapeHtml(d.phone)}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" />
-          </div>
-        </td>
-        <td>${vehicleTypeSelect(d.id, d.vehicle_type)}<select id="edit-color-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Color">${colorOptions(d.vehicle_color || "")}</select><input id="edit-numero-${d.id}" type="text" inputmode="numeric" maxlength="4" placeholder="Número" aria-label="Número del mototaxi" value="${escapeHtml(d.numero_unidad || "")}" style="margin-top:6px;width:100%" />${agrupacionesAdmin().length ? `<select id="edit-grupo-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Agrupación">${grupoOptions(d.grupo || "")}</select>` : ""}</td>
-        <td>${cityLabel(d.city)}</td>
-        <td><span class="dot ${d.status}"></span>${d.status}</td>
-        <td>${activityBadge(d.last_connected_at)}</td>
-        <td><input id="edit-vehicle-${d.id}" value="${escapeHtml(d.vehicle) || ""}" placeholder="Vehículo" /></td>
-        <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
-        <td>${cancelCountCell(d)}</td>
-        <td class="row-actions">
-          <button class="btn-sm" onclick="saveEdit(${d.id})">Guardar</button>
-          <button class="btn-sm" onclick="cancelEdit()">Cancelar</button>
-        </td>
-      </tr>`;
-    }
 
     const lastPaymentLabel = d.last_payment_at
       ? `<div class="lastPayment">último pago: $${d.last_payment_amount} el ${d.last_payment_at.slice(0, 10)}</div>`
@@ -3119,11 +3133,16 @@ function renderDriverRows() {
       <td>${cancelCountCell(d)}</td>
       <td class="row-actions">
         <button class="btn-sm wa" onclick="sendWhatsappFor(${d.id})">WhatsApp</button>
-        <button class="btn-sm" onclick="startEdit(${d.id})">Editar</button>
-        <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
-        <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
-        ${adminRoleNow === "tekax" && adminZones.length > 1 ? `<button class="btn-sm" onclick="moveDriverCity(${d.id})">Cambiar municipio</button>` : ""}
-        <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
+        <button class="btn-sm" onclick="startEdit(${d.id})">✏️ Editar</button>
+        <details class="more-actions">
+          <summary>Más opciones</summary>
+          <div class="more-actions-list">
+            <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
+            <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
+            ${adminRoleNow === "tekax" && adminZones.length > 1 ? `<button class="btn-sm" onclick="moveDriverCity(${d.id})">Cambiar municipio</button>` : ""}
+            <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
+          </div>
+        </details>
       </td>
     </tr>`;
   }).join("");
