@@ -803,6 +803,10 @@
     <select id="driverGrupo" class="tipo-select"></select>
   </div>
   <div class="field">
+    <label>Número del mototaxi (opcional)</label>
+    <input id="driverNumero" type="text" inputmode="numeric" maxlength="4" placeholder="El de su agrupación, ej. 45" />
+  </div>
+  <div class="field">
     <label>Ciudad</label>
     <div id="driverCityDisplay" style="padding:10px 0;color:var(--accent);font-weight:700;">Tekax</div>
   </div>
@@ -1651,6 +1655,10 @@ function showPadron() {
     grupos.map((g, i) => `<button class="btn-sm" style="margin:0 6px 6px 0" onclick="printPadron(${i})">${g.interno ? "🔒 " : "📄 "}${escapeHtml(g.titulo)} (${g.choferes.length})</button>`).join("");
   box.style.display = "";
 }
+// Otro chofer (mismo municipio y agrupación) con el mismo número.
+function numeroRepetidoEnLista(d) {
+  return !!d.numero_unidad && driversCache.some((x) => x.id !== d.id && x.city === d.city && x.numero_unidad === d.numero_unidad && (x.grupo || "") === (d.grupo || ""));
+}
 function padronActividad(d) {
   if (!d.last_connected_at) return "Nunca se ha conectado";
   const days = Math.floor((Date.now() - new Date(`${d.last_connected_at.replace(" ", "T")}Z`).getTime()) / 86400000);
@@ -1670,7 +1678,9 @@ function printPadron(i) {
   if (!w) { showToast("Tu navegador bloqueó la ventana del padrón"); return; }
   const hoy = new Date().toLocaleDateString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "long", year: "numeric" });
   const activos = g.choferes.filter((d) => padronActividad(d) === "Activo esta semana").length;
-  const filas = g.choferes.map((d, n) => `<tr><td>${n + 1}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`).join("");
+  // Ordenado por número del mototaxi (los que no tienen número, al final).
+  const porNumero = [...g.choferes].sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9));
+  const filas = porNumero.map((d, n) => `<tr><td>${n + 1}</td><td>${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "—"}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`).join("");
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Padrón ${escapeHtml(g.titulo)} · MotoVecino ${escapeHtml(adminCityLabel)}</title>
 <style>
@@ -1694,7 +1704,7 @@ function printPadron(i) {
 <p class="sub">${escapeHtml(g.sub)}</p>
 <p class="fecha">Al ${escapeHtml(hoy)}</p>
 ${g.interno ? `<div class="interno">USO INTERNO DE MOTOVECINO — NO COMPARTIR CON LÍDERES</div>` : ""}
-${g.choferes.length ? `<table><thead><tr><th>#</th><th>Nombre</th><th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead><tbody>${filas}</tbody></table>
+${g.choferes.length ? `<table><thead><tr><th>#</th><th>Número</th><th>Nombre</th><th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead><tbody>${filas}</tbody></table>
 <p class="tot">Total: ${g.choferes.length} chofer${g.choferes.length === 1 ? "" : "es"} · ${activos} activo${activos === 1 ? "" : "s"} esta semana</p>` : `<p>Todavía no hay choferes en esta lista.</p>`}
 <p class="nota">Lista generada desde MotoVecino. No incluye teléfonos ni ubicación de los choferes.</p>
 </body></html>`);
@@ -2200,6 +2210,7 @@ function renderApplications(apps) {
               ? `<span class="meta">Invitado por ${escapeHtml(a.inviter_name)} (chofer, con su link)</span>`
               : a.referred_by ? `<span class="meta">Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
             ${a.vehicle_color ? `<span class="meta">Color: <b>${escapeHtml(a.vehicle_color)}</b></span>` : ""}
+            ${a.numero_unidad ? `<span class="meta">Número: <b>#${escapeHtml(a.numero_unidad)}</b></span>` : ""}
             ${a.grupo ? `<span class="meta">Agrupación: <b>${escapeHtml(grupoLabel(a.grupo))}</b></span>` : ""}
             ${a.emergency_contact_name ? `<span class="meta">Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${escapeHtml(a.emergency_contact_phone)}</span>` : ""}
           </div>
@@ -2232,6 +2243,7 @@ function useApplication(id) {
   document.getElementById("driverReferredBy").value = app.referred_by || "";
   if (agrupacionesAdmin().length) document.getElementById("driverGrupo").innerHTML = grupoOptions(app.grupo || "");
   document.getElementById("driverColor").innerHTML = colorOptions(app.vehicle_color || "");
+  document.getElementById("driverNumero").value = app.numero_unidad || "";
   pendingDriverPhoto = app.photo || null;
   pendingDriverPhotoPlaca = app.photo_placa || null;
   pendingDriverSignature = app.signature || null;
@@ -2490,6 +2502,7 @@ async function registerDriver() {
       zone: isZonedAdmin() ? document.getElementById("driverZone").value : null,
       grupo: agrupacionesAdmin().length ? document.getElementById("driverGrupo").value || null : undefined,
       vehicleColor: document.getElementById("driverColor").value || null,
+      numeroUnidad: document.getElementById("driverNumero").value.trim() || null,
       emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
       // Si la solicitud llegó con el link de invitación de un chofer.
       // Para guardar la versión del aviso que aceptó en SU solicitud, no la de hoy.
@@ -2508,8 +2521,10 @@ async function registerDriver() {
   document.getElementById("newDriverWaBtn").textContent = `Enviar PIN por WhatsApp a ${driver.name}`;
   document.getElementById("newPin").textContent = driver.pin;
   document.getElementById("newPinCard").style.display = "block";
+  if (driver.numeroRepetido) showToast(`Ojo: ${driver.numeroRepetido} ya tiene el número ${driver.numero_unidad} en la misma agrupación`);
 
   document.getElementById("driverName").value = "";
+  document.getElementById("driverNumero").value = "";
   document.getElementById("driverPhone").value = "";
   document.getElementById("driverVehicle").value = "";
   document.getElementById("driverEmergencyName").value = "";
@@ -2732,12 +2747,14 @@ async function saveEdit(id) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // grupo solo si hay selector (municipio con agrupaciones); si no va, el servidor no la toca.
-    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, vehicleColor: document.getElementById(`edit-color-${id}`)?.value }),
+    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, vehicleColor: document.getElementById(`edit-color-${id}`)?.value, numeroUnidad: document.getElementById(`edit-numero-${id}`)?.value.trim() }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo guardar");
     return;
   }
+  const saved = await res.json().catch(() => ({}));
+  if (saved.numeroRepetido) showToast(`Ojo: ${saved.numeroRepetido} ya tiene el número ${saved.numero_unidad} en la misma agrupación`);
   editingId = null;
   loadDrivers();
 }
@@ -2956,7 +2973,7 @@ function renderDriverRows() {
             <input id="edit-phone-${d.id}" value="${escapeHtml(d.phone)}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" />
           </div>
         </td>
-        <td>${vehicleTypeSelect(d.id, d.vehicle_type)}<select id="edit-color-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Color">${colorOptions(d.vehicle_color || "")}</select>${agrupacionesAdmin().length ? `<select id="edit-grupo-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Agrupación">${grupoOptions(d.grupo || "")}</select>` : ""}</td>
+        <td>${vehicleTypeSelect(d.id, d.vehicle_type)}<select id="edit-color-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Color">${colorOptions(d.vehicle_color || "")}</select><input id="edit-numero-${d.id}" type="text" inputmode="numeric" maxlength="4" placeholder="Número" aria-label="Número del mototaxi" value="${escapeHtml(d.numero_unidad || "")}" style="margin-top:6px;width:100%" />${agrupacionesAdmin().length ? `<select id="edit-grupo-${d.id}" class="tipo-select" style="margin-top:6px" aria-label="Agrupación">${grupoOptions(d.grupo || "")}</select>` : ""}</td>
         <td>${cityLabel(d.city)}</td>
         <td><span class="dot ${d.status}"></span>${d.status}</td>
         <td>${activityBadge(d.last_connected_at)}</td>
@@ -3013,7 +3030,7 @@ function renderDriverRows() {
       <td>${nameCell}</td>
       <td>${pinCell(d.id, d.pin)}</td>
       <td>${escapeHtml(d.phone)}</td>
-      <td>${vehicleTypeBadge(d.vehicle_type)}${d.vehicle_color ? `<div class="meta" style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(d.vehicle_color)}</div>` : ""}</td>
+      <td>${vehicleTypeBadge(d.vehicle_type)}${d.vehicle_color ? `<div class="meta" style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(d.vehicle_color)}</div>` : ""}${d.numero_unidad ? `<div class="meta" style="font-size:11.5px;color:var(--text-dim);">#${escapeHtml(d.numero_unidad)}${numeroRepetidoEnLista(d) ? ` <span title="Otro chofer de la misma agrupación tiene este número" style="color:var(--danger,#d32f2f);font-weight:700">⚠ repetido</span>` : ""}</div>` : ""}</td>
       <td>${cityLabel(d.city)}${d.zone ? `<div class="meta" style="font-size:11.5px;color:var(--accent);font-weight:700;">${escapeHtml(comisariaLabel(d.zone))}</div>` : ""}</td>
       <td><span class="dot ${d.status}"></span>${d.status}</td>
       <td>

@@ -1531,6 +1531,10 @@ function vehicleColorChip(d) {
   const hex = /^#[0-9a-f]{6}$/i.test(d.vehicle_color_hex || "") ? d.vehicle_color_hex : "#999999";
   return `<span class="chip"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1px solid rgba(128,128,128,.6);margin-right:5px;vertical-align:-1px"></span>${escapeHtml(d.vehicle_color)}</span>`;
 }
+// Número del mototaxi en su agrupación (23-nov-2026), el que va pintado.
+function numeroTxt(d) {
+  return d && d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "";
+}
 // Dominios viejos (motoyaapp.com, motomayaapp.com) siguen apuntando al mismo
 // servicio — fijamos el dominio actual para que los links compartidos
 // siempre salgan con la marca correcta, sin importar desde cuál entró quien comparte.
@@ -3954,7 +3958,7 @@ function renderTaxiOffers() {
           ${photo}
           <div class="offer-who">
             <div class="name">${escapeHtml(d.name || (serviceType === "taxi" ? "Taxista" : "Chofer"))}${d.es_fundador ? ` <span class="chip chip-accent" style="font-size:10.5px;padding:1px 7px;">Fundador</span>` : ""}</div>
-            <div class="sub">${escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Motocarro"))}${d.vehicle_color ? " " + escapeHtml(d.vehicle_color.toLowerCase()) : ""} · te lleva por</div>
+            <div class="sub">${escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Motocarro"))}${d.numero_unidad ? " " + numeroTxt(d) : ""}${d.vehicle_color ? " " + escapeHtml(d.vehicle_color.toLowerCase()) : ""} · te lleva por</div>
           </div>
           <div class="offer-price">$${o.price}</div>
         </div>
@@ -4042,6 +4046,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
           ${badgeHtml}
           ${driver.es_fundador ? `<span class="chip chip-accent">Fundador</span>` : ""}
           <span class="chip">${driver.vehicle ? escapeHtml(driver.vehicle) : (serviceType === "taxi" ? "Taxi" : "Mototaxi")}</span>
+          ${driver.numero_unidad ? `<span class="chip"><b>${numeroTxt(driver)}</b></span>` : ""}
           ${vehicleColorChip(driver)}
         </div>
         ${driver.grupo ? `<div class="meta">Agrupación: ${escapeHtml(driver.grupo)}</div>` : ""}
@@ -5520,7 +5525,7 @@ function startBookingsPolling() {
 
 function bookingStateHtml(b) {
   if (b.status === "confirmado" && b.driver) {
-    return `<div class="bk-state ok">✅ ${escapeHtml(b.driver.name)} confirmó${b.driver.vehicle ? ` · ${escapeHtml(b.driver.vehicle)}` : ""}${b.driver.vehicle_color ? ` · ${escapeHtml(b.driver.vehicle_color)}` : ""}</div>`;
+    return `<div class="bk-state ok">✅ ${escapeHtml(b.driver.name)} confirmó${b.driver.vehicle ? ` · ${escapeHtml(b.driver.vehicle)}` : ""}${b.driver.numero_unidad ? ` · ${numeroTxt(b.driver)}` : ""}${b.driver.vehicle_color ? ` · ${escapeHtml(b.driver.vehicle_color)}` : ""}</div>`;
   }
   if (b.status === "agendado" && (b.offers || []).length) return `<div class="bk-state">Un chofer te propone otro precio. Acepta o recházalo:</div>`;
   if (b.status === "agendado") return `<div class="bk-state">Esperando que un chofer lo confirme</div>`;
@@ -5534,7 +5539,7 @@ function bookingStateHtml(b) {
 function bookingOffersHtml(b) {
   if (b.status !== "agendado") return "";
   return (b.offers || []).map((o) => `<div class="bk-off">
-    <div class="who">${o.driver.photo ? `<img src="${escapeHtml(o.driver.photo)}" alt="">` : ""}<div><b>${escapeHtml(o.driver.name)}</b>${o.driver.es_fundador ? " ⭐" : ""}<small>${escapeHtml(o.driver.vehicle || (b.ride_type === "taxi" ? "Taxi" : "Mototaxi"))}${o.driver.vehicle_color ? " · " + escapeHtml(o.driver.vehicle_color) : ""}</small></div><div class="price">$${o.price}</div></div>
+    <div class="who">${o.driver.photo ? `<img src="${escapeHtml(o.driver.photo)}" alt="">` : ""}<div><b>${escapeHtml(o.driver.name)}</b>${o.driver.es_fundador ? " ⭐" : ""}<small>${escapeHtml(o.driver.vehicle || (b.ride_type === "taxi" ? "Taxi" : "Mototaxi"))}${o.driver.numero_unidad ? " " + numeroTxt(o.driver) : ""}${o.driver.vehicle_color ? " · " + escapeHtml(o.driver.vehicle_color) : ""}</small></div><div class="price">$${o.price}</div></div>
     ${o.reason ? `<div class="why">Motivo: ${escapeHtml(o.reason)}</div>` : ""}
     <div class="row"><button class="btn btn-secondary" data-bkreject="${b.id}:${o.id}">Rechazar</button><button class="btn" data-bkaccept="${b.id}:${o.id}">Aceptar $${o.price}</button></div>
   </div>`).join("");

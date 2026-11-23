@@ -29,6 +29,7 @@ const TESTS = [
   ["turismo", []],
   ["moto-lejos", []],
   ["padron", ["DATABASE_URL"]],
+  ["numero", ["DATABASE_URL"]],
   ["agendar", ["DATABASE_URL"]],
   ["agendar-oferta", ["DATABASE_URL"]],
   ["envio-asegurado", ["DATABASE_URL"]],

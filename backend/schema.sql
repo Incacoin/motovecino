@@ -734,3 +734,8 @@ ALTER TABLE rides ADD COLUMN IF NOT EXISTS booking_id INTEGER;
 -- Color del vehículo (18-nov-2026): el chofer lo elige al registrarse; el pasajero lo ve.
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS vehicle_color TEXT;
 ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS vehicle_color TEXT;
+-- Número del mototaxi en su agrupación (23-nov-2026): en Ticul cada agrupación
+-- tiene su rango (ej. Alcones 1-100, Jaguar 101-200) y va pintado en el
+-- vehículo. Se pide al registrarse y el pasajero lo ve. Solo números.
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS numero_unidad TEXT;
+ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS numero_unidad TEXT;

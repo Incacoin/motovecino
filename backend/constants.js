@@ -2,7 +2,7 @@ module.exports = {
   // Sube esta fecha cada vez que cambie el TEXTO del aviso legal o el
   // contrato (no por cambios de marca/cosméticos) — es lo que queda grabado
   // como "versión que aceptó" cada chofer al registrarse.
-  AVISO_LEGAL_VERSION: "2026-11-19", // 19-nov: «Otra agrupación» en el padrón (18-nov: padrón de choferes en el aviso de privacidad)
+  AVISO_LEGAL_VERSION: "2026-11-23", // 23-nov: número del mototaxi (lo ve el pasajero y va en el padrón). 19-nov: «Otra agrupación» en el padrón (18-nov: padrón de choferes en el aviso de privacidad)
   LAUNCH_DATE: "2026-08-14",
   // Cuota mensual descontinuada 2026-09-08: ya no se cobra, solo queda el
   // cobro por viaje (SERVICE_FEE). En 0 para que las pantallas de chofer y

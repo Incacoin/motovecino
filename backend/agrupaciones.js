@@ -36,4 +36,13 @@ function grupoParaPasajero(grupo) {
   return grupo === POR_SU_CUENTA ? null : grupo;
 }
 
-module.exports = { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoParaPasajero };
+// Número del mototaxi en su agrupación (23-nov-2026): solo números, hasta 4
+// cifras, sin ceros a la izquierda ("007" → "7"). null si no es válido.
+function numeroValido(valor) {
+  const v = typeof valor === "number" ? String(valor) : typeof valor === "string" ? valor.trim() : "";
+  if (!/^\d{1,4}$/.test(v)) return null;
+  const n = String(parseInt(v, 10));
+  return n === "0" ? null : n;
+}
+
+module.exports = { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoParaPasajero, numeroValido };

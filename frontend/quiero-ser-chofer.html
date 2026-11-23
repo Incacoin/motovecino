@@ -310,6 +310,13 @@
       <label>¿A qué agrupación perteneces?</label>
       <div class="grupoOpts" id="grupoOpts"></div>
     </div>
+    <!-- 23-nov-2026: número del mototaxi en su agrupación (pintado en el
+         vehículo). Obligatorio donde hay agrupaciones; el pasajero lo ve. -->
+    <div class="field">
+      <label id="numeroLabel">Número de tu mototaxi (opcional)</label>
+      <input id="numeroUnidad" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Ej. 45" />
+      <p class="fieldHint">El número que te dio tu agrupación y que va pintado en tu vehículo. El pasajero lo ve para reconocerte.</p>
+    </div>
     </div>
     <div class="qs-card">
     <div class="qs-card-h"><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg></span>Tus fotos</div>
@@ -506,6 +513,7 @@ function loadAgrupaciones(city) {
   const req = ++agrupacionesReq;
   document.getElementById("grupoField").style.display = "none";
   document.getElementById("grupoOpts").innerHTML = "";
+  updateNumeroLabel();
   return fetch("/api/agrupaciones?city=" + encodeURIComponent(city))
     .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
     .then((data) => {
@@ -524,6 +532,7 @@ function loadAgrupaciones(city) {
         document.querySelectorAll("#grupoOpts .grupoOpt").forEach((l) => l.classList.toggle("sel", l.contains(document.querySelector('#grupoOpts input:checked'))));
       }));
       document.getElementById("grupoField").style.display = "";
+      updateNumeroLabel(); // el número pasa a obligatorio
       applyDraftLists();
     })
     .catch(() => {});
@@ -710,9 +719,16 @@ function syncVehicleCards() {
     if (r) r.checked = on;
   });
 }
+// Obligatorio solo donde hay agrupaciones (Ticul).
+function updateNumeroLabel() {
+  let w = "mototaxi";
+  try { w = vehicleWord(); } catch (e) {} // si se llama antes de que cargue todo el script
+  document.getElementById("numeroLabel").textContent = "Número de tu " + w + (agrupacionesCount ? "" : " (opcional)");
+}
 function updateVehicleLabels() {
   document.getElementById("photoPlacaLabel").textContent = "Foto de ti con tu " + vehicleWord();
   document.getElementById("vehicleColorLabel").textContent = "¿De qué color es tu " + vehicleWord() + "?";
+  updateNumeroLabel();
   const btn = document.getElementById("photoPlacaBtn");
   if (!btn.classList.contains("done")) setPhotoBtn(btn, "Tomar foto");
 }
@@ -761,7 +777,7 @@ function showPhoto(previewId, dataUrl) {
 // dura 24 h y se borra al enviar la solicitud. La firma no se guarda: se
 // vuelve a firmar.
 const DRAFT_KEY = "mv_reg_chofer";
-const DRAFT_FIELDS = ["name", "phone", "vehicleColor", "emergencyName", "emergencyPhone", "referredBy"];
+const DRAFT_FIELDS = ["name", "phone", "vehicleColor", "numeroUnidad", "emergencyName", "emergencyPhone", "referredBy"];
 let draftPending = null; // color/agrupación esperan a que carguen sus listas
 let draftSubmitted = false; // ya se envió: no volver a guardar nada
 let draftTimer = null;
@@ -1000,6 +1016,18 @@ async function submitApplication() {
     document.getElementById("grupoField").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
+  const numeroEl = document.getElementById("numeroUnidad");
+  const numeroUnidad = numeroEl.value.trim();
+  if (numeroUnidad && !/^\d{1,4}$/.test(numeroUnidad)) {
+    err.textContent = "El número de tu " + vehicleWord() + " debe ser solo números";
+    numeroEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (agrupacionesCount && !numeroUnidad) {
+    err.textContent = "Escribe el número de tu " + vehicleWord();
+    numeroEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   if (!photoDataUrl) {
     err.textContent = "Falta la foto de tu rostro";
     return;
@@ -1049,6 +1077,7 @@ async function submitApplication() {
       name, phone, photo: photoDataUrl, photoPlaca: photoPlacaDataUrl, acceptedLegal: true,
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
       grupo: grupoSel ? grupoSel.value : null,
+      numeroUnidad,
       vehicleColor,
       emergencyContactName: emergencyName, emergencyContactPhone: emergencyPhone,
       referredBy: document.getElementById("referredBy").value.trim() || null,

@@ -8,7 +8,7 @@ const { haversineKm } = require("../geo");
 const { mapCode } = require("../mapCode");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
-const { agrupacionesDe, grupoValido } = require("../agrupaciones");
+const { agrupacionesDe, grupoValido, numeroValido } = require("../agrupaciones");
 const { colorValido } = require("../colores");
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide, openZoneAt } = require("../cities");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
@@ -306,7 +306,7 @@ router.post("/drivers/profile", async (req, res) => {
   }
   const driver = await db
     .prepare(
-      `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, photo, tipo, pin, created_at,
+      `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, numero_unidad, photo, tipo, pin, created_at,
               paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, deposit_changed_at, city
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
@@ -392,6 +392,7 @@ router.post("/drivers/profile", async (req, res) => {
     vehicleType: driver.vehicle_type,
     vehicleColor: driver.vehicle_color,
     grupo: driver.grupo,
+    numeroUnidad: driver.numero_unidad,
     ...photoUrls("d", driver.id, driver.photo),
     pin: driver.pin,
     createdAt: driver.created_at,
@@ -559,7 +560,7 @@ router.post("/chofer-solicitudes", async (req, res) => {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const {
-    name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, vehicleColor, grupo, viaLiderLink, formalIntent, city,
+    name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, vehicleColor, grupo, numeroUnidad, viaLiderLink, formalIntent, city,
     emergencyContactName, emergencyContactPhone, referredBy, inviteCode, lat, lng,
   } = req.body;
   for (const img of [photo, photoPlaca, signature]) {
@@ -628,6 +629,15 @@ router.post("/chofer-solicitudes", async (req, res) => {
   }
   const color = vehicleColor === undefined ? null : colorValido(vehicleColor);
   if (vehicleColor !== undefined && !color) return res.status(400).json({ error: "Elige el color de tu vehículo" });
+  // Número del mototaxi: obligatorio donde hay agrupaciones (Ticul), opcional
+  // en los demás. Igual que la agrupación, un formulario viejo que no lo manda
+  // se acepta sin número.
+  const vacio = numeroUnidad === undefined || numeroUnidad === null || String(numeroUnidad).trim() === "";
+  const numero = vacio ? null : numeroValido(numeroUnidad);
+  if (!vacio && !numero) return res.status(400).json({ error: "El número de tu mototaxi debe ser solo números (hasta 4 cifras)" });
+  if (agrupacionesDe(cityId).length && numeroUnidad !== undefined && !numero) {
+    return res.status(400).json({ error: "Escribe el número de tu mototaxi" });
+  }
   const tipo = formalIntent ? "formal" : "informal";
 
   if (!photoPlaca) {
@@ -660,10 +670,10 @@ router.post("/chofer-solicitudes", async (req, res) => {
   }
 
   await db.prepare(
-    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, vehicle_color, grupo, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, vehicle_color, grupo, numero_unidad, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     // Comisarías (Progreso): solo motocarro, y queda en la comisaría donde se registró.
-    name, cleanPhone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", color, grupoLimpio || null, tipo, toStored(signature), cityId,
+    name, cleanPhone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", color, grupoLimpio || null, numero, tipo, toStored(signature), cityId,
     emergencyContactName.trim().slice(0, 80), cleanEmergencyPhone,
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
     inviterId,
