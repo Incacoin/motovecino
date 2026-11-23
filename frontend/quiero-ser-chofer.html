@@ -87,6 +87,12 @@
   .photoInput { display: none; }
   .field .photoBtn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; border-radius: 12px; background: #eeeeee; color: #000; font-weight: 700; font-size: 15px; cursor: pointer; }
   .field .photoBtn.done { background: #fff; border: 1.5px solid #0e8345; color: #0e8345; }
+  /* 22-nov-2026: 2 botones por foto. "Tomar foto" abre la cámara (capture);
+     "Galería" deja escoger una foto guardada. Sin capture muchos Android
+     solo abrían la galería. */
+  .photoRow { display: flex; gap: 8px; }
+  .photoRow .photoBtn { flex: 1 1 0; min-width: 0; text-align: center; }
+  .photoRow .photoGalBtn { flex: 0 0 auto; }
 
   /* ================================================================
      TEMA FORMAL (tipo Uber) — igual que pasajero.html, 2026-09-26.
@@ -308,15 +314,23 @@
     <div class="field">
       <label>Foto de tu rostro</label>
       <p class="fieldHint">Puedes tomarla con la cámara o escogerla de tu galería. Una selfie clara de tu cara. Esta es la foto que le va a aparecer al pasajero cuando le llegue su viaje, para que te reconozca.</p>
-      <input type="file" class="photoInput" id="photo" accept="image/*" onchange="handlePhoto(event, 'photoPreview')" />
-      <label for="photo" class="photoBtn" id="photoBtn"></label>
+      <input type="file" class="photoInput" id="photo" accept="image/*" capture="user" onchange="handlePhoto(event, 'photoPreview')" />
+      <input type="file" class="photoInput" id="photoGal" accept="image/*" onchange="handlePhoto(event, 'photoPreview')" />
+      <div class="photoRow">
+        <label for="photo" class="photoBtn" id="photoBtn"></label>
+        <label for="photoGal" class="photoBtn photoGalBtn" id="photoGalBtn"></label>
+      </div>
       <img id="photoPreview" />
     </div>
     <div class="field">
       <label id="photoPlacaLabel">Foto de ti con tu mototaxi</label>
       <p class="fieldHint">Que se vea tu vehículo completo y su placa. Solo para verificación interna — el pasajero nunca ve esta foto.</p>
-      <input type="file" class="photoInput" id="photoPlaca" accept="image/*" onchange="handlePhoto(event, 'photoPlacaPreview')" />
-      <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn"></label>
+      <input type="file" class="photoInput" id="photoPlaca" accept="image/*" capture="environment" onchange="handlePhoto(event, 'photoPlacaPreview')" />
+      <input type="file" class="photoInput" id="photoPlacaGal" accept="image/*" onchange="handlePhoto(event, 'photoPlacaPreview')" />
+      <div class="photoRow">
+        <label for="photoPlaca" class="photoBtn" id="photoPlacaBtn"></label>
+        <label for="photoPlacaGal" class="photoBtn photoGalBtn" id="photoPlacaGalBtn"></label>
+      </div>
       <img id="photoPlacaPreview" />
     </div>
     </div>
@@ -668,8 +682,9 @@ function vehicleWord() {
 }
 // Ícono de cámara de línea (el mismo de "Tus fotos"), en vez del emoji 📷.
 const CAM_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></svg>';
-function setPhotoBtn(btn, text) {
-  btn.innerHTML = CAM_SVG + "<span></span>";
+const GAL_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-9 9"/></svg>';
+function setPhotoBtn(btn, text, icon) {
+  btn.innerHTML = (icon || CAM_SVG) + "<span></span>";
   btn.lastChild.textContent = text;
 }
 // Tarjetas de vehículo: marcan la elegida y cambian el select escondido.
@@ -695,9 +710,11 @@ function updateVehicleLabels() {
   document.getElementById("photoPlacaLabel").textContent = "Foto de ti con tu " + vehicleWord();
   document.getElementById("vehicleColorLabel").textContent = "¿De qué color es tu " + vehicleWord() + "?";
   const btn = document.getElementById("photoPlacaBtn");
-  if (!btn.classList.contains("done")) setPhotoBtn(btn, "Tomar foto con tu " + vehicleWord());
+  if (!btn.classList.contains("done")) setPhotoBtn(btn, "Tomar foto");
 }
 setPhotoBtn(document.getElementById("photoBtn"), "Tomar selfie");
+setPhotoBtn(document.getElementById("photoGalBtn"), "Galería", GAL_SVG);
+setPhotoBtn(document.getElementById("photoPlacaGalBtn"), "Galería", GAL_SVG);
 syncVehicleCards();
 updateVehicleLabels();
 
@@ -707,6 +724,7 @@ function handlePhoto(event, previewId) {
   err.textContent = "";
   const setUrl = previewId === "photoPlacaPreview" ? (v) => (photoPlacaDataUrl = v) : (v) => (photoDataUrl = v);
   if (!file) return; // canceló la cámara: se queda la foto que ya tenía
+  event.target.value = ""; // así se puede volver a escoger la misma foto
   resizeToDataUrl(
     file,
     (dataUrl) => {
@@ -723,7 +741,7 @@ function showPhoto(previewId, dataUrl) {
   preview.src = dataUrl;
   preview.style.display = "block";
   const btn = document.getElementById(previewId === "photoPlacaPreview" ? "photoPlacaBtn" : "photoBtn");
-  btn.textContent = "✓ Foto lista · Cambiar";
+  btn.textContent = "✓ Lista · Otra";
   btn.classList.add("done");
 }
 
@@ -853,7 +871,7 @@ function clearSignature() {
 restoreDraft();
 document.getElementById("formScreen").addEventListener("input", saveDraftSoon);
 document.getElementById("formScreen").addEventListener("change", (e) => { if (e.target.type !== "file") saveDraft(); });
-["photoBtn", "photoPlacaBtn"].forEach((id) => document.getElementById(id).addEventListener("click", saveDraft));
+["photoBtn", "photoPlacaBtn", "photoGalBtn", "photoPlacaGalBtn"].forEach((id) => document.getElementById(id).addEventListener("click", saveDraft));
 document.addEventListener("visibilitychange", () => { if (document.hidden) saveDraft(); });
 
 // ---- Código por WhatsApp (6-oct-2026) ----
