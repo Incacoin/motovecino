@@ -510,7 +510,7 @@ router.post("/admin/drivers/:id/vouch", checkAdminPin, async (req, res) => {
 
 router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("drivers", req, res)) return;
-  const { name, phone, vehicle, tipo, vehicleType, vehicleColor, grupo, numeroUnidad } = req.body;
+  const { name, phone, vehicle, tipo, vehicleType, vehicleColor, grupo, numeroUnidad, referredBy } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
   }
@@ -541,7 +541,7 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   // Si manda el mismo valor que ya tiene (aunque sea uno viejo que ya no está
   // en la lista, ej. texto libre de antes), no se valida ni se toca: así se
   // puede corregir el nombre sin que lo obligue a cambiar la agrupación.
-  const actual = await db.prepare("SELECT grupo, vehicle_color, numero_unidad FROM drivers WHERE id = ?").get(req.params.id);
+  const actual = await db.prepare("SELECT grupo, vehicle_color, numero_unidad, referred_by FROM drivers WHERE id = ?").get(req.params.id);
   const conGrupo = grupo !== undefined && (grupo || null) !== (actual?.grupo || null);
   let grupoNuevo;
   if (conGrupo) {
@@ -556,12 +556,19 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   const conNumero = numeroUnidad !== undefined;
   const numeroNuevo = conNumero ? adminNumero(numeroUnidad) : actual?.numero_unidad ?? null;
   if (numeroNuevo === undefined) return res.status(400).json({ error: "El número del vehículo debe ser solo números, del 1 al 9999" });
+  // "¿Quién lo invitó?" escrito a mano (23-nov-2026): para corregirlo después de
+  // aprobar (ej. los que trajo Gabriel sin link). Solo se toca si vino ("" = quitarlo).
+  // El link de invitación (referred_by_driver_id) no se toca aquí.
+  if (referredBy !== undefined && referredBy !== null && typeof referredBy !== "string") {
+    return res.status(400).json({ error: "Quién lo invitó debe ser texto" });
+  }
+  const refNuevo = referredBy !== undefined ? (referredBy || "").trim().slice(0, 60) || null : actual?.referred_by ?? null;
 
   await db.prepare(
-    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, vehicle_color = ?, numero_unidad = ?, city = ? WHERE id = ?"
+    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, vehicle_color = ?, numero_unidad = ?, referred_by = ?, city = ? WHERE id = ?"
   ).run(
     name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto",
-    conGrupo ? grupoNuevo : actual?.grupo ?? null, conColor ? colorNuevo : actual?.vehicle_color ?? null, numeroNuevo, cityId, req.params.id
+    conGrupo ? grupoNuevo : actual?.grupo ?? null, conColor ? colorNuevo : actual?.vehicle_color ?? null, numeroNuevo, refNuevo, cityId, req.params.id
   );
 
   const driver = await db

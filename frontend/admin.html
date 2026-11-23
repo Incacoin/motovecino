@@ -1662,6 +1662,21 @@ function numeroRepetidoEnLista(d) {
   const tipo = (v) => (v === "taxi" ? "taxi" : "moto");
   return driversCache.some((x) => x.id !== d.id && x.city === d.city && x.numero_unidad === d.numero_unidad && x.grupo === d.grupo && tipo(x.vehicle_type) === tipo(d.vehicle_type));
 }
+// Padrón interno (23-nov-2026): separado por quién invitó. El link de un chofer
+// manda; si no, lo escrito a mano en "¿Quién lo invitó?". Solo en los padrones
+// internos (Otra agrupación / Sin elegir), nunca en los que se dan a líderes.
+const refKey = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+function padronSecciones(choferes) {
+  const map = new Map();
+  for (const d of choferes) {
+    const quien = (d.inviter_name || d.referred_by || "").trim();
+    const k = quien ? refKey(quien) : "";
+    if (!map.has(k)) map.set(k, { titulo: quien ? `Invitados por ${quien}` : "Sin invitación", choferes: [] });
+    map.get(k).choferes.push(d);
+  }
+  // Los que tienen quien los invitó primero (más choferes arriba); "Sin invitación" al final.
+  return [...map.entries()].sort(([ka, a], [kb, b]) => (ka === "") - (kb === "") || b.choferes.length - a.choferes.length || a.titulo.localeCompare(b.titulo, "es")).map(([, s]) => s);
+}
 function padronActividad(d) {
   if (!d.last_connected_at) return "Nunca se ha conectado";
   const days = Math.floor((Date.now() - new Date(`${d.last_connected_at.replace(" ", "T")}Z`).getTime()) / 86400000);
@@ -1682,8 +1697,13 @@ function printPadron(i) {
   const hoy = new Date().toLocaleDateString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "long", year: "numeric" });
   const activos = g.choferes.filter((d) => padronActividad(d) === "Activo esta semana").length;
   // Ordenado por número del mototaxi (los que no tienen número, al final).
-  const porNumero = [...g.choferes].sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9));
-  const filas = porNumero.map((d, n) => `<tr><td>${n + 1}</td><td>${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "—"}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`).join("");
+  const ordenNum = (lista) => [...lista].sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9));
+  const porNumero = ordenNum(g.choferes);
+  const fila = (d, n) => `<tr><td>${n + 1}</td><td>${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "—"}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`;
+  const encabezado = `<thead><tr><th>#</th><th>Número</th><th>Nombre</th><th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead>`;
+  const tablas = g.interno
+    ? padronSecciones(g.choferes).map((s) => `<h2>${escapeHtml(s.titulo)} (${s.choferes.length})</h2><table>${encabezado}<tbody>${ordenNum(s.choferes).map(fila).join("")}</tbody></table>`).join("")
+    : `<table>${encabezado}<tbody>${porNumero.map(fila).join("")}</tbody></table>`;
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Padrón ${escapeHtml(g.titulo)} · MotoVecino ${escapeHtml(adminCityLabel)}</title>
 <style>
@@ -1697,6 +1717,7 @@ function printPadron(i) {
   th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #ddd; }
   th { background: #f1f5f2; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
   .tot { margin-top: 12px; font-weight: 700; }
+  h2 { font-size: 16px; margin: 18px 0 6px; color: #15803d; }
   .nota { margin-top: 18px; color: #666; font-size: 11.5px; }
   .imp { margin: 0 0 16px; padding: 10px 16px; font-size: 15px; font-weight: 700; border: 0; border-radius: 10px; background: #16a34a; color: #fff; }
   @media print { .imp { display: none; } body { margin: 12mm; } }
@@ -1707,7 +1728,7 @@ function printPadron(i) {
 <p class="sub">${escapeHtml(g.sub)}</p>
 <p class="fecha">Al ${escapeHtml(hoy)}</p>
 ${g.interno ? `<div class="interno">USO INTERNO DE MOTOVECINO — NO COMPARTIR CON LÍDERES</div>` : ""}
-${g.choferes.length ? `<table><thead><tr><th>#</th><th>Número</th><th>Nombre</th><th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead><tbody>${filas}</tbody></table>
+${g.choferes.length ? `${tablas}
 <p class="tot">Total: ${g.choferes.length} chofer${g.choferes.length === 1 ? "" : "es"} · ${activos} activo${activos === 1 ? "" : "s"} esta semana</p>` : `<p>Todavía no hay choferes en esta lista.</p>`}
 <p class="nota">Lista generada desde MotoVecino. No incluye teléfonos ni ubicación de los choferes.</p>
 </body></html>`);
@@ -2727,6 +2748,16 @@ async function deleteRider(id) {
   loadRiders();
 }
 
+// "¿Quién lo invitó?" al editar (23-nov-2026). Sugiere los nombres ya usados para
+// que no quede "Gabriel" y "gabriel" como si fueran dos. Si llegó con el link de
+// un chofer, eso manda en el padrón y aquí solo se avisa.
+function refEditField(d) {
+  const usados = [...new Set(driversCache.map((x) => (x.referred_by || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  const lista = `<datalist id="refList-${d.id}">${usados.map((r) => `<option value="${escapeHtml(r)}"></option>`).join("")}</datalist>`;
+  const nota = d.inviter_name ? `<div class="meta" style="color:var(--text-dim);font-size:11px;margin-top:4px;">Llegó con el link de ${escapeHtml(d.inviter_name)} (eso manda en el padrón)</div>` : "";
+  return `<input id="edit-ref-${d.id}" list="refList-${d.id}" maxlength="60" placeholder="¿Quién lo invitó?" aria-label="Quién lo invitó" value="${escapeHtml(d.referred_by || "")}" style="margin-top:6px;width:100%" />${lista}${nota}`;
+}
+
 function startEdit(id) {
   editingId = id;
   renderDriverRows();
@@ -2750,7 +2781,7 @@ async function saveEdit(id) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // grupo solo si hay selector (municipio con agrupaciones); si no va, el servidor no la toca.
-    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, vehicleColor: document.getElementById(`edit-color-${id}`)?.value, numeroUnidad: document.getElementById(`edit-numero-${id}`)?.value.trim() }),
+    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, vehicleColor: document.getElementById(`edit-color-${id}`)?.value, numeroUnidad: document.getElementById(`edit-numero-${id}`)?.value.trim(), referredBy: document.getElementById(`edit-ref-${id}`)?.value.trim() }),
   });
   if (!res.ok) {
     showToast((await res.json()).error || "No se pudo guardar");
@@ -2968,7 +2999,7 @@ function renderDriverRows() {
     if (editingId === d.id) {
       return `
       <tr>
-        <td><input id="edit-name-${d.id}" value="${escapeHtml(d.name)}" /></td>
+        <td><input id="edit-name-${d.id}" value="${escapeHtml(d.name)}" />${refEditField(d)}</td>
         <td>${pinCell(d.id, d.pin)}</td>
         <td>
           <div class="phoneRow">
