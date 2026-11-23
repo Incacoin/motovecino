@@ -3829,7 +3829,7 @@ function renderInvite(inv) {
   };
   const lines = [];
   if (inviteInfo.mine && (promo || inviteInfo.mine.rewarded)) {
-    lines.push(progressLine(`Tú (te invitó ${escapeHtml(inviteInfo.mine.inviterName)})`, inviteInfo.mine, `✓ Ganaste $${need.amount}`));
+    lines.push(progressLine("Tú (te invitó un compañero)", inviteInfo.mine, `✓ Ganaste $${need.amount}`));
   }
   for (const x of inviteInfo.invitees || []) {
     if (!promo && !x.rewarded) continue;

@@ -261,7 +261,7 @@
         <div><span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><p><b>Propón tu precio</b>el pasajero te ofrece un precio y tú lo aceptas o le haces tu contraoferta.</p></div>
       </div>
     </div>
-    <div id="inviteBanner">🤝 Te invitó <b id="inviteName"></b></div>
+    <div id="inviteBanner">🤝 Vienes con la invitación de un compañero de MotoVecino</div>
     <p class="lead">Regístrate como conductor y empieza a recibir viajes en <span id="cityLabelInline">tu zona</span>. Déjanos tu nombre y teléfono — te contactamos por WhatsApp para completar tu alta y darte tu PIN.</p>
 
     <p id="draftNote" style="display:none;text-align:center;margin:0 0 12px;padding:12px;border-radius:14px;background:#e9f8ef;color:#14532d;font-size:14px;line-height:1.4;"></p>
@@ -443,11 +443,11 @@ if (inviteCode) {
   fetch("/api/drivers/invite/" + encodeURIComponent(inviteCode))
     .then((r) => (r.ok ? r.json() : null))
     .then((data) => {
-      if (!data || !data.name) { inviteCode = null; return; }
-      document.getElementById("inviteName").textContent = data.name;
+      // Discreto (23-nov-2026): ya no se enseña quién invita (a un líder lo
+      // pueden meter en problemas con otras agrupaciones). El código ya liga al
+      // invitado con quien lo invitó y el admin lo ve en la solicitud.
+      if (!data || !data.ok) { inviteCode = null; return; }
       document.getElementById("inviteBanner").style.display = "block";
-      const ref = document.getElementById("referredBy");
-      if (!ref.value.trim()) ref.value = data.name + " (chofer)";
     })
     .catch(() => {});
 }

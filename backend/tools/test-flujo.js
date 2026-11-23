@@ -240,7 +240,9 @@ async function main() {
   check("perfil: promo de invitación", p.invite.promo && typeof p.invite.promo.active === "boolean", p.invite.promo);
 
   const inv = await get(`/drivers/invite/${p.invite.code}`);
-  check("link de invitación", inv.status === 200 && inv.data.name, inv);
+  check("link de invitación: sirve y NO dice quién invita", inv.status === 200 && inv.data.ok === true && !("name" in inv.data), inv);
+  const invMalo = await get(`/drivers/invite/NOEXISTE`);
+  check("link de invitación: código falso no sirve", invMalo.status === 404, invMalo);
 
   // ---------- Admin: cobro de cuotas ----------
   const pf = await post(`/admin/drivers/${winner.id}/pending-fees`, { adminPin: ADMIN });

@@ -428,12 +428,13 @@ router.post("/drivers/profile", async (req, res) => {
   });
 });
 
-// Público (lo abre quien recibió el link de invitación): solo devuelve el
-// nombre corto de quien invita, para enseñar "Te invitó Carlos M.".
+// Público (lo abre quien recibió el link de invitación): solo dice si el código
+// sirve. Desde 23-nov-2026 NO regresa el nombre de quien invita (discreto: a un
+// líder lo pueden meter en problemas con otras agrupaciones). El admin sí lo ve.
 router.get("/drivers/invite/:code", async (req, res) => {
   const inviter = await findInviter(db, req.params.code);
   if (!inviter) return res.status(404).json({ error: "Invitación no encontrada" });
-  res.json({ name: shortName(inviter.name) });
+  res.json({ ok: true });
 });
 
 // Cuenta para recibir anticipos (CLABE o tarjeta). La captura el propio

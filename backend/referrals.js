@@ -102,9 +102,11 @@ async function referralStatus(db, driver, shortName) {
   };
   const me = await db.prepare("SELECT id, phone, referred_by_driver_id FROM drivers WHERE id = ?").get(driver.id);
   if (me && me.referred_by_driver_id) {
-    const inviter = await db.prepare("SELECT name, phone FROM drivers WHERE id = ?").get(me.referred_by_driver_id);
+    // Sin el nombre de quien lo invitó (discreto, 23-nov-2026); el teléfono solo
+    // sirve aquí adentro para no contar viajes pedidos por él.
+    const inviter = await db.prepare("SELECT phone FROM drivers WHERE id = ?").get(me.referred_by_driver_id);
     const rewarded = !!await db.prepare("SELECT 1 FROM referral_rewards WHERE invitee_id = ?").get(me.id);
-    status.mine = { inviterName: shortName(inviter?.name), rewarded, ...(await qualifyingProgress(db, me, inviter?.phone)) };
+    status.mine = { rewarded, ...(await qualifyingProgress(db, me, inviter?.phone)) };
   }
   const invitees = await db
     .prepare("SELECT id, name, phone FROM drivers WHERE referred_by_driver_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 20")
