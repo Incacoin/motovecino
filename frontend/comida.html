@@ -199,6 +199,19 @@
   .cdc { margin-top: 10px; border-radius: 12px; padding: 12px; background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; font-weight: 800; }
   .cdc b { font-size: 24px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
   .ask { display: inline-flex; align-items: center; gap: 6px; margin: 12px 16px 0; padding: 9px 13px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-weight: 700; font-size: 13.5px; text-decoration: none; }
+  /* Foto del producto en grande (se abre al tocar la foto) */
+  .item .ph { cursor: zoom-in; }
+  .fv { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,0.97); display: none; flex-direction: column; }
+  .fv.open { display: flex; }
+  .fv-x { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 22px; font-weight: 700; cursor: pointer; z-index: 2; }
+  .fv-img { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 64px 12px 12px; }
+  .fv-img img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; }
+  .fv-info { background: var(--bg); color: var(--text); border-radius: 22px 22px 0 0; padding: 18px 16px 22px; }
+  .fv-info .nm { font-weight: 800; font-size: 18px; }
+  .fv-info .ds { font-size: 14px; color: var(--dim); margin-top: 4px; line-height: 1.45; }
+  .fv-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; }
+  .fv-row .pr { font-weight: 800; font-size: 18px; }
+  .fv-add { padding: 12px 20px; border-radius: 14px; border: none; background: var(--btn); color: var(--btn-ink); font-weight: 800; font-size: 15px; cursor: pointer; }
   .toast { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--btn); color: var(--btn-ink); padding: 11px 16px; border-radius: 12px; font-weight: 700; font-size: 14px; z-index: 80; display: none; max-width: 90vw; text-align: center; }
 </style>
 </head>
@@ -434,7 +447,7 @@ function renderMenu() {
       : `<button class="add" onclick="setQty(${i.id}, 1)" aria-label="Agregar">+</button>`;
     return `<div class="item">
       <div class="info"><div class="nm">${escapeHtml(i.name)}</div>${i.description ? `<div class="ds">${escapeHtml(i.description)}</div>` : ""}<div class="pr">$${i.price}</div></div>
-      <div class="side">${i.photo ? `<div class="ph" style="background-image:url('${i.photo}')"></div>` : ""}${current.is_open ? ctl : ""}</div>
+      <div class="side">${i.photo ? `<div class="ph" role="button" aria-label="Ver foto en grande" onclick="openPhoto(${i.id})" style="background-image:url('${i.photo}')"></div>` : ""}${current.is_open ? ctl : ""}</div>
     </div>`;
   }).join("")).join("");
   renderBar();
@@ -891,7 +904,60 @@ async function acceptQuote() {
   } catch (e) { err.textContent = e.message; } finally { btn.disabled = false; }
 }
 
+// ---- Foto del producto en grande ----
+// Se abre al tocar la foto. Se cierra con la X, tocando el fondo o con "atrás"
+// del celular (por eso se agrega un paso al historial al abrir).
+let photoItem = null, photoPushed = false;
+function openPhoto(id) {
+  const i = menu.find((m) => m.id === id);
+  if (!i || !i.photo) return;
+  photoItem = i;
+  document.getElementById("fvImg").src = i.photo;
+  document.getElementById("fvImg").alt = i.name || "Producto";
+  document.getElementById("fvName").textContent = i.name || "";
+  const ds = document.getElementById("fvDesc");
+  ds.textContent = i.description || "";
+  ds.style.display = i.description ? "" : "none";
+  document.getElementById("fvPrice").textContent = "$" + i.price;
+  renderPhotoBtn();
+  document.getElementById("fotoViewer").classList.add("open");
+  if (!photoPushed) { try { history.pushState({ foto: 1 }, ""); photoPushed = true; } catch {} }
+}
+function renderPhotoBtn() {
+  const b = document.getElementById("fvAdd");
+  if (!photoItem || !current || !current.is_open) { b.style.display = "none"; return; }
+  const n = cart[photoItem.id] || 0;
+  b.style.display = "";
+  b.textContent = n ? `Agregar otro · llevas ${n}` : "Agregar";
+}
+function addFromPhoto() {
+  if (!photoItem) return;
+  setQty(photoItem.id, 1);
+  renderPhotoBtn();
+}
+function hidePhoto() {
+  document.getElementById("fotoViewer").classList.remove("open");
+  document.getElementById("fvImg").removeAttribute("src");
+  photoItem = null;
+}
+function closePhoto() {
+  if (photoPushed) { history.back(); return; } // el popstate la cierra
+  hidePhoto();
+}
+window.addEventListener("popstate", () => {
+  if (photoPushed) { photoPushed = false; hidePhoto(); }
+});
+
 start();
 </script>
+<div id="fotoViewer" class="fv" onclick="if (event.target === this || event.target.classList.contains('fv-img')) closePhoto()">
+  <button class="fv-x" onclick="closePhoto()" aria-label="Cerrar">✕</button>
+  <div class="fv-img"><img id="fvImg" alt=""></div>
+  <div class="fv-info">
+    <div class="nm" id="fvName"></div>
+    <div class="ds" id="fvDesc"></div>
+    <div class="fv-row"><div class="pr" id="fvPrice"></div><button class="fv-add" id="fvAdd" onclick="addFromPhoto()">Agregar</button></div>
+  </div>
+</div>
 </body>
 </html>
