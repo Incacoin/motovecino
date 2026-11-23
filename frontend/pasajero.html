@@ -522,6 +522,12 @@ function toggleRiderTheme() {
   .mv-confirm-actions { display: flex; gap: 10px; }
   .mv-confirm-actions .btn { flex: 1; width: auto; margin: 0; padding: 12px 10px; font-size: 14.5px; }
   .mv-confirm-actions .btn.mv-danger { background: var(--danger); color: #fff; }
+  .qj-box p { margin-bottom: 14px; font-size: 17px; }
+  .qj-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .qj-opt { font: inherit; font-size: 14.5px; font-weight: 600; text-align: left; padding: 12px 10px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
+  .qj-opt:active { background: rgba(34,197,94,.15); }
+  .qj-opt:last-child { grid-column: 1 / -1; }
+  .qj-cancel { width: 100%; margin: 0; padding: 12px 10px; font-size: 14.5px; }
 
   /* Selector de tema (perfil) y botón rápido de la portada */
   .theme-block { width: 260px; margin-top: 22px; text-align: left; }
@@ -5191,11 +5197,41 @@ async function forgotPin() {
   window.open(waLink(SOPORTE_WHATSAPP_NUMBER, text), "_blank");
 }
 
+// Quejas y sugerencias (23-nov): primero el pasajero toca el motivo y luego se
+// abre WhatsApp con el mensaje armado. El admin lee "Motivo: X" (misma lista
+// que QUEJA_MOTIVOS en routes/support.js).
+const QUEJA_MOTIVOS = [
+  { m: "Llegó tarde", i: "⏰" },
+  { m: "Cobro", i: "💵" },
+  { m: "Trato del chofer", i: "🙁" },
+  { m: "Manejo", i: "🛵" },
+  { m: "Olvidé algo", i: "🎒" },
+  { m: "Sugerencia", i: "💡" },
+  { m: "Otro", i: "✏️" },
+];
 function reportViaWhatsapp() {
+  const ov = document.createElement("div");
+  ov.className = "mv-confirm";
+  ov.innerHTML = `<div class="mv-confirm-box qj-box" role="dialog" aria-modal="true" aria-label="Quejas y sugerencias"><p>¿Qué pasó en tu viaje?</p><div class="qj-grid"></div><button class="btn btn-secondary qj-cancel" type="button">Cancelar</button></div>`;
+  const grid = ov.querySelector(".qj-grid");
+  QUEJA_MOTIVOS.forEach((q) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "qj-opt";
+    b.textContent = `${q.i} ${q.m}`;
+    b.addEventListener("click", () => { ov.remove(); openQuejaWhatsapp(q.m); });
+    grid.appendChild(b);
+  });
+  ov.querySelector(".qj-cancel").addEventListener("click", () => ov.remove());
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  document.body.appendChild(ov);
+}
+function openQuejaWhatsapp(motivo) {
   const rideInfo = ride ? ` (viaje #${ride.id})` : "";
   // Sin municipio conocido no queda "MotoVecino  (viaje" con doble espacio.
   const brand = ["MotoVecino", resolvedCityLabel].filter(Boolean).join(" ");
-  const text = `Hola, quiero dejar una queja o sugerencia sobre mi viaje en ${brand}${rideInfo}: `;
+  const pide = motivo === "Sugerencia" ? "Mi sugerencia es: " : motivo === "Olvidé algo" ? "Lo que olvidé es: " : "Lo que pasó: ";
+  const text = `Hola, quiero dejar una queja o sugerencia sobre mi viaje en ${brand}${rideInfo}. Motivo: ${motivo}. ${pide}`;
   window.open(waLink(QUEJAS_WHATSAPP_NUMBER, text), "_blank");
 }
 

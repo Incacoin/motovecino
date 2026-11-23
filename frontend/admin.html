@@ -1540,8 +1540,39 @@ function supportRideCard(r) {
   if (!r.found) return `<div class="sup-ride">🧾 Habla del viaje #${Number(r.id)}, pero ese viaje no existe.</div>`;
   if (!r.mine) return `<div class="sup-ride">🧾 Habla del viaje #${Number(r.id)}, pero ese viaje <b>no es de este número</b>.</div>`;
   const kind = r.kind && r.kind !== "pasaje" ? ` (${escapeHtml(r.kind)})` : "";
-  return `<div class="sup-ride">🧾 <b>Viaje #${Number(r.id)}</b> · ${escapeHtml(r.city || "")} · ${escapeHtml(supportWhen(r.created_at))}<br>` +
-    `Pasajero: ${escapeHtml(r.rider || "")} · Chofer: ${escapeHtml(r.driver || "sin chofer")} · ${escapeHtml(r.vehicle)}${kind} · ${escapeHtml(r.status)}</div>`;
+  let html = `<div class="sup-ride">🧾 <b>Viaje #${Number(r.id)}</b> · ${escapeHtml(r.city || "")} · ${escapeHtml(supportWhen(r.created_at))}<br>`;
+  if (r.motivo) html += `<b>Motivo: ${escapeHtml(r.motivo)}</b><br>`;
+  html += `Pasajero: ${escapeHtml(r.rider || "")} · ${escapeHtml(r.vehicle)}${kind} · ${escapeHtml(r.status)}`;
+  if (r.price != null && Number.isFinite(Number(r.price))) html += ` · $${Number(r.price)}`;
+  // Chofer con su unidad (23-nov): número, color, agrupación y teléfono para llamarle.
+  if (r.driver) {
+    const unidad = [r.numero ? `#${escapeHtml(r.numero)}` : "", r.color ? escapeHtml(r.color) : "", r.grupo ? escapeHtml(r.grupo) : ""].filter(Boolean).join(" · ");
+    const tel = /^\d{10}$/.test(String(r.driverPhone || "")) ? ` · <a href="tel:${r.driverPhone}">${r.driverPhone}</a>` : "";
+    html += `<br>Chofer: <b>${escapeHtml(r.driver)}</b>${unidad ? ` · ${unidad}` : ""}${tel}`;
+  } else {
+    html += `<br>Chofer: sin chofer`;
+  }
+  // Horas del viaje: así se ve solo si de verdad se tardó.
+  const hora = (d) => d.toLocaleTimeString("es-MX", { timeZone: "America/Merida", hour: "numeric", minute: "2-digit" });
+  const fromText = (t) => (t ? new Date(String(t).replace(" ", "T") + "Z") : null);
+  const fromMs = (n) => (n ? new Date(Number(n)) : null);
+  const ok = (d) => d && !isNaN(d);
+  const pidio = fromText(r.created_at);
+  const llego = fromMs(r.arrivedMs);
+  const subio = fromMs(r.startedMs);
+  const termino = fromText(r.completed_at);
+  const cancelo = fromText(r.canceled_at);
+  const pasos = [];
+  if (ok(pidio)) pasos.push(`pidió ${hora(pidio)}`);
+  if (ok(llego)) {
+    const min = ok(pidio) ? Math.round((llego - pidio) / 60000) : null;
+    pasos.push(`chofer llegó ${hora(llego)}${min != null && min >= 0 ? ` (${min} min)` : ""}`);
+  }
+  if (ok(subio)) pasos.push(`subió ${hora(subio)}`);
+  if (ok(termino)) pasos.push(`terminó ${hora(termino)}`);
+  else if (ok(cancelo)) pasos.push(`cancelado ${hora(cancelo)}`);
+  if (pasos.length) html += `<br>⏱ ${pasos.join(" → ")}`;
+  return html + `</div>`;
 }
 // Ubicación de WhatsApp: el link al mapa se puede tocar.
 function supportText(text) {

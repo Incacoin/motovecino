@@ -234,6 +234,8 @@ async function adminThread(id, res) {
 // panel enseña ese viaje. Solo si el teléfono que escribe ES el del pasajero
 // de ese viaje; si no, solo se avisa, sin datos. Esto lo ve únicamente el
 // dueño en el panel: el asistente no lo sabe ni se lo dice a nadie.
+// Motivos de queja que ofrece la app del pasajero (mismo texto que pasajero.html).
+const QUEJA_MOTIVOS = ["Llegó tarde", "Cobro", "Trato del chofer", "Manejo", "Olvidé algo", "Sugerencia", "Otro"];
 const RIDE_STATUS = { buscando: "Buscando chofer", aceptado: "Chofer en camino", llegue: "Chofer llegó", en_curso: "En viaje", completado: "Completado", cancelado: "Cancelado" };
 async function rideOf(t, user) {
   if (!["whatsapp", "pasajero"].includes(t.user_type) || !user || !user.phone) return null;
@@ -242,19 +244,34 @@ async function rideOf(t, user) {
   // la persona escribe de otra cosa semanas después.
   const msgs = await db.prepare("SELECT text FROM support_messages WHERE thread_id = ? AND sender = 'usuario' AND created_at >= datetime('now', '-3 days') ORDER BY id DESC LIMIT 50").all(t.id);
   let id = null;
+  let motivo = null;
   for (const m of msgs) {
     const hit = /viaje\s*#\s*(\d{1,9})/i.exec(m.text || "");
-    if (hit) { id = Number(hit[1]); break; }
+    if (hit) {
+      id = Number(hit[1]);
+      // Motivo que tocó el pasajero en la app (23-nov): solo de la lista, nada libre.
+      const mot = /Motivo:\s*([^.\n]{1,40})/i.exec(m.text || "");
+      if (mot && QUEJA_MOTIVOS.includes(mot[1].trim())) motivo = mot[1].trim();
+      break;
+    }
   }
   if (!id) return null;
-  const r = await db.prepare("SELECT id, rider_name, rider_phone, status, driver_id, ride_type, service_kind, city, created_at FROM rides WHERE id = ?").get(id);
+  const r = await db.prepare("SELECT id, rider_name, rider_phone, status, driver_id, ride_type, service_kind, city, created_at, updated_at, arrived_at_ms, started_at_ms, completed_at, agreed_price, offer_price FROM rides WHERE id = ?").get(id);
   if (!r) return { id, found: false };
   if (String(r.rider_phone) !== String(user.phone)) return { id, found: true, mine: false };
-  const d = r.driver_id ? await db.prepare("SELECT name FROM drivers WHERE id = ?").get(r.driver_id) : null;
+  const d = r.driver_id ? await db.prepare("SELECT name, phone, numero_unidad, vehicle_color, grupo FROM drivers WHERE id = ?").get(r.driver_id) : null;
+  const ms = (v) => (v == null || v === "" ? null : Number(v));
   return {
     id: r.id, found: true, mine: true, city: cityLabel(r.city), created_at: r.created_at,
     rider: r.rider_name, driver: d ? d.name : null, vehicle: r.ride_type === "taxi" ? "taxi" : "mototaxi",
-    kind: r.service_kind, status: RIDE_STATUS[r.status] || r.status,
+    kind: r.service_kind, status: RIDE_STATUS[r.status] || r.status, motivo,
+    // Datos para resolver la queja (23-nov). Solo los ve el dueño en el panel
+    // (ruta con ownerOnly); el asistente no los recibe.
+    driverPhone: d ? d.phone : null, numero: d ? d.numero_unidad || null : null,
+    color: d ? d.vehicle_color || null : null, grupo: d ? d.grupo || null : null,
+    arrivedMs: ms(r.arrived_at_ms), startedMs: ms(r.started_at_ms), completed_at: r.completed_at || null,
+    canceled_at: r.status === "cancelado" ? r.updated_at : null,
+    price: r.agreed_price != null ? Number(r.agreed_price) : r.offer_price != null ? Number(r.offer_price) : null,
   };
 }
 async function adminView(t) {
