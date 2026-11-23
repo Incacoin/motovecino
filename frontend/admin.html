@@ -2752,10 +2752,12 @@ async function deleteRider(id) {
 // que no quede "Gabriel" y "gabriel" como si fueran dos. Si llegó con el link de
 // un chofer, eso manda en el padrón y aquí solo se avisa.
 function refEditField(d) {
-  const usados = [...new Set(driversCache.map((x) => (x.referred_by || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  // Lo ya escrito + los choferes que invitaron con su link (así "Gabriel" a mano
+  // y el link de Gabriel caen en la misma sección del padrón).
+  const usados = [...new Set(driversCache.flatMap((x) => [(x.referred_by || "").trim(), (x.inviter_name || "").trim()]).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
   const lista = `<datalist id="refList-${d.id}">${usados.map((r) => `<option value="${escapeHtml(r)}"></option>`).join("")}</datalist>`;
   const nota = d.inviter_name ? `<div class="meta" style="color:var(--text-dim);font-size:11px;margin-top:4px;">Llegó con el link de ${escapeHtml(d.inviter_name)} (eso manda en el padrón)</div>` : "";
-  return `<input id="edit-ref-${d.id}" list="refList-${d.id}" maxlength="60" placeholder="¿Quién lo invitó?" aria-label="Quién lo invitó" value="${escapeHtml(d.referred_by || "")}" style="margin-top:6px;width:100%" />${lista}${nota}`;
+  return `<input id="edit-ref-${d.id}" list="refList-${d.id}" maxlength="80" placeholder="¿Quién lo invitó?" aria-label="Quién lo invitó" value="${escapeHtml(d.referred_by || "")}" style="margin-top:6px;width:100%" />${lista}${nota}`;
 }
 
 function startEdit(id) {

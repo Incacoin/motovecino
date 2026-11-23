@@ -562,7 +562,10 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   if (referredBy !== undefined && referredBy !== null && typeof referredBy !== "string") {
     return res.status(400).json({ error: "Quién lo invitó debe ser texto" });
   }
-  const refNuevo = referredBy !== undefined ? (referredBy || "").trim().slice(0, 60) || null : actual?.referred_by ?? null;
+  // Mismo tope que el registro público (80). Si llega igual que lo guardado, no
+  // se toca (así editar el teléfono no recorta un texto viejo más largo).
+  const refLimpio = referredBy !== undefined ? (referredBy || "").trim() || null : undefined;
+  const refNuevo = refLimpio === undefined || refLimpio === (actual?.referred_by ?? null) ? actual?.referred_by ?? null : refLimpio?.slice(0, 80) ?? null;
 
   await db.prepare(
     "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, vehicle_color = ?, numero_unidad = ?, referred_by = ?, city = ? WHERE id = ?"

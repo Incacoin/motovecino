@@ -26,22 +26,22 @@ async function post(url, body) {
   return { status: res.status, data };
 }
 const stamp = String(Date.now()).slice(-6);
-const tel = (p) => `${p}${stamp}`.slice(0, 10);
+const tel = (p) => `${p}${stamp}`; // prefijo de 4 + stamp de 6 = 10
 const A = { adminPin: ADMIN, adminZone: "ticul" };
 
 async function main() {
   const ids = [];
   try {
-    const inv = await post("/admin/drivers", { ...A, name: `Invitador ${stamp}`, phone: tel("95100"), acceptedLegal: true, vehicleType: "moto", grupo: "Alcones Alfa" });
+    const inv = await post("/admin/drivers", { ...A, name: `Invitador ${stamp}`, phone: tel("9510"), acceptedLegal: true, vehicleType: "moto", grupo: "Alcones Alfa" });
     check("alta del que invita", inv.status === 201 || inv.status === 200, inv);
     ids.push(inv.data?.id);
-    const d = await post("/admin/drivers", { ...A, name: `Invitado ${stamp}`, phone: tel("95200"), acceptedLegal: true, vehicleType: "moto", grupo: "Por su cuenta", referredByDriverId: inv.data?.id });
+    const d = await post("/admin/drivers", { ...A, name: `Invitado ${stamp}`, phone: tel("9520"), acceptedLegal: true, vehicleType: "moto", grupo: "Por su cuenta", referredByDriverId: inv.data?.id });
     check("alta del invitado", d.status === 201 || d.status === 200, d);
     ids.push(d.data?.id);
     const id = d.data?.id;
     // La lista del admin sí manda el link (referredByDriverId solo aplica con solicitud; se fija a mano).
     await db.prepare("UPDATE drivers SET referred_by_driver_id = ? WHERE id = ?").run(inv.data?.id, id);
-    const base = { ...A, name: `Invitado ${stamp}`, phone: tel("95200"), vehicleType: "moto" };
+    const base = { ...A, name: `Invitado ${stamp}`, phone: tel("9520"), vehicleType: "moto" };
     const lista = async () => ((await post("/admin/drivers/list", { ...A, photoRefs: true })).data || []).find((x) => x.id === id);
 
     const r1 = await post(`/admin/drivers/${id}/update`, { ...base, referredBy: "  Gabriel  " });
@@ -56,7 +56,13 @@ async function main() {
 
     const largo = await post(`/admin/drivers/${id}/update`, { ...base, referredBy: "x".repeat(200) });
     x = await lista();
-    check("texto largo se corta a 60", largo.status === 200 && x?.referred_by?.length === 60, x?.referred_by?.length);
+    check("texto largo se corta a 80 (igual que el registro)", largo.status === 200 && x?.referred_by?.length === 80, x?.referred_by?.length);
+    // Texto viejo de más de 80 (de antes): editar otra cosa mandándolo igual no lo recorta.
+    const viejo = "y".repeat(90);
+    await db.prepare("UPDATE drivers SET referred_by = ? WHERE id = ?").run(viejo, id);
+    await post(`/admin/drivers/${id}/update`, { ...base, referredBy: viejo });
+    x = await lista();
+    check("si no cambió, no se recorta", x?.referred_by === viejo, x?.referred_by?.length);
 
     const malo = await post(`/admin/drivers/${id}/update`, { ...base, referredBy: { a: 1 } });
     check("si no es texto, error 400", malo.status === 400, malo);
@@ -71,7 +77,8 @@ async function main() {
     x = await lista();
     check("sigue sin «Hack»", x?.referred_by == null, x?.referred_by);
   } finally {
-    for (const id of ids.filter(Boolean)) await db.prepare("UPDATE drivers SET deleted_at = datetime('now') WHERE id = ?").run(id);
+    // Por la ruta real: así también se recalculan los fundadores.
+    for (const id of ids.filter(Boolean)) await post(`/admin/drivers/${id}/delete`, A);
   }
   console.log(`invito: ${pass} bien, ${fail} mal`);
   process.exit(fail ? 1 : 0);
