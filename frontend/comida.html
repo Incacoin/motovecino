@@ -203,6 +203,8 @@
   .item .ph { cursor: zoom-in; }
   .fv { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,0.97); display: none; flex-direction: column; }
   .fv.open { display: flex; }
+  body.fv-lock { overflow: hidden; }
+  .fv-add:disabled { opacity: 0.5; cursor: default; }
   .fv-x { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255,255,255,0.16); color: #fff; font-size: 22px; font-weight: 700; cursor: pointer; z-index: 2; }
   .fv-img { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 64px 12px 12px; }
   .fv-img img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; }
@@ -311,7 +313,10 @@ function escapeHtml(t) {
   return String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 function norm(t) { return (t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
-function goBack() { if (history.length > 1) history.back(); else location.href = "pasajero.html"; }
+// Se calcula al cargar: el visor de fotos agrega pasos al historial y
+// history.length ya no dice si había una página antes.
+const HAD_PREV_PAGE = history.length > 1;
+function goBack() { if (HAD_PREV_PAGE) history.back(); else location.href = "pasajero.html"; }
 function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.style.display = "block";
@@ -447,7 +452,7 @@ function renderMenu() {
       : `<button class="add" onclick="setQty(${i.id}, 1)" aria-label="Agregar">+</button>`;
     return `<div class="item">
       <div class="info"><div class="nm">${escapeHtml(i.name)}</div>${i.description ? `<div class="ds">${escapeHtml(i.description)}</div>` : ""}<div class="pr">$${i.price}</div></div>
-      <div class="side">${i.photo ? `<div class="ph" role="button" aria-label="Ver foto en grande" onclick="openPhoto(${i.id})" style="background-image:url('${i.photo}')"></div>` : ""}${current.is_open ? ctl : ""}</div>
+      <div class="side">${i.photo ? `<div class="ph" role="button" tabindex="0" aria-label="Ver foto en grande" onclick="openPhoto(${i.id})" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openPhoto(${i.id}); }" style="background-image:url('${i.photo}')"></div>` : ""}${current.is_open ? ctl : ""}</div>
     </div>`;
   }).join("")).join("");
   renderBar();
@@ -907,7 +912,13 @@ async function acceptQuote() {
 // ---- Foto del producto en grande ----
 // Se abre al tocar la foto. Se cierra con la X, tocando el fondo o con "atrás"
 // del celular (por eso se agrega un paso al historial al abrir).
-let photoItem = null, photoPushed = false;
+let photoItem = null;
+let photoPushed = false;   // hay un paso {foto} nuestro en el historial
+let ignoreNextPop = false; // el "atrás" que mandamos nosotros al cerrar con la X
+const MAX_PER_ITEM = 20;   // igual que setQty
+// Si la página se recargó con la foto abierta, quita ese paso viejo.
+if (history.state && history.state.foto) { try { history.replaceState(null, ""); } catch {} }
+function photoOpen() { return document.getElementById("fotoViewer").classList.contains("open"); }
 function openPhoto(id) {
   const i = menu.find((m) => m.id === id);
   if (!i || !i.photo) return;
@@ -921,37 +932,49 @@ function openPhoto(id) {
   document.getElementById("fvPrice").textContent = "$" + i.price;
   renderPhotoBtn();
   document.getElementById("fotoViewer").classList.add("open");
-  if (!photoPushed) { try { history.pushState({ foto: 1 }, ""); photoPushed = true; } catch {} }
+  document.body.classList.add("fv-lock");
+  // Si todavía viene en camino el "atrás" de cerrar la foto anterior, no se
+  // agrega paso (se lo comería ese "atrás"); esta foto se cierra con X o fondo.
+  if (!photoPushed && !ignoreNextPop) { try { history.pushState({ foto: 1 }, ""); photoPushed = true; } catch {} }
+  document.getElementById("fvClose").focus();
 }
 function renderPhotoBtn() {
   const b = document.getElementById("fvAdd");
   if (!photoItem || !current || !current.is_open) { b.style.display = "none"; return; }
   const n = cart[photoItem.id] || 0;
   b.style.display = "";
-  b.textContent = n ? `Agregar otro · llevas ${n}` : "Agregar";
+  b.disabled = n >= MAX_PER_ITEM;
+  b.textContent = n >= MAX_PER_ITEM ? `Máximo ${MAX_PER_ITEM}` : n ? `Agregar otro · llevas ${n}` : "Agregar";
 }
 function addFromPhoto() {
-  if (!photoItem) return;
+  if (!photoItem || (cart[photoItem.id] || 0) >= MAX_PER_ITEM) return;
   setQty(photoItem.id, 1);
   renderPhotoBtn();
 }
 function hidePhoto() {
   document.getElementById("fotoViewer").classList.remove("open");
+  document.body.classList.remove("fv-lock");
   document.getElementById("fvImg").removeAttribute("src");
   photoItem = null;
 }
+// Cerrar con la X, el fondo o Escape. Se esconde de inmediato (así un segundo
+// toque rápido ya no hace nada) y se quita nuestro paso del historial.
 function closePhoto() {
-  if (photoPushed) { history.back(); return; } // el popstate la cierra
+  if (!photoOpen()) return;
   hidePhoto();
+  if (photoPushed) { photoPushed = false; ignoreNextPop = true; history.back(); }
 }
+// "Atrás" del celular con la foto abierta: solo cierra la foto.
 window.addEventListener("popstate", () => {
+  if (ignoreNextPop) { ignoreNextPop = false; return; }
   if (photoPushed) { photoPushed = false; hidePhoto(); }
 });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && photoOpen()) closePhoto(); });
 
 start();
 </script>
 <div id="fotoViewer" class="fv" onclick="if (event.target === this || event.target.classList.contains('fv-img')) closePhoto()">
-  <button class="fv-x" onclick="closePhoto()" aria-label="Cerrar">✕</button>
+  <button class="fv-x" id="fvClose" onclick="closePhoto()" aria-label="Cerrar">✕</button>
   <div class="fv-img"><img id="fvImg" alt=""></div>
   <div class="fv-info">
     <div class="nm" id="fvName"></div>
