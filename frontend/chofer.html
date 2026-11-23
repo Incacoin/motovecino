@@ -793,7 +793,7 @@ function setDriverTheme(pref) {
   <button class="btn-sm" id="pinModeBtn" style="display:none;margin-top:4px;" onclick="setLoginMode(loginMode === 'pin' ? 'code' : 'pin')">Entrar con mi PIN</button>
   <button class="btn-sm" id="forgotPinBtn" style="display:none;margin-top:4px;" onclick="forgotPin()">¿No te llega el código? Escríbenos</button>
   <button class="btn-sm" onclick="location.href='quiero-ser-chofer.html'" style="margin-top:4px;">Quiero ser chofer</button>
-  <button class="btn-sm" onclick="location.href='index.html'" style="margin-top:4px;"><span class="ic-in"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5.5 21v-2.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V21"/></svg>Modo Pasajero</span></button>
+  <button class="btn-sm" onclick="location.href='pasajero.html'" style="margin-top:4px;"><span class="ic-in"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5.5 21v-2.5a5 5 0 0 1 5-5h3a5 5 0 0 1 5 5V21"/></svg>Modo Pasajero</span></button>
   <svg class="maya-motif" width="130" height="91" viewBox="0 0 200 140" fill="none" style="flex-shrink:0;margin-top:6px;">
     <rect x="20" y="110" width="160" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
     <rect x="35" y="90" width="130" height="20" stroke="var(--text-faint)" stroke-width="1.6" opacity="0.8"/>
@@ -1732,7 +1732,7 @@ function goPasajero() {
     return;
   }
   // Deja la sesión de chofer guardada: al volver a chofer.html, reentra sola.
-  location.href = "index.html";
+  location.href = "pasajero.html";
 }
 
 function startApp() {
