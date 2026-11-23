@@ -630,7 +630,7 @@ router.post("/admin/drivers/:id/move-city", checkAdminPin, async (req, res) => {
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) => {
   const apps = await db
     .prepare(
-      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.vehicle_color, a.grupo, a.numero_unidad, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id AND inv.deleted_at IS NULL WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
+      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.vehicle_color, a.grupo, a.numero_unidad, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
   res.json(req.body.photoRefs ? apps : apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));

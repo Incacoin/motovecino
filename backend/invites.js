@@ -46,8 +46,9 @@ async function findInviter(db, code) {
     .get(clean)) || null;
 }
 
-// "Carlos Méndez Pérez" → "Carlos M." — lo que ve cualquiera que abra el
-// link, así que no se enseña el nombre completo.
+// "Carlos Méndez Pérez" → "Carlos M." — solo para la lista de invitados que ve
+// el propio chofer que invitó. El link público ya NO enseña el nombre de quien
+// invita (23-nov-2026, ver /drivers/invite/:code): no volver a ponerlo.
 function shortName(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "";
