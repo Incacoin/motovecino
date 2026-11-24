@@ -1821,6 +1821,7 @@ function followDriverTick() {
 }
 let driverPos = null;
 let currentDriver = null; // para la ventana de Seguridad (911)
+let driverPosAt = 0; // cuándo llegó la última ubicación del chofer
 let routeLine = null;
 let routeRefreshInterval = null;
 let currentRideStatus = "buscando";
@@ -4081,6 +4082,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
   renderDepositBox();
   if (driver.lat) {
     driverPos = { lat: driver.lat, lng: driver.lng };
+    driverPosAt = Date.now();
     driverMarker = L.marker([driver.lat, driver.lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
     fitDriverFirstTime();
     updateStatusCenterBtn();
@@ -4423,6 +4425,7 @@ function onDriverLost() {
 
 function onDriverLocation({ lat, lng }) {
   driverPos = { lat, lng };
+  driverPosAt = Date.now();
   if (!driverMarker) {
     driverMarker = L.marker([lat, lng], { icon: serviceType === "taxi" ? taxiIcon() : motoIcon() }).addTo(statusMap);
     fitDriverFirstTime();
@@ -4926,13 +4929,51 @@ function renderEmergencyStatus(rider) {
 }
 
 // «Seguridad» sale siempre en la pantalla del viaje (antes «Avisar» solo con contacto guardado).
+// En envíos (domicilio/mandado) no: quien pide no va en el vehículo.
 function updateEmergencyBtn() {
-  document.getElementById("emergencyBtn").style.display = ""; // el de su clase (ícono al lado del texto)
+  document.getElementById("emergencyBtn").style.display = isDeliveryRide() ? "none" : ""; // "" = el de su clase (ícono al lado)
 }
 
-function closeSafetySheet() {
+// Mientras la ventana está abierta: GPS del propio pasajero en vivo y datos que se refrescan solos.
+let sgWatch = null, sgTimer = null, sgMyPos = null, sgGeoFailed = false;
+function sgOnKey(e) { if (e.key === "Escape") closeSafetySheet(); }
+function closeSafetySheet(fromBack) {
+  if (sgWatch != null) { try { navigator.geolocation.clearWatch(sgWatch); } catch {} sgWatch = null; }
+  clearInterval(sgTimer); sgTimer = null;
+  document.removeEventListener("keydown", sgOnKey);
   const box = document.querySelector(".sg-box");
   if (box) box.closest(".mv-confirm").remove();
+  // Quita el paso de historial que puso la ventana (así «atrás» la cierra sin salir del viaje).
+  if (!fromBack && history.state && history.state.sg) history.back();
+}
+window.addEventListener("popstate", () => { if (document.querySelector(".sg-box")) closeSafetySheet(true); });
+
+function sgPos(p) { return `${Number(p.lat).toFixed(5)}, ${Number(p.lng).toFixed(5)}`; }
+function sgHace(ms) { const m = Math.round((Date.now() - ms) / 60000); return m < 1 ? "ahora" : `hace ${m} min`; }
+
+function safetyInfoHtml() {
+  const d = currentDriver;
+  const veh = d ? [escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Mototaxi")), d.numero_unidad ? numeroTxt(d) : "", d.vehicle_color ? escapeHtml(String(d.vehicle_color).toLowerCase()) : ""].filter(Boolean).join(" · ") : "";
+  const desde = ride.pickup_label || pickupLabel;
+  const hasta = ride.dest_label || destLabel;
+  const cityRaw = resolvedCityLabel || (ride.city ? String(ride.city) : "");
+  const city = cityRaw ? cityRaw.charAt(0).toUpperCase() + cityRaw.slice(1) : "";
+  // Ubicación: la del GPS del propio celular; si no hay, la de la moto/taxi (con su antigüedad)
+  // o el punto de recogida, cada una con su nombre real (nunca se presenta la vieja como "GPS").
+  let posLine;
+  if (sgMyPos) posLine = `Tu ubicación (GPS): <b>${sgPos(sgMyPos)}</b> · ${sgHace(sgMyPos.at)}`;
+  else if (currentRideStatus === "en_curso" && driverPos && driverPosAt) posLine = `Ubicación de tu ${serviceType === "taxi" ? "taxi" : "mototaxi"}: ${sgPos(driverPos)} · ${sgHace(driverPosAt)}`;
+  else if (sgGeoFailed && pickup) posLine = `Punto de recogida (mapa): ${sgPos(pickup)}`;
+  else posLine = "Buscando tu ubicación…";
+  return [
+    `<b>Viaje #${Number(ride.id)}</b> · MotoVecino ${escapeHtml(city)}`,
+    d ? `Chofer: <b>${escapeHtml(d.name || "")}</b>` : "Todavía no hay chofer asignado",
+    veh ? `Vehículo: <b>${veh}</b>` : "",
+    d && d.grupo ? `Agrupación: ${escapeHtml(d.grupo)}` : "",
+    desde ? `Recogida: ${escapeHtml(desde)}` : "",
+    hasta ? `Destino: ${escapeHtml(hasta)}` : "",
+    posLine,
+  ].filter(Boolean).join("<br>");
 }
 
 // Ventana de Seguridad: llamar al 911 con los datos que pide la operadora a la vista,
@@ -4940,22 +4981,8 @@ function closeSafetySheet() {
 function openSafetySheet() {
   if (!ride || document.querySelector(".sg-box")) return;
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
-  const d = currentDriver;
-  const veh = d ? [escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Mototaxi")), d.numero_unidad ? numeroTxt(d) : "", d.vehicle_color ? escapeHtml(String(d.vehicle_color).toLowerCase()) : ""].filter(Boolean).join(" · ") : "";
-  // Dónde va: la moto/taxi en vivo si ya subió; si no, el punto de recogida.
-  const pos = currentRideStatus === "en_curso" && driverPos ? driverPos : pickup;
-  const posTxt = pos && Number.isFinite(Number(pos.lat)) ? `${Number(pos.lat).toFixed(5)}, ${Number(pos.lng).toFixed(5)}` : "";
-  const desde = ride.pickup_label || pickupLabel;
-  const hasta = ride.dest_label || destLabel;
-  const info = [
-    `<b>Viaje #${Number(ride.id)}</b> · MotoVecino ${escapeHtml(resolvedCityLabel || "")}`,
-    d ? `Chofer: <b>${escapeHtml(d.name || "")}</b>` : "Todavía no hay chofer asignado",
-    veh ? `Vehículo: <b>${veh}</b>` : "",
-    d && d.grupo ? `Agrupación: ${escapeHtml(d.grupo)}` : "",
-    desde ? `Recogida: ${escapeHtml(desde)}` : "",
-    hasta ? `Destino: ${escapeHtml(hasta)}` : "",
-    posTxt ? `Ubicación GPS: ${posTxt}` : "",
-  ].filter(Boolean).join("<br>");
+  sgMyPos = null; sgGeoFailed = false;
+  const info = safetyInfoHtml();
   const hasContact = !!(rider && rider.emergency_contact_phone);
   const contactName = hasContact && rider.emergency_contact_name ? escapeHtml(rider.emergency_contact_name) : "tu contacto";
   const ov = document.createElement("div");
@@ -4972,14 +4999,26 @@ function openSafetySheet() {
     <button class="btn btn-secondary qj-cancel" type="button" data-a="cerrar">Cerrar</button>
   </div>`;
   ov.addEventListener("click", (e) => {
-    if (e.target === ov) return ov.remove();
+    if (e.target === ov) return closeSafetySheet();
     const b = e.target.closest("[data-a]");
     if (!b) return;
-    ov.remove();
+    closeSafetySheet();
     if (b.dataset.a === "avisar") notifyEmergencyContact();
     else if (b.dataset.a === "compartir") shareRide();
   });
   document.body.appendChild(ov);
+  try { history.pushState({ ...(history.state || {}), sg: 1 }, ""); } catch {}
+  document.addEventListener("keydown", sgOnKey);
+  ov.querySelector(".sg-911").focus();
+  const refresh = () => { const el = document.querySelector(".sg-info"); if (el) el.innerHTML = safetyInfoHtml(); };
+  sgTimer = setInterval(refresh, 2000); // chofer asignado, viaje iniciado, ubicación nueva…
+  if (navigator.geolocation) {
+    sgWatch = navigator.geolocation.watchPosition(
+      (p) => { sgMyPos = { lat: p.coords.latitude, lng: p.coords.longitude, at: Date.now() }; refresh(); },
+      () => { sgGeoFailed = true; refresh(); },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+    );
+  } else { sgGeoFailed = true; refresh(); }
 }
 
 async function saveEmergencyContact() {
