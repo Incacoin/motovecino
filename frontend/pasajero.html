@@ -2752,7 +2752,7 @@ function showRefRow(code) {
 }
 (function loadRefCode() {
   try {
-    const m = /[?&]chofer=([A-Za-z0-9]{4,12})/.exec(location.search);
+    const m = /[?&]chofer=([A-Za-z0-9]{4,12})(?:&|$)/.exec(location.search);
     if (m) localStorage.setItem("mv_ref_chofer", JSON.stringify({ c: m[1].toUpperCase(), t: Date.now() }));
     const saved = JSON.parse(localStorage.getItem("mv_ref_chofer") || "null");
     // Vale 30 días: después ya no se sabe si fue ese chofer.
@@ -2849,10 +2849,21 @@ async function goToMap() {
       err.textContent = "Escribe tu nombre";
       return;
     }
+    // Código del chofer mal escrito: avisar antes de crear la cuenta (después
+    // ya no se puede ligar). Si no hay internet para revisarlo, se sigue.
+    const refCode = document.getElementById("refInput").value.trim();
+    if (refCode) {
+      const chk = await fetch(API + "/api/drivers/invite/" + encodeURIComponent(refCode)).catch(() => null);
+      if (chk && chk.status === 404) {
+        err.textContent = "Ese código de chofer no existe. Revísalo o bórralo para continuar.";
+        document.getElementById("refInput").focus();
+        return;
+      }
+    }
     const res = await fetch(API + "/api/riders/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone, code, ref: document.getElementById("refInput").value.trim() || undefined, lat: deviceCoords?.lat, lng: deviceCoords?.lng }),
+      body: JSON.stringify({ name, phone, code, ref: refCode || undefined, lat: deviceCoords?.lat, lng: deviceCoords?.lng }),
     });
     if (res.status === 409) return showPinLogin(phone);
     if (!res.ok) {

@@ -426,7 +426,8 @@ router.post("/drivers/profile", async (req, res) => {
       active: invited.active || 0,
       pending: invitedPending || 0,
       ...(await referralStatus(db, driver, shortName)),
-      riders: await riderReferralStatus(db, driver),
+      // Si falla, solo se esconde la tarjeta del QR; el perfil sigue.
+      riders: await riderReferralStatus(db, driver).catch((e) => { console.error("[invita-pasajeros]", e.message); return null; }),
     },
   });
 });

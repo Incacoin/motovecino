@@ -79,7 +79,7 @@
 </div>
 <script>
 (function () {
-  var m = /[?&]c=([A-Za-z0-9]{4,12})/.exec(location.search);
+  var m = /[?&]c=([A-Za-z0-9]{4,12})(?:&|$)/.exec(location.search);
   var code = m ? m[1].toUpperCase() : null;
   var UA = navigator.userAgent || "";
   var ANDROID = /Android/i.test(UA);

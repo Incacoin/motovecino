@@ -82,23 +82,32 @@ async function main() {
     // Uno de prueba y uno sin viaje: no cuentan.
     const prueba = tel("9750");
     const sinViaje = tel("9751");
-    phones.push(prueba, sinViaje);
+    const taxiBarato = tel("9752");
+    const negocio = tel("9753");
+    phones.push(prueba, sinViaje, taxiBarato, negocio);
+    for (const ph of [taxiBarato, negocio]) {
+      await db.prepare("INSERT INTO riders (phone, name, city, referred_by_driver_id, referred_at) VALUES (?, 'No cuenta', 'ticul', ?, datetime('now'))").run(ph, driver.id);
+    }
     await db.prepare("INSERT INTO riders (phone, name, city, referred_by_driver_id, referred_at, es_prueba) VALUES (?, 'Prueba', 'ticul', ?, datetime('now'), 1)").run(prueba, driver.id);
     await db.prepare("INSERT INTO riders (phone, name, city, referred_by_driver_id, referred_at) VALUES (?, 'Sin viaje', 'ticul', ?, datetime('now'))").run(sinViaje, driver.id);
 
-    const ride = (ph, status = "completado") =>
-      db.prepare("INSERT INTO rides (rider_name, rider_phone, pickup_lat, pickup_lng, dest_lat, dest_lng, city, status, created_at, updated_at) VALUES ('x', ?, 20.39528, -89.53389, 20.40, -89.53, 'ticul', ?, datetime('now'), datetime('now'))").run(ph, status);
+    const ride = (ph, status = "completado", tipo = "moto", precio = null, negocioId = null) =>
+      db.prepare("INSERT INTO rides (rider_name, rider_phone, pickup_lat, pickup_lng, dest_lat, dest_lng, city, status, ride_type, agreed_price, business_id, created_at, updated_at) VALUES ('x', ?, 20.39528, -89.53389, 20.40, -89.53, 'ticul', ?, ?, ?, ?, datetime('now'), datetime('now'))").run(ph, status, tipo, precio, negocioId);
     // 19 con viaje completado (el de prueba también viaja, pero no cuenta).
     for (const ph of [tel("9620"), ...phones.filter((p) => /^97[01]\d/.test(p)).slice(0, 18), prueba]) await ride(ph);
-    await ride(sinViaje, "cancelled");
+    await ride(sinViaje, "cancelado");
+    // Taxi de $10 deja $0.60 de comisión (< $2): no cuenta. Envío de negocio tampoco.
+    await ride(taxiBarato, "completado", "taxi", 10);
+    await ride(negocio, "completado", "moto", null, 999999);
 
     check("con 19 no hay premio", (await checkRiderReferralReward(db, driver.id)) === 0);
     let prof = (await post("/drivers/profile", { phone: driver.phone, pin: driver.pin })).data;
     check("perfil: 19 de 20", prof?.invite?.riders?.qualified === 19 && prof.invite.riders.inBatch === 19 && prof.invite.riders.rewards === 0, prof?.invite?.riders);
-    check("perfil: registrados no cuenta al de prueba", prof?.invite?.riders?.registered === 21, prof?.invite?.riders);
+    check("perfil: registrados no cuenta al de prueba", prof?.invite?.riders?.registered === 23, prof?.invite?.riders);
 
     // El viaje número 20 (por la ruta real de completar no: basta la revisión).
-    await ride(tel("9718"));
+    // El 20: un taxi de $40 deja $2.40 de comisión, ese sí cuenta.
+    await ride(tel("9718"), "completado", "taxi", 40);
     await ride(tel("9718")); // un segundo viaje del mismo no cuenta doble
     check("con 20 gana una tanda", (await checkRiderReferralReward(db, driver.id)) === 1);
     check("revisar otra vez no paga doble", (await checkRiderReferralReward(db, driver.id)) === 0);

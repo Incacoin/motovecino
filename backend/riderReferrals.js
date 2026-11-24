@@ -11,6 +11,7 @@
 //  - Promoción hasta PROMO_END (hora de Yucatán): después ya no se ligan
 //    pasajeros nuevos ni se dan premios.
 const { LOCAL_OFFSET } = require("./earnings");
+const { SERVICE_FEE, TAXI_COMMISSION_RATE } = require("./constants");
 const { findInviter } = require("./invites");
 
 const RIDER_REFERRAL = {
@@ -18,6 +19,14 @@ const RIDER_REFERRAL = {
   AMOUNT: 40,
   PROMO_END: "2026-12-31",
 };
+
+// El viaje que hace "contar" al pasajero: completado, de pasaje (no un envío
+// de negocio) y que dejó al menos la cuota de un mototaxi. Así un taxi de $1
+// no cuenta y el premio siempre se paga solo (revisión 24-nov-2026).
+// `x` = alias de rides, `r` = alias de riders. Lo usa también el admin.
+const QUALIFYING_RIDE_SQL = `EXISTS (SELECT 1 FROM rides x WHERE x.rider_phone = r.phone AND x.status = 'completado'
+  AND x.business_id IS NULL
+  AND (COALESCE(x.ride_type, 'moto') <> 'taxi' OR COALESCE(x.agreed_price, 0) * ${Number(TAXI_COMMISSION_RATE)} >= ${Number(SERVICE_FEE)}))`;
 
 async function riderPromoActive(db) {
   return (await db.prepare(`SELECT date('now', '${LOCAL_OFFSET}') <= ? AS ok`).get(RIDER_REFERRAL.PROMO_END)).ok === 1;
@@ -35,7 +44,7 @@ async function riderCounts(db, driver) {
   const row = await db
     .prepare(
       `SELECT COUNT(*) AS registered,
-              SUM(CASE WHEN EXISTS (SELECT 1 FROM rides x WHERE x.rider_phone = r.phone AND x.status = 'completado') THEN 1 ELSE 0 END) AS qualified
+              SUM(CASE WHEN ${QUALIFYING_RIDE_SQL} THEN 1 ELSE 0 END) AS qualified
        FROM riders r
        WHERE r.referred_by_driver_id = ? AND COALESCE(r.es_prueba, 0) = 0 AND r.phone <> ?`
     )
@@ -98,4 +107,4 @@ async function riderReferralStatus(db, driver) {
   };
 }
 
-module.exports = { RIDER_REFERRAL, riderInviterId, checkRiderReferralReward, checkRiderReferralForRide, riderReferralStatus };
+module.exports = { RIDER_REFERRAL, QUALIFYING_RIDE_SQL, riderInviterId, checkRiderReferralReward, checkRiderReferralForRide, riderReferralStatus };
