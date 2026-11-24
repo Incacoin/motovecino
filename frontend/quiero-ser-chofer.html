@@ -438,6 +438,25 @@ try {
   inviteCode = new URLSearchParams(location.search).get("inv") || sessionStorage.getItem("mvInvite");
   if (inviteCode) sessionStorage.setItem("mvInvite", inviteCode);
 } catch (e) {}
+// QR de una agrupación (24-nov-2026, pedido de Alcones Alfa): ?grupo=alcones-alfa
+// deja marcada esa agrupación al cargar la lista. El chofer la puede cambiar,
+// y lo que traiga su borrador manda sobre el enlace.
+let linkGrupo = "";
+try {
+  linkGrupo = (new URLSearchParams(location.search).get("grupo") || sessionStorage.getItem("mvGrupo") || "").trim().toLowerCase();
+  if (linkGrupo) sessionStorage.setItem("mvGrupo", linkGrupo);
+} catch (e) {}
+function grupoSlug(nombre) {
+  return String(nombre).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+function applyLinkGrupo() {
+  if (!linkGrupo || document.querySelector('#grupoOpts input[name="grupo"]:checked')) return;
+  const inp = [...document.querySelectorAll('#grupoOpts input[name="grupo"]')].find((i) => grupoSlug(i.value) === linkGrupo);
+  if (inp) {
+    inp.checked = true;
+    inp.dispatchEvent(new Event("change"));
+  }
+}
 if (inviteCode) {
   fetch("/api/drivers/invite/" + encodeURIComponent(inviteCode))
     .then((r) => (r.ok ? r.json() : null))
@@ -537,6 +556,7 @@ function loadAgrupaciones(city) {
       document.getElementById("grupoField").style.display = "";
       updateNumeroLabel(); // el número pasa a obligatorio
       applyDraftLists();
+      applyLinkGrupo();
     })
     .catch(() => {});
 }
