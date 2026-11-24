@@ -8,7 +8,7 @@ const { haversineKm } = require("../geo");
 const { mapCode } = require("../mapCode");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
-const { agrupacionesDe, grupoValido, numeroValido } = require("../agrupaciones");
+const { agrupacionesDe, grupoValido, grupoOtroValido, faltaAgrupacion, POR_SU_CUENTA, numeroValido } = require("../agrupaciones");
 const { colorValido } = require("../colores");
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide, openZoneAt } = require("../cities");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
@@ -307,7 +307,7 @@ router.post("/drivers/profile", async (req, res) => {
   }
   const driver = await db
     .prepare(
-      `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, numero_unidad, photo, tipo, pin, created_at,
+      `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, grupo_otro, numero_unidad, photo, tipo, pin, created_at,
               paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, deposit_changed_at, city
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
@@ -394,6 +394,12 @@ router.post("/drivers/profile", async (req, res) => {
     vehicleType: driver.vehicle_type,
     vehicleColor: driver.vehicle_color,
     grupo: driver.grupo,
+    grupoOtro: driver.grupo === POR_SU_CUENTA ? driver.grupo_otro || null : null,
+    // Ventanita «¿De qué agrupación eres?» (24-nov-2026): sale mientras falte.
+    faltaAgrupacion: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro),
+    agrupaciones: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro)
+      ? agrupacionesDe(driver.city).map((a) => ({ nombre: a.nombre, lider: a.lider }))
+      : undefined,
     numeroUnidad: driver.numero_unidad,
     ...photoUrls("d", driver.id, driver.photo),
     pin: driver.pin,
@@ -501,6 +507,42 @@ async function bankChanged(driver, newBank, newAccount, ip) {
   return row ? row.deposit_changed_at : null;
 }
 
+// Ventanita «¿De qué agrupación eres?» (24-nov-2026). Para los choferes que se
+// registraron antes de que se preguntara (o con «Otra» sin decir cuál). Solo
+// sirve MIENTRAS le falte: ya contestada, la agrupación solo se cambia desde el
+// admin (la avala su líder, ver /drivers/photo). Queda en el registro del admin.
+router.post("/drivers/agrupacion", async (req, res) => {
+  if (isRateLimited(req.ip, req.body)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const { phone, pin, grupo, grupoOtro } = req.body;
+  if (!phone || !pin) {
+    return res.status(400).json({ error: "Falta teléfono o PIN" });
+  }
+  const driver = await db
+    .prepare("SELECT id, name, city, grupo, grupo_otro FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
+    .get(phone, pin);
+  if (!driver) {
+    recordFailedAttempt(req.ip, req.body);
+    return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
+  }
+  clearAttempts(req.ip);
+  if (!faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro)) {
+    return res.status(409).json({ error: "Tu agrupación ya está guardada. Si hay que cambiarla, escríbenos a Ayuda." });
+  }
+  const g = grupoValido(driver.city, grupo);
+  if (!g) return res.status(400).json({ error: "Elige tu agrupación (o «Otra agrupación»)" });
+  const otro = g === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
+  if (g === POR_SU_CUENTA && !otro) return res.status(400).json({ error: "Escribe cuál es tu agrupación" });
+
+  await db.prepare("UPDATE drivers SET grupo = ?, grupo_otro = ? WHERE id = ?").run(g, otro, driver.id);
+  const antes = driver.grupo ? `${driver.grupo}${driver.grupo_otro ? ` (${driver.grupo_otro})` : ""}` : "sin agrupación";
+  const ahora = `${g === POR_SU_CUENTA ? "Otra agrupación" : g}${otro ? ` (${otro})` : ""}`;
+  await db.prepare("INSERT INTO admin_audit (role, zone, action, target_id, detail, ip, ok) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run("chofer", driver.city || null, "agrupacion_chofer", driver.id, `${driver.name}: ${antes} → ${ahora}`.slice(0, 400), req.ip || null, 1);
+  res.json({ ok: true, grupo: g, grupoOtro: otro });
+});
+
 // La foto es lo único que el chofer puede cambiar de su propio perfil.
 // Nombre, placa, agrupación y tipo de vehículo los avaló su líder y solo se
 // tocan desde el admin — si el chofer pudiera cambiarlos, el aval no valdría.
@@ -565,7 +607,7 @@ router.post("/chofer-solicitudes", async (req, res) => {
     return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   }
   const {
-    name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, vehicleColor, grupo, numeroUnidad, viaLiderLink, formalIntent, city,
+    name, phone, photo, photoPlaca, acceptedLegal, signature, vehicleType, vehicleColor, grupo, grupoOtro, numeroUnidad, viaLiderLink, formalIntent, city,
     emergencyContactName, emergencyContactPhone, referredBy, inviteCode, lat, lng,
   } = req.body;
   for (const img of [photo, photoPlaca, signature]) {
@@ -632,6 +674,12 @@ router.post("/chofer-solicitudes", async (req, res) => {
     grupoLimpio = grupoValido(cityId, grupo);
     if (!grupoLimpio) return res.status(400).json({ error: "Elige tu agrupación (o «Otra agrupación»)" });
   }
+  // «Otra agrupación» → «¿Cuál?» obligatorio (24-nov-2026). Un formulario viejo
+  // que no manda el campo se acepta igual: la ventanita de su app se lo pregunta.
+  const grupoOtroLimpio = grupoLimpio === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
+  if (grupoLimpio === POR_SU_CUENTA && grupoOtro !== undefined && !grupoOtroLimpio) {
+    return res.status(400).json({ error: "Escribe cuál es tu agrupación" });
+  }
   const color = vehicleColor === undefined ? null : colorValido(vehicleColor);
   if (vehicleColor !== undefined && !color) return res.status(400).json({ error: "Elige el color de tu vehículo" });
   // Número del mototaxi: obligatorio donde hay agrupaciones (Ticul), opcional
@@ -677,10 +725,10 @@ router.post("/chofer-solicitudes", async (req, res) => {
   }
 
   await db.prepare(
-    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, vehicle_color, grupo, numero_unidad, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO driver_applications (name, phone, photo, photo_placa, accepted_legal_at, accepted_legal_version, vehicle_type, vehicle_color, grupo, grupo_otro, numero_unidad, tipo, signature, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, phone_verified, zone) VALUES (?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
     // Comisarías (Progreso): solo motocarro, y queda en la comisaría donde se registró.
-    name, cleanPhone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", color, grupoLimpio || null, numero, tipo, toStored(signature), cityId,
+    name, cleanPhone, toStored(photo), toStored(photoPlaca), AVISO_LEGAL_VERSION, vehicleType === "taxi" && !cityCfg?.zones ? "taxi" : "moto", color, grupoLimpio || null, grupoOtroLimpio, numero, tipo, toStored(signature), cityId,
     emergencyContactName.trim().slice(0, 80), cleanEmergencyPhone,
     typeof referredBy === "string" ? referredBy.trim().slice(0, 80) || null : null,
     inviterId,

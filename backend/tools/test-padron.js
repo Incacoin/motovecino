@@ -37,8 +37,8 @@ const JPG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgH
 async function main() {
   const list = await api("GET", "/agrupaciones?city=ticul");
   const nombres = (list.data?.agrupaciones || []).map((a) => `${a.nombre}|${a.lider}`);
-  check("Ticul: Jaguar con Saúl Segura y Alcones Alfa con Abraham Zavaleta",
-    nombres.includes("Jaguar|Saúl Segura") && nombres.includes("Alcones Alfa|Abraham Zavaleta"), list.data);
+  check("Ticul: Jaguar con Saúl Segura y Alcones Alfa con Abraham Zavala",
+    nombres.includes("Jaguar|Saúl Segura") && nombres.includes("Alcones Alfa|Abraham Zavala"), list.data);
   check("opción Por su cuenta", list.data?.porSuCuenta === "Por su cuenta", list.data);
   const tk = await api("GET", "/agrupaciones?city=tekax");
   check("Tekax: sin agrupaciones", Array.isArray(tk.data?.agrupaciones) && tk.data.agrupaciones.length === 0, tk.data);

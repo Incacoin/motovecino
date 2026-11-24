@@ -5,7 +5,7 @@ const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_
 const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
-const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, numeroValido } = require("../agrupaciones");
+const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoOtroValido, numeroValido } = require("../agrupaciones");
 // Otro chofer del mismo municipio, agrupación y tipo de vehículo con ese
 // número (error de dedo o dos con el mismo número): no se bloquea, solo se
 // avisa al admin. «Otra agrupación» y sin agrupación no se comparan: ahí hay
@@ -236,7 +236,7 @@ router.post("/admin/login", checkAdminPin, async (req, res) => {
 
 router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   const {
-    name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, vehicleColor, grupo, numeroUnidad,
+    name, phone, vehicle, tipo, acceptedLegal, photo, photoPlaca, signature, vehicleType, vehicleColor, grupo, grupoOtro, numeroUnidad,
     emergencyContactName, emergencyContactPhone, referredBy, referredByDriverId, applicationId,
   } = req.body;
   if (!name || !phone) {
@@ -261,6 +261,8 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   }
   const grupoAlta = adminGrupo(cityId, grupo);
   if (grupoAlta === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
+  // «¿Cuál agrupación?» con «Otra»: opcional desde el admin (si falta, la app del chofer se lo pregunta).
+  const grupoOtroAlta = grupoAlta === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
   // Color: opcional desde el admin (vacío = sin dato), pero si viene tiene que ser de la lista.
   const colorAlta = vehicleColor ? colorValido(vehicleColor) : null;
   if (vehicleColor && !colorAlta) return res.status(400).json({ error: "Ese color no está en la lista" });
@@ -302,10 +304,10 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
 
   const result = await db
     .prepare(
-      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, numero_unidad, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador, zone) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO drivers (name, phone, vehicle, pin, tipo, accepted_legal_at, accepted_legal_version, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, grupo_otro, numero_unidad, city, emergency_contact_name, emergency_contact_phone, referred_by, referred_by_driver_id, es_fundador, zone) VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
     .run(
-      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", legalVersion, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", colorAlta, grupoAlta, numeroAlta, cityId,
+      name, phone, vehicle || null, pin, tipo === "formal" ? "formal" : "informal", legalVersion, toStored(photo), toStored(photoPlaca), toStored(signature), vehicleType === "taxi" && !zoned ? "taxi" : "moto", colorAlta, grupoAlta, grupoOtroAlta, numeroAlta, cityId,
       emergencyContactName || null, emergencyContactPhone || null, referredBy || null, inviterId, 0, zone ? zone.id : null
     );
   await ensureInviteCode(db, result.lastInsertRowid);
@@ -314,7 +316,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   await recomputeFounders(db);
 
   const driver = await db
-    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, numero_unidad, city, zone, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
+    .prepare("SELECT id, name, phone, vehicle, pin, status, tipo, photo, photo_placa, signature, vehicle_type, vehicle_color, grupo, grupo_otro, numero_unidad, city, zone, emergency_contact_name, emergency_contact_phone, referred_by, es_fundador FROM drivers WHERE id = ?")
     .get(result.lastInsertRowid);
   driver.numeroRepetido = await numeroRepetido(cityId, grupoAlta, driver.vehicle_type, numeroAlta, driver.id);
 
@@ -325,10 +327,10 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
   const drivers = await db
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
-              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.numero_unidad, d.cancel_count, d.cooldown_until, d.grupo, d.city, d.zone, d.created_at,
+              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.numero_unidad, d.cancel_count, d.cooldown_until, d.grupo, d.grupo_otro, d.city, d.zone, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               d.play_last_open, d.play_opens,
-              (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
+              d.referred_by_driver_id, (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
               (SELECT COUNT(*) FROM drivers x WHERE x.referred_by_driver_id = d.id AND x.deleted_at IS NULL) AS invited_count,
               (SELECT COUNT(*) FROM riders rr WHERE rr.referred_by_driver_id = d.id AND COALESCE(rr.es_prueba, 0) = 0) AS riders_invited,
               (SELECT COUNT(*) FROM riders r WHERE r.referred_by_driver_id = d.id AND COALESCE(r.es_prueba, 0) = 0
@@ -514,7 +516,7 @@ router.post("/admin/drivers/:id/vouch", checkAdminPin, async (req, res) => {
 
 router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("drivers", req, res)) return;
-  const { name, phone, vehicle, tipo, vehicleType, vehicleColor, grupo, numeroUnidad, referredBy } = req.body;
+  const { name, phone, vehicle, tipo, vehicleType, vehicleColor, grupo, grupoOtro, numeroUnidad, referredBy } = req.body;
   if (!name || !phone) {
     return res.status(400).json({ error: "Falta nombre o teléfono" });
   }
@@ -545,13 +547,18 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   // Si manda el mismo valor que ya tiene (aunque sea uno viejo que ya no está
   // en la lista, ej. texto libre de antes), no se valida ni se toca: así se
   // puede corregir el nombre sin que lo obligue a cambiar la agrupación.
-  const actual = await db.prepare("SELECT grupo, vehicle_color, numero_unidad, referred_by FROM drivers WHERE id = ?").get(req.params.id);
+  const actual = await db.prepare("SELECT grupo, grupo_otro, vehicle_color, numero_unidad, referred_by FROM drivers WHERE id = ?").get(req.params.id);
   const conGrupo = grupo !== undefined && (grupo || null) !== (actual?.grupo || null);
   let grupoNuevo;
   if (conGrupo) {
     grupoNuevo = adminGrupo(cityId, grupo);
     if (grupoNuevo === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
   }
+  // «¿Cuál agrupación?»: solo cuenta con «Otra»; si vino se toma ("" = quitarlo),
+  // si no vino se queda la de antes. Con otra agrupación se borra.
+  const grupoFinal = conGrupo ? grupoNuevo : actual?.grupo ?? null;
+  const grupoOtroNuevo = grupoFinal !== POR_SU_CUENTA ? null
+    : grupoOtro !== undefined ? grupoOtroValido(grupoOtro) : actual?.grupo_otro ?? null;
   // Igual con el color: solo se toca si vino y cambió ("" = quitarlo).
   const conColor = vehicleColor !== undefined && (vehicleColor || null) !== (actual?.vehicle_color || null);
   const colorNuevo = conColor && vehicleColor ? colorValido(vehicleColor) : null;
@@ -572,15 +579,15 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   const refNuevo = refLimpio === undefined || refLimpio === (actual?.referred_by ?? null) ? actual?.referred_by ?? null : refLimpio?.slice(0, 80) ?? null;
 
   await db.prepare(
-    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, vehicle_color = ?, numero_unidad = ?, referred_by = ?, city = ? WHERE id = ?"
+    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, grupo_otro = ?, vehicle_color = ?, numero_unidad = ?, referred_by = ?, city = ? WHERE id = ?"
   ).run(
     name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto",
-    conGrupo ? grupoNuevo : actual?.grupo ?? null, conColor ? colorNuevo : actual?.vehicle_color ?? null, numeroNuevo, refNuevo, cityId, req.params.id
+    grupoFinal, grupoOtroNuevo, conColor ? colorNuevo : actual?.vehicle_color ?? null, numeroNuevo, refNuevo, cityId, req.params.id
   );
 
   const driver = await db
     .prepare(
-      "SELECT id, name, phone, vehicle, pin, status, last_seen, paid_until, tipo, vehicle_type, vehicle_color, grupo, numero_unidad, city, created_at FROM drivers WHERE id = ?"
+      "SELECT id, name, phone, vehicle, pin, status, last_seen, paid_until, tipo, vehicle_type, vehicle_color, grupo, grupo_otro, numero_unidad, city, created_at FROM drivers WHERE id = ?"
     )
     .get(req.params.id);
   driver.numeroRepetido = await numeroRepetido(cityId, driver.grupo, driver.vehicle_type, driver.numero_unidad, driver.id);
@@ -637,14 +644,14 @@ router.post("/admin/drivers/:id/move-city", checkAdminPin, async (req, res) => {
   }
   // La agrupación es de cada municipio (Jaguar es de Ticul): al mudarlo se
   // borra y se vuelve a elegir en el municipio nuevo.
-  await db.prepare("UPDATE drivers SET city = ?, zone = NULL, grupo = NULL, numero_unidad = NULL WHERE id = ?").run(toCity, req.params.id);
+  await db.prepare("UPDATE drivers SET city = ?, zone = NULL, grupo = NULL, grupo_otro = NULL, numero_unidad = NULL WHERE id = ?").run(toCity, req.params.id);
   res.json({ ok: true, city: toCity, cityLabel: getCityById(toCity).label });
 });
 
 router.post("/admin/chofer-solicitudes/list", checkAdminPin, async (req, res) => {
   const apps = await db
     .prepare(
-      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.vehicle_color, a.grupo, a.numero_unidad, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
+      "SELECT a.id, a.name, a.phone, a.photo, a.photo_placa, a.signature, a.status, a.created_at, a.accepted_legal_at, a.accepted_legal_version, a.vehicle_type, a.vehicle_color, a.grupo, a.grupo_otro, a.numero_unidad, a.tipo, a.city, a.emergency_contact_name, a.emergency_contact_phone, a.referred_by, a.referred_by_driver_id, a.phone_verified, a.zone, inv.name AS inviter_name FROM driver_applications a LEFT JOIN drivers inv ON inv.id = a.referred_by_driver_id WHERE a.status = 'pendiente' AND a.city = ? ORDER BY a.created_at DESC"
     )
     .all(req.adminCity);
   res.json(req.body.photoRefs ? apps : apps.map((a) => inflateRow(a, DRIVER_IMG_COLS)));

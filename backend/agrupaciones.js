@@ -10,7 +10,7 @@
 const AGRUPACIONES = {
   ticul: [
     { nombre: "Jaguar", lider: "Saúl Segura" },
-    { nombre: "Alcones Alfa", lider: "Abraham Zavaleta" },
+    { nombre: "Alcones Alfa", lider: "Abraham Zavala" },
   ],
 };
 
@@ -36,6 +36,26 @@ function grupoParaPasajero(grupo) {
   return grupo === POR_SU_CUENTA ? null : grupo;
 }
 
+// «¿Cuál agrupación?» (24-nov-2026): quien elige «Otra agrupación» escribe el
+// nombre real de la suya (ej. «Los Halcones»). Se guarda en grupo_otro, solo
+// para el padrón interno del admin. Espacios juntos, hasta 60 letras. null si
+// queda vacío o con menos de 2 letras.
+function grupoOtroValido(valor) {
+  if (typeof valor !== "string") return null;
+  const v = valor.replace(/\s+/g, " ").trim().slice(0, 60).trim();
+  return v.length >= 2 ? v : null;
+}
+
+// ¿Al chofer le falta decir su agrupación? Solo en municipios con lista: sin
+// elegir, con un valor que ya no está en la lista, o «Otra» sin decir cuál.
+// Es lo que hace salir la ventanita en su app.
+function faltaAgrupacion(cityId, grupo, grupoOtro) {
+  if (!agrupacionesDe(cityId).length) return false;
+  const g = grupoValido(cityId, grupo);
+  if (!g) return true;
+  return g === POR_SU_CUENTA && !grupoOtroValido(grupoOtro);
+}
+
 // Número del mototaxi en su agrupación (23-nov-2026): solo números, hasta 4
 // cifras, sin ceros a la izquierda ("007" → "7"). null si no es válido.
 function numeroValido(valor) {
@@ -45,4 +65,4 @@ function numeroValido(valor) {
   return n === "0" ? null : n;
 }
 
-module.exports = { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoParaPasajero, numeroValido };
+module.exports = { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoOtroValido, faltaAgrupacion, grupoParaPasajero, numeroValido };

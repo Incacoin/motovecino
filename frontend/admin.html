@@ -815,6 +815,7 @@
   <div class="field" id="driverGrupoField" style="display:none">
     <label>Agrupación</label>
     <select id="driverGrupo" class="tipo-select"></select>
+    <input id="driverGrupoOtro" type="text" maxlength="60" placeholder="Si es «Otra»: ¿cuál? (Ej.: Los Halcones)" style="margin-top:6px" />
   </div>
   <div class="field">
     <label>Número del mototaxi (opcional)</label>
@@ -1666,9 +1667,9 @@ function colorOptions(selected) {
   if (selected && !opts.some(([v]) => v === selected)) opts.push([selected, selected]);
   return opts.map(([v, t]) => `<option value="${escapeHtml(v)}"${v === (selected || "") ? " selected" : ""}>${escapeHtml(t)}</option>`).join("");
 }
-function grupoLabel(grupo) {
+function grupoLabel(grupo, grupoOtro) {
   const a = agrupacionesAdmin().find((x) => x.nombre === grupo);
-  if (grupo === porSuCuenta) return "Otra agrupación (aún no en la lista)";
+  if (grupo === porSuCuenta) return grupoOtro ? `Otra agrupación: ${grupoOtro}` : "Otra agrupación (falta decir cuál)";
   return a ? `${a.nombre} · Líder: ${a.lider}` : grupo;
 }
 function grupoOptions(selected) {
@@ -1681,17 +1682,34 @@ function grupoOptions(selected) {
 // Para el líder de cada agrupación y la Dirección de Transporte: nombre,
 // servicio, desde cuándo y si se conecta. Nunca teléfono ni ubicación.
 // "Otra agrupación" (valor guardado "Por su cuenta") y "Sin elegir" son solo para MotoVecino (no se reparten).
+// 24-nov-2026: «Otra agrupación» se parte en «Invitados de <quien invitó>» (uno
+// por cada invitador) y «Entraron por MotoVecino» (sin invitación), con su
+// agrupación real (lo que escribieron en «¿Cuál?») en una columna.
+function quienInvito(d) { return (d.inviter_name || d.referred_by || "").trim(); }
 function padronGrupos() {
   const reales = driversCache.filter((d) => !d.es_prueba);
-  const grupos = agrupacionesAdmin().map((a) => ({ key: a.nombre, titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false }));
-  grupos.push({ key: porSuCuenta, titulo: "Otra agrupación", sub: "Su agrupación aún no está en la lista", interno: true });
-  grupos.push({ key: "", titulo: "Sin elegir agrupación", sub: "Falta preguntarles", interno: true });
-  const conocidos = new Set(grupos.map((g) => g.key));
-  grupos.forEach((g) => {
-    g.choferes = reales
-      .filter((d) => (g.key === "" ? !d.grupo || !conocidos.has(d.grupo) : d.grupo === g.key))
-      .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  });
+  const porNombre = (a, b) => a.name.localeCompare(b.name, "es");
+  const grupos = agrupacionesAdmin().map((a) => ({
+    titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false,
+    choferes: reales.filter((d) => d.grupo === a.nombre).sort(porNombre),
+  }));
+  const otras = reales.filter((d) => d.grupo === porSuCuenta);
+  const invitadores = new Map();
+  for (const d of otras) {
+    const quien = quienInvito(d);
+    if (!quien) continue;
+    const k = refKey(quien);
+    if (!invitadores.has(k)) invitadores.set(k, { titulo: `Invitados de ${quien}`, sub: "De otras agrupaciones · entraron con su invitación", interno: true, otra: true, choferes: [] });
+    invitadores.get(k).choferes.push(d);
+  }
+  [...invitadores.values()]
+    .sort((a, b) => b.choferes.length - a.choferes.length || a.titulo.localeCompare(b.titulo, "es"))
+    .forEach((g) => { g.choferes.sort(porNombre); grupos.push(g); });
+  grupos.push({ titulo: "Entraron por MotoVecino", sub: "De otras agrupaciones · sin invitación de un compañero", interno: true, otra: true,
+    choferes: otras.filter((d) => !quienInvito(d)).sort(porNombre) });
+  const conocidos = new Set([...agrupacionesAdmin().map((a) => a.nombre), porSuCuenta]);
+  grupos.push({ titulo: "Sin elegir agrupación", sub: "Su app se lo pregunta al abrirla", interno: true,
+    choferes: reales.filter((d) => !d.grupo || !conocidos.has(d.grupo)).sort(porNombre) });
   return grupos;
 }
 function showPadron() {
@@ -1746,9 +1764,10 @@ function printPadron(i) {
   // Ordenado por número del mototaxi (los que no tienen número, al final).
   const ordenNum = (lista) => [...lista].sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9));
   const porNumero = ordenNum(g.choferes);
-  const fila = (d, n) => `<tr><td>${n + 1}</td><td>${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "—"}</td><td>${escapeHtml(d.name)}</td><td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`;
-  const encabezado = `<thead><tr><th>#</th><th>Número</th><th>Nombre</th><th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead>`;
-  const tablas = g.interno
+  const colOtra = (d) => (g.otra ? `<td>${escapeHtml(d.grupo_otro || "Falta que diga cuál")}</td>` : "");
+  const fila = (d, n) => `<tr><td>${n + 1}</td><td>${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "—"}</td><td>${escapeHtml(d.name)}</td>${colOtra(d)}<td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`;
+  const encabezado = `<thead><tr><th>#</th><th>Número</th><th>Nombre</th>${g.otra ? "<th>Su agrupación</th>" : ""}<th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead>`;
+  const tablas = g.interno && !g.otra
     ? padronSecciones(g.choferes).map((s) => `<h2>${escapeHtml(s.titulo)} (${s.choferes.length})</h2><table>${encabezado}<tbody>${ordenNum(s.choferes).map(fila).join("")}</tbody></table>`).join("")
     : `<table>${encabezado}<tbody>${porNumero.map(fila).join("")}</tbody></table>`;
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2290,7 +2309,7 @@ function renderApplications(apps) {
               : a.referred_by ? `<span class="meta">Invitado por ${escapeHtml(a.referred_by)}</span>` : ""}
             ${a.vehicle_color ? `<span class="meta">Color: <b>${escapeHtml(a.vehicle_color)}</b></span>` : ""}
             ${a.numero_unidad ? `<span class="meta">Número: <b>#${escapeHtml(a.numero_unidad)}</b></span>` : ""}
-            ${a.grupo ? `<span class="meta">Agrupación: <b>${escapeHtml(grupoLabel(a.grupo))}</b></span>` : ""}
+            ${a.grupo ? `<span class="meta">Agrupación: <b>${escapeHtml(grupoLabel(a.grupo, a.grupo_otro))}</b></span>` : ""}
             ${a.emergency_contact_name ? `<span class="meta">Emergencia: ${escapeHtml(a.emergency_contact_name)} · ${escapeHtml(a.emergency_contact_phone)}</span>` : ""}
           </div>
         </div>
@@ -2321,6 +2340,7 @@ function useApplication(id) {
   document.getElementById("driverEmergencyPhone").value = app.emergency_contact_phone || "";
   document.getElementById("driverReferredBy").value = app.referred_by || "";
   if (agrupacionesAdmin().length) document.getElementById("driverGrupo").innerHTML = grupoOptions(app.grupo || "");
+  document.getElementById("driverGrupoOtro").value = app.grupo_otro || "";
   document.getElementById("driverColor").innerHTML = colorOptions(app.vehicle_color || "");
   document.getElementById("driverNumero").value = app.numero_unidad || "";
   pendingDriverPhoto = app.photo || null;
@@ -2580,6 +2600,7 @@ async function registerDriver() {
       adminPin, name, phone, vehicle, vehicleType, acceptedLegal: true, photo: pendingDriverPhoto, photoPlaca: pendingDriverPhotoPlaca, signature: pendingDriverSignature,
       zone: isZonedAdmin() ? document.getElementById("driverZone").value : null,
       grupo: agrupacionesAdmin().length ? document.getElementById("driverGrupo").value || null : undefined,
+      grupoOtro: agrupacionesAdmin().length ? document.getElementById("driverGrupoOtro").value.trim() || null : undefined,
       vehicleColor: document.getElementById("driverColor").value || null,
       numeroUnidad: document.getElementById("driverNumero").value.trim() || null,
       emergencyContactName: emergencyContactName || null, emergencyContactPhone: emergencyContactPhone || null, referredBy: referredBy || null,
@@ -2611,6 +2632,7 @@ async function registerDriver() {
   renderGrupoField();
   document.getElementById("driverColor").innerHTML = colorOptions("");
   document.getElementById("driverReferredBy").value = "";
+  document.getElementById("driverGrupoOtro").value = "";
   document.getElementById("driverVehicleType").value = "moto";
   document.getElementById("driverAcceptedLegal").checked = false;
   pendingDriverPhoto = null;
@@ -2834,7 +2856,7 @@ function startEdit(id) {
     <div class="field"><label for="edit-vehicletype-${d.id}">Tipo de vehículo</label>${vehicleTypeSelect(d.id, d.vehicle_type)}</div>
     <div class="field"><label for="edit-color-${d.id}">Color</label><select id="edit-color-${d.id}" class="tipo-select">${colorOptions(d.vehicle_color || "")}</select></div>
     <div class="field"><label for="edit-numero-${d.id}">Número del mototaxi</label><input id="edit-numero-${d.id}" type="text" inputmode="numeric" maxlength="4" placeholder="Ej. 45" value="${escapeHtml(d.numero_unidad || "")}" /></div>
-    ${agrupacionesAdmin().length ? `<div class="field"><label for="edit-grupo-${d.id}">Agrupación</label><select id="edit-grupo-${d.id}" class="tipo-select">${grupoOptions(d.grupo || "")}</select></div>` : ""}
+    ${agrupacionesAdmin().length ? `<div class="field"><label for="edit-grupo-${d.id}">Agrupación</label><select id="edit-grupo-${d.id}" class="tipo-select">${grupoOptions(d.grupo || "")}</select><input id="edit-grupo-otro-${d.id}" type="text" maxlength="60" placeholder="Si es «Otra»: ¿cuál? (Ej.: Los Halcones)" value="${escapeHtml(d.grupo_otro || "")}" style="margin-top:6px" /></div>` : ""}
     <div class="field"><label for="edit-vehicle-${d.id}">Placa / descripción (opcional)</label><input id="edit-vehicle-${d.id}" value="${escapeHtml(d.vehicle || "")}" placeholder="Ej. placa YUC-123" /></div>
     <div class="field"><label for="edit-ref-${d.id}">¿Quién lo invitó?</label>${refEditField(d).replace('style="margin-top:6px;width:100%"', "")}</div>
     <div class="edit-btns"><button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button><button class="btn" id="editSaveBtn" onclick="saveEdit(${d.id})">Guardar</button></div>
@@ -2875,7 +2897,7 @@ async function saveEdit(id) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // grupo solo si hay selector (municipio con agrupaciones); si no va, el servidor no la toca.
-    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, vehicleColor: document.getElementById(`edit-color-${id}`)?.value, numeroUnidad: document.getElementById(`edit-numero-${id}`)?.value.trim(), referredBy: document.getElementById(`edit-ref-${id}`)?.value.trim() }),
+    body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, grupoOtro: document.getElementById(`edit-grupo-otro-${id}`)?.value.trim(), vehicleColor: document.getElementById(`edit-color-${id}`)?.value, numeroUnidad: document.getElementById(`edit-numero-${id}`)?.value.trim(), referredBy: document.getElementById(`edit-ref-${id}`)?.value.trim() }),
   }).catch(() => null);
   if (!res || !res.ok) {
     showToast((res && (await res.json().catch(() => ({}))).error) || "No se pudo guardar. Revisa tu señal e intenta otra vez.");
@@ -3122,7 +3144,7 @@ function renderDriverRows() {
     // "Invita a otro chofer": quién lo trajo (con su link, o lo que escribió
     // a mano) y a cuántos ha traído él.
     const referralLines = [
-      d.grupo ? `Agrupación: ${escapeHtml(grupoLabel(d.grupo))}` : agrupacionesAdmin().length ? "Agrupación: sin elegir" : "",
+      d.grupo ? `Agrupación: ${escapeHtml(grupoLabel(d.grupo, d.grupo_otro))}` : agrupacionesAdmin().length ? "Agrupación: sin elegir" : "",
       d.inviter_name ? `Lo invitó ${escapeHtml(d.inviter_name)} (chofer)` : d.referred_by ? `Invitado por ${escapeHtml(d.referred_by)}` : "",
       d.invited_count ? `Ha invitado a ${d.invited_count} chofer${d.invited_count === 1 ? "" : "es"}` : "",
       Number(d.riders_invited) ? `Invitó ${d.riders_invited} pasajero${Number(d.riders_invited) === 1 ? "" : "s"} (${Number(d.riders_invited_active) || 0} con 3 viajes)` : "",

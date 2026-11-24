@@ -739,6 +739,10 @@ ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS vehicle_color TEXT;
 -- vehículo. Se pide al registrarse y el pasajero lo ve. Solo números.
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS numero_unidad TEXT;
 ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS numero_unidad TEXT;
+-- «¿Cuál agrupación?» (24-nov-2026): con «Otra agrupación» el chofer escribe
+-- el nombre real de la suya. Solo para el padrón interno del admin.
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS grupo_otro TEXT;
+ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS grupo_otro TEXT;
 -- Invita pasajeros (23-nov-2026): el chofer comparte su QR/código y el
 -- pasajero nuevo queda ligado a él. Por cada 20 invitados que completan su
 -- primer viaje, el chofer gana $40 de saldo a favor (ver riderReferrals.js).

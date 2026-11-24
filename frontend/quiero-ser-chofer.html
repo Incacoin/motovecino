@@ -308,6 +308,11 @@
     <div class="field" id="grupoField" style="display:none;">
       <label>¿A qué agrupación perteneces?</label>
       <div class="grupoOpts" id="grupoOpts"></div>
+      <!-- 24-nov-2026: con «Otra agrupación» se pide cuál (solo lo ve MotoVecino). -->
+      <div id="grupoOtroBox" style="display:none;margin-top:10px;">
+        <label for="grupoOtro">¿Cuál agrupación?</label>
+        <input id="grupoOtro" type="text" maxlength="60" autocomplete="off" placeholder="Ej.: Los Halcones" />
+      </div>
       <p class="fieldHint" id="grupoLinkNote" style="display:none;margin:8px 0 0;">Ya viene marcada por el enlace que te mandaron. Si no es tu agrupación, cámbiala.</p>
     </div>
     <!-- 23-nov-2026: número del mototaxi en su agrupación (pintado en el
@@ -542,6 +547,7 @@ function loadAgrupaciones(city) {
   const req = ++agrupacionesReq;
   document.getElementById("grupoField").style.display = "none";
   document.getElementById("grupoOpts").innerHTML = "";
+  document.getElementById("grupoOtroBox").style.display = "none";
   updateNumeroLabel();
   return fetch("/api/agrupaciones?city=" + encodeURIComponent(city))
     .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
@@ -559,6 +565,8 @@ function loadAgrupaciones(city) {
       // Marca con clase (no :has(), que no existe en Chrome viejo de celulares sencillos).
       document.querySelectorAll('#grupoOpts input[name="grupo"]').forEach((inp) => inp.addEventListener("change", () => {
         document.querySelectorAll("#grupoOpts .grupoOpt").forEach((l) => l.classList.toggle("sel", l.contains(document.querySelector('#grupoOpts input:checked'))));
+        const otra = document.querySelector('#grupoOpts input:checked')?.value === data.porSuCuenta;
+        document.getElementById("grupoOtroBox").style.display = otra ? "" : "none";
       }));
       document.getElementById("grupoField").style.display = "";
       updateNumeroLabel(); // el número pasa a obligatorio
@@ -810,7 +818,7 @@ function showPhoto(previewId, dataUrl) {
 // dura 24 h y se borra al enviar la solicitud. La firma no se guarda: se
 // vuelve a firmar.
 const DRAFT_KEY = "mv_reg_chofer";
-const DRAFT_FIELDS = ["name", "phone", "vehicleColor", "numeroUnidad", "emergencyName", "emergencyPhone", "referredBy"];
+const DRAFT_FIELDS = ["name", "phone", "vehicleColor", "numeroUnidad", "grupoOtro", "emergencyName", "emergencyPhone", "referredBy"];
 let draftPending = null; // color/agrupación esperan a que carguen sus listas
 let draftSubmitted = false; // ya se envió: no volver a guardar nada
 let draftTimer = null;
@@ -1050,6 +1058,15 @@ async function submitApplication() {
     document.getElementById("grupoField").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
+  // «Otra agrupación» → ¿cuál? (mismo criterio que el servidor: 2 letras o más).
+  const otraSel = grupoSel && document.getElementById("grupoOtroBox").style.display !== "none";
+  const grupoOtro = otraSel ? document.getElementById("grupoOtro").value.replace(/\s+/g, " ").trim() : "";
+  if (otraSel && grupoOtro.length < 2) {
+    err.textContent = "Escribe cuál es tu agrupación";
+    document.getElementById("grupoOtro").focus();
+    document.getElementById("grupoOtroBox").scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   const numeroEl = document.getElementById("numeroUnidad");
   const numeroUnidad = numeroEl.value.trim();
   if (numeroUnidad && (!/^\d{1,4}$/.test(numeroUnidad) || /^0+$/.test(numeroUnidad))) {
@@ -1111,6 +1128,7 @@ async function submitApplication() {
       name, phone, photo: photoDataUrl, photoPlaca: photoPlacaDataUrl, acceptedLegal: true,
       signature: sigCanvas.toDataURL("image/png"), vehicleType, city: detectedCity,
       grupo: grupoSel ? grupoSel.value : null,
+      grupoOtro: otraSel ? grupoOtro : null,
       numeroUnidad,
       vehicleColor,
       emergencyContactName: emergencyName, emergencyContactPhone: emergencyPhone,
