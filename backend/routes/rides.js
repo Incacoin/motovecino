@@ -18,6 +18,7 @@ const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC, MOTO_OFFER_MAX_UP, TAXI_OF
 const { suggestTaxiFare } = require("../taxiFares");
 const { driverEarnings, LOCAL_DONE_DATE, LOCAL_TODAY } = require("../earnings");
 const { checkReferralReward } = require("../referrals");
+const { checkRiderReferralForRide } = require("../riderReferrals");
 const { cleanForOther } = require("./familyRides");
 
 function generateShareToken() {
@@ -1043,6 +1044,11 @@ router.post("/rides/:id/complete", async (req, res) => {
   // Premio de "Invita a otro chofer": ¿con este viaje ya llegó a la meta?
   // Nunca debe tumbar el cierre del viaje, pase lo que pase.
   try { await checkReferralReward(db, driverId); } catch (e) { console.error("[referral]", e.message); }
+  // "Invita pasajeros": si este pasajero vino invitado, ¿su chofer ya juntó otros 20?
+  try {
+    const rp = await db.prepare("SELECT rider_phone FROM rides WHERE id = ?").get(rideId);
+    await checkRiderReferralForRide(db, rp && rp.rider_phone);
+  } catch (e) { console.error("[invita-pasajeros]", e.message); }
 
   // todayEarned: para la cajita "hoy" arriba del mapa en chofer.html.
   const { count: todayCount, earned: todayEarned } = await db

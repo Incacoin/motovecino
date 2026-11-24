@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MotoVecino — Te invitó tu chofer</title>
+<meta name="description" content="Pide tu mototaxi o taxi desde tu celular, con choferes de aquí. Baja MotoVecino." />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="MotoVecino" />
+<meta property="og:title" content="MotoVecino — Te invitó tu chofer" />
+<meta property="og:description" content="Pide tu mototaxi o taxi desde tu celular, con choferes de aquí." />
+<meta property="og:image" content="https://motovecinoapp.com/og-motovecino-v2.jpg" />
+<meta property="og:locale" content="es_MX" />
+<meta name="robots" content="noindex" />
+<link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
+<meta name="theme-color" content="#ffffff" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f4f5f6; color: #0b0d12; }
+  .wrap { max-width: 420px; margin: 0 auto; padding: 26px 20px 40px; }
+  .brand { display: flex; align-items: center; gap: 12px; justify-content: center; font-weight: 800; font-size: 26px; letter-spacing: -0.03em; }
+  .brand img { width: 46px; height: 46px; border-radius: 12px; background: #0b0d12; padding: 6px; }
+  .tag { display: inline-block; background: #22c55e; color: #04110b; font-weight: 800; font-size: 13px; padding: 5px 12px; border-radius: 8px; letter-spacing: 0.02em; text-transform: uppercase; }
+  h1 { font-size: 34px; line-height: 1.05; letter-spacing: -0.045em; margin: 14px 0 8px; font-weight: 800; }
+  .sub { color: #3b4250; font-size: 16px; line-height: 1.45; margin: 0 0 18px; }
+  .code { background: #fff; border-radius: 16px; padding: 14px 16px; margin: 0 0 18px; box-shadow: 0 1px 0 rgba(0,0,0,.04); border: 1px solid rgba(15,23,42,.08); }
+  .code small { color: #5b6270; font-size: 13px; }
+  .code b { display: block; font-size: 30px; letter-spacing: 0.14em; margin: 2px 0 2px; }
+  .card { background: #fff; border-radius: 18px; padding: 18px 16px; border: 1px solid rgba(15,23,42,.08); margin-bottom: 14px; }
+  .card h2 { font-size: 17px; margin: 0 0 12px; letter-spacing: -0.02em; }
+  ol { list-style: none; padding: 0; margin: 0; counter-reset: p; }
+  ol li { counter-increment: p; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px; font-size: 15px; line-height: 1.4; }
+  ol li::before { content: counter(p); flex: 0 0 34px; height: 34px; border-radius: 50%; background: #22c55e; color: #fff; font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  ol li a { display: inline-block; margin-top: 6px; color: #15803d; font-weight: 700; text-decoration: none; }
+  .btn { display: block; width: 100%; text-align: center; padding: 15px; border-radius: 14px; font-weight: 800; font-size: 16px; text-decoration: none; border: 0; }
+  .btn.verde { background: #22c55e; color: #04110b; }
+  .btn.negro { background: #0b0d12; color: #fff; }
+  .note { color: #5b6270; font-size: 13px; line-height: 1.45; margin-top: 10px; }
+  .iab { background: #fff7e6; border: 1px solid #f5d38a; border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.45; margin-bottom: 14px; }
+  .iab .btn { margin-top: 10px; }
+  .foot { text-align: center; color: #5b6270; font-size: 13px; margin-top: 20px; }
+  .foot a { color: #15803d; font-weight: 700; text-decoration: none; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><img src="icons/logo-mark.svg" alt="" />MotoVecino</div>
+  <div style="margin-top:22px;"><span class="tag" id="tag">Te invitó tu chofer</span></div>
+  <h1>Pide tu mototaxi desde tu celular</h1>
+  <p class="sub">Mototaxi, motocarro o taxi con choferes de aquí. Tú propones tu precio y ves por dónde viene tu chofer.</p>
+
+  <div class="code" id="codeBox" hidden>
+    <small>Código de tu chofer</small>
+    <b id="codeTxt"></b>
+    <small>Si al registrarte no aparece solo, escríbelo donde dice «¿Te invitó un chofer?».</small>
+  </div>
+
+  <div class="iab" id="iabBox" hidden></div>
+
+  <div class="card" id="androidCard">
+    <h2>Android: bájala de Google Play</h2>
+    <ol>
+      <li><span>Únete al grupo con tu cuenta de Gmail. Toca <b>Unirse al grupo</b> y confirma otra vez.<br><a class="lnk" href="https://groups.google.com/g/testers-motovecino" target="_blank" rel="noopener">Unirse al grupo ↗</a></span></li>
+      <li><span>Hazte probador: toca <b>Convertirse en verificador</b> (o <b>probador</b>).<br><a class="lnk" href="https://play.google.com/apps/testing/com.motovecino.app" target="_blank" rel="noopener">Hazte probador ↗</a></span></li>
+      <li><span>Instálala desde Google Play y regístrate con tu nombre y tu teléfono.<br><a class="lnk" href="https://play.google.com/store/apps/details?id=com.motovecino.app" target="_blank" rel="noopener">Instalar desde Google Play ↗</a></span></li>
+    </ol>
+    <div class="note">Si en el paso 3 dice «no se encontró», espera unos minutos y vuelve a intentar.</div>
+  </div>
+
+  <div class="card">
+    <h2 id="webTitle">¿Prefieres no instalar nada todavía?</h2>
+    <a class="btn verde" id="openApp" href="/pasajero.html">Abrir MotoVecino aquí</a>
+    <div class="note" id="webNote">Funciona desde el navegador. Después la puedes guardar en tu pantalla de inicio.</div>
+  </div>
+
+  <div class="foot">¿Dudas? Escríbenos por <a href="https://wa.me/529979739422" rel="noopener">WhatsApp 997 973 9422</a></div>
+</div>
+<script>
+(function () {
+  var m = /[?&]c=([A-Za-z0-9]{4,12})/.exec(location.search);
+  var code = m ? m[1].toUpperCase() : null;
+  var UA = navigator.userAgent || "";
+  var ANDROID = /Android/i.test(UA);
+  var IOS = /iPhone|iPad|iPod/i.test(UA);
+  var IAB = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|; wv\)/i.test(UA);
+
+  // iPhone: no hay Play Store; se usa desde Safari.
+  if (IOS) {
+    document.getElementById("androidCard").hidden = true;
+    document.getElementById("webTitle").textContent = "iPhone: úsala desde Safari";
+    document.getElementById("webNote").innerHTML = "Ya dentro, toca <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b> para tenerla como app.";
+  }
+
+  function enChrome(url) {
+    return "intent://" + url.replace(/^https?:\/\//, "") + "#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=" + encodeURIComponent(url) + ";end";
+  }
+  // Dentro de Facebook/Instagram no está la cuenta de Google: el grupo diría
+  // «No tienes permiso». En Android lo mandamos a Chrome (mismo truco que la página web).
+  if (IAB && ANDROID) {
+    var box = document.getElementById("iabBox");
+    box.hidden = false;
+    box.innerHTML = "<b>Estás dentro de otra app.</b> Para bajarla de Google Play, primero ábrela en Chrome:" +
+      '<a class="btn negro" href="' + enChrome(location.href) + '">Abrir en Chrome</a>';
+    [].forEach.call(document.querySelectorAll("a.lnk"), function (a) { a.href = enChrome(a.href); a.removeAttribute("target"); });
+  }
+
+  if (!code) return;
+  // Se guarda en el celular para que el registro del pasajero lo encuentre
+  // aunque llegue después (por ejemplo, al abrir la app ya instalada de Play).
+  fetch("/api/drivers/invite/" + encodeURIComponent(code))
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.ok) {
+        document.getElementById("tag").textContent = "Bienvenido";
+        return;
+      }
+      try { localStorage.setItem("mv_ref_chofer", JSON.stringify({ c: code, t: Date.now() })); } catch (e) {}
+      document.getElementById("codeTxt").textContent = code;
+      document.getElementById("codeBox").hidden = false;
+      document.getElementById("openApp").href = "/pasajero.html?chofer=" + encodeURIComponent(code);
+    })
+    .catch(function () {});
+})();
+</script>
+</body>
+</html>

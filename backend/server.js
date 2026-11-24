@@ -126,6 +126,9 @@ const PUBLIC_PAGES = new Set([
   "/quiero-ser-chofer.html",
   "/quiero-ser-chofer",
   "/quiero-ser-chofer/",
+  "/invita.html",
+  "/invita",
+  "/invita/",
 ]);
 // Pantallas internas que no deben salir en Google en ningún dominio.
 const NOINDEX_PATHS = new Set(["/admin.html", "/seguir.html", "/contrato-prestacion-servicios.html", "/ayuda.html"]);
@@ -163,6 +166,28 @@ app.get(["/quiero-ser-chofer", "/quiero-ser-chofer/"], (req, res) => {
 app.get(["/registrar-negocio", "/registrar-negocio/"], (req, res) => {
   const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
   res.redirect("/negocio.html" + qs);
+});
+
+// "Invita pasajeros" (23-nov-2026): el QR del chofer lleva a
+// motovecinoapp.com/invita?c=CODIGO (página que explica cómo bajar la app y
+// guarda el código para el registro).
+app.get(["/invita", "/invita/"], (req, res) => {
+  const qs = req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : "";
+  res.redirect("/invita.html" + qs);
+});
+// El QR se dibuja aquí (SVG) para el panel del chofer. Solo arma el enlace
+// fijo de /invita con un código de formato válido: no es un generador de QR
+// para cualquier texto.
+const QRCode = require("qrcode");
+app.get("/api/qr/invita/:code.svg", async (req, res) => {
+  const code = String(req.params.code || "").toUpperCase();
+  if (!/^[A-Z0-9]{4,12}$/.test(code)) return res.status(400).end();
+  try {
+    const svg = await QRCode.toString(`https://${CANONICAL_HOST}/invita?c=${code}`, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#000000", light: "#ffffff" } });
+    res.set("Content-Type", "image/svg+xml").set("Cache-Control", "public, max-age=86400").send(svg);
+  } catch {
+    res.status(500).end();
+  }
 });
 
 app.use(express.static(path.join(__dirname, "..", "frontend")));

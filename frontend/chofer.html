@@ -205,6 +205,19 @@ function setDriverTheme(pref) {
   .profile-sub { color: var(--text-dim); font-size: 13.5px; text-align: center; }
   .profile-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .profile-card .card-title { font-weight: 700; font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+  /* Invita pasajeros (QR) */
+  .rinv-qr { align-self: center; background: #fff; border: 0; border-radius: 16px; padding: 10px; cursor: pointer; line-height: 0; }
+  .rinv-qr img { width: 190px; height: 190px; }
+  .rinv-code { text-align: center; font-size: 14px; color: var(--text-dim); }
+  .rinv-code b { color: var(--text); font-size: 20px; letter-spacing: 0.12em; margin-left: 4px; }
+  .rinv-progress { display: flex; flex-direction: column; gap: 4px; }
+  .rinv-full { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.85); align-items: center; justify-content: center; padding: 20px; }
+  .rinv-full-box { background: #fff; color: #0b0d12; border-radius: 22px; padding: 22px 18px; width: 100%; max-width: 380px; text-align: center; }
+  .rinv-full-box img { width: 100%; max-width: 320px; aspect-ratio: 1; }
+  .rinv-full-t { font-weight: 800; font-size: 19px; margin-bottom: 10px; }
+  .rinv-full-c { font-size: 15px; margin-top: 8px; }
+  .rinv-full-c b { font-size: 24px; letter-spacing: 0.12em; }
+  .rinv-full-x { font-size: 13px; color: #5b6270; margin-top: 10px; }
   /* Invita a otro chofer */
   .invite-stats { font-size: 13px; color: var(--text); background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 9px 12px; }
   .invite-stats:empty { display: none; }
@@ -524,8 +537,8 @@ function setDriverTheme(pref) {
   .pf-top h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
   .pf-back { width: 40px; height: 40px; border-radius: 13px; border: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text); background: rgba(15,23,42,0.06); flex-shrink: 0; }
   html[data-theme="dark"] .pf-back { background: rgba(255,255,255,0.08); }
-  .pf-hero, .pf-unit, .pf-stats .stat, .pf-list, #inviteCard, .pf-next { background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.07) !important; box-shadow: none !important; }
-  html[data-theme="dark"] .pf-hero, html[data-theme="dark"] .pf-unit, html[data-theme="dark"] .pf-stats .stat, html[data-theme="dark"] .pf-list, html[data-theme="dark"] #inviteCard, html[data-theme="dark"] .pf-next { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
+  .pf-hero, .pf-unit, .pf-stats .stat, .pf-list, #inviteCard, #riderInviteCard, .pf-next { background: rgba(15,23,42,0.045) !important; border: 1px solid rgba(15,23,42,0.07) !important; box-shadow: none !important; }
+  html[data-theme="dark"] .pf-hero, html[data-theme="dark"] .pf-unit, html[data-theme="dark"] .pf-stats .stat, html[data-theme="dark"] .pf-list, html[data-theme="dark"] #inviteCard, html[data-theme="dark"] #riderInviteCard, html[data-theme="dark"] .pf-next { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.08) !important; }
   .pf-hero { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 24px; }
   .pf-av { position: relative; width: 76px; height: 76px; flex-shrink: 0; }
   .pf-av #profilePhotoSlot, .pf-av #profilePhoto, .pf-av .profile-photo-fallback { width: 76px !important; height: 76px !important; border-radius: 50% !important; margin: 0 !important; box-sizing: border-box; }
@@ -561,8 +574,8 @@ function setDriverTheme(pref) {
   #earningsCard { flex-direction: column; border-top: 1px solid var(--border); }
   .pf-list .section-body { padding: 4px 6px 12px; }
   #section-ganancias .earn-today, #section-ganancias .earn-grid { margin-top: 6px; }
-  #inviteCard { border-radius: 22px !important; }
-  #inviteCard .btn { background: #25d366 !important; color: #fff !important; font-weight: 800; border-radius: 16px; }
+  #inviteCard, #riderInviteCard { border-radius: 22px !important; }
+  #inviteCard .btn, #riderInviteCard .btn { background: #25d366 !important; color: #fff !important; font-weight: 800; border-radius: 16px; }
   .pf-next { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 12px; border-radius: 22px; font: inherit; font-size: 15px; color: var(--text); text-align: left; cursor: pointer; }
   .pf-next > span:first-child { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 17px; background: rgba(34,197,94,0.14); flex-shrink: 0; }
   .pf-section-label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin: 6px 4px -4px; }
@@ -748,7 +761,7 @@ function setDriverTheme(pref) {
   html[data-theme="dark"] .push-state .ico { color: #4ade80; }
   .inv-gift { display: inline-flex; vertical-align: -3px; margin-right: 6px; color: #16a34a; }
   html[data-theme="dark"] .inv-gift { color: #4ade80; }
-  #inviteCard .invite-btn { background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800 !important; border-radius: 16px !important; font-family: inherit !important; letter-spacing: -0.01em; }
+  #inviteCard .invite-btn, #riderInviteCard .invite-btn { background: linear-gradient(180deg, #4ade80, #16a34a) !important; color: #04110b !important; font-weight: 800 !important; border-radius: 16px !important; font-family: inherit !important; letter-spacing: -0.01em; }
 </style>
 </head>
 <body>
@@ -937,6 +950,24 @@ function setDriverTheme(pref) {
     <div class="earn-list" id="earnRecent"></div>
       <div class="profile-note" id="earnNote"></div>
         </div>
+      </div>
+    </div>
+
+    <div class="card profile-card" id="riderInviteCard" style="display:none;">
+      <div class="card-title ic-in" style="justify-content:flex-start;"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 18v3"/></svg>Invita pasajeros</div>
+      <div class="profile-note" style="margin-top:0;">Enséñale este QR a tu pasajero para que baje MotoVecino. Toca el QR para verlo en grande.</div>
+      <div class="invite-promo" id="riderInvitePromo"></div>
+      <button type="button" class="rinv-qr" onclick="openRiderQr()" aria-label="Ver QR en grande"><img id="riderQrImg" alt="QR de invitación" width="190" height="190" /></button>
+      <div class="rinv-code">Tu código: <b id="riderInviteCode"></b></div>
+      <div class="rinv-progress" id="riderInviteProgress"></div>
+      <button class="btn invite-btn" onclick="shareRiderInvite()"><span class="ic-in"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.6-4.6A9 9 0 1 1 8 19.6z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1.2-1.6-2.2-1-1 .8a5 5 0 0 1-2.7-2.7l.8-1-1-2.2z"/></svg>Mandar por WhatsApp</span></button>
+    </div>
+    <div class="rinv-full" id="riderQrFull" style="display:none;" onclick="this.style.display='none'">
+      <div class="rinv-full-box">
+        <div class="rinv-full-t">Escanea para bajar MotoVecino</div>
+        <img id="riderQrFullImg" alt="QR de invitación" />
+        <div class="rinv-full-c">Código del chofer: <b id="riderQrFullCode"></b></div>
+        <div class="rinv-full-x">Toca para cerrar</div>
       </div>
     </div>
 
@@ -3796,6 +3827,46 @@ async function openProfile() {
   }
 }
 
+// "Invita pasajeros" (23-nov-2026): su QR lleva a motovecinoapp.com/invita?c=CÓDIGO
+// (página para bajar la app). Por cada 20 invitados con su primer viaje
+// completado gana saldo a favor (lo cuenta el servidor, ver riderReferrals.js).
+let riderInviteInfo = null;
+function renderRiderInvite(inv) {
+  const r = inv && inv.code && inv.riders ? inv.riders : null;
+  riderInviteInfo = r ? { code: inv.code, cityLabel: inv.cityLabel, ...r } : null;
+  const card = document.getElementById("riderInviteCard");
+  // Se ve mientras dure la promoción, o si ya ganó algo con ella.
+  card.style.display = riderInviteInfo && (r.active || r.rewards) ? "flex" : "none";
+  if (!riderInviteInfo) return;
+  const src = `/api/qr/invita/${encodeURIComponent(inv.code)}.svg`;
+  document.getElementById("riderQrImg").src = src;
+  document.getElementById("riderQrFullImg").src = src;
+  document.getElementById("riderInviteCode").textContent = inv.code;
+  document.getElementById("riderQrFullCode").textContent = inv.code;
+  document.getElementById("riderInvitePromo").innerHTML = r.active
+    ? `<b>Por cada ${r.perBatch} pasajeros que invites y hagan su primer viaje, ganas $${r.amount}</b> de descuento en tu cuota. Promoción hasta el ${fmtPromoEnd(r.end)}.<small class="invite-fine">Cuenta cuando tu invitado completa su primer viaje (con cualquier chofer). El saldo a favor se resta de tu cuota; no se cambia por efectivo.</small>`
+    : "";
+  const pct = Math.round((r.inBatch / r.perBatch) * 100);
+  document.getElementById("riderInviteProgress").innerHTML =
+    `<div class="inv-row"><span>Llevas</span><b>${r.inBatch} de ${r.perBatch} pasajeros</b></div>
+     <div class="inv-bar"><i style="width:${pct}%"></i></div>
+     <div class="inv-hint">Se registraron ${r.registered} · ya viajaron ${r.qualified}${r.rewards ? ` · Ganaste $${r.earnedTotal}` : ""}</div>`;
+}
+
+function openRiderQr() {
+  document.getElementById("riderQrFull").style.display = "flex";
+}
+
+function shareRiderInvite() {
+  if (!riderInviteInfo) return;
+  const link = `https://motovecinoapp.com/invita?c=${encodeURIComponent(riderInviteInfo.code)}`;
+  const place = riderInviteInfo.cityLabel ? ` aquí en ${riderInviteInfo.cityLabel}` : "";
+  const text = `¡Hola! Ya puedes pedir tu mototaxi o taxi desde el celular con MotoVecino${place}, con choferes de aquí. ` +
+    `Bájala con mi invitación:
+${link}`;
+  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+}
+
 // "Invita a otro chofer": abre WhatsApp con el mensaje y su link personal
 // (quiero-ser-chofer.html?inv=CÓDIGO). Siempre el dominio actual, aunque la
 // app se haya abierto desde un dominio viejo.
@@ -4092,6 +4163,7 @@ function renderProfile(p) {
   renderEarnings(p.earnings);
   renderGoalBox();
   renderInvite(p.invite);
+  renderRiderInvite(p.invite);
 
   // --- Mi cuenta (estado de pago) ---
   // Ya no hay mensualidad (descontinuada 2026-09-08) — el único cobro es el

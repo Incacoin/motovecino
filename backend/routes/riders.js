@@ -1,4 +1,5 @@
 const express = require("express");
+const { riderInviterId } = require("../riderReferrals");
 const db = require("../db");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const { photoUrls, cleanThumb } = require("../photos");
@@ -150,9 +151,14 @@ router.post("/riders/register", async (req, res) => {
     return res.status(200).json({ id: existing.id, name, phone, pin, isNewPin: true });
   }
 
+  // "Invita pasajeros": solo cuentas NUEVAS quedan ligadas al chofer que
+  // invitó (código del QR o escrito a mano). Un código que no sirve se ignora
+  // sin estorbar el registro.
+  let inviterId = null;
+  try { inviterId = await riderInviterId(db, req.body.ref, phone); } catch (e) { console.error("[invita-pasajeros]", e.message); }
   const result = await db
-    .prepare("INSERT INTO riders (phone, name, pin, city, city_located, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))")
-    .run(phone, name, pin, city, located);
+    .prepare("INSERT INTO riders (phone, name, pin, city, city_located, referred_by_driver_id, referred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+    .run(phone, name, pin, city, located, inviterId, inviterId ? new Date().toISOString().slice(0, 19).replace("T", " ") : null);
   // Sin await: el WhatsApp de bienvenida no hace esperar a la persona.
   sendWelcome(parsed.e164, name);
   res.status(201).json({ id: result.lastInsertRowid, name, phone, pin, isNewPin: true });

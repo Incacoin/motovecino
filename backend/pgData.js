@@ -14,6 +14,7 @@ const TABLES = [
   "driver_applications",
   "driver_payments",
   "referral_rewards",
+  "rider_referral_rewards",
   "driver_credits",
   "driver_activity_log",
   "ride_offers",

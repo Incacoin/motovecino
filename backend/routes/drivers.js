@@ -18,6 +18,7 @@ const { photoUrls, cleanThumb } = require("../photos");
 const { toStored } = require("../imageStore");
 const { ensureInviteCode, findInviter, shortName } = require("../invites");
 const { checkReferralReward, creditBalance, referralStatus } = require("../referrals");
+const { checkRiderReferralReward, riderReferralStatus } = require("../riderReferrals");
 
 const router = express.Router();
 
@@ -349,6 +350,7 @@ router.post("/drivers/profile", async (req, res) => {
   const pendingRidesAmount = pendingFeeRows.reduce((sum, r) => sum + rideFee(r), 0);
   // Saldo a favor por invitaciones: se resta de lo que entrega de cuota.
   try { await checkReferralReward(db, driver.id); } catch (e) { console.error("[referral]", e.message); }
+  try { await checkRiderReferralReward(db, driver.id); } catch (e) { console.error("[invita-pasajeros]", e.message); }
   const credit = await creditBalance(db, driver.id);
 
   // Anticipos que el propio chofer confirmó haber recibido en su cuenta —
@@ -424,6 +426,7 @@ router.post("/drivers/profile", async (req, res) => {
       active: invited.active || 0,
       pending: invitedPending || 0,
       ...(await referralStatus(db, driver, shortName)),
+      riders: await riderReferralStatus(db, driver),
     },
   });
 });

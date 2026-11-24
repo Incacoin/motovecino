@@ -1087,6 +1087,8 @@ function toggleRiderTheme() {
   .bk-state { font-size: 13.5px; font-weight: 700; margin-top: 6px; }
   .bk-state.ok { color: #16a34a; }
   .bk-item .btn { margin-top: 10px; padding: 10px; font-size: 14px; }
+  .ref-label { font-size: 12.5px; color: var(--text-dim); margin: 2px 0 -4px 6px; }
+  .ref-toggle { background: none; border: 0; color: var(--text-dim); font: 600 13.5px Inter, sans-serif; text-decoration: underline; cursor: pointer; padding: 2px 0 6px; align-self: flex-start; }
 </style>
 </head>
 <body>
@@ -1134,6 +1136,12 @@ function toggleRiderTheme() {
       -->
     </select>
     <input id="phoneInput" placeholder="Tu teléfono" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '')" />
+  </div>
+  <button type="button" class="wb-hide ref-toggle" id="refToggle" onclick="showRefRow()">¿Te invitó un chofer?</button>
+  <div class="wb-hide ref-label" id="refLabel" style="display:none;">Código del chofer que te invitó</div>
+  <div class="input-icon-row wb-hide" id="refRow" style="display:none;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/></svg>
+    <input id="refInput" placeholder="Código de tu chofer (opcional)" maxlength="12" autocapitalize="characters" autocomplete="off" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')" />
   </div>
   <div class="input-icon-row" id="riderPinRow" style="display:none;">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -2731,6 +2739,30 @@ try {
   }
 } catch {}
 
+// "Invita pasajeros" (23-nov-2026): el QR del chofer trae ?chofer=CODIGO (o
+// lo dejó guardado la página /invita). Se pone solo en el registro; si no
+// llegó, el pasajero lo puede escribir. Solo sirve para cuentas nuevas.
+function showRefRow(code) {
+  document.getElementById("refToggle").style.display = "none";
+  document.getElementById("refRow").style.display = "flex";
+  document.getElementById("refLabel").style.display = "block";
+  const input = document.getElementById("refInput");
+  if (code) input.value = code;
+  else input.focus();
+}
+(function loadRefCode() {
+  try {
+    const m = /[?&]chofer=([A-Za-z0-9]{4,12})/.exec(location.search);
+    if (m) localStorage.setItem("mv_ref_chofer", JSON.stringify({ c: m[1].toUpperCase(), t: Date.now() }));
+    const saved = JSON.parse(localStorage.getItem("mv_ref_chofer") || "null");
+    // Vale 30 días: después ya no se sabe si fue ese chofer.
+    if (saved && saved.c && Date.now() - saved.t < 30 * 86400000) {
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => showRefRow(saved.c));
+      else showRefRow(saved.c);
+    }
+  } catch {}
+})();
+
 function onCountryChange() {
   const c = PHONE_COUNTRIES[document.getElementById("countrySelect").value];
   const input = document.getElementById("phoneInput");
@@ -2820,7 +2852,7 @@ async function goToMap() {
     const res = await fetch(API + "/api/riders/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone, code, lat: deviceCoords?.lat, lng: deviceCoords?.lng }),
+      body: JSON.stringify({ name, phone, code, ref: document.getElementById("refInput").value.trim() || undefined, lat: deviceCoords?.lat, lng: deviceCoords?.lng }),
     });
     if (res.status === 409) return showPinLogin(phone);
     if (!res.ok) {
@@ -2829,6 +2861,7 @@ async function goToMap() {
     }
     rider = await res.json();
     hideOtp();
+    try { localStorage.removeItem("mv_ref_chofer"); } catch {}
   }
 
   finishRiderLogin(rider);

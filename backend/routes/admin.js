@@ -329,6 +329,9 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
               d.play_last_open, d.play_opens,
               (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
               (SELECT COUNT(*) FROM drivers x WHERE x.referred_by_driver_id = d.id AND x.deleted_at IS NULL) AS invited_count,
+              (SELECT COUNT(*) FROM riders rr WHERE rr.referred_by_driver_id = d.id AND COALESCE(rr.es_prueba, 0) = 0) AS riders_invited,
+              (SELECT COUNT(*) FROM riders rr WHERE rr.referred_by_driver_id = d.id AND COALESCE(rr.es_prueba, 0) = 0
+                 AND EXISTS (SELECT 1 FROM rides x WHERE x.rider_phone = rr.phone AND x.status = 'completado')) AS riders_invited_active,
               GREATEST(0, (SELECT COALESCE(SUM(amount), 0) FROM driver_credits WHERE driver_id = d.id)
                    - (SELECT COALESCE(SUM(credit_applied), 0) FROM driver_payments WHERE driver_id = d.id)) AS credit_balance,
               (SELECT amount FROM driver_payments WHERE driver_id = d.id ORDER BY paid_at DESC LIMIT 1) AS last_payment_amount,
