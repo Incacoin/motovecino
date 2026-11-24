@@ -1,10 +1,11 @@
 // "Invita pasajeros" (23-nov-2026): el chofer enseña su QR (o dicta su código)
 // y el pasajero que se registra con él queda ligado a ese chofer.
 // Reglas acordadas con el dueño:
-//  - Cuenta solo el pasajero NUEVO que ya COMPLETÓ al menos un viaje (con
+//  - Cuenta solo el pasajero NUEVO que ya COMPLETÓ RIDES_REQUIRED viajes (con
 //    cualquier chofer). Registrarse no basta: así no se pueden inflar con
-//    cuentas de familia, y cada pasajero que cuenta ya dejó su cuota → el
-//    premio se paga solo.
+//    cuentas de familia, y cada pasajero que cuenta ya dejó sus cuotas → el
+//    premio se paga solo (10 × 3 viajes ≈ $60 de cuota por $20 de premio).
+//    Cambiado el 24-nov-2026 a pedido del dueño (antes 20 con 1 viaje = $40).
 //  - No cuentan pasajeros de prueba ni el teléfono del propio chofer.
 //  - Por cada PER_BATCH que cuentan, el chofer gana AMOUNT de saldo a favor
 //    (se resta de su cuota, igual que "Invita a otro chofer"; no es efectivo).
@@ -14,19 +15,23 @@ const { LOCAL_OFFSET } = require("./earnings");
 const { SERVICE_FEE, TAXI_COMMISSION_RATE } = require("./constants");
 const { findInviter } = require("./invites");
 
+const RIDER_REFERRAL_RIDES = 3;
 const RIDER_REFERRAL = {
-  PER_BATCH: 20,
-  AMOUNT: 40,
+  PER_BATCH: 10,
+  AMOUNT: 20,
+  RIDES_REQUIRED: RIDER_REFERRAL_RIDES,
   PROMO_END: "2026-12-31",
 };
 
-// El viaje que hace "contar" al pasajero: completado, de pasaje (no un envío
-// de negocio) y que dejó al menos la cuota de un mototaxi. Así un taxi de $1
-// no cuenta y el premio siempre se paga solo (revisión 24-nov-2026).
+// Los viajes que cuentan: completados, de pasaje (no un envío de negocio) y
+// que dejaron al menos la cuota de un mototaxi. Así un taxi de $1 no cuenta y
+// el premio siempre se paga solo (revisión 24-nov-2026). El pasajero cuenta
+// cuando junta RIDES_REQUIRED de esos viajes.
 // `x` = alias de rides, `r` = alias de riders. Lo usa también el admin.
-const QUALIFYING_RIDE_SQL = `EXISTS (SELECT 1 FROM rides x WHERE x.rider_phone = r.phone AND x.status = 'completado'
+const RIDES_COUNT_SQL = `(SELECT COUNT(*) FROM rides x WHERE x.rider_phone = r.phone AND x.status = 'completado'
   AND x.business_id IS NULL
   AND (COALESCE(x.ride_type, 'moto') <> 'taxi' OR COALESCE(x.agreed_price, 0) * ${Number(TAXI_COMMISSION_RATE)} >= ${Number(SERVICE_FEE)}))`;
+const QUALIFYING_RIDE_SQL = `${RIDES_COUNT_SQL} >= ${Number(RIDER_REFERRAL_RIDES)}`;
 
 async function riderPromoActive(db) {
   return (await db.prepare(`SELECT date('now', '${LOCAL_OFFSET}') <= ? AS ok`).get(RIDER_REFERRAL.PROMO_END)).ok === 1;
@@ -44,12 +49,13 @@ async function riderCounts(db, driver) {
   const row = await db
     .prepare(
       `SELECT COUNT(*) AS registered,
-              SUM(CASE WHEN ${QUALIFYING_RIDE_SQL} THEN 1 ELSE 0 END) AS qualified
-       FROM riders r
-       WHERE r.referred_by_driver_id = ? AND COALESCE(r.es_prueba, 0) = 0 AND r.phone <> ?`
+              SUM(CASE WHEN t.n >= ${Number(RIDER_REFERRAL_RIDES)} THEN 1 ELSE 0 END) AS qualified,
+              SUM(CASE WHEN t.n >= 1 AND t.n < ${Number(RIDER_REFERRAL_RIDES)} THEN 1 ELSE 0 END) AS started
+       FROM (SELECT ${RIDES_COUNT_SQL} AS n FROM riders r
+             WHERE r.referred_by_driver_id = ? AND COALESCE(r.es_prueba, 0) = 0 AND r.phone <> ?) t`
     )
     .get(driver.id, driver.phone || "");
-  return { registered: Number(row.registered) || 0, qualified: Number(row.qualified) || 0 };
+  return { registered: Number(row.registered) || 0, qualified: Number(row.qualified) || 0, started: Number(row.started) || 0 };
 }
 
 // Se llama al completar un viaje de un pasajero invitado y al abrir el perfil
@@ -97,10 +103,12 @@ async function riderReferralStatus(db, driver) {
   return {
     active: await riderPromoActive(db),
     perBatch: RIDER_REFERRAL.PER_BATCH,
+    ridesRequired: RIDER_REFERRAL.RIDES_REQUIRED,
     amount: RIDER_REFERRAL.AMOUNT,
     end: RIDER_REFERRAL.PROMO_END,
     registered: counts.registered,
     qualified: counts.qualified,
+    started: counts.started,
     inBatch: counts.qualified % RIDER_REFERRAL.PER_BATCH,
     rewards: Number(earned.n) || 0,
     earnedTotal: Number(earned.total) || 0,

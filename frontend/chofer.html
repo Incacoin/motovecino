@@ -3844,13 +3844,13 @@ function renderRiderInvite(inv) {
   document.getElementById("riderInviteCode").textContent = inv.code;
   document.getElementById("riderQrFullCode").textContent = inv.code;
   document.getElementById("riderInvitePromo").innerHTML = r.active
-    ? `<b>Por cada ${r.perBatch} pasajeros que invites y hagan su primer viaje, ganas $${r.amount}</b> de descuento en tu cuota. Promoción hasta el ${fmtPromoEnd(r.end)}.<small class="invite-fine">Cuenta cuando tu invitado completa su primer viaje (con cualquier chofer). El saldo a favor se resta de tu cuota; no se cambia por efectivo.</small>`
+    ? `<b>Por cada ${r.perBatch} pasajeros que invites y hagan ${r.ridesRequired} viajes, ganas $${r.amount}</b> de descuento en tu cuota. Promoción hasta el ${fmtPromoEnd(r.end)}.<small class="invite-fine">Tu invitado cuenta cuando completa ${r.ridesRequired} viajes (con cualquier chofer). El saldo a favor se resta de tu cuota; no se cambia por efectivo.</small>`
     : "";
   const pct = Math.round((r.inBatch / r.perBatch) * 100);
   document.getElementById("riderInviteProgress").innerHTML =
     `<div class="inv-row"><span>Llevas</span><b>${r.inBatch} de ${r.perBatch} pasajeros</b></div>
      <div class="inv-bar"><i style="width:${pct}%"></i></div>
-     <div class="inv-hint">Se registraron ${r.registered} · ya viajaron ${r.qualified}${r.rewards ? ` · Ganaste $${r.earnedTotal}` : ""}</div>`;
+     <div class="inv-hint">Se registraron ${r.registered} · con ${r.ridesRequired} viajes: ${r.qualified}${r.started ? ` · a medio camino: ${r.started}` : ""}${r.rewards ? ` · Ganaste $${r.earnedTotal}` : ""}</div>`;
 }
 
 function openRiderQr() {
