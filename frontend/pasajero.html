@@ -528,6 +528,15 @@ function toggleRiderTheme() {
   .qj-opt:active { background: rgba(34,197,94,.15); }
   .qj-opt:last-child { grid-column: 1 / -1; }
   .qj-cancel { width: 100%; margin: 0; padding: 12px 10px; font-size: 14.5px; }
+  /* Seguridad durante el viaje: 911 + avisar/compartir (no se anuncia, sin alarma roja). */
+  .sg-box p { margin-bottom: 12px; font-size: 17px; }
+  .sg-opt { display: flex; align-items: center; gap: 10px; width: 100%; font: inherit; font-size: 15px; font-weight: 600; text-align: left; padding: 13px 12px; margin: 0 0 8px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
+  .sg-opt:active { background: rgba(34,197,94,.15); }
+  .sg-opt small { display: block; font-weight: 500; font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .sg-info { font-size: 13.5px; line-height: 1.5; background: rgba(128,128,128,.10); border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; }
+  .sg-info b { font-weight: 700; }
+  .sg-911 { border-color: var(--danger); text-decoration: none; }
+  .sg-tip { font-size: 12.5px; color: var(--text-dim); margin: 2px 0 12px; line-height: 1.4; }
 
   /* Selector de tema (perfil) y botón rápido de la portada */
   .theme-block { width: 260px; margin-top: 22px; text-align: left; }
@@ -1496,7 +1505,7 @@ function toggleRiderTheme() {
   </div>
   <div class="share-cancel-row">
     <button class="btn btn-secondary ic-btn" id="shareBtn" onclick="shareRide()"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>Compartir</button>
-    <button class="btn btn-secondary ic-btn" id="emergencyBtn" style="display:none;" onclick="notifyEmergencyContact()"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17.5v.01"/></svg>Avisar</button>
+    <button class="btn btn-secondary ic-btn" id="emergencyBtn" style="display:none;" onclick="openSafetySheet()"><svg class="li" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></svg>Seguridad</button>
     <button class="btn btn-secondary" id="cancelBtn" onclick="cancelRide()">Cancelar</button>
   </div>
   <div id="ratingBox" class="card fade-in" style="display:none;">
@@ -1811,6 +1820,7 @@ function followDriverTick() {
   if (!statusMap.getBounds().pad(-0.2).contains(here)) statusMap.panTo(here, { animate: true });
 }
 let driverPos = null;
+let currentDriver = null; // para la ventana de Seguridad (911)
 let routeLine = null;
 let routeRefreshInterval = null;
 let currentRideStatus = "buscando";
@@ -4027,6 +4037,7 @@ async function onDriverAssigned(driver, agreedPrice, deposit) {
   stopStatusAvailableDriversPolling();
   clearTaxiOffers();
   currentRideStatus = "aceptado";
+  currentDriver = driver || null;
   document.getElementById("statusText").textContent = isDeliveryRide() ? "¡Tu repartidor va por tu pedido!" : "¡Chofer en camino!";
   const cancelBtnEl = document.getElementById("cancelBtn");
   cancelBtnEl.style.display = "inline-block";
@@ -4914,10 +4925,61 @@ function renderEmergencyStatus(rider) {
   setAccTile("tileEmergency", hasContact, rider.emergency_contact_name || "Guardado");
 }
 
+// «Seguridad» sale siempre en la pantalla del viaje (antes «Avisar» solo con contacto guardado).
 function updateEmergencyBtn() {
+  document.getElementById("emergencyBtn").style.display = ""; // el de su clase (ícono al lado del texto)
+}
+
+function closeSafetySheet() {
+  const box = document.querySelector(".sg-box");
+  if (box) box.closest(".mv-confirm").remove();
+}
+
+// Ventana de Seguridad: llamar al 911 con los datos que pide la operadora a la vista,
+// avisar al contacto de emergencia o compartir el viaje. Solo marca: no promete que llegue nadie.
+function openSafetySheet() {
+  if (!ride || document.querySelector(".sg-box")) return;
   const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
-  const btn = document.getElementById("emergencyBtn");
-  btn.style.display = rider && rider.emergency_contact_phone ? "block" : "none";
+  const d = currentDriver;
+  const veh = d ? [escapeHtml(d.vehicle || (serviceType === "taxi" ? "Taxi" : "Mototaxi")), d.numero_unidad ? numeroTxt(d) : "", d.vehicle_color ? escapeHtml(String(d.vehicle_color).toLowerCase()) : ""].filter(Boolean).join(" · ") : "";
+  // Dónde va: la moto/taxi en vivo si ya subió; si no, el punto de recogida.
+  const pos = currentRideStatus === "en_curso" && driverPos ? driverPos : pickup;
+  const posTxt = pos && Number.isFinite(Number(pos.lat)) ? `${Number(pos.lat).toFixed(5)}, ${Number(pos.lng).toFixed(5)}` : "";
+  const desde = ride.pickup_label || pickupLabel;
+  const hasta = ride.dest_label || destLabel;
+  const info = [
+    `<b>Viaje #${Number(ride.id)}</b> · MotoVecino ${escapeHtml(resolvedCityLabel || "")}`,
+    d ? `Chofer: <b>${escapeHtml(d.name || "")}</b>` : "Todavía no hay chofer asignado",
+    veh ? `Vehículo: <b>${veh}</b>` : "",
+    d && d.grupo ? `Agrupación: ${escapeHtml(d.grupo)}` : "",
+    desde ? `Recogida: ${escapeHtml(desde)}` : "",
+    hasta ? `Destino: ${escapeHtml(hasta)}` : "",
+    posTxt ? `Ubicación GPS: ${posTxt}` : "",
+  ].filter(Boolean).join("<br>");
+  const hasContact = !!(rider && rider.emergency_contact_phone);
+  const contactName = hasContact && rider.emergency_contact_name ? escapeHtml(rider.emergency_contact_name) : "tu contacto";
+  const ov = document.createElement("div");
+  ov.className = "mv-confirm";
+  ov.innerHTML = `<div class="mv-confirm-box sg-box" role="dialog" aria-modal="true" aria-label="Seguridad">
+    <p>Seguridad</p>
+    <div class="sg-info">${info}</div>
+    <a class="sg-opt sg-911" href="tel:911">📞<span>Llamar al 911<small>Emergencias. Diles los datos de arriba.</small></span></a>
+    ${hasContact
+      ? `<button class="sg-opt" type="button" data-a="avisar">👤<span>Avisar a ${contactName}<small>Le llega tu viaje en vivo por WhatsApp</small></span></button>`
+      : ""}
+    <button class="sg-opt" type="button" data-a="compartir">📍<span>Compartir mi viaje<small>Alguien de confianza te sigue en el mapa</small></span></button>
+    ${hasContact ? "" : `<div class="sg-tip">Tip: guarda un contacto de emergencia en tu cuenta (menú → Emergencia) y aquí le avisas con un toque.</div>`}
+    <button class="btn btn-secondary qj-cancel" type="button" data-a="cerrar">Cerrar</button>
+  </div>`;
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov) return ov.remove();
+    const b = e.target.closest("[data-a]");
+    if (!b) return;
+    ov.remove();
+    if (b.dataset.a === "avisar") notifyEmergencyContact();
+    else if (b.dataset.a === "compartir") shareRide();
+  });
+  document.body.appendChild(ov);
 }
 
 async function saveEmergencyContact() {
@@ -5076,6 +5138,8 @@ function onCompleted() {
   document.getElementById("driverCard").style.display = "none";
   hideChat();
   document.getElementById("shareBtn").style.display = "none";
+  document.getElementById("emergencyBtn").style.display = "none";
+  closeSafetySheet();
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
   hidePushAsk();
@@ -5132,6 +5196,8 @@ function onNoDriversAvailable() {
   document.getElementById("connWarning").style.display = "none";
   hideChat();
   document.getElementById("shareBtn").style.display = "none";
+  document.getElementById("emergencyBtn").style.display = "none";
+  closeSafetySheet();
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
   hidePushAsk();
@@ -5150,6 +5216,8 @@ function onCancelledByDriver() {
   document.getElementById("connWarning").style.display = "none";
   hideChat();
   document.getElementById("shareBtn").style.display = "none";
+  document.getElementById("emergencyBtn").style.display = "none";
+  closeSafetySheet();
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
   hidePushAsk();
@@ -5268,6 +5336,8 @@ async function cancelRide() {
   document.getElementById("connWarning").style.display = "none";
   hideChat();
   document.getElementById("shareBtn").style.display = "none";
+  document.getElementById("emergencyBtn").style.display = "none";
+  closeSafetySheet();
   document.getElementById("cancelBtn").style.display = "none";
   document.getElementById("newRideBtn").style.display = "inline-block";
   hidePushAsk();
