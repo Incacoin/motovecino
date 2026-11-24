@@ -1203,6 +1203,7 @@ function saveAdminToken(t) {
 
 // El pase venció o lo cerraron: de regreso a la pantalla del PIN.
 function adminSessionEnded(msg) {
+  cancelEdit(); // la ventana de Editar chofer no debe quedar encima del PIN
   saveAdminToken(null);
   adminPin = null;
   clearInterval(ridesPollTimer);
@@ -1824,6 +1825,14 @@ let pendingDriverSignature = null;
 let pendingApplicationId = null;
 let lastRegistered = null;
 let editingId = null;
+// Qué chofer tiene abierto «Más opciones»: la tabla se redibuja cada 20 s y
+// sin esto el menú se cerraba solo y los botones se movían bajo el dedo.
+let openMoreId = null;
+function moreToggled(el) {
+  const id = Number(el.dataset.id);
+  if (el.open) openMoreId = id;
+  else if (openMoreId === id) openMoreId = null;
+}
 let ridesPollTimer = null;
 
 // 10-oct-2026: cada refresco bajaba otra vez todas las fotos de choferes y
@@ -2822,22 +2831,31 @@ function startEdit(id) {
     <div class="field"><label for="edit-name-${d.id}">Nombre</label><input id="edit-name-${d.id}" value="${escapeHtml(d.name)}" /></div>
     <div class="field"><label for="edit-phone-${d.id}">Teléfono (WhatsApp)</label>
       <div class="phoneRow"><span class="prefix">+52</span><input id="edit-phone-${d.id}" value="${escapeHtml(d.phone)}" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\\D/g, '')" /></div></div>
-    <div class="field"><label for="edit-vehicletype-${d.id}">Vehículo</label>${vehicleTypeSelect(d.id, d.vehicle_type)}</div>
+    <div class="field"><label for="edit-vehicletype-${d.id}">Tipo de vehículo</label>${vehicleTypeSelect(d.id, d.vehicle_type)}</div>
     <div class="field"><label for="edit-color-${d.id}">Color</label><select id="edit-color-${d.id}" class="tipo-select">${colorOptions(d.vehicle_color || "")}</select></div>
     <div class="field"><label for="edit-numero-${d.id}">Número del mototaxi</label><input id="edit-numero-${d.id}" type="text" inputmode="numeric" maxlength="4" placeholder="Ej. 45" value="${escapeHtml(d.numero_unidad || "")}" /></div>
     ${agrupacionesAdmin().length ? `<div class="field"><label for="edit-grupo-${d.id}">Agrupación</label><select id="edit-grupo-${d.id}" class="tipo-select">${grupoOptions(d.grupo || "")}</select></div>` : ""}
-    <div class="field"><label for="edit-vehicle-${d.id}">Placa / descripción (opcional)</label><input id="edit-vehicle-${d.id}" value="${escapeHtml(d.vehicle || "")}" placeholder="Vehículo" /></div>
+    <div class="field"><label for="edit-vehicle-${d.id}">Placa / descripción (opcional)</label><input id="edit-vehicle-${d.id}" value="${escapeHtml(d.vehicle || "")}" placeholder="Ej. placa YUC-123" /></div>
     <div class="field"><label for="edit-ref-${d.id}">¿Quién lo invitó?</label>${refEditField(d).replace('style="margin-top:6px;width:100%"', "")}</div>
-    <div class="edit-btns"><button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button><button class="btn" onclick="saveEdit(${d.id})">Guardar</button></div>
+    <div class="edit-btns"><button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button><button class="btn" id="editSaveBtn" onclick="saveEdit(${d.id})">Guardar</button></div>
   </div>`;
-  // Tocar fuera de la tarjeta cierra (como las otras ventanas del admin).
-  ov.addEventListener("click", (e) => { if (e.target === ov) cancelEdit(); });
+  // Tocar fuera NO cierra: en el celular un roce (o cerrar el teclado) borraría
+  // lo escrito. Se cierra con Cancelar, Guardar o la tecla Escape.
   document.body.appendChild(ov);
+  document.addEventListener("keydown", editEscape);
+  document.getElementById(`edit-name-${d.id}`)?.focus();
+}
+function editEscape(e) {
+  if (e.key === "Escape") cancelEdit();
 }
 
 function cancelEdit() {
+  const abierta = editingId !== null;
   editingId = null;
+  document.removeEventListener("keydown", editEscape);
   document.getElementById("editDriverModal")?.remove();
+  // Mientras estuvo abierta, loadDrivers no redibujó: ponerla al día.
+  if (abierta && document.getElementById("driverRows")) renderDriverRows();
 }
 
 async function saveEdit(id) {
@@ -2849,14 +2867,19 @@ async function saveEdit(id) {
     showToast("Escribe nombre y teléfono");
     return;
   }
+  const btn = document.getElementById("editSaveBtn");
+  if (btn?.disabled) return; // doble toque
+  if (btn) { btn.disabled = true; btn.textContent = "Guardando…"; }
+  const reactivar = () => { if (btn) { btn.disabled = false; btn.textContent = "Guardar"; } };
   const res = await fetch(API + `/api/admin/drivers/${id}/update`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     // grupo solo si hay selector (municipio con agrupaciones); si no va, el servidor no la toca.
     body: JSON.stringify({ adminPin, name, phone, vehicle, vehicleType, grupo: document.getElementById(`edit-grupo-${id}`)?.value, vehicleColor: document.getElementById(`edit-color-${id}`)?.value, numeroUnidad: document.getElementById(`edit-numero-${id}`)?.value.trim(), referredBy: document.getElementById(`edit-ref-${id}`)?.value.trim() }),
-  });
-  if (!res.ok) {
-    showToast((await res.json()).error || "No se pudo guardar");
+  }).catch(() => null);
+  if (!res || !res.ok) {
+    showToast((res && (await res.json().catch(() => ({}))).error) || "No se pudo guardar. Revisa tu señal e intenta otra vez.");
+    reactivar();
     return;
   }
   const saved = await res.json().catch(() => ({}));
@@ -3134,7 +3157,7 @@ function renderDriverRows() {
       <td class="row-actions">
         <button class="btn-sm wa" onclick="sendWhatsappFor(${d.id})">WhatsApp</button>
         <button class="btn-sm" onclick="startEdit(${d.id})">✏️ Editar</button>
-        <details class="more-actions">
+        <details class="more-actions" data-id="${d.id}" ${openMoreId === d.id ? "open" : ""} ontoggle="moreToggled(this)">
           <summary>Más opciones</summary>
           <div class="more-actions-list">
             <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
