@@ -308,6 +308,7 @@
     <div class="field" id="grupoField" style="display:none;">
       <label>¿A qué agrupación perteneces?</label>
       <div class="grupoOpts" id="grupoOpts"></div>
+      <p class="fieldHint" id="grupoLinkNote" style="display:none;margin:8px 0 0;">Ya viene marcada por el enlace que te mandaron. Si no es tu agrupación, cámbiala.</p>
     </div>
     <!-- 23-nov-2026: número del mototaxi en su agrupación (pintado en el
          vehículo). Obligatorio donde hay agrupaciones; el pasajero lo ve. -->
@@ -443,7 +444,7 @@ try {
 // y lo que traiga su borrador manda sobre el enlace.
 let linkGrupo = "";
 try {
-  linkGrupo = (new URLSearchParams(location.search).get("grupo") || sessionStorage.getItem("mvGrupo") || "").trim().toLowerCase();
+  linkGrupo = grupoSlug(new URLSearchParams(location.search).get("grupo") || sessionStorage.getItem("mvGrupo") || "");
   if (linkGrupo) sessionStorage.setItem("mvGrupo", linkGrupo);
 } catch (e) {}
 function grupoSlug(nombre) {
@@ -452,11 +453,17 @@ function grupoSlug(nombre) {
 function applyLinkGrupo() {
   if (!linkGrupo || document.querySelector('#grupoOpts input[name="grupo"]:checked')) return;
   const inp = [...document.querySelectorAll('#grupoOpts input[name="grupo"]')].find((i) => grupoSlug(i.value) === linkGrupo);
-  if (inp) {
-    inp.checked = true;
-    inp.dispatchEvent(new Event("change"));
-  }
+  // Si se renombra la agrupación en backend/agrupaciones.js, los QR impresos dejan de marcarla.
+  if (!inp) { console.warn("El enlace trae ?grupo=" + linkGrupo + " pero no está en la lista"); return; }
+  inp.checked = true;
+  inp.dispatchEvent(new Event("change", { bubbles: true })); // burbujea para que se guarde en el borrador
+  // Que el chofer vea que la marcó el enlace (no él) y la revise; si la cambia, se quita el aviso.
+  document.getElementById("grupoLinkNote").style.display = "";
+  document.querySelectorAll('#grupoOpts input[name="grupo"]').forEach((i) => i.addEventListener("change", (e) => {
+    if (e.isTrusted) document.getElementById("grupoLinkNote").style.display = "none";
+  }));
 }
+function forgetLinkGrupo() { try { sessionStorage.removeItem("mvGrupo"); } catch (e) {} }
 if (inviteCode) {
   fetch("/api/drivers/invite/" + encodeURIComponent(inviteCode))
     .then((r) => (r.ok ? r.json() : null))
@@ -839,6 +846,7 @@ function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
 function startOver() {
   draftSubmitted = true;
   clearDraft();
+  forgetLinkGrupo();
   location.reload();
 }
 function applyDraftLists() {
@@ -852,7 +860,7 @@ function applyDraftLists() {
     const inp = [...document.querySelectorAll('#grupoOpts input[name="grupo"]')].find((i) => i.value === draftPending.grupo);
     if (inp) {
       inp.checked = true;
-      inp.dispatchEvent(new Event("change"));
+      inp.dispatchEvent(new Event("change", { bubbles: true }));
     }
     draftPending.grupo = ""; // ya cargó la lista: si no está, no se arrastra
   }
@@ -1120,6 +1128,7 @@ async function submitApplication() {
 
   draftSubmitted = true;
   clearDraft();
+  forgetLinkGrupo();
   document.getElementById("okName").textContent = name;
   document.getElementById("formScreen").style.display = "none";
   document.getElementById("okScreen").style.display = "block";
