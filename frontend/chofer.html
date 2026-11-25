@@ -3855,7 +3855,7 @@ function renderRiderInvite(inv) {
   document.getElementById("riderInviteCode").textContent = inv.code;
   document.getElementById("riderQrFullCode").textContent = inv.code;
   document.getElementById("riderInvitePromo").innerHTML = r.active
-    ? `<b>Por cada ${r.perBatch} pasajeros que invites y hagan ${r.ridesRequired} viajes, ganas $${r.amount}</b> de descuento en tu cuota. Promoción hasta el ${fmtPromoEnd(r.end)}.<small class="invite-fine">Tu invitado cuenta cuando completa ${r.ridesRequired} viajes (con cualquier chofer). El saldo a favor se resta de tu cuota; no se cambia por efectivo.</small>`
+    ? `<b>Por cada ${r.perBatch} pasajeros que invites y hagan ${r.ridesRequired} viajes, ganas $${r.amount}</b> de saldo a favor en tu app. Promoción hasta el ${fmtPromoEnd(r.end)}.<small class="invite-fine">Tu invitado cuenta cuando completa ${r.ridesRequired} viajes (con cualquier chofer). El saldo a favor se usa dentro de la app; no se cambia por efectivo.</small>`
     : "";
   const pct = Math.round((r.inBatch / r.perBatch) * 100);
   document.getElementById("riderInviteProgress").innerHTML =
@@ -3888,7 +3888,7 @@ function renderInvite(inv) {
   if (!inviteInfo) return;
   const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   document.getElementById("invitePromo").innerHTML = promo
-    ? `<span class="inv-gift"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8c-2-3-6-3-6 0h6zM12 8c2-3 6-3 6 0h-6z"/></svg></span><b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de descuento en la cuota. Promoción hasta el ${fmtPromoEnd(promo.end)}.<small class="invite-fine">El saldo a favor se resta de tu cuota y lo que sobre se guarda para la próxima vez. No se cambia por efectivo.</small>`
+    ? `<span class="inv-gift"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8c-2-3-6-3-6 0h6zM12 8c2-3 6-3 6 0h-6z"/></svg></span><b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de saldo a favor. Promoción hasta el ${fmtPromoEnd(promo.end)}.<small class="invite-fine">El saldo a favor se usa dentro de la app y lo que sobre se guarda para la próxima vez. No se cambia por efectivo.</small>`
     : "";
   const parts = [];
   if (inviteInfo.registered) {
@@ -3934,7 +3934,7 @@ function shareInvite() {
   const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   const text = `¡Hola! Yo ya manejo con MotoVecino, la app para pedir mototaxi y taxi ${place}. ` +
     `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación` +
-    (promo ? `; cuando completes ${promo.trips} viajes, los dos ganamos $${promo.amount} de descuento en la cuota` : "") +
+    (promo ? `; cuando completes ${promo.trips} viajes, los dos ganamos $${promo.amount} de saldo a favor` : "") +
     `:\n${link}`;
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
