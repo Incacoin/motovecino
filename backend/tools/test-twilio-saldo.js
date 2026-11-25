@@ -1,7 +1,7 @@
 // Aviso de saldo bajo en Twilio (twilioSaldo.js). Usa un Twilio de mentira:
 // nunca habla con Twilio de verdad ni necesita claves reales.
-//   1) Saldo arriba del mínimo → "ok"; abajo → "bajo" (+ una sola anotación
-//      en Movimientos); Twilio no contesta → no truena y guarda el último saldo.
+//   1) Saldo arriba del mínimo → "ok"; abajo → "bajo" (una anotación por día,
+//      aunque haya deploy); 2 fallas seguidas (clave mala) → "sin_dato" con alarma.
 //   2) La copia corriendo (sin claves de Twilio) responde /api/twilio-health
 //      200 sin enseñar la cantidad.
 //   DATABASE_URL=... BASE=http://localhost:3077 node tools/test-twilio-saldo.js
@@ -41,20 +41,22 @@ function fakeTwilio(balance, status = 200) {
 }
 const offline = async () => { throw new Error("sin red"); };
 
-async function avisos(desde) {
-  return db.prepare("SELECT detail FROM admin_audit WHERE action = 'twilio_saldo_bajo' AND id > ? ORDER BY id").all(desde);
+async function avisos(action = "twilio_saldo_bajo") {
+  return db.prepare("SELECT detail FROM admin_audit WHERE action = ? ORDER BY id").all(action);
+}
+async function limpiar() {
+  await db.prepare("DELETE FROM admin_audit WHERE action IN ('twilio_saldo_bajo', 'twilio_saldo_sin_dato')").run();
+  await db.prepare("DELETE FROM admin_audit WHERE action = 'error_servidor' AND detail LIKE 'twilioSaldo%'").run();
 }
 
 async function main() {
-  const start = (await db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM admin_audit").get()).m;
+  await limpiar();
+  check("mínimo por defecto 6", saldo.minimo() === 6, saldo.minimo());
 
-  check("mínimo por defecto $6", saldo.minimo() === 6, saldo.minimo());
-
-  // Twilio no contesta antes de tener saldo → sin_dato, sin alarma.
+  // Twilio no contesta al arrancar: una falla suelta no es alarma.
   saldo._reset();
   let s = await saldo.checkNow(offline);
-  check("sin red al inicio: sin_dato", s.status === "sin_dato", s);
-  check("sin red: no alarma", saldo.twilioHealth().alert === false);
+  check("1a falla al inicio: pendiente, sin alarma", s.status === "pendiente" && saldo.twilioHealth().alert === false, s);
 
   // Saldo bueno.
   s = await saldo.checkNow(fakeTwilio("11.80"));
@@ -63,39 +65,51 @@ async function main() {
   check("pregunta a la cuenta correcta", calls.at(-1).url === "https://api.twilio.com/2010-04-01/Accounts/ACprueba/Balance.json", calls.at(-1));
   check("manda la clave", calls.at(-1).auth === "Basic " + Buffer.from("ACprueba:token-prueba").toString("base64"));
 
-  // Justo $6 no es bajo; $5.99 sí.
-  s = await saldo.checkNow(fakeTwilio("6.00"));
-  check("$6.00 → ok", s.status === "ok", s);
-  s = await saldo.checkNow(fakeTwilio("5.99"));
-  check("$5.99 → bajo", s.status === "bajo", s);
-  check("bajo: alarma", saldo.twilioHealth().alert === true);
-  let a = await avisos(start);
-  check("una anotación en Movimientos", a.length === 1 && /\$5\.99 USD/.test(a[0].detail) && /mínimo \$6/.test(a[0].detail), a);
-
-  // Sigue bajo: no se repite la anotación.
-  await saldo.checkNow(fakeTwilio("4.10"));
-  a = await avisos(start);
-  check("sigue bajo: no repite anotación", a.length === 1, a);
-
-  // Twilio falla estando bajo: se queda en bajo (no apaga la alarma).
-  s = await saldo.checkNow(offline);
-  check("falla estando bajo: sigue bajo", s.status === "bajo" && s.balance === 4.1, s);
+  // La clave deja de servir: 1 falla sigue ok; 2 seguidas → alarma + anotación.
   s = await saldo.checkNow(fakeTwilio(null, 401));
-  check("clave sin permiso: sigue bajo", s.status === "bajo", s);
+  check("clave mala 1 vez: sigue ok", s.status === "ok" && saldo.twilioHealth().alert === false, s);
+  s = await saldo.checkNow(fakeTwilio(null, 401));
+  check("clave mala 2 veces: sin_dato con alarma", s.status === "sin_dato" && saldo.twilioHealth().alert === true, s);
+  let sd = await avisos("twilio_saldo_sin_dato");
+  check("anota que no se pudo leer", sd.length === 1 && /401/.test(sd[0].detail), sd);
+  await saldo.checkNow(offline);
+  sd = await avisos("twilio_saldo_sin_dato");
+  check("sigue fallando: no repite anotación", sd.length === 1, sd);
 
-  // Recargó: vuelve a ok; si baja otra vez, otra anotación.
+  // Vuelve a leer: se apaga la alarma.
+  s = await saldo.checkNow(fakeTwilio("6.00"));
+  check("$6.00 (justo el mínimo) → ok", s.status === "ok" && saldo.twilioHealth().alert === false, s);
+
+  // $5.99 sí es bajo.
+  s = await saldo.checkNow(fakeTwilio("5.99"));
+  check("$5.99 → bajo con alarma", s.status === "bajo" && saldo.twilioHealth().alert === true, s);
+  let a = await avisos();
+  check("una anotación en Movimientos", a.length === 1 && /5\.99 USD/.test(a[0].detail) && /mínimo 6\)/.test(a[0].detail), a);
+
+  // Sigue bajo: no se repite.
+  await saldo.checkNow(fakeTwilio("4.10"));
+  check("sigue bajo: no repite anotación", (await avisos()).length === 1);
+
+  // Deploy/reinicio con el saldo bajo: tampoco se repite (ya hay una de hoy).
+  saldo._reset();
+  s = await saldo.checkNow(fakeTwilio("4.00"));
+  a = await avisos();
+  check("reinicio con saldo bajo: sigue bajo sin repetir", s.status === "bajo" && a.length === 1, a);
+
+  // Una falla suelta estando bajo no apaga la alarma.
+  s = await saldo.checkNow(offline);
+  check("falla estando bajo: sigue bajo", s.status === "bajo" && s.balance === 4 && saldo.twilioHealth().alert === true, s);
+
+  // Recargó: vuelve a ok.
   s = await saldo.checkNow(fakeTwilio("26.00"));
   check("recargó → ok", s.status === "ok" && saldo.twilioHealth().alert === false, s);
-  await saldo.checkNow(fakeTwilio("3.00"));
-  a = await avisos(start);
-  check("bajó otra vez: segunda anotación", a.length === 2, a);
 
   // Mínimo cambiado desde Render.
   process.env.TWILIO_SALDO_MINIMO = "10";
   s = await saldo.checkNow(fakeTwilio("8.00"));
-  check("mínimo $10: $8 es bajo", s.status === "bajo", s);
+  check("mínimo 10: $8 es bajo", s.status === "bajo", s);
   process.env.TWILIO_SALDO_MINIMO = "abc";
-  check("mínimo inválido → $6", saldo.minimo() === 6);
+  check("mínimo inválido → 6", saldo.minimo() === 6);
 
   // Sin claves: sin_configurar, sin alarma, no llama a Twilio.
   delete process.env.TWILIO_ACCOUNT_SID;
@@ -110,10 +124,14 @@ async function main() {
   check("copia: /api/twilio-health 200", res.status === 200, { status: res.status, body });
   check("copia: no enseña la cantidad", body && !("balance" in body) && Object.keys(body).join() === "status", body);
 
-  // Limpia lo que creó la prueba (las anotaciones de error se escriben sin esperar).
-  await new Promise((r) => setTimeout(r, 500));
-  await db.prepare("DELETE FROM admin_audit WHERE action = 'twilio_saldo_bajo' AND id > ?").run(start);
-  await db.prepare("DELETE FROM admin_audit WHERE action = 'error_servidor' AND detail LIKE 'twilioSaldo%' AND id > ?").run(start);
+  // Limpia lo que creó la prueba. Las anotaciones de error se escriben sin
+  // esperar: se espera a que aparezca la de esta prueba (máx. 10 s).
+  for (let i = 0; i < 50; i++) {
+    const e = await db.prepare("SELECT 1 FROM admin_audit WHERE action = 'error_servidor' AND detail LIKE 'twilioSaldo%' LIMIT 1").get();
+    if (e) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  await limpiar();
 
   console.log(fail ? `\n✗ ${fail} mal, ${pass} bien` : `\n✓ ${pass} bien`);
   process.exit(fail ? 1 : 0);
