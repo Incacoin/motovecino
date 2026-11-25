@@ -21,6 +21,7 @@ const { checkReferralReward } = require("../referrals");
 const { checkRiderReferralForRide } = require("../riderReferrals");
 const { cleanForOther } = require("./familyRides");
 const { rejectIfBlocked } = require("../riderBlock");
+const { rejectIfSuspended } = require("../driverSuspend");
 
 function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
@@ -432,6 +433,8 @@ router.post("/rides/:id/accept", async (req, res) => {
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
+  // Suspendido desde el panel: no acepta ni propone (driverSuspend.js).
+  if (await rejectIfSuspended(driverId, res)) return;
 
   // Sin esto, un doble tap en "aceptar" sobre dos solicitudes distintas (muy
   // fácil con señal lenta) dejaba al chofer "asignado" a dos viajes a la
@@ -629,6 +632,8 @@ router.post("/rides/:id/offer", async (req, res) => {
     return res.status(401).json({ error: "PIN incorrecto" });
   }
   clearAttempts(req.ip);
+  // Suspendido desde el panel: no acepta ni propone (driverSuspend.js).
+  if (await rejectIfSuspended(driverId, res)) return;
 
   const ride = await db.prepare("SELECT id, status, ride_type, offer_price, city, pickup_lat, pickup_lng FROM rides WHERE id = ?").get(rideId);
   if (!ride || ride.status !== "buscando") return res.status(409).json({ error: "El viaje ya no está disponible" });

@@ -15,6 +15,7 @@ const { colorParaPasajero } = require("../colores");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const rides = require("./rides");
 const { riderBlock, rejectIfBlocked } = require("../riderBlock");
+const { rejectIfSuspended } = require("../driverSuspend");
 const orders = require("./orders");
 const businessRoutes = require("./business");
 const { MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
@@ -386,6 +387,7 @@ router.post("/bookings/driver", async (req, res) => {
 router.post("/bookings/:id/take", async (req, res) => {
   const driver = await authDriver(req, res);
   if (!driver) return;
+  if (await rejectIfSuspended(driver.id, res)) return;
   const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(Number(req.params.id));
   if (!b || !driverFits(driver, b)) return res.status(404).json({ error: "Este viaje ya no está disponible" });
   const when = Number(b.scheduled_at_ms);
@@ -411,6 +413,7 @@ router.post("/bookings/:id/take", async (req, res) => {
 router.post("/bookings/:id/offer", async (req, res) => {
   const driver = await authDriver(req, res);
   if (!driver) return;
+  if (await rejectIfSuspended(driver.id, res)) return;
   const reason = Object.hasOwn(BOOKING_OFFER_REASONS, req.body?.reason) ? req.body.reason : null;
   if (!reason) return res.status(400).json({ error: "Elige por qué pides más" });
   const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ?").get(Number(req.params.id));
@@ -639,7 +642,8 @@ async function launchBooking(b) {
 
     let assigned = false;
     if (b.status === "confirmado" && b.driver_id) {
-      const ok = await db.prepare("SELECT id FROM drivers WHERE id = ? AND deleted_at IS NULL").get(b.driver_id);
+      // Suspendido después de confirmar: el viaje sale a todos.
+      const ok = await db.prepare("SELECT id FROM drivers WHERE id = ? AND deleted_at IS NULL AND suspended_at IS NULL").get(b.driver_id);
       if (ok) {
         try {
           const r = await db

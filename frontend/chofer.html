@@ -2214,6 +2214,9 @@ function connectWs() {
     // Con el código nuevo se vuelve a pedir el mapa de una vez (y si ya se
     // estaba pintando él mismo con un código viejo, desaparece).
     if (type === "map_code") { myMapCode = payload.code; if (otherDriversPollTimer) loadOtherDrivers(); }
+    if (type === "suspended") { showSuspended(payload); return; }
+    if (type === "unsuspended") { hideSuspended(); showToast("✅ Tu cuenta ya está activa. Ya puedes ponerte Disponible."); return; }
+    if (type === "new_ride" && suspendedInfo) return;
     if (type === "new_ride") addPendingRide(payload);
     if (type === "ride_taken") { delete myOffers[payload.rideId]; removePendingRide(payload.rideId); }
     if (type === "offer_closed") onOfferClosed(payload);
@@ -2366,8 +2369,47 @@ function watchLocation() {
   );
 }
 
+// Suspendido desde el panel (26-nov-2026, driverSuspend.js): el servidor lo
+// avisa al conectar o al momento de suspenderlo. No puede ponerse Disponible.
+let suspendedInfo = null;
+function showSuspended(p) {
+  suspendedInfo = p || { reason: "Otro motivo" };
+  if (available) {
+    available = false;
+    try { localStorage.setItem("motoya_available", "0"); } catch {}
+    document.getElementById("switch").classList.remove("on");
+    pendingRides = {};
+    syncPendingMarkers();
+    renderRideList();
+    releaseWakeLock();
+  }
+  document.getElementById("statusText").textContent = "Suspendido";
+  let ov = document.getElementById("suspendedOverlay");
+  if (!ov) {
+    ov = document.createElement("div");
+    ov.id = "suspendedOverlay";
+    ov.className = "mv-confirm";
+    ov.innerHTML = `<div class="mv-confirm-box" role="dialog" aria-modal="true"><p style="font-weight:800;font-size:18px;margin:0 0 8px">Tu cuenta está suspendida</p><p class="susp-why" style="margin:0 0 6px"></p><p style="margin:0 0 14px">Mientras tanto no puedes ponerte Disponible ni recibir viajes. No pierdes nada de lo que tienes en la app. Comunícate con MotoVecino para reactivarla.</p><div class="mv-confirm-actions"><button class="btn btn-secondary" data-r="0">Cerrar</button><button class="btn" data-r="1">Ir a Ayuda</button></div></div>`;
+    ov.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-r]");
+      if (!b) return;
+      if (b.dataset.r === "1") location.href = "ayuda.html?como=chofer";
+      ov.remove();
+    });
+    document.body.appendChild(ov);
+  }
+  ov.querySelector(".susp-why").textContent = "Motivo: " + suspendedInfo.reason + (suspendedInfo.note ? " · " + suspendedInfo.note : "");
+}
+function hideSuspended() {
+  suspendedInfo = null;
+  const ov = document.getElementById("suspendedOverlay");
+  if (ov) ov.remove();
+  document.getElementById("statusText").textContent = available ? "Disponible" : "Desconectado";
+}
+
 function toggleAvailable() {
   if (currentRide) return; // no se puede cambiar mientras hay viaje activo
+  if (suspendedInfo && !available) { showSuspended(suspendedInfo); return; }
   if (cooldownUntilMs && Date.now() < cooldownUntilMs) {
     showToast("Espera a que termine el enfriamiento por cancelación");
     return;

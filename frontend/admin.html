@@ -1417,6 +1417,7 @@ const AUDIT_LABELS = {
   "/admin/drivers": "Dio de alta un chofer",
   "/admin/drivers/:id/update": "Editó un chofer",
   "/admin/drivers/:id/delete": "Eliminó un chofer",
+  "/admin/drivers/:id/suspend": "Suspendió o reactivó un chofer",
   "/admin/drivers/:id/move-city": "Cambió de municipio a un chofer",
   "/admin/drivers/:id/reset-pin": "Cambió el PIN de un chofer",
   "/admin/drivers/:id/register-trip-fees": "Cobró cuotas de viajes",
@@ -1695,7 +1696,8 @@ function grupoOptions(selected) {
 // agrupación real (lo que escribieron en «¿Cuál?») en una columna.
 function quienInvito(d) { return (d.inviter_name || d.referred_by || "").trim(); }
 function padronGrupos() {
-  const reales = driversCache.filter((d) => !d.es_prueba);
+  // Suspendidos (26-nov-2026) no salen en ningún padrón: van en su propia lista interna.
+  const reales = driversCache.filter((d) => !d.es_prueba && !d.suspended_at);
   const porNombre = (a, b) => a.name.localeCompare(b.name, "es");
   const grupos = agrupacionesAdmin().map((a) => ({
     titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false,
@@ -1723,6 +1725,8 @@ function padronGrupos() {
     choferes: reales.filter((d) => d.grupo_por_confirmar).sort(porNombre) });
   grupos.push({ titulo: "Sin elegir agrupación", sub: "Su app se lo pregunta al abrirla", interno: true,
     choferes: reales.filter((d) => !d.grupo_por_confirmar && (!d.grupo || !conocidos.has(d.grupo))).sort(porNombre) });
+  grupos.push({ titulo: "Suspendidos", sub: "No reciben viajes ni cuentan como choferes · Reactívalos en la lista de choferes", interno: true,
+    choferes: driversCache.filter((d) => !d.es_prueba && d.suspended_at).sort(porNombre) });
   return grupos;
 }
 function showPadron() {
@@ -2974,6 +2978,56 @@ async function saveEdit(id) {
   loadDrivers();
 }
 
+// Suspender chofer (26-nov-2026, ver driverSuspend.js): no recibe viajes ni
+// cuenta como chofer hasta «Reactivar». No pierde historial, saldo ni fundador.
+const SUSPEND_LABELS = { documentos: "Faltan documentos", reporte: "No se ha reportado", otro: "Otro motivo" };
+function suspendDialog(name) {
+  return new Promise((resolve) => {
+    const ov = document.createElement("div");
+    ov.className = "modal-overlay active";
+    ov.innerHTML = `<div class="modal-card">
+      <p style="margin:0 0 10px;line-height:1.5;"><b></b><br>No podrá ponerse «Disponible» ni recibir viajes, y no cuenta como chofer hasta que lo reactives. No pierde su historial, saldo ni lugar de fundador.</p>
+      ${Object.entries(SUSPEND_LABELS).map(([k, t]) => `<label style="display:flex;gap:8px;align-items:center;margin:6px 0;"><input type="radio" name="suspReason" value="${k}"> ${t}</label>`).join("")}
+      <input id="suspNote" maxlength="120" placeholder="Nota (opcional), ej. «falta INE y tarjeta»" style="width:100%;margin:8px 0 4px;">
+      <div id="suspErr" style="color:var(--danger,#d32f2f);font-size:13px;min-height:18px;"></div>
+      <div style="display:flex;gap:8px;"><button class="btn btn-secondary" data-r="0" style="flex:1">Cancelar</button><button class="btn" data-r="1" style="flex:1">Suspender</button></div>
+    </div>`;
+    ov.querySelector("b").textContent = `¿Suspender a ${name}?`;
+    ov.addEventListener("click", (e) => {
+      const r = e.target.closest("[data-r]");
+      if (!r) return;
+      if (r.dataset.r === "0") { ov.remove(); return resolve(null); }
+      const sel = ov.querySelector('input[name="suspReason"]:checked');
+      if (!sel) { ov.querySelector("#suspErr").textContent = "Elige el motivo"; return; }
+      const note = ov.querySelector("#suspNote").value.trim();
+      ov.remove();
+      resolve({ reason: sel.value, note });
+    });
+    document.body.appendChild(ov);
+  });
+}
+async function suspendDriver(id, suspend) {
+  const driver = driversCache.find((d) => d.id === id);
+  if (!driver) return;
+  let extra = {};
+  if (suspend) {
+    const pick = await suspendDialog(driver.name);
+    if (!pick) return;
+    extra = pick;
+  } else if (!(await mvConfirmAdmin(`¿Reactivar a ${driver.name}? Podrá ponerse «Disponible» y recibir viajes otra vez.`, "Sí, reactivar"))) return;
+  const res = await fetch(API + `/api/admin/drivers/${id}/suspend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin, suspend, ...extra }),
+  });
+  if (!res.ok) {
+    showToast((await res.json().catch(() => ({}))).error || "No se pudo actualizar");
+    return;
+  }
+  showToast(suspend ? `${driver.name}: suspendido` : `${driver.name}: reactivado`);
+  loadDrivers();
+}
+
 async function deleteDriver(id) {
   const driver = driversCache.find((d) => d.id === id);
   if (!confirm(`¿Eliminar a ${driver ? driver.name : "este chofer"}? Su historial de viajes se conserva, pero esto no se puede deshacer.`)) return;
@@ -3208,6 +3262,7 @@ function renderDriverRows() {
     // "Invita a otro chofer": quién lo trajo (con su link, o lo que escribió
     // a mano) y a cuántos ha traído él.
     const referralLines = [
+      d.suspended_at ? `<b style="color:var(--danger,#d32f2f)">SUSPENDIDO · ${escapeHtml(SUSPEND_LABELS[d.suspended_reason] || "Otro motivo")}${d.suspended_note ? ` · ${escapeHtml(d.suspended_note)}` : ""} (desde ${escapeHtml(String(d.suspended_at).slice(0, 10))})</b> <button class="btn-sm" onclick="suspendDriver(${d.id}, false)">Reactivar</button>` : "",
       d.grupo_por_confirmar
         ? `<b style="color:#b45309">Dice que es de ${escapeHtml(d.grupo_por_confirmar)} (por confirmar)</b> <button class="btn-sm" onclick="confirmarAgrupacion(${d.id}, true)">Confirmar</button> <button class="btn-sm" onclick="confirmarAgrupacion(${d.id}, false)">No es de ahí</button>`
         : d.grupo ? `Agrupación: ${escapeHtml(grupoLabel(d.grupo, d.grupo_otro))}` : agrupacionesAdmin().length ? "Agrupación: sin elegir" : "",
@@ -3252,6 +3307,7 @@ function renderDriverRows() {
             <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
             <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
             ${adminRoleNow === "tekax" && adminZones.length > 1 ? `<button class="btn-sm" onclick="moveDriverCity(${d.id})">Cambiar municipio</button>` : ""}
+            ${d.suspended_at ? `<button class="btn-sm" onclick="suspendDriver(${d.id}, false)">Reactivar</button>` : `<button class="btn-sm danger" onclick="suspendDriver(${d.id}, true)">Suspender</button>`}
             <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
           </div>
         </details>

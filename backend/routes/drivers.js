@@ -43,7 +43,7 @@ function availableDriverRows(type) {
   const rows = db
     .prepare(
       `SELECT id, lat, lng, vehicle_type, city, zone FROM drivers
-       WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL
+       WHERE status = 'disponible' AND lat IS NOT NULL AND lng IS NOT NULL AND deleted_at IS NULL AND suspended_at IS NULL
          AND vehicle_type = ?
          AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))
          AND last_seen >= datetime('now', '-${DRIVER_STALE_SECONDS} seconds')`

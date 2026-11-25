@@ -97,7 +97,7 @@ async function notifyNewRide(ride) {
     .prepare(
       `SELECT d.id, d.lat, d.lng, d.zone FROM drivers d
        WHERE d.wants_rides = 1 AND d.wants_rides_at >= datetime('now', ?)
-         AND d.vehicle_type = ? ${cityFilter} AND d.deleted_at IS NULL
+         AND d.vehicle_type = ? ${cityFilter} AND d.deleted_at IS NULL AND d.suspended_at IS NULL
          AND (d.cooldown_until IS NULL OR d.cooldown_until <= datetime('now'))
          AND NOT EXISTS (SELECT 1 FROM rides r WHERE r.driver_id = d.id AND r.status IN ('aceptado', 'llegue', 'en_curso'))
          AND EXISTS (SELECT 1 FROM driver_push_subs s WHERE s.driver_id = d.id)`

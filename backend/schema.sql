@@ -774,3 +774,9 @@ CREATE TABLE IF NOT EXISTS blocked_phones (
 );
 -- Al «Desbloquear», las faltas de antes de esta fecha ya no cuentan para la pausa automática.
 ALTER TABLE riders ADD COLUMN IF NOT EXISTS no_show_reset_at TEXT;
+
+-- 26-nov-2026: chofer suspendido desde el panel (ver driverSuspend.js).
+-- Se deshace con «Reactivar»; no pierde historial, saldo ni lugar de fundador.
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS suspended_at TEXT;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS suspended_reason TEXT;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS suspended_note TEXT;

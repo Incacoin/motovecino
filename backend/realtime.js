@@ -2,6 +2,7 @@ const { WebSocketServer } = require("ws");
 const url = require("node:url");
 const proxyAddr = require("proxy-addr");
 const db = require("./db");
+const { driverSuspension } = require("./driverSuspend");
 const { isRateLimited, recordFailedAttempt, clearAttempts } = require("./pinRateLimit");
 const { recordError } = require("./errorAlerts");
 const { photoUrls } = require("./photos");
@@ -394,6 +395,10 @@ async function setupConnection(ws, req, early, keepEarly) {
     // lo vuelve a mandar aunque esté parado y su GPS no mande nada.
     sendMapCode(ws, driverId);
 
+    // Suspendido desde el panel (driverSuspend.js): su app enseña el aviso.
+    const susp = await driverSuspension(driverId);
+    if (susp) send(ws, "suspended", susp);
+
     const onMessage = serialHandler("driver_ws", async (msg) => {
       if (msg.type === "location") {
         const { lat, lng } = msg;
@@ -404,6 +409,11 @@ async function setupConnection(ws, req, early, keepEarly) {
         if (activeRide) {
           notifyRide(activeRide.id, "driver_location", { lat, lng });
         }
+      } else if (msg.type === "status" && msg.status === "disponible" && await driverSuspension(driverId)) {
+        // Suspendido: no se pone disponible ni recibe solicitudes.
+        await db.prepare("UPDATE drivers SET status = 'offline' WHERE id = ?").run(driverId);
+        await push.setWantsRides(driverId, false);
+        send(ws, "suspended", await driverSuspension(driverId));
       } else if (msg.type === "status") {
         // Con un viaje en curso el chofer sigue "en_viaje" aunque su app mande
         // "disponible" (se reconectó, o la reabrió): si no, aparecía libre en
@@ -573,7 +583,7 @@ async function broadcastNewRide(ride) {
   const maxDistance = rideType === "taxi" ? MAX_MATCH_DISTANCE_KM_TAXI : MAX_MATCH_DISTANCE_KM;
   const available = await db
     .prepare(
-      "SELECT id, lat, lng, city, zone FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
+      "SELECT id, lat, lng, city, zone FROM drivers WHERE status = 'disponible' AND vehicle_type = ? AND suspended_at IS NULL AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .all(rideType);
   const payload = omitRiderPhone(ride);
@@ -601,7 +611,7 @@ async function broadcastNewRide(ride) {
 async function notifyPendingRides(driverId) {
   const driver = await db
     .prepare(
-      "SELECT id, lat, lng, vehicle_type, city, zone FROM drivers WHERE id = ? AND status = 'disponible' AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
+      "SELECT id, lat, lng, vehicle_type, city, zone FROM drivers WHERE id = ? AND status = 'disponible' AND suspended_at IS NULL AND (cooldown_until IS NULL OR cooldown_until <= datetime('now'))"
     )
     .get(driverId);
   livePos.overlay(driver);

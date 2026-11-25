@@ -44,6 +44,7 @@ const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
 const { QUALIFYING_RIDE_SQL } = require("../riderReferrals");
 const { NO_SHOW_REASON, AUTO_LIMIT, AUTO_DAYS, AUTO_MIN_DRIVERS } = require("../riderBlock");
+const { SUSPEND_REASONS, suspendPayload } = require("../driverSuspend");
 const { toStored, inflateRow, isRef, toDataUrl } = require("../imageStore");
 const {
   generateRegistrationOptions, verifyRegistrationResponse,
@@ -333,7 +334,7 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
   const drivers = await db
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
-              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.numero_unidad, d.cancel_count, d.cooldown_until, d.grupo, d.grupo_otro, d.grupo_por_confirmar, d.city, d.zone, d.created_at,
+              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.numero_unidad, d.cancel_count, d.cooldown_until, d.grupo, d.grupo_otro, d.grupo_por_confirmar, d.suspended_at, d.suspended_reason, d.suspended_note, d.city, d.zone, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               d.play_last_open, d.play_opens,
               d.referred_by_driver_id, (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
@@ -620,6 +621,32 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
     .get(req.params.id);
   driver.numeroRepetido = await numeroRepetido(cityId, driver.grupo, driver.vehicle_type, driver.numero_unidad, driver.id);
   res.json(driver);
+});
+
+// Suspender / reactivar chofer (26-nov-2026, ver driverSuspend.js). Con un
+// viaje en curso no se suspende (igual que Eliminar). Al suspender se apaga
+// su «Disponible» y sus avisos; su app enseña el aviso al momento.
+router.post("/admin/drivers/:id/suspend", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  if (typeof req.body.suspend !== "boolean") return res.status(400).json({ error: "Falta decir si se suspende o se reactiva" });
+  const id = Number(req.params.id);
+  if (req.body.suspend) {
+    const reason = Object.hasOwn(SUSPEND_REASONS, req.body.reason) ? req.body.reason : null;
+    if (!reason) return res.status(400).json({ error: "Elige el motivo" });
+    const note = typeof req.body.note === "string" ? req.body.note.replace(/\s+/g, " ").trim().slice(0, 120) || null : null;
+    const activeRide = await db
+      .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
+      .get(id);
+    if (activeRide) return res.status(409).json({ error: "Este chofer trae un viaje en este momento. Suspéndelo cuando termine." });
+    await db.prepare("UPDATE drivers SET suspended_at = datetime('now'), suspended_reason = ?, suspended_note = ?, status = 'offline' WHERE id = ?")
+      .run(reason, note, id);
+    await require("../push").setWantsRides(id, false);
+    require("../realtime").notifyDriver(id, "suspended", suspendPayload({ suspended_reason: reason, suspended_note: note }));
+  } else {
+    await db.prepare("UPDATE drivers SET suspended_at = NULL, suspended_reason = NULL, suspended_note = NULL WHERE id = ?").run(id);
+    require("../realtime").notifyDriver(id, "unsuspended", {});
+  }
+  res.json({ ok: true });
 });
 
 router.post("/admin/drivers/:id/delete", checkAdminPin, async (req, res) => {
@@ -943,7 +970,8 @@ async function statsByCity() {
          AND EXISTS (SELECT 1 FROM rides r WHERE r.rider_id = p.id AND r.created_at >= datetime('now', '-7 days'))
        GROUP BY p.city`
     ).all(),
-    db.prepare("SELECT city, COUNT(*) AS n FROM drivers WHERE deleted_at IS NULL AND es_prueba = 0 GROUP BY city").all(),
+    // Suspendidos no cuentan (26-nov-2026): el número es con quién se cuenta de verdad.
+    db.prepare("SELECT city, COUNT(*) AS n FROM drivers WHERE deleted_at IS NULL AND es_prueba = 0 AND suspended_at IS NULL GROUP BY city").all(),
     db.prepare(`SELECT city, COUNT(*) AS n FROM drivers WHERE deleted_at IS NULL AND es_prueba = 0 AND ${DRIVER_ONLINE} GROUP BY city`).all(),
     db.prepare(
       `SELECT r.city, COUNT(*) AS n FROM rides r
