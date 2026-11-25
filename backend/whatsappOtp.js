@@ -339,4 +339,4 @@ async function sendWelcome(e164, name) {
   }
 }
 
-module.exports = { otpEnabled, otpMode, otpChannel, sendOtp, verifyOtp, sendWelcome, welcomeName, otpDailyStatus };
+module.exports = { otpEnabled, otpMode, otpChannel, sendOtp, verifyOtp, sendWelcome, welcomeName, otpDailyStatus, twilioAuth };

@@ -28,6 +28,7 @@ const realtime = require("./realtime");
 const livePos = require("./livePos");
 const { startBackupSchedule, getBackupStatus } = require("./backup");
 const { startRetentionSchedule } = require("./retention");
+const { twilioHealth, startTwilioSaldoSchedule } = require("./twilioSaldo");
 const { migrateImagesToFiles } = require("./imageStore");
 const { CITIES, resolveCity, isWithinServiceRadius, getCityById, DEFAULT_CITY_ID, zoneAt, OFFER_MAX_UP, cityOfferRules, isInYucatan, motoReach } = require("./cities");
 
@@ -216,6 +217,13 @@ app.get("/api/errors-health", (req, res) => {
   res.status(alert ? 500 : 200).json({ status: alert ? "errores" : "ok", count });
 });
 
+// Para UptimeRobot: 500 si el saldo de Twilio bajó del mínimo (ver
+// twilioSaldo.js). Sin la cantidad: esa queda en Movimientos del admin.
+app.get("/api/twilio-health", (req, res) => {
+  const { alert, status } = twilioHealth();
+  res.status(alert ? 500 : 200).json({ status });
+});
+
 app.get("/api/backup-health", (req, res) => {
   const status = getBackupStatus();
   if (!status.configured) {
@@ -356,6 +364,7 @@ async function start() {
 
   startBackupSchedule(6);
   startRetentionSchedule();
+  startTwilioSaldoSchedule();
   livePos.start();
 
   // Render manda SIGTERM antes de apagar (cada deploy): que las últimas

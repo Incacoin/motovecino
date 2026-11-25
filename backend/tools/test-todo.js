@@ -40,6 +40,7 @@ const TESTS = [
   ["tarifa-ticul", []],
   ["bloqueo", ["ADMIN_PIN", "DATABASE_URL"]],
   ["suspender", ["ADMIN_PIN", "DATABASE_URL"]],
+  ["twilio-saldo", ["DATABASE_URL"]],
   ["mantenimiento", ["DATABASE_URL", "RESTORE_URL"]],
   ["progreso", ["ADMIN_PIN_PROGRESO"]],
 ];
