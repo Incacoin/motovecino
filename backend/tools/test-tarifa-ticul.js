@@ -12,6 +12,8 @@ const SAN_JUAN = { lat: 20.39866, lng: -89.527154 }; // Parque de San Juan
 const MERCADO = { lat: 20.397676, lng: -89.537258 }; // ~1.1 km: viaje largo
 const CERCA = { lat: 20.39866, lng: -89.5305 }; // ~0.35 km: viaje corto
 const TEKAX = { lat: 20.2071, lng: -89.2809 };
+const SAN_ENRIQUE = { lat: 20.397151, lng: -89.544172 }; // ~1.8 km del Parque de San Juan: largo normal
+const PUNTA = { lat: 20.39866, lng: -89.552 }; // ~2.5 km al poniente: de punta a punta
 
 let pass = 0;
 let fail = 0;
@@ -46,6 +48,7 @@ async function main() {
   check("Ticul: de noche corto $15 y largo $20", o.minOfferShortNight === 15 && o.minOfferNight === 20, o);
   check("Ticul: niño $5 de día y $10 de noche", o.minChild === 5 && o.minChildNight === 10, o);
   check("Ticul: máximo 3 adultos y 1 niño", o.maxAdults === 3 && o.maxChildren === 1, o);
+  check("Ticul: de punta a punta (2.5 km) $25 de día y $30 de noche", o.longTripKm === 2.5 && o.minOfferLong === 25 && o.minOfferLongNight === 30, o);
   const tk = await api("GET", `/cities/resolve?lat=${TEKAX.lat}&lng=${TEKAX.lng}`);
   check("Tekax: sin cupo especial ni corto de noche", tk.data?.cityOffer && tk.data.cityOffer.maxAdults === undefined && tk.data.cityOffer.minOfferShortNight === undefined, tk.data?.cityOffer);
 
@@ -64,6 +67,19 @@ async function main() {
   const corto = await post("/rides", { ...R, pickup_lat: SAN_JUAN.lat, pickup_lng: SAN_JUAN.lng, dest_lat: CERCA.lat, dest_lng: CERCA.lng, ride_type: "moto", offer_price: 12 });
   check("Ticul: viaje corto por $12 sí", corto.status === 201, corto);
   await cancelar(corto);
+
+  // De punta a punta: 2.5 km o más, mínimo $25 (+$2 de la app)
+  const viaje = (d, price, extra) => post("/rides", { ...R, pickup_lat: SAN_JUAN.lat, pickup_lng: SAN_JUAN.lng, dest_lat: d.lat, dest_lng: d.lng, ride_type: "moto", offer_price: price, ...extra });
+  const puntaBajo = await viaje(PUNTA, 26);
+  check("Ticul: de punta a punta, menos de $27 no", puntaBajo.status === 400 && /27/.test(puntaBajo.data?.error || ""), puntaBajo);
+  const puntaOk = await viaje(PUNTA, 27);
+  check("Ticul: de punta a punta por $27 sí", puntaOk.status === 201, puntaOk);
+  await cancelar(puntaOk);
+  const puntaNino = await viaje(PUNTA, 31, { passengers: 1, children: 1 });
+  check("Ticul: de punta a punta con niño por $32, $31 no", puntaNino.status === 400 && /32/.test(puntaNino.data?.error || ""), puntaNino);
+  const normal = await viaje(SAN_ENRIQUE, 17);
+  check("Ticul: 1.8 km sigue en $17 (no es de punta a punta)", normal.status === 201, normal);
+  await cancelar(normal);
 
   // El taxi no tiene ese cupo
   const taxi = await pedir({ ride_type: "taxi", passengers: 4, children: 0, offer_price: 80 });

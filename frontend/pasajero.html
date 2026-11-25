@@ -1864,9 +1864,12 @@ function cityOfferMin(night) {
   // De noche el corto también tiene su precio si el municipio lo trae (Ticul $15, 25-nov-2026).
   const shortAny = cityOffer.minOfferShort && pickup && dest &&
     haversine(pickup.lat, pickup.lng, dest.lat, dest.lng) <= cityOffer.shortTripKm;
+  // De punta a punta (Ticul, 25-nov-2026): 2.5 km o más, $25 de día y $30 de noche.
+  const long = cityOffer.minOfferLong && pickup && dest &&
+    haversine(pickup.lat, pickup.lng, dest.lat, dest.lng) >= cityOffer.longTripKm;
   const adult = night
-    ? (shortAny && cityOffer.minOfferShortNight ? cityOffer.minOfferShortNight : cityOffer.minOfferNight)
-    : short ? cityOffer.minOfferShort : cityOffer.minOffer;
+    ? (long ? cityOffer.minOfferLongNight : shortAny && cityOffer.minOfferShortNight ? cityOffer.minOfferShortNight : cityOffer.minOfferNight)
+    : short ? cityOffer.minOfferShort : long ? cityOffer.minOfferLong : cityOffer.minOffer;
   const kid = night ? cityOffer.minChildNight : cityOffer.minChild;
   return adult * passengers + kid * children + SERVICE_FEE;
 }
