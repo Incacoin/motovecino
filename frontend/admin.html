@@ -965,8 +965,8 @@
   <h1 style="font-size:17px;">Pasajeros que no llegaron</h1>
   <p class="section-hint">
     Pasajeros donde un chofer canceló con el motivo exacto "El pasajero no llegó" 2 veces o más.
-    No se bloquean solos — puede ser una broma repetida o el chofer equivocando la ubicación. Revisa
-    y decide tú si contactas o restringes desde aquí.
+    Con 3 «no llegó» en 7 días, de 2 choferes distintos o más, la app lo pausa sola (ya no puede pedir).
+    Para bloquear o desbloquear a mano: «Pasajeros» → buscar → «Bloquear» / «Desbloquear».
   </p>
   <div class="table-wrap">
     <table>
@@ -1429,6 +1429,7 @@ const AUDIT_LABELS = {
   "/admin/riders/:id/delete": "Eliminó un pasajero",
   "/admin/riders/:id/reset-pin": "Cambió el PIN de un pasajero",
   "/admin/riders/:id/test-account": "Marcó cuenta de prueba (pasajero)",
+  "/admin/riders/:id/block": "Bloqueó o desbloqueó pasajero",
   "/admin/rides/reset": "Borró todos los viajes",
   "/admin/family-rides/enabled": "Prendió/apagó Pedir para otra persona",
   "/admin/businesses/:id/approve": "Aprobó un negocio",
@@ -2768,7 +2769,7 @@ function renderRiderRows() {
   const visible = applyPreviewCap(filtered, query, showAllRiders, "riderShowMore", "toggleShowAllRiders");
   document.getElementById("riderRows").innerHTML = visible.map((r) => `
     <tr>
-      <td>${escapeHtml(r.name) || "—"}${playTag(r)}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">prueba</span>` : ""}</td>
+      <td>${escapeHtml(r.name) || "—"}${playTag(r)}${r.bloqueado ? ` <span title="No puede pedir viajes (bloqueado desde el panel)" style="font-size:11px;font-weight:700;color:var(--danger);">BLOQUEADO</span>` : r.pausado ? ` <span title="No puede pedir: 3 o más «no llegó» en 7 días, de 2 o más choferes" style="font-size:11px;font-weight:700;color:var(--danger);">PAUSADO</span>` : ""}${r.es_prueba ? ` <span title="Cuenta de prueba: sus viajes no cuentan en el resumen" style="font-size:11px;color:var(--text-dim);">prueba</span>` : ""}</td>
       <td>${escapeHtml(r.phone)}</td>
       <td>${r.trips}</td>
       <td>${r.no_show_count >= 2 ? `<span style="color:var(--danger);font-weight:600;">${r.no_show_count}</span>` : (r.no_show_count || 0)}</td>
@@ -2777,6 +2778,7 @@ function renderRiderRows() {
       <td class="row-actions">
         <button class="btn-sm" onclick="resetRiderPin(${r.id})">Restablecer PIN</button>
         <button class="btn-sm" onclick="toggleRiderTestAccount(${r.id})">${r.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
+        <button class="btn-sm${r.bloqueado || r.pausado ? "" : " danger"}" onclick="toggleRiderBlock(${r.id})">${r.bloqueado || r.pausado ? "Desbloquear" : "Bloquear"}</button>
         <button class="btn-sm danger" onclick="deleteRider(${r.id})">Eliminar</button>
       </td>
     </tr>`).join("") || (query
@@ -2800,6 +2802,32 @@ async function toggleRiderTestAccount(id) {
   }
   const name = rider.name || rider.phone;
   showToast(esPrueba ? `${name}: cuenta de prueba, sus viajes ya no cuentan en el resumen` : `${name}: cuenta real otra vez`);
+  loadRiders();
+}
+
+// Bloquear pasajero (26-nov-2026): ya no puede pedir viajes, agendar ni
+// pedir a negocios. Va por número: sigue aunque borre la cuenta y se registre
+// otra vez. «Desbloquear» también quita la pausa automática por faltas.
+async function toggleRiderBlock(id) {
+  const rider = ridersCache.find((r) => r.id === id);
+  if (!rider) return;
+  const block = !(rider.bloqueado || rider.pausado);
+  const name = rider.name || rider.phone;
+  const ok = await mvConfirmAdmin(block
+    ? `¿Bloquear a ${name}? Ya no podrá pedir viajes ni pedidos. Se le pide que escriba a Ayuda.`
+    : `¿Desbloquear a ${name}? Podrá pedir otra vez y sus faltas de antes ya no cuentan.`,
+    block ? "Sí, bloquear" : "Sí, desbloquear");
+  if (!ok) return;
+  const res = await fetch(API + `/api/admin/riders/${id}/block`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin, block }),
+  });
+  if (!res.ok) {
+    showToast((await res.json().catch(() => ({}))).error || "No se pudo actualizar");
+    return;
+  }
+  showToast(block ? `${name}: bloqueado` : `${name}: puede pedir otra vez`);
   loadRiders();
 }
 

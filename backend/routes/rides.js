@@ -20,6 +20,7 @@ const { driverEarnings, LOCAL_DONE_DATE, LOCAL_TODAY } = require("../earnings");
 const { checkReferralReward } = require("../referrals");
 const { checkRiderReferralForRide } = require("../riderReferrals");
 const { cleanForOther } = require("./familyRides");
+const { rejectIfBlocked } = require("../riderBlock");
 
 function generateShareToken() {
   return crypto.randomBytes(16).toString("base64url");
@@ -293,6 +294,8 @@ router.post("/rides", async (req, res) => {
     return res.status(401).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
+  // Pasajero bloqueado o pausado por no salir (ver riderBlock.js).
+  if (await rejectIfBlocked(rider, res)) return;
 
   const checked = checkRideRequest(req.body);
   if (checked.error) return res.status(400).json({ error: checked.error });

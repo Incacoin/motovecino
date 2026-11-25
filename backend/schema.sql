@@ -762,3 +762,15 @@ CREATE TABLE IF NOT EXISTS rider_referral_rewards (
   UNIQUE (driver_id, batch_no)
 );
 ALTER TABLE driver_credits ADD COLUMN IF NOT EXISTS rider_reward_id INTEGER REFERENCES rider_referral_rewards(id);
+
+-- 26-nov-2026: pasajeros bloqueados a mano desde el panel (ver riderBlock.js).
+-- Va por número, no por cuenta: sigue aunque se borre y se vuelva a registrar.
+-- Sin columna id → está en NO_ID_TABLES de db.js.
+CREATE TABLE IF NOT EXISTS blocked_phones (
+  phone TEXT PRIMARY KEY,
+  city TEXT,
+  reason TEXT,
+  created_at TEXT NOT NULL DEFAULT sl_datetime('now')
+);
+-- Al «Desbloquear», las faltas de antes de esta fecha ya no cuentan para la pausa automática.
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS no_show_reset_at TEXT;

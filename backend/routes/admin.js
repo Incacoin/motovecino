@@ -43,6 +43,7 @@ const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
 const { QUALIFYING_RIDE_SQL } = require("../riderReferrals");
+const { riderBlock } = require("../riderBlock");
 const { toStored, inflateRow, isRef, toDataUrl } = require("../imageStore");
 const {
   generateRegistrationOptions, verifyRegistrationResponse,
@@ -732,12 +733,20 @@ router.post("/admin/riders/list", checkAdminPin, async (req, res) => {
     .prepare(
       `SELECT r.id, r.name, r.phone, r.created_at, r.last_ride_at, r.no_show_count, r.es_prueba,
               r.play_last_open, r.play_opens,
-              (SELECT COUNT(*) FROM rides WHERE rider_id = r.id AND status = 'completado') AS trips
+              (SELECT COUNT(*) FROM rides WHERE rider_id = r.id AND status = 'completado') AS trips,
+              (SELECT COUNT(*) FROM blocked_phones b WHERE b.phone = r.phone) AS bloqueado
        FROM riders r
        WHERE r.city = ?
        ORDER BY r.created_at DESC`
     )
     .all(req.adminCity);
+  // «Pausado»: frenado solo por faltas recientes (ver riderBlock.js). Solo se
+  // revisa a los que tienen faltas, para no hacer una consulta por pasajero.
+  for (const r of riders) {
+    r.bloqueado = Number(r.bloqueado) > 0;
+    r.pausado = false;
+    if (!r.bloqueado && r.no_show_count > 0) r.pausado = !!(await riderBlock(r));
+  }
   res.json(riders);
 });
 
@@ -783,6 +792,24 @@ router.post("/admin/riders/:id/reset-pin", checkAdminPin, async (req, res) => {
 // Con viajes completados, no se deja borrar aquí (evita perder ese
 // historial sin querer); si de verdad hay que quitarlo, es un caso especial
 // que se atiende aparte, no desde este botón.
+// Bloquear / desbloquear pasajero (26-nov-2026, ver riderBlock.js). El bloqueo
+// va por número: sigue aunque se borre la cuenta y se registre otra vez.
+// Desbloquear también quita la pausa automática (las faltas de antes ya no cuentan).
+router.post("/admin/riders/:id/block", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("riders", req, res)) return;
+  if (typeof req.body.block !== "boolean") return res.status(400).json({ error: "Falta decir si se bloquea o se desbloquea" });
+  const rider = await db.prepare("SELECT id, phone, city FROM riders WHERE id = ?").get(req.params.id);
+  if (!rider) return res.status(404).json({ error: "Pasajero no encontrado" });
+  if (req.body.block) {
+    await db.prepare("INSERT OR IGNORE INTO blocked_phones (phone, city, reason) VALUES (?, ?, ?)")
+      .run(rider.phone, rider.city, "Bloqueado desde el panel");
+  } else {
+    await db.prepare("DELETE FROM blocked_phones WHERE phone = ?").run(rider.phone);
+    await db.prepare("UPDATE riders SET no_show_reset_at = datetime('now') WHERE id = ?").run(rider.id);
+  }
+  res.json({ ok: true });
+});
+
 router.post("/admin/riders/:id/delete", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("riders", req, res)) return;
   const { trips } = await db

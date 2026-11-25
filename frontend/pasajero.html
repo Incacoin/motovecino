@@ -3726,6 +3726,12 @@ async function requestRide() {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    // Cuenta pausada por no salir o bloqueada (riderBlock.js): ventana con
+    // el motivo y botón a Ayuda, no un aviso que se va en 3 segundos.
+    if (err.blocked) {
+      if (await mvConfirm(err.error, "Ir a Ayuda")) location.href = "ayuda.html";
+      return;
+    }
     showToast(err.error || "No se pudo pedir el viaje, intenta de nuevo");
     return;
   }

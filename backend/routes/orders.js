@@ -16,6 +16,7 @@
 const crypto = require("node:crypto");
 const express = require("express");
 const db = require("../db");
+const { rejectIfBlocked } = require("../riderBlock");
 const realtime = require("../realtime");
 const { getCityById } = require("../cities");
 const { cityMinOffer } = require("../cities");
@@ -191,6 +192,7 @@ router.get("/orders/options/:id", async (req, res) => {
 router.post("/orders", async (req, res) => {
   const rider = await authRider(req, res);
   if (!rider) return;
+  if (await rejectIfBlocked(rider, res)) return;
   const b = await db.prepare("SELECT * FROM businesses WHERE id = ? AND active = 1").get(Number(req.body.business_id));
   if (!b || !await foodEnabled(b.city)) return res.status(404).json({ error: "Negocio no encontrado" });
   if (!b.is_open) return res.status(409).json({ error: "El negocio está cerrado ahorita" });

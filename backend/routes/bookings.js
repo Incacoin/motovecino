@@ -14,6 +14,7 @@ const { getCityById, zoneAt, sameCityForRide, isWithinServiceRadius } = require(
 const { colorParaPasajero } = require("../colores");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const rides = require("./rides");
+const { riderBlock, rejectIfBlocked } = require("../riderBlock");
 const orders = require("./orders");
 const businessRoutes = require("./business");
 const { MOTO_OFFER_MAX_UP, TAXI_OFFER_MAX_UP } = require("../constants");
@@ -264,6 +265,7 @@ const BOOKING_DRIVER_SELECT = `SELECT b.*, r.name AS rider_name,
 router.post("/bookings", async (req, res) => {
   const rider = await authRider(req, res);
   if (!rider) return;
+  if (await rejectIfBlocked(rider, res)) return;
   const b = req.body;
   const when = Math.round(Number(b.scheduled_at_ms));
   const now = Date.now();
@@ -613,6 +615,9 @@ async function launchBooking(b) {
     } else {
       const rider = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
       if (!rider) return failBooking(b, "Tu cuenta ya no existe");
+      // Si lo pausaron después de agendar, el viaje ya no sale.
+      const blk = await riderBlock(rider);
+      if (blk) return failBooking(b, blk.message);
       const body = {
         pickup_lat: b.pickup_lat, pickup_lng: b.pickup_lng, pickup_label: b.pickup_label,
         dest_lat: b.dest_lat, dest_lng: b.dest_lng, dest_label: b.dest_label,
