@@ -4,7 +4,9 @@
 // 1 niño. El taxi y Tekax siguen igual.
 //   BASE=http://localhost:3077 node tools/test-tarifa-ticul.js
 const path = require("node:path");
-process.loadEnvFile(path.join(__dirname, "..", ".env"));
+const fs = require("node:fs");
+const envFile = path.join(__dirname, "..", ".env");
+if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 const BASE = process.env.BASE || "http://localhost:3077";
 if (!/^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(BASE)) throw new Error("Esto solo se corre en localhost: " + BASE);
 
@@ -80,6 +82,11 @@ async function main() {
   const normal = await viaje(SAN_ENRIQUE, 17);
   check("Ticul: 1.8 km sigue en $17 (no es de punta a punta)", normal.status === 201, normal);
   await cancelar(normal);
+
+  // Viaje agendado antes del cambio (keepMotoDest): no se le exige el mínimo de punta a punta
+  const { getCityById, cityMinOffer } = require("../cities");
+  const ticul = getCityById("ticul");
+  check("agendado viejo de punta a punta: mínimo $17, no $27", cityMinOffer(ticul, 1, 0, 2.6, { noLong: true }) === 17 && cityMinOffer(ticul, 1, 0, 2.6) === 27);
 
   // El taxi no tiene ese cupo
   const taxi = await pedir({ ride_type: "taxi", passengers: 4, children: 0, offer_price: 80 });

@@ -144,7 +144,8 @@ function checkRideRequest(body, opts = {}) {
     const adults = Number(passengers) || 1;
     const kids = Number(children) || 0;
     if ((cityCfg.maxAdults && adults > cityCfg.maxAdults) || (cityCfg.maxChildren != null && kids > cityCfg.maxChildren)) {
-      return { error: `En ${cityCfg.label} el mototaxi lleva máximo ${cityCfg.maxAdults} adultos y ${cityCfg.maxChildren} niño${cityCfg.maxChildren === 1 ? "" : "s"}. Para más personas pide Taxi.` };
+      const partes = [cityCfg.maxAdults ? `${cityCfg.maxAdults} adultos` : "", cityCfg.maxChildren != null ? `${cityCfg.maxChildren} niño${cityCfg.maxChildren === 1 ? "" : "s"}` : ""].filter(Boolean).join(" y ");
+      return { error: `En ${cityCfg.label} el mototaxi lleva máximo ${partes}. Para más personas pide Taxi.` };
     }
   }
 
@@ -200,7 +201,7 @@ function checkRideRequest(body, opts = {}) {
       return { error: "Revisa el precio que ofreces" };
     }
     const tripKm = haversineKm(Number(pickup_lat), Number(pickup_lng), Number(dest_lat), Number(dest_lng));
-    const min = cityMinOffer(cityCfg, Number(passengers) || 1, Number(children) || 0, tripKm);
+    const min = cityMinOffer(cityCfg, Number(passengers) || 1, Number(children) || 0, tripKm, { noLong: !!opts.keepMotoDest });
     if (offerPrice < min) {
       return { error: `El precio mínimo es $${min}` };
     }

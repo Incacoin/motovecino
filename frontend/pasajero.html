@@ -2033,7 +2033,8 @@ function clampOccupants() {
   passengers = Math.max(1, Math.min(passengers, maxAdultsNow()));
   document.getElementById("passengerCount").textContent = passengers;
   document.getElementById("childrenCount").textContent = children;
-  if ((p0 !== passengers || c0 !== children) && cityOffer && cityOffer.maxAdults) showToast("En el mototaxi caben máximo " + cityOffer.maxAdults + " adultos y " + cityOffer.maxChildren + " niño");
+  if (p0 !== passengers) showToast("En el mototaxi caben máximo " + passengers + " adultos");
+  else if (c0 !== children) showToast("En el mototaxi cabe máximo " + children + " niño" + (children === 1 ? "" : "s"));
 }
 
 function changePassengers(delta) {

@@ -290,7 +290,7 @@ function cityOfferRules(city) {
     minOffer, minOfferNight, minChild, minChildNight, serviceFee: SERVICE_FEE,
     ...(minOfferShort ? { minOfferShort, shortTripKm } : {}),
     ...(minOfferShort && minOfferShortNight ? { minOfferShortNight } : {}),
-    ...(longTripKm && minOfferLong ? { longTripKm, minOfferLong, minOfferLongNight: minOfferLongNight || minOfferLong } : {}),
+    ...(longTripKm && minOfferLong ? { longTripKm, minOfferLong, minOfferLongNight: minOfferLongNight || Math.max(minOfferLong, minOfferNight || 0) } : {}),
     ...(maxAdults ? { maxAdults } : {}),
     ...(maxChildren != null ? { maxChildren } : {}),
   };
@@ -302,10 +302,12 @@ function cityOfferRules(city) {
 // viaje pedido justo a las 10:00 p.m. por segundos de diferencia.
 // tripKm (recogida→destino en línea recta): en pueblos con tarifa por
 // distancia (Ticul), el viaje corto tiene su propio mínimo.
-function cityMinOffer(city, adults, kids, tripKm) {
+// opts.noLong: viaje agendado ya aceptado (al llegar su hora o al subirle el
+// precio) — se agendó antes del mínimo de punta a punta y se respeta.
+function cityMinOffer(city, adults, kids, tripKm, opts = {}) {
   if (!city || !city.offerOnly || city.zones) return 0;
   const short = city.minOfferShort && Number.isFinite(tripKm) && tripKm <= city.shortTripKm;
-  const long = city.minOfferLong && Number.isFinite(tripKm) && tripKm >= city.longTripKm;
+  const long = !opts.noLong && city.minOfferLong && Number.isFinite(tripKm) && tripKm >= city.longTripKm;
   const adult = short ? city.minOfferShort : long ? city.minOfferLong : city.minOffer;
   return adult * Math.max(1, adults || 1) + (city.minChild || 0) * Math.max(0, kids || 0) + SERVICE_FEE;
 }

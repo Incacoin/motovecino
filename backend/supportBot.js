@@ -59,7 +59,8 @@ function pricingText() {
   for (const c of CITIES.filter((x) => !x.testOnly && !x.signupClosed)) {
     const short = c.minOfferShort ? ` En ${c.label}, un viaje corto (hasta ${c.shortTripKm * 1000} m) va desde ${money(c.minOfferShort)} de día${c.minOfferShortNight ? ` y ${money(c.minOfferShortNight)} de noche` : ""}.` : "";
     const punta = c.minOfferLong ? ` De punta a punta (${c.longTripKm} km o más) va desde ${money(c.minOfferLong)} de día y ${money(c.minOfferLongNight || c.minOfferLong)} de noche.` : "";
-    const cupo = c.maxAdults ? ` El mototaxi lleva máximo ${c.maxAdults} adultos y ${c.maxChildren} niño${c.maxChildren === 1 ? "" : "s"}.` : "";
+    const cupoTxt = [c.maxAdults ? `${c.maxAdults} adultos` : "", c.maxChildren != null ? `${c.maxChildren} niño${c.maxChildren === 1 ? "" : "s"}` : ""].filter(Boolean).join(" y ");
+    const cupo = cupoTxt ? ` El mototaxi lleva máximo ${cupoTxt}.` : "";
     lines.push(`- ${c.label}: mototaxi desde ${money(c.minOffer)} por adulto de día y ${money(c.minOfferNight)} de noche; niños de 3 a 9 años ${money(c.minChild)} de día y ${money(c.minChildNight)} de noche.${short}${punta}${cupo}`);
   }
   for (const z of PROGRESO_ZONES.filter((x) => x.open)) {
