@@ -4141,7 +4141,7 @@ function renderProfile(p) {
   document.getElementById("pfAv").classList.toggle("gold", !!p.esFundador);
   document.getElementById("pfUnitImg").innerHTML = p.vehicleType === "taxi" ? MVVeh.taxiSide(118) : MVVeh.motoSide(108);
   // "Por su cuenta" es el valor guardado de la opción «Otra agrupación» (19-nov).
-  const grupoVisible = (g) => (g === "Por su cuenta" ? p.grupoOtro || "Otra agrupación" : g || (p.grupoPorConfirmar ? p.grupoPorConfirmar + " (por confirmar)" : g));
+  const grupoVisible = (g) => (p.grupoPorConfirmar ? p.grupoPorConfirmar + " (por confirmar)" : g === "Por su cuenta" ? p.grupoOtro || "Otra agrupación" : g);
   document.getElementById("profileSub").textContent =
     (p.vehicleType === "taxi" ? "Taxi" : "Mototaxi") +
     (grupoVisible(p.grupo) ? ` · ${grupoVisible(p.grupo)}` : "") +
@@ -4325,12 +4325,13 @@ function checkAgrupacion(p) {
         body: JSON.stringify({ phone: driver.phone, pin: driver.pin, grupo, grupoOtro: grupo === OTRA ? grupoOtro : null }),
       });
       const data = await res.json().catch(() => ({}));
-      // 409 = ya estaba guardada (otra pestaña/celular): se cierra igual.
+      // 409 = ya estaba guardada (otra pestaña/celular): se cierra igual, con el aviso del servidor.
       if (!res.ok && res.status !== 409) throw new Error(data.error || "No se pudo guardar, intenta otra vez");
       ov.remove();
       agrupacionAbierta = null;
       agrupacionPendiente = null;
-      showToast(data.grupoPorConfirmar ? "¡Listo! Tu agrupación queda por confirmar" : "¡Listo! Agrupación guardada");
+      showToast(res.status === 409 ? data.error || "Tu agrupación ya está guardada"
+        : data.grupoPorConfirmar ? "¡Listo! Tu agrupación queda por confirmar" : "¡Listo! Agrupación guardada");
     } catch (e) {
       err.textContent = e.message || "Sin conexión, intenta otra vez";
       ok.disabled = false;
@@ -4346,7 +4347,8 @@ function hideAgrupacionForRide() {
 }
 function retryAgrupacion() {
   if (!agrupacionPendiente) return;
-  setTimeout(() => { if (!currentRide) checkAgrupacion(agrupacionPendiente); }, 4000);
+  // Pregunta de nuevo al servidor: si mientras tanto el admin ya la puso, no sale.
+  setTimeout(() => { if (!currentRide && agrupacionPendiente) refreshTodayEarnings(); }, 4000);
 }
 
 function checkBankChange(at) {

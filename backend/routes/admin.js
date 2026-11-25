@@ -512,15 +512,17 @@ router.post("/admin/drivers/:id/reset-pin", checkAdminPin, async (req, res) => {
 // Rechazar = se borra y su app le vuelve a preguntar.
 router.post("/admin/drivers/:id/agrupacion-confirmar", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("drivers", req, res)) return;
-  const ok = req.body.confirmar === true;
-  const d = await db.prepare("SELECT city, grupo_por_confirmar FROM drivers WHERE id = ? AND deleted_at IS NULL").get(req.params.id);
+  if (typeof req.body.confirmar !== "boolean") return res.status(400).json({ error: "Falta decir si se confirma o no" });
+  const ok = req.body.confirmar;
+  const d = await db.prepare("SELECT city, grupo_por_confirmar, vehicle_type, numero_unidad FROM drivers WHERE id = ? AND deleted_at IS NULL").get(req.params.id);
   const g = d && grupoValido(d.city, d.grupo_por_confirmar);
   if (!g || g === POR_SU_CUENTA) return res.status(409).json({ error: "Este chofer ya no tiene agrupación por confirmar" });
   const r = ok
     ? await db.prepare("UPDATE drivers SET grupo = ?, grupo_otro = NULL, grupo_por_confirmar = NULL WHERE id = ? AND grupo_por_confirmar = ?").run(g, req.params.id, d.grupo_por_confirmar)
     : await db.prepare("UPDATE drivers SET grupo_por_confirmar = NULL WHERE id = ? AND grupo_por_confirmar = ?").run(req.params.id, d.grupo_por_confirmar);
   if (!r.changes) return res.status(409).json({ error: "Este chofer ya no tiene agrupación por confirmar" });
-  res.json({ ok: true, grupo: ok ? g : null });
+  // Igual que al editar: avisa si otro de esa agrupación ya trae ese número.
+  res.json({ ok: true, grupo: ok ? g : null, numeroRepetido: ok ? await numeroRepetido(d.city, g, d.vehicle_type, d.numero_unidad, Number(req.params.id)) : false });
 });
 
 router.post("/admin/drivers/:id/vouch", checkAdminPin, async (req, res) => {

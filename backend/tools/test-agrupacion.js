@@ -132,7 +132,7 @@ async function main() {
   check("ventanita: elige Jaguar (doble toque: uno 200 y otro 409)", [j1.status, j2.status].sort().join() === "200,409", [j1.status, j2.status]);
   check("responde «por confirmar»", [j1, j2].some((x) => x.data?.grupoPorConfirmar === "Jaguar"));
   let fin = await listaDe(choferId);
-  check("Jaguar queda POR CONFIRMAR (no entra al padrón del líder)", fin && !fin.grupo && !fin.grupo_otro && fin.grupo_por_confirmar === "Jaguar", fin);
+  check("Jaguar queda POR CONFIRMAR (no entra al padrón del líder) y lo de antes no se borra", fin && fin.grupo === "Por su cuenta" && !fin.grupo_otro && fin.grupo_por_confirmar === "Jaguar", fin);
   const nAudit = await db.prepare("SELECT COUNT(*) AS n FROM admin_audit WHERE action = 'agrupacion_chofer' AND target_id = ? AND detail LIKE '%por confirmar%'").get(choferId);
   check("doble toque anota una sola vez", Number(nAudit?.n) === 1, nAudit);
   perfil = (await post("/drivers/profile", cred)).data;
@@ -141,8 +141,10 @@ async function main() {
   const conf = (ok) => post(`/admin/drivers/${choferId}/agrupacion-confirmar`, { adminPin: ADMIN, adminZone: "ticul", confirmar: ok });
   const confTekax = await post(`/admin/drivers/${choferId}/agrupacion-confirmar`, { adminPin: ADMIN, adminZone: "tekax", confirmar: true });
   check("admin de otro municipio no puede confirmar", confTekax.status === 403 || confTekax.status === 404, confTekax);
+  check("confirmar sin decir sí o no → 400", (await post(`/admin/drivers/${choferId}/agrupacion-confirmar`, { adminPin: ADMIN, adminZone: "ticul" })).status === 400);
   // Rechazar: se borra y su app le vuelve a preguntar.
   const rech = await conf(false);
+  check("rechazado → se queda como estaba antes («Otra»)", (await listaDe(choferId))?.grupo === "Por su cuenta");
   check("admin: «No es de ahí»", rech.status === 200, rech);
   perfil = (await post("/drivers/profile", cred)).data;
   check("rechazado → la ventanita vuelve a salir", perfil?.faltaAgrupacion === true && !perfil?.grupoPorConfirmar, perfil && { f: perfil.faltaAgrupacion });
@@ -187,7 +189,7 @@ main()
     try {
       for (const did of creados.filter(Boolean)) {
         await db.prepare("UPDATE drivers SET deleted_at = datetime('now') WHERE id = ?").run(did);
-        await db.prepare("DELETE FROM admin_audit WHERE action = 'agrupacion_chofer' AND target_id = ?").run(did);
+        await db.prepare("DELETE FROM admin_audit WHERE target_id = ? AND (action = 'agrupacion_chofer' OR action LIKE '/admin/drivers%')").run(did);
       }
       for (const ph of telefonos) await db.prepare("DELETE FROM driver_applications WHERE phone = ?").run(ph);
     } catch (e) { console.error("limpieza:", e.message); }

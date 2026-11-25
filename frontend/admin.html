@@ -1700,7 +1700,8 @@ function padronGrupos() {
     titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false,
     choferes: reales.filter((d) => d.grupo === a.nombre).sort(porNombre),
   }));
-  const otras = reales.filter((d) => d.grupo === porSuCuenta);
+  // Los «por confirmar» van solo en su lista (abajo), aunque antes tuvieran «Otra».
+  const otras = reales.filter((d) => d.grupo === porSuCuenta && !d.grupo_por_confirmar);
   const invitadores = new Map();
   for (const d of otras) {
     const quien = quienInvito(d);
@@ -2894,7 +2895,11 @@ function cancelEdit() {
 }
 
 // «Por confirmar» (25-nov-2026): el chofer dijo Jaguar/Alcones en su app.
+let confirmandoAgrupacion = false;
 async function confirmarAgrupacion(id, confirmar) {
+  if (confirmandoAgrupacion) return; // doble toque
+  if (!confirmar && !(await mvConfirmAdmin("¿Seguro que NO es de esa agrupación? Su app le volverá a preguntar.", "Sí, no es de ahí"))) return;
+  confirmandoAgrupacion = true;
   const res = await fetch(API + `/api/admin/drivers/${id}/agrupacion-confirmar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -2903,8 +2908,11 @@ async function confirmarAgrupacion(id, confirmar) {
   if (!res || !res.ok) {
     showToast((res && (await res.json().catch(() => ({}))).error) || "No se pudo guardar. Revisa tu señal e intenta otra vez.");
   } else {
-    showToast(confirmar ? "Agrupación confirmada" : "Listo: su app le volverá a preguntar");
+    const data = await res.json().catch(() => ({}));
+    showToast(!confirmar ? "Listo: su app le volverá a preguntar"
+      : data.numeroRepetido ? "Confirmado. Ojo: otro chofer de esa agrupación ya tiene ese número" : "Agrupación confirmada");
   }
+  confirmandoAgrupacion = false;
   loadDrivers();
 }
 

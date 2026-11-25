@@ -539,13 +539,14 @@ router.post("/drivers/agrupacion", async (req, res) => {
 
   // Jaguar / Alcones: no entra directo al padrón de su líder; queda «por
   // confirmar» hasta que el admin lo confirme (así nadie se mete a una
-  // agrupación que no es la suya). «Otra: X» se guarda tal cual.
+  // agrupación que no es la suya). Lo que tenía antes no se toca: si el admin
+  // dice «No es de ahí», se queda como estaba. «Otra: X» se guarda tal cual.
   const porConfirmar = g !== POR_SU_CUENTA;
   // Solo guarda si nada cambió desde que lo leímos (doble toque o dos
   // celulares a la vez: el segundo recibe 409 y no se anota dos veces).
   const r = porConfirmar
     ? await db.prepare(
-        "UPDATE drivers SET grupo = NULL, grupo_otro = NULL, grupo_por_confirmar = ? WHERE id = ? AND COALESCE(grupo, '') = ? AND COALESCE(grupo_otro, '') = ? AND COALESCE(grupo_por_confirmar, '') = ?"
+        "UPDATE drivers SET grupo_por_confirmar = ? WHERE id = ? AND COALESCE(grupo, '') = ? AND COALESCE(grupo_otro, '') = ? AND COALESCE(grupo_por_confirmar, '') = ?"
       ).run(g, driver.id, driver.grupo || "", driver.grupo_otro || "", driver.grupo_por_confirmar || "")
     : await db.prepare(
         "UPDATE drivers SET grupo = ?, grupo_otro = ?, grupo_por_confirmar = NULL WHERE id = ? AND COALESCE(grupo, '') = ? AND COALESCE(grupo_otro, '') = ? AND COALESCE(grupo_por_confirmar, '') = ?"
