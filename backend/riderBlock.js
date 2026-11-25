@@ -8,7 +8,9 @@
 //     borre la cuenta y se registre otra vez con el mismo número.
 //  2) Pausa automática: AUTO_LIMIT veces «El pasajero no llegó» en AUTO_DAYS
 //     días, de al menos AUTO_MIN_DRIVERS choferes distintos (un solo chofer
-//     no puede pausar a nadie). Se quita con «Desbloquear» en el panel, que
+//     no puede pausar a nadie). Solo cuentan viajes donde el chofer ya había
+//     marcado «Llegué» (arrived_at_ms): cancelar desde lejos con ese motivo
+//     no cuenta. Se quita con «Desbloquear» en el panel, que
 //     pone riders.no_show_reset_at y desde ahí se vuelve a contar.
 // Ninguno de los dos toca viajes ya en curso: solo impide pedir nuevos.
 const db = require("./db");
@@ -27,7 +29,8 @@ async function recentNoShows(riderId) {
     `SELECT COUNT(*) AS n, COUNT(DISTINCT r.driver_id) AS choferes
      FROM rides r JOIN riders p ON p.id = r.rider_id
      WHERE r.rider_id = ? AND r.status = 'cancelado' AND r.cancelled_by = 'driver'
-       AND r.cancel_reason = ? AND r.updated_at >= datetime('now', '-${AUTO_DAYS} days')
+       AND r.cancel_reason = ? AND r.arrived_at_ms IS NOT NULL
+       AND r.updated_at >= datetime('now', '-${AUTO_DAYS} days')
        AND (p.no_show_reset_at IS NULL OR r.updated_at > p.no_show_reset_at)`
   ).get(riderId, NO_SHOW_REASON);
   return { n: Number(row?.n) || 0, choferes: Number(row?.choferes) || 0 };

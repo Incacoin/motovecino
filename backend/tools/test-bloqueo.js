@@ -53,11 +53,20 @@ async function main() {
     const r = await pedir();
     check("pide viaje", r.status === 201, r);
     if (r.status !== 201) return;
-    await db.prepare("UPDATE rides SET driver_id = ?, status = 'cancelado', cancelled_by = 'driver', cancel_reason = 'El pasajero no llegó', updated_at = datetime('now') WHERE id = ?").run(driverId, r.data.id);
+    await db.prepare("UPDATE rides SET driver_id = ?, status = 'cancelado', cancelled_by = 'driver', cancel_reason = 'El pasajero no llegó', arrived_at_ms = 1, updated_at = datetime('now') WHERE id = ?").run(driverId, r.data.id);
     // Lo mismo que hace /rides/:id/cancel con ese motivo.
     await db.prepare("UPDATE riders SET no_show_count = no_show_count + 1 WHERE id = ?").run(reg.data.id);
   };
   const lista = async () => (await post("/admin/riders/list", { adminPin: ADMIN })).data.find((x) => x.id === reg.data.id);
+
+  // Cancelar desde lejos (sin «Llegué») con ese motivo no cuenta
+  for (const d of [d1.id, d2.id, d1.id, d2.id]) {
+    const r = await pedir();
+    await db.prepare("UPDATE rides SET driver_id = ?, status = 'cancelado', cancelled_by = 'driver', cancel_reason = 'El pasajero no llegó', updated_at = datetime('now') WHERE id = ?").run(d, r.data?.id);
+  }
+  const lejos = await pedir();
+  check("4 «no llegó» sin que el chofer marcara Llegué: sí puede pedir", lejos.status === 201, lejos);
+  await post(`/rides/${lejos.data?.id}/cancel`, { riderPhone: R.rider_phone, riderPin: R.rider_pin });
 
   // --- Pausa automática ---
   await noLlego(d1.id);
@@ -65,7 +74,7 @@ async function main() {
   await noLlego(d1.id);
   const unSolo = await pedir();
   check("3 faltas de UN solo chofer: todavía puede pedir", unSolo.status === 201, unSolo);
-  await db.prepare("UPDATE rides SET driver_id = ?, status = 'cancelado', cancelled_by = 'driver', cancel_reason = 'El pasajero no llegó', updated_at = datetime('now') WHERE id = ?").run(d2.id, unSolo.data?.id);
+  await db.prepare("UPDATE rides SET driver_id = ?, status = 'cancelado', cancelled_by = 'driver', cancel_reason = 'El pasajero no llegó', arrived_at_ms = 1, updated_at = datetime('now') WHERE id = ?").run(d2.id, unSolo.data?.id);
   await db.prepare("UPDATE riders SET no_show_count = no_show_count + 1 WHERE id = ?").run(reg.data.id);
   const pausado = await pedir();
   check("4 faltas de 2 choferes: ya no puede pedir (403)", pausado.status === 403 && pausado.data?.blocked === true && /Ayuda/.test(pausado.data?.error || ""), pausado);

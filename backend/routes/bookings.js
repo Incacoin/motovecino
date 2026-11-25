@@ -603,6 +603,10 @@ async function launchBooking(b) {
   await closeOffers(b.id).catch(() => {});
   let ride = null;
   try {
+    // Si lo bloquearon o pausaron después de agendar (viaje o envío), ya no sale.
+    const dueno = await db.prepare("SELECT id, phone FROM riders WHERE id = ?").get(b.rider_id);
+    const blk = await riderBlock(dueno);
+    if (blk) return failBooking(b, blk.message);
     if (isEnvio(b)) {
       const made = await makeEnvioRide(b);
       if (made.fail) return failBooking(b, made.fail);
@@ -615,9 +619,6 @@ async function launchBooking(b) {
     } else {
       const rider = await db.prepare("SELECT id, name, phone FROM riders WHERE id = ?").get(b.rider_id);
       if (!rider) return failBooking(b, "Tu cuenta ya no existe");
-      // Si lo pausaron después de agendar, el viaje ya no sale.
-      const blk = await riderBlock(rider);
-      if (blk) return failBooking(b, blk.message);
       const body = {
         pickup_lat: b.pickup_lat, pickup_lng: b.pickup_lng, pickup_label: b.pickup_label,
         dest_lat: b.dest_lat, dest_lng: b.dest_lng, dest_label: b.dest_label,

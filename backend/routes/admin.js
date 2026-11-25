@@ -43,7 +43,7 @@ const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
 const { QUALIFYING_RIDE_SQL } = require("../riderReferrals");
-const { riderBlock } = require("../riderBlock");
+const { NO_SHOW_REASON, AUTO_LIMIT, AUTO_DAYS, AUTO_MIN_DRIVERS } = require("../riderBlock");
 const { toStored, inflateRow, isRef, toDataUrl } = require("../imageStore");
 const {
   generateRegistrationOptions, verifyRegistrationResponse,
@@ -734,18 +734,23 @@ router.post("/admin/riders/list", checkAdminPin, async (req, res) => {
       `SELECT r.id, r.name, r.phone, r.created_at, r.last_ride_at, r.no_show_count, r.es_prueba,
               r.play_last_open, r.play_opens,
               (SELECT COUNT(*) FROM rides WHERE rider_id = r.id AND status = 'completado') AS trips,
-              (SELECT COUNT(*) FROM blocked_phones b WHERE b.phone = r.phone) AS bloqueado
+              (SELECT COUNT(*) FROM blocked_phones b WHERE b.phone = r.phone) AS bloqueado,
+              (SELECT COUNT(*) FROM rides x WHERE x.rider_id = r.id AND x.status = 'cancelado' AND x.cancelled_by = 'driver'
+                 AND x.cancel_reason = ? AND x.arrived_at_ms IS NOT NULL AND x.updated_at >= datetime('now', '-${AUTO_DAYS} days')
+                 AND (r.no_show_reset_at IS NULL OR x.updated_at > r.no_show_reset_at)) AS faltas,
+              (SELECT COUNT(DISTINCT x.driver_id) FROM rides x WHERE x.rider_id = r.id AND x.status = 'cancelado' AND x.cancelled_by = 'driver'
+                 AND x.cancel_reason = ? AND x.arrived_at_ms IS NOT NULL AND x.updated_at >= datetime('now', '-${AUTO_DAYS} days')
+                 AND (r.no_show_reset_at IS NULL OR x.updated_at > r.no_show_reset_at)) AS faltas_choferes
        FROM riders r
        WHERE r.city = ?
        ORDER BY r.created_at DESC`
     )
-    .all(req.adminCity);
-  // «Pausado»: frenado solo por faltas recientes (ver riderBlock.js). Solo se
-  // revisa a los que tienen faltas, para no hacer una consulta por pasajero.
+    .all(NO_SHOW_REASON, NO_SHOW_REASON, req.adminCity);
+  // «Pausado»: frenado solo por faltas recientes (misma regla que riderBlock.js).
   for (const r of riders) {
     r.bloqueado = Number(r.bloqueado) > 0;
-    r.pausado = false;
-    if (!r.bloqueado && r.no_show_count > 0) r.pausado = !!(await riderBlock(r));
+    r.pausado = !r.bloqueado && Number(r.faltas) >= AUTO_LIMIT && Number(r.faltas_choferes) >= AUTO_MIN_DRIVERS;
+    delete r.faltas_choferes;
   }
   res.json(riders);
 });
@@ -1089,9 +1094,9 @@ router.post("/admin/reports/cancelaciones", checkAdminPin, async (req, res) => {
     .all(req.adminCity);
 
   // Pasajeros que ya acumularon varias veces "El pasajero no llegó" (ver
-  // no_show_count en riders/rides.js). No se bloquean solos — es para que el
-  // admin decida si contacta o restringe, porque un "no llegó" también puede
-  // ser el chofer equivocándose de ubicación.
+  // no_show_count en riders/rides.js). Aviso para el admin. Además, con 3
+  // «no llegó» en 7 días de 2+ choferes (tras «Llegué») la app los pausa sola
+  // (riderBlock.js); bloquear/desbloquear a mano: Pasajeros → Bloquear.
   const NO_SHOW_ALERT_THRESHOLD = 2;
   const inasistencias = await db
     .prepare(
