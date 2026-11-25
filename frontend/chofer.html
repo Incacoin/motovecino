@@ -2214,8 +2214,8 @@ function connectWs() {
     // Con el código nuevo se vuelve a pedir el mapa de una vez (y si ya se
     // estaba pintando él mismo con un código viejo, desaparece).
     if (type === "map_code") { myMapCode = payload.code; if (otherDriversPollTimer) loadOtherDrivers(); }
-    if (type === "suspended") { showSuspended(payload); return; }
-    if (type === "unsuspended") { hideSuspended(); showToast("✅ Tu cuenta ya está activa. Ya puedes ponerte Disponible."); return; }
+    if (type === "suspended") { showSuspended(payload); loadDriverBookings(); return; }
+    if (type === "unsuspended") { hideSuspended(); showToast("✅ Tu cuenta ya está activa. Ya puedes ponerte Disponible."); loadDriverBookings(); return; }
     if (type === "new_ride" && suspendedInfo) return;
     if (type === "new_ride") addPendingRide(payload);
     if (type === "ride_taken") { delete myOffers[payload.rideId]; removePendingRide(payload.rideId); }

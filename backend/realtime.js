@@ -430,7 +430,8 @@ async function setupConnection(ws, req, early, keepEarly) {
         if (msg.status === "disponible") await push.setWantsRides(driverId, true);
         else if (msg.status === "offline") await push.setWantsRides(driverId, false);
       } else if (msg.type === "wants_rides") {
-        await push.setWantsRides(driverId, !!msg.on);
+        // Suspendido: no vuelve a pedir avisos.
+        await push.setWantsRides(driverId, !!msg.on && !(await driverSuspension(driverId)));
       } else if (msg.type === "chat" && typeof msg.text === "string" && msg.text.trim()) {
         const text = maskPhones(msg.text.trim().slice(0, 300));
         const ride = await activeRideForDriver(driverId);

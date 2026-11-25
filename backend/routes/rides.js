@@ -693,6 +693,14 @@ router.post("/rides/:id/offers/:offerId/accept", async (req, res) => {
     .get(Number(req.params.offerId), rideId, TAXI_OFFER_TTL_SEC);
   if (!offer) return res.status(409).json({ error: "Esa oferta ya no está disponible" });
 
+  // Suspendido después de mandar la oferta (driverSuspend.js): ya no vale.
+  const susp = await db.prepare("SELECT suspended_at FROM drivers WHERE id = ?").get(offer.driver_id);
+  if (susp?.suspended_at) {
+    await db.prepare("UPDATE ride_offers SET status = 'cerrada', responded_at = datetime('now') WHERE id = ?").run(offer.id);
+    realtime.notifyRide(rideId, "offer_removed", { offerId: offer.id });
+    return res.status(409).json({ error: "Ese chofer ya no está disponible" });
+  }
+
   const busy = await db
     .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
     .get(offer.driver_id);

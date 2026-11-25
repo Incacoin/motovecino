@@ -634,13 +634,17 @@ router.post("/admin/drivers/:id/suspend", checkAdminPin, async (req, res) => {
     const reason = Object.hasOwn(SUSPEND_REASONS, req.body.reason) ? req.body.reason : null;
     if (!reason) return res.status(400).json({ error: "Elige el motivo" });
     const note = typeof req.body.note === "string" ? req.body.note.replace(/\s+/g, " ").trim().slice(0, 120) || null : null;
-    const activeRide = await db
-      .prepare("SELECT id FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso')")
-      .get(id);
-    if (activeRide) return res.status(409).json({ error: "Este chofer trae un viaje en este momento. Suspéndelo cuando termine." });
-    await db.prepare("UPDATE drivers SET suspended_at = datetime('now'), suspended_reason = ?, suspended_note = ?, status = 'offline' WHERE id = ?")
-      .run(reason, note, id);
+    // En una sola consulta: si justo aceptó un viaje, no se suspende.
+    const r = await db.prepare(
+      `UPDATE drivers SET suspended_at = datetime('now'), suspended_reason = ?, suspended_note = ?, status = 'offline'
+       WHERE id = ? AND NOT EXISTS (SELECT 1 FROM rides WHERE driver_id = ? AND status IN ('aceptado', 'llegue', 'en_curso'))`
+    ).run(reason, note, id, id);
+    if (r.changes === 0) return res.status(409).json({ error: "Este chofer trae un viaje en este momento. Suspéndelo cuando termine." });
     await require("../push").setWantsRides(id, false);
+    // Lo que prometió antes ya no vale: contraofertas de taxi, propuestas y
+    // agendados confirmados (vuelven a quedar libres, se avisa al pasajero).
+    await require("./rides").closeDriverOtherOffers(id);
+    await require("./bookings").releaseDriverBookings(id);
     require("../realtime").notifyDriver(id, "suspended", suspendPayload({ suspended_reason: reason, suspended_note: note }));
   } else {
     await db.prepare("UPDATE drivers SET suspended_at = NULL, suspended_reason = NULL, suspended_note = NULL WHERE id = ?").run(id);

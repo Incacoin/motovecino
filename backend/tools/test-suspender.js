@@ -77,8 +77,23 @@ async function main() {
   ws.send(JSON.stringify({ type: "status", status: "disponible" }));
   await sleep(500);
   check("antes: disponible", (await status(d.id)) === "disponible");
+  // Antes de suspenderlo: propone precio en un viaje y confirma un agendado
+  const r0 = await pedir();
+  const of0 = await post(`/rides/${r0.data?.id}/offer`, { ...D, price: 40 });
+  check("antes: propone precio", of0.status === 201, of0);
+  const bk0 = await post("/bookings", { riderPhone: R.rider_phone, riderPin: R.rider_pin, scheduled_at_ms: Date.now() + 5 * 3600e3, pickup_lat: TEKAX.lat, pickup_lng: TEKAX.lng, dest_lat: TEKAX.lat + 0.01, dest_lng: TEKAX.lng, offer_price: 30 });
+  check("pasajero agenda", bk0.status === 201, bk0);
+  const tk0 = await post(`/bookings/${bk0.data?.id}/take`, D);
+  check("antes: confirma el agendado", tk0.status === 200, tk0);
+
   const s = await post(`/admin/drivers/${d.id}/suspend`, { adminPin: ADMIN, suspend: true, reason: "documentos", note: "  falta   INE  " });
   check("suspender ok", s.status === 200, s);
+  const acOf = await post(`/rides/${r0.data?.id}/offers/${of0.data?.offerId}/accept`, { riderPhone: R.rider_phone, riderPin: R.rider_pin });
+  check("su propuesta de antes ya no se puede aceptar", acOf.status === 409, acOf);
+  await post(`/rides/${r0.data?.id}/cancel`, { riderPhone: R.rider_phone, riderPin: R.rider_pin });
+  const bkAhora = await db.prepare("SELECT status, driver_id FROM ride_bookings WHERE id = ?").get(bk0.data?.id);
+  check("su agendado confirmado vuelve a quedar libre", bkAhora?.status === "agendado" && bkAhora?.driver_id == null, bkAhora);
+  await post(`/bookings/${bk0.data?.id}/cancel`, { riderPhone: R.rider_phone, riderPin: R.rider_pin });
   const aviso = await waitFor(ws, "suspended");
   check("su app recibe el aviso con el motivo", aviso?.payload?.reason === "Faltan documentos" && aviso?.payload?.note === "falta INE", aviso);
   check("queda desconectado", (await status(d.id)) === "offline");
@@ -144,7 +159,10 @@ async function main() {
 
 async function limpiar() {
   for (const id of creados.riders.filter(Boolean)) {
+    await db.prepare("DELETE FROM ride_offers WHERE ride_id IN (SELECT id FROM rides WHERE rider_id = ?)").run(id);
     await db.prepare("DELETE FROM rides WHERE rider_id = ?").run(id);
+    await db.prepare("DELETE FROM booking_offers WHERE booking_id IN (SELECT id FROM ride_bookings WHERE rider_id = ?)").run(id);
+    await db.prepare("DELETE FROM ride_bookings WHERE rider_id = ?").run(id);
     await post(`/admin/riders/${id}/delete`, { adminPin: ADMIN });
   }
   for (const id of creados.drivers) {

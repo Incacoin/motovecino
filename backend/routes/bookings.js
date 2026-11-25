@@ -163,7 +163,7 @@ async function pushRider(bookingId, title, body, envio) {
 async function bookingsChanged(b) {
   const taxi = b.ride_type === "taxi";
   const list = await db
-    .prepare(`SELECT id FROM drivers WHERE deleted_at IS NULL AND vehicle_type = ? ${taxi ? "" : "AND city = ?"}`)
+    .prepare(`SELECT id FROM drivers WHERE deleted_at IS NULL AND suspended_at IS NULL AND vehicle_type = ? ${taxi ? "" : "AND city = ?"}`)
     .all(...(taxi ? ["taxi"] : ["moto", b.city]));
   // (la app del chofer espera un momento al azar antes de volver a pedir la
   // lista, para que no lleguen todos al mismo tiempo)
@@ -470,7 +470,8 @@ router.post("/bookings/:id/offers/:offerId/accept", async (req, res) => {
   if (!o) return res.status(409).json({ error: "Esta propuesta ya no está disponible" });
   if (b.status !== "agendado") return res.status(409).json({ error: "Tu viaje ya tiene chofer" });
   if (Number(b.scheduled_at_ms) <= Date.now() + LAUNCH_CONFIRMED_MS) return res.status(409).json({ error: "Ya falta muy poco: tu viaje va a salir a los choferes cercanos" });
-  const d = await db.prepare("SELECT * FROM drivers WHERE id = ? AND deleted_at IS NULL").get(o.driver_id);
+  // Suspendido después de proponer (driverSuspend.js): su propuesta ya no vale.
+  const d = await db.prepare("SELECT * FROM drivers WHERE id = ? AND deleted_at IS NULL AND suspended_at IS NULL").get(o.driver_id);
   const busy = !d || !driverFits(d, b) ? "Ese chofer ya no está disponible" : await commitError(d.id, b);
   if (busy) {
     await db.prepare("UPDATE booking_offers SET status = 'cerrada', responded_at = datetime('now') WHERE id = ? AND status = 'pendiente'").run(o.id);
@@ -547,6 +548,24 @@ router.post("/bookings/:id/release", async (req, res) => {
   bookingsChanged(b).catch(() => {});
   res.json({ ok: true });
 });
+
+// Al suspender a un chofer (admin.js, driverSuspend.js): sus propuestas de
+// precio en agendados se cierran y sus agendados ya confirmados vuelven a
+// quedar libres (igual que «ya no puedo ir»), avisando al pasajero.
+async function releaseDriverBookings(driverId) {
+  await db.prepare("UPDATE booking_offers SET status = 'cerrada', responded_at = datetime('now') WHERE driver_id = ? AND status = 'pendiente'").run(driverId);
+  const mine = await db.prepare("SELECT * FROM ride_bookings WHERE driver_id = ? AND status = 'confirmado'").all(driverId);
+  for (const b of mine) {
+    const r = await db
+      .prepare("UPDATE ride_bookings SET status = 'agendado', driver_id = NULL, updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'confirmado'")
+      .run(b.id, driverId);
+    if (r.changes === 0) continue;
+    pushRider(b.id, "Tu chofer ya no podrá ir", `Tu viaje del ${whenText(b.scheduled_at_ms)} sigue agendado: otro chofer lo puede confirmar, o sale a los choferes cercanos antes de la hora.`,
+      ["Tu chofer asegurado ya no podrá ir", `El envío de las ${hourText(b.scheduled_at_ms)} sigue apartado: otro chofer lo puede asegurar, o sale a los choferes cercanos 5 min antes.`]).catch(() => {});
+    bookingsChanged(b).catch(() => {});
+  }
+  return mine.length;
+}
 
 // ---- Cerca de la hora: crear el viaje de verdad ----
 
@@ -901,5 +920,6 @@ function startBookingSweep() {
 module.exports = router;
 module.exports.startBookingSweep = startBookingSweep;
 module.exports.sweepBookings = sweepBookings;
+module.exports.releaseDriverBookings = releaseDriverBookings;
 module.exports.BOOKING_OFFER_REASONS = BOOKING_OFFER_REASONS;
 module.exports.BOOKING_TIMES = { MIN_AHEAD_MS, MAX_AHEAD_MS, LAUNCH_CONFIRMED_MS, LAUNCH_OPEN_MS };
