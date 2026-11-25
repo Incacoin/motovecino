@@ -21,7 +21,7 @@ const REFERRAL = {
   REQUIRED_TRIPS: 20,
   REQUIRED_RIDERS: 10,
   MONTHLY_CAP: 5,
-  PROMO_END: "2026-12-31",
+  PROMO_END: "2027-03-31",
 };
 
 async function promoActive(db) {

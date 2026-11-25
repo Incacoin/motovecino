@@ -20,7 +20,7 @@ const RIDER_REFERRAL = {
   PER_BATCH: 10,
   AMOUNT: 20,
   RIDES_REQUIRED: RIDER_REFERRAL_RIDES,
-  PROMO_END: "2026-12-31",
+  PROMO_END: "2027-03-31",
 };
 
 // Los viajes que cuentan: completados, de pasaje (no un envío de negocio) y
