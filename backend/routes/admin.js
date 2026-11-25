@@ -785,13 +785,6 @@ router.post("/admin/riders/:id/reset-pin", checkAdminPin, async (req, res) => {
   res.json({ ok: true, pin });
 });
 
-// A diferencia de los choferes (que se "esconden" con deleted_at porque su
-// nombre debe seguir viéndose en el historial de viajes ya cobrado), un
-// pasajero sin viajes completados no deja ningún historial que proteger —
-// se borra la fila de verdad, para limpiar cuentas de prueba/basura.
-// Con viajes completados, no se deja borrar aquí (evita perder ese
-// historial sin querer); si de verdad hay que quitarlo, es un caso especial
-// que se atiende aparte, no desde este botón.
 // Bloquear / desbloquear pasajero (26-nov-2026, ver riderBlock.js). El bloqueo
 // va por número: sigue aunque se borre la cuenta y se registre otra vez.
 // Desbloquear también quita la pausa automática (las faltas de antes ya no cuentan).
@@ -810,6 +803,13 @@ router.post("/admin/riders/:id/block", checkAdminPin, async (req, res) => {
   res.json({ ok: true });
 });
 
+// A diferencia de los choferes (que se "esconden" con deleted_at porque su
+// nombre debe seguir viéndose en el historial de viajes ya cobrado), un
+// pasajero sin viajes completados no deja ningún historial que proteger —
+// se borra la fila de verdad, para limpiar cuentas de prueba/basura.
+// Con viajes completados, no se deja borrar aquí (evita perder ese
+// historial sin querer); si de verdad hay que quitarlo, es un caso especial
+// que se atiende aparte, no desde este botón.
 router.post("/admin/riders/:id/delete", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("riders", req, res)) return;
   const { trips } = await db
