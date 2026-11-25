@@ -6,6 +6,10 @@ const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
 const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoOtroValido, numeroValido } = require("../agrupaciones");
+// «¿Cuál agrupación?» escrito pero que no sirve (una letra): se avisa en vez de
+// borrarlo sin decir nada. Vacío sí se acepta (la app del chofer lo pregunta).
+const CUAL_CORTO = "Escribe el nombre completo de su agrupación (al menos 2 letras)";
+const cualMalEscrito = (v) => typeof v === "string" && v.trim() !== "" && !grupoOtroValido(v);
 // Otro chofer del mismo municipio, agrupación y tipo de vehículo con ese
 // número (error de dedo o dos con el mismo número): no se bloquea, solo se
 // avisa al admin. «Otra agrupación» y sin agrupación no se comparan: ahí hay
@@ -263,6 +267,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   if (grupoAlta === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
   // «¿Cuál agrupación?» con «Otra»: opcional desde el admin (si falta, la app del chofer se lo pregunta).
   const grupoOtroAlta = grupoAlta === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
+  if (grupoAlta === POR_SU_CUENTA && cualMalEscrito(grupoOtro)) return res.status(400).json({ error: CUAL_CORTO });
   // Color: opcional desde el admin (vacío = sin dato), pero si viene tiene que ser de la lista.
   const colorAlta = vehicleColor ? colorValido(vehicleColor) : null;
   if (vehicleColor && !colorAlta) return res.status(400).json({ error: "Ese color no está en la lista" });
@@ -327,7 +332,7 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
   const drivers = await db
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
-              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.numero_unidad, d.cancel_count, d.cooldown_until, d.grupo, d.grupo_otro, d.city, d.zone, d.created_at,
+              d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.numero_unidad, d.cancel_count, d.cooldown_until, d.grupo, d.grupo_otro, d.grupo_por_confirmar, d.city, d.zone, d.created_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               d.play_last_open, d.play_opens,
               d.referred_by_driver_id, (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
@@ -502,6 +507,22 @@ router.post("/admin/drivers/:id/reset-pin", checkAdminPin, async (req, res) => {
   res.json({ ok: true, pin });
 });
 
+// Ventanita del chofer (25-nov-2026): dijo «Jaguar» o «Alcones» y queda «por
+// confirmar». Confirmar = pasa a su agrupación (y al padrón del líder).
+// Rechazar = se borra y su app le vuelve a preguntar.
+router.post("/admin/drivers/:id/agrupacion-confirmar", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const ok = req.body.confirmar === true;
+  const d = await db.prepare("SELECT city, grupo_por_confirmar FROM drivers WHERE id = ? AND deleted_at IS NULL").get(req.params.id);
+  const g = d && grupoValido(d.city, d.grupo_por_confirmar);
+  if (!g || g === POR_SU_CUENTA) return res.status(409).json({ error: "Este chofer ya no tiene agrupación por confirmar" });
+  const r = ok
+    ? await db.prepare("UPDATE drivers SET grupo = ?, grupo_otro = NULL, grupo_por_confirmar = NULL WHERE id = ? AND grupo_por_confirmar = ?").run(g, req.params.id, d.grupo_por_confirmar)
+    : await db.prepare("UPDATE drivers SET grupo_por_confirmar = NULL WHERE id = ? AND grupo_por_confirmar = ?").run(req.params.id, d.grupo_por_confirmar);
+  if (!r.changes) return res.status(409).json({ error: "Este chofer ya no tiene agrupación por confirmar" });
+  res.json({ ok: true, grupo: ok ? g : null });
+});
+
 router.post("/admin/drivers/:id/vouch", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("drivers", req, res)) return;
   const { vouchedBy } = req.body;
@@ -557,6 +578,7 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   // «¿Cuál agrupación?»: solo cuenta con «Otra»; si vino se toma ("" = quitarlo),
   // si no vino se queda la de antes. Con otra agrupación se borra.
   const grupoFinal = conGrupo ? grupoNuevo : actual?.grupo ?? null;
+  if (grupoFinal === POR_SU_CUENTA && cualMalEscrito(grupoOtro)) return res.status(400).json({ error: CUAL_CORTO });
   const grupoOtroNuevo = grupoFinal !== POR_SU_CUENTA ? null
     : grupoOtro !== undefined ? grupoOtroValido(grupoOtro) : actual?.grupo_otro ?? null;
   // Igual con el color: solo se toca si vino y cambió ("" = quitarlo).
@@ -579,7 +601,10 @@ router.post("/admin/drivers/:id/update", checkAdminPin, async (req, res) => {
   const refNuevo = refLimpio === undefined || refLimpio === (actual?.referred_by ?? null) ? actual?.referred_by ?? null : refLimpio?.slice(0, 80) ?? null;
 
   await db.prepare(
-    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, grupo_otro = ?, vehicle_color = ?, numero_unidad = ?, referred_by = ?, city = ? WHERE id = ?"
+    "UPDATE drivers SET name = ?, phone = ?, vehicle = ?, tipo = ?, vehicle_type = ?, grupo = ?, grupo_otro = ?," +
+      // Si el admin le pone otra agrupación a mano, lo «por confirmar» ya no cuenta.
+      (conGrupo ? " grupo_por_confirmar = NULL," : "") +
+      " vehicle_color = ?, numero_unidad = ?, referred_by = ?, city = ? WHERE id = ?"
   ).run(
     name, phone, vehicle || null, tipo === "formal" ? "formal" : "informal", vehicleType === "taxi" ? "taxi" : "moto",
     grupoFinal, grupoOtroNuevo, conColor ? colorNuevo : actual?.vehicle_color ?? null, numeroNuevo, refNuevo, cityId, req.params.id
@@ -644,7 +669,7 @@ router.post("/admin/drivers/:id/move-city", checkAdminPin, async (req, res) => {
   }
   // La agrupación es de cada municipio (Jaguar es de Ticul): al mudarlo se
   // borra y se vuelve a elegir en el municipio nuevo.
-  await db.prepare("UPDATE drivers SET city = ?, zone = NULL, grupo = NULL, grupo_otro = NULL, numero_unidad = NULL WHERE id = ?").run(toCity, req.params.id);
+  await db.prepare("UPDATE drivers SET city = ?, zone = NULL, grupo = NULL, grupo_otro = NULL, grupo_por_confirmar = NULL, numero_unidad = NULL WHERE id = ?").run(toCity, req.params.id);
   res.json({ ok: true, city: toCity, cityLabel: getCityById(toCity).label });
 });
 

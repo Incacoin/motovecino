@@ -84,6 +84,12 @@ async function main() {
   const upd = (extra) => post(`/admin/drivers/${id}/update`, { adminPin: ADMIN, adminZone: "ticul", name: a1.name, phone: a1.phone, vehicleType: "moto", ...extra });
   await upd({});
   check("editar sin mandar «¿Cuál?» lo conserva", (await listaDe(id))?.grupo_otro === "Los Halcones");
+  const corto = await upd({ grupoOtro: "H" });
+  check("admin: «¿Cuál?» de una letra → aviso", corto.status === 400 && /2 letras/.test(corto.data?.error || ""), corto);
+  check("y no se borró lo de antes", (await listaDe(id))?.grupo_otro === "Los Halcones");
+  const altaCorta = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "ticul", name: `Agr Corto ${stamp}`, phone: tel("97600"), acceptedLegal: true, vehicleType: "moto", grupo: "Por su cuenta", grupoOtro: "x" });
+  check("admin: alta con «¿Cuál?» de una letra → aviso", altaCorta.status === 400, altaCorta);
+  if (altaCorta.data?.id) creados.push(altaCorta.data.id);
   await upd({ grupoOtro: "Halcones del Sur" });
   check("editar «¿Cuál?»", (await listaDe(id))?.grupo_otro === "Halcones del Sur");
   await upd({ grupo: "Jaguar", grupoOtro: "Halcones del Sur" });
@@ -118,10 +124,40 @@ async function main() {
   await db.prepare("UPDATE drivers SET grupo = 'Por su cuenta', grupo_otro = NULL WHERE id = ?").run(choferId);
   perfil = (await post("/drivers/profile", cred)).data;
   check("perfil: «Otra» sin cuál → falta", perfil?.faltaAgrupacion === true && perfil?.grupo === "Por su cuenta", perfil && { f: perfil.faltaAgrupacion });
-  const aJaguar = await post("/drivers/agrupacion", { ...cred, grupo: "Jaguar", grupoOtro: "ignorado" });
-  check("ventanita: elige Jaguar", aJaguar.status === 200);
-  const fin = await listaDe(choferId);
-  check("queda Jaguar sin «¿Cuál?»", fin?.grupo === "Jaguar" && !fin?.grupo_otro, fin);
+  // Doble toque: dos envíos a la vez → solo uno guarda, el otro 409.
+  const [j1, j2] = await Promise.all([
+    post("/drivers/agrupacion", { ...cred, grupo: "Jaguar", grupoOtro: "ignorado" }),
+    post("/drivers/agrupacion", { ...cred, grupo: "Jaguar" }),
+  ]);
+  check("ventanita: elige Jaguar (doble toque: uno 200 y otro 409)", [j1.status, j2.status].sort().join() === "200,409", [j1.status, j2.status]);
+  check("responde «por confirmar»", [j1, j2].some((x) => x.data?.grupoPorConfirmar === "Jaguar"));
+  let fin = await listaDe(choferId);
+  check("Jaguar queda POR CONFIRMAR (no entra al padrón del líder)", fin && !fin.grupo && !fin.grupo_otro && fin.grupo_por_confirmar === "Jaguar", fin);
+  const nAudit = await db.prepare("SELECT COUNT(*) AS n FROM admin_audit WHERE action = 'agrupacion_chofer' AND target_id = ? AND detail LIKE '%por confirmar%'").get(choferId);
+  check("doble toque anota una sola vez", Number(nAudit?.n) === 1, nAudit);
+  perfil = (await post("/drivers/profile", cred)).data;
+  check("perfil: por confirmar → ya no sale la ventanita", perfil?.faltaAgrupacion === false && perfil?.grupoPorConfirmar === "Jaguar", perfil && { f: perfil.faltaAgrupacion, pc: perfil.grupoPorConfirmar });
+  check("ventanita: por confirmar, ya no puede cambiarla", (await post("/drivers/agrupacion", { ...cred, grupo: "Alcones Alfa" })).status === 409);
+  const conf = (ok) => post(`/admin/drivers/${choferId}/agrupacion-confirmar`, { adminPin: ADMIN, adminZone: "ticul", confirmar: ok });
+  const confTekax = await post(`/admin/drivers/${choferId}/agrupacion-confirmar`, { adminPin: ADMIN, adminZone: "tekax", confirmar: true });
+  check("admin de otro municipio no puede confirmar", confTekax.status === 403 || confTekax.status === 404, confTekax);
+  // Rechazar: se borra y su app le vuelve a preguntar.
+  const rech = await conf(false);
+  check("admin: «No es de ahí»", rech.status === 200, rech);
+  perfil = (await post("/drivers/profile", cred)).data;
+  check("rechazado → la ventanita vuelve a salir", perfil?.faltaAgrupacion === true && !perfil?.grupoPorConfirmar, perfil && { f: perfil.faltaAgrupacion });
+  check("ventanita: elige Jaguar otra vez", (await post("/drivers/agrupacion", { ...cred, grupo: "Jaguar" })).status === 200);
+  const ok = await conf(true);
+  check("admin: Confirmar", ok.status === 200 && ok.data?.grupo === "Jaguar", ok);
+  fin = await listaDe(choferId);
+  check("confirmado → queda Jaguar sin «¿Cuál?» ni «por confirmar»", fin?.grupo === "Jaguar" && !fin?.grupo_otro && !fin?.grupo_por_confirmar, fin);
+  check("confirmar otra vez → 409", (await conf(true)).status === 409);
+  // El admin le pone agrupación a mano: lo «por confirmar» se borra.
+  await db.prepare("UPDATE drivers SET grupo = NULL, grupo_por_confirmar = 'Alcones Alfa' WHERE id = ?").run(choferId);
+  const cj = await db.prepare("SELECT name, phone FROM drivers WHERE id = ?").get(choferId);
+  await post(`/admin/drivers/${choferId}/update`, { adminPin: ADMIN, adminZone: "ticul", name: cj.name, phone: cj.phone, vehicleType: "moto", grupo: "Jaguar" });
+  fin = await listaDe(choferId);
+  check("admin edita a mano → borra el «por confirmar»", fin?.grupo === "Jaguar" && !fin?.grupo_por_confirmar, fin);
 
   // Agrupación vieja que ya no está en la lista → también se le pregunta.
   await db.prepare("UPDATE drivers SET grupo = 'Gremio viejo' WHERE id = ?").run(choferId);
@@ -129,13 +165,17 @@ async function main() {
   await db.prepare("UPDATE drivers SET grupo = 'Jaguar' WHERE id = ?").run(choferId);
 
   // ---- Tekax: no hay agrupaciones, nunca sale ----
-  const tk = await db.prepare("SELECT id, phone, pin FROM drivers WHERE city = 'tekax' AND deleted_at IS NULL AND (grupo IS NULL OR grupo = '') LIMIT 1").get();
-  if (tk) {
-    const p = (await post("/drivers/profile", { phone: tk.phone, pin: tk.pin })).data;
+  // Crea su propio chofer de Tekax (no depende del seed).
+  const altaTk = await post("/admin/drivers", { adminPin: ADMIN, adminZone: "tekax", name: `Agr Tekax ${stamp}`, phone: tel("97700"), acceptedLegal: true, vehicleType: "moto" });
+  check("admin: alta de chofer de Tekax", altaTk.status === 201, altaTk);
+  if (altaTk.data?.id) {
+    creados.push(altaTk.data.id);
+    const tk = await pinDe(altaTk.data.id);
+    const p = (await post("/drivers/profile", tk)).data;
     check("Tekax: no sale la ventanita", p?.faltaAgrupacion === false, p && p.faltaAgrupacion);
-    const t = await post("/drivers/agrupacion", { phone: tk.phone, pin: tk.pin, grupo: "Jaguar" });
+    const t = await post("/drivers/agrupacion", { ...tk, grupo: "Jaguar" });
     check("Tekax: no se puede poner agrupación", t.status === 409, t);
-  } else check("hay un chofer de Tekax en la base de prueba (seed)", false);
+  }
 
   console.log(fail ? `NO: ${fail} fallaron, ${pass} bien` : `Todo bien (${pass})`);
 }
@@ -145,7 +185,10 @@ main()
   .finally(async () => {
     // Limpia lo que crea.
     try {
-      for (const did of creados.filter(Boolean)) await db.prepare("UPDATE drivers SET deleted_at = datetime('now') WHERE id = ?").run(did);
+      for (const did of creados.filter(Boolean)) {
+        await db.prepare("UPDATE drivers SET deleted_at = datetime('now') WHERE id = ?").run(did);
+        await db.prepare("DELETE FROM admin_audit WHERE action = 'agrupacion_chofer' AND target_id = ?").run(did);
+      }
       for (const ph of telefonos) await db.prepare("DELETE FROM driver_applications WHERE phone = ?").run(ph);
     } catch (e) { console.error("limpieza:", e.message); }
     await db.close?.();

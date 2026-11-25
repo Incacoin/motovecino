@@ -743,6 +743,10 @@ ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS numero_unidad TEXT;
 -- el nombre real de la suya. Solo para el padrón interno del admin.
 ALTER TABLE drivers ADD COLUMN IF NOT EXISTS grupo_otro TEXT;
 ALTER TABLE driver_applications ADD COLUMN IF NOT EXISTS grupo_otro TEXT;
+-- Ventanita del chofer (25-nov-2026): si dice Jaguar o Alcones queda aquí
+-- «por confirmar» (grupo sigue vacío: no sale en el padrón del líder ni al
+-- pasajero) hasta que el admin toque «Confirmar».
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS grupo_por_confirmar TEXT;
 -- Invita pasajeros (23-nov-2026): el chofer comparte su QR/código y el
 -- pasajero nuevo queda ligado a él. Por cada 20 invitados que completan su
 -- primer viaje, el chofer gana $40 de saldo a favor (ver riderReferrals.js).

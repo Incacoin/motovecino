@@ -48,9 +48,12 @@ function grupoOtroValido(valor) {
 
 // ¿Al chofer le falta decir su agrupación? Solo en municipios con lista: sin
 // elegir, con un valor que ya no está en la lista, o «Otra» sin decir cuál.
-// Es lo que hace salir la ventanita en su app.
-function faltaAgrupacion(cityId, grupo, grupoOtro) {
+// Es lo que hace salir la ventanita en su app. Si ya contestó Jaguar/Alcones y
+// espera que el admin lo confirme (porConfirmar), ya no le falta.
+function faltaAgrupacion(cityId, grupo, grupoOtro, porConfirmar) {
   if (!agrupacionesDe(cityId).length) return false;
+  const pc = grupoValido(cityId, porConfirmar);
+  if (pc && pc !== POR_SU_CUENTA) return false;
   const g = grupoValido(cityId, grupo);
   if (!g) return true;
   return g === POR_SU_CUENTA && !grupoOtroValido(grupoOtro);

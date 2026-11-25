@@ -307,7 +307,7 @@ router.post("/drivers/profile", async (req, res) => {
   }
   const driver = await db
     .prepare(
-      `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, grupo_otro, numero_unidad, photo, tipo, pin, created_at,
+      `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, grupo_otro, grupo_por_confirmar, numero_unidad, photo, tipo, pin, created_at,
               paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, deposit_changed_at, city
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
@@ -395,9 +395,10 @@ router.post("/drivers/profile", async (req, res) => {
     vehicleColor: driver.vehicle_color,
     grupo: driver.grupo,
     grupoOtro: driver.grupo === POR_SU_CUENTA ? driver.grupo_otro || null : null,
+    grupoPorConfirmar: driver.grupo_por_confirmar || null,
     // Ventanita «¿De qué agrupación eres?» (24-nov-2026): sale mientras falte.
-    faltaAgrupacion: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro),
-    agrupaciones: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro)
+    faltaAgrupacion: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro, driver.grupo_por_confirmar),
+    agrupaciones: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro, driver.grupo_por_confirmar)
       ? agrupacionesDe(driver.city).map((a) => ({ nombre: a.nombre, lider: a.lider }))
       : undefined,
     numeroUnidad: driver.numero_unidad,
@@ -520,27 +521,41 @@ router.post("/drivers/agrupacion", async (req, res) => {
     return res.status(400).json({ error: "Falta teléfono o PIN" });
   }
   const driver = await db
-    .prepare("SELECT id, name, city, grupo, grupo_otro FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
+    .prepare("SELECT id, name, city, grupo, grupo_otro, grupo_por_confirmar FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL")
     .get(phone, pin);
   if (!driver) {
     recordFailedAttempt(req.ip, req.body);
     return res.status(404).json({ error: "Teléfono o PIN incorrectos" });
   }
   clearAttempts(req.ip);
-  if (!faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro)) {
-    return res.status(409).json({ error: "Tu agrupación ya está guardada. Si hay que cambiarla, escríbenos a Ayuda." });
+  const yaGuardada = { error: "Tu agrupación ya está guardada. Si hay que cambiarla, escríbenos a Ayuda." };
+  if (!faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro, driver.grupo_por_confirmar)) {
+    return res.status(409).json(yaGuardada);
   }
   const g = grupoValido(driver.city, grupo);
   if (!g) return res.status(400).json({ error: "Elige tu agrupación (o «Otra agrupación»)" });
   const otro = g === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
   if (g === POR_SU_CUENTA && !otro) return res.status(400).json({ error: "Escribe cuál es tu agrupación" });
 
-  await db.prepare("UPDATE drivers SET grupo = ?, grupo_otro = ? WHERE id = ?").run(g, otro, driver.id);
+  // Jaguar / Alcones: no entra directo al padrón de su líder; queda «por
+  // confirmar» hasta que el admin lo confirme (así nadie se mete a una
+  // agrupación que no es la suya). «Otra: X» se guarda tal cual.
+  const porConfirmar = g !== POR_SU_CUENTA;
+  // Solo guarda si nada cambió desde que lo leímos (doble toque o dos
+  // celulares a la vez: el segundo recibe 409 y no se anota dos veces).
+  const r = porConfirmar
+    ? await db.prepare(
+        "UPDATE drivers SET grupo = NULL, grupo_otro = NULL, grupo_por_confirmar = ? WHERE id = ? AND COALESCE(grupo, '') = ? AND COALESCE(grupo_otro, '') = ? AND COALESCE(grupo_por_confirmar, '') = ?"
+      ).run(g, driver.id, driver.grupo || "", driver.grupo_otro || "", driver.grupo_por_confirmar || "")
+    : await db.prepare(
+        "UPDATE drivers SET grupo = ?, grupo_otro = ?, grupo_por_confirmar = NULL WHERE id = ? AND COALESCE(grupo, '') = ? AND COALESCE(grupo_otro, '') = ? AND COALESCE(grupo_por_confirmar, '') = ?"
+      ).run(g, otro, driver.id, driver.grupo || "", driver.grupo_otro || "", driver.grupo_por_confirmar || "");
+  if (!r.changes) return res.status(409).json(yaGuardada);
   const antes = driver.grupo ? `${driver.grupo}${driver.grupo_otro ? ` (${driver.grupo_otro})` : ""}` : "sin agrupación";
-  const ahora = `${g === POR_SU_CUENTA ? "Otra agrupación" : g}${otro ? ` (${otro})` : ""}`;
+  const ahora = porConfirmar ? `${g} (por confirmar)` : `Otra agrupación (${otro})`;
   await db.prepare("INSERT INTO admin_audit (role, zone, action, target_id, detail, ip, ok) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .run("chofer", driver.city || null, "agrupacion_chofer", driver.id, `${driver.name}: ${antes} → ${ahora}`.slice(0, 400), req.ip || null, 1);
-  res.json({ ok: true, grupo: g, grupoOtro: otro });
+  res.json(porConfirmar ? { ok: true, grupoPorConfirmar: g } : { ok: true, grupo: g, grupoOtro: otro });
 });
 
 // La foto es lo único que el chofer puede cambiar de su propio perfil.

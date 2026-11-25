@@ -2239,6 +2239,7 @@ function connectWs() {
       stopWaitTicker();
       clearWaitState(currentRide.id);
       currentRide = null;
+      retryAgrupacion(); // ventanita de agrupación que esperó al viaje
       stopRouteTracking();
       hideChat();
       showToast("El pasajero canceló el viaje" + depositMsg);
@@ -3295,6 +3296,7 @@ function closeReceiptOverlay() {
 // el chofer al reabrir la app (ver restoreActiveRide).
 function beginRide(ride) {
   currentRide = ride;
+  hideAgrupacionForRide();
   followMe = true; // al empezar un viaje el mapa vuelve a seguir al chofer
   pendingRides = {};
   for (const markers of Object.values(pendingMarkers)) markers.forEach((m) => map.removeLayer(m));
@@ -3570,6 +3572,7 @@ async function completeRide(extra) {
   stopWaitTicker();
   clearWaitState(currentRide.id);
   currentRide = null;
+  retryAgrupacion(); // ventanita de agrupación que esperó al viaje
   stopRouteTracking();
   hideChat();
   showToast(extra && extra.deliveryCode ? "¡Entrega confirmada! El cliente recibió su pedido." : extra && extra.deliveryPhoto ? "Entrega registrada con foto" : "Viaje completado");
@@ -3744,6 +3747,7 @@ async function confirmCancel(reason) {
   stopWaitTicker();
   clearWaitState(rideId);
   currentRide = null;
+  retryAgrupacion(); // ventanita de agrupación que esperó al viaje
   stopRouteTracking();
   hideChat();
   cancellingOwnRide = false;
@@ -4137,7 +4141,7 @@ function renderProfile(p) {
   document.getElementById("pfAv").classList.toggle("gold", !!p.esFundador);
   document.getElementById("pfUnitImg").innerHTML = p.vehicleType === "taxi" ? MVVeh.taxiSide(118) : MVVeh.motoSide(108);
   // "Por su cuenta" es el valor guardado de la opción «Otra agrupación» (19-nov).
-  const grupoVisible = (g) => (g === "Por su cuenta" ? p.grupoOtro || "Otra agrupación" : g);
+  const grupoVisible = (g) => (g === "Por su cuenta" ? p.grupoOtro || "Otra agrupación" : g || (p.grupoPorConfirmar ? p.grupoPorConfirmar + " (por confirmar)" : g));
   document.getElementById("profileSub").textContent =
     (p.vehicleType === "taxi" ? "Taxi" : "Mototaxi") +
     (grupoVisible(p.grupo) ? ` · ${grupoVisible(p.grupo)}` : "") +
@@ -4266,10 +4270,15 @@ function markBankChangeSeen(at) {
 // registraron antes de que se preguntara (o con «Otra» sin decir cuál). Sale
 // al abrir la app y no se quita hasta contestar; ya contestada, solo el admin
 // la cambia. Valor guardado de «Otra agrupación» = "Por su cuenta".
-let agrupacionAbierta = false;
+// 25-nov-2026: con viaje activo no sale (no le tapa el viaje); queda guardada
+// y sale al terminar o cancelar el viaje (ver retryAgrupacion).
+let agrupacionAbierta = null; // la ventanita, mientras está en pantalla
+let agrupacionPendiente = null; // perfil que pide la agrupación y aún no contesta
 function checkAgrupacion(p) {
-  if (!p || !p.faltaAgrupacion || !Array.isArray(p.agrupaciones) || agrupacionAbierta) return;
-  agrupacionAbierta = true;
+  if (!p) return;
+  if (!p.faltaAgrupacion || !Array.isArray(p.agrupaciones)) { agrupacionPendiente = null; return; }
+  agrupacionPendiente = p;
+  if (agrupacionAbierta || currentRide) return;
   const OTRA = "Por su cuenta";
   const ov = document.createElement("div");
   ov.className = "mv-confirm";
@@ -4285,6 +4294,7 @@ function checkAgrupacion(p) {
     <div class="mv-agr-err" id="mvAgrErr"></div>
     <div class="mv-confirm-actions"><button class="btn" id="mvAgrOk">Guardar</button></div>
   </div>`;
+  agrupacionAbierta = ov;
   ov.addEventListener("change", () => {
     const v = ov.querySelector('input[name="mvAgr"]:checked')?.value;
     ov.querySelectorAll(".mv-agr-opt").forEach((l) => l.classList.toggle("sel", l.querySelector("input").checked));
@@ -4318,7 +4328,9 @@ function checkAgrupacion(p) {
       // 409 = ya estaba guardada (otra pestaña/celular): se cierra igual.
       if (!res.ok && res.status !== 409) throw new Error(data.error || "No se pudo guardar, intenta otra vez");
       ov.remove();
-      showToast("¡Listo! Agrupación guardada");
+      agrupacionAbierta = null;
+      agrupacionPendiente = null;
+      showToast(data.grupoPorConfirmar ? "¡Listo! Tu agrupación queda por confirmar" : "¡Listo! Agrupación guardada");
     } catch (e) {
       err.textContent = e.message || "Sin conexión, intenta otra vez";
       ok.disabled = false;
@@ -4326,6 +4338,15 @@ function checkAgrupacion(p) {
     }
   });
   document.body.appendChild(ov);
+}
+
+// Empezó un viaje con la ventanita abierta: se quita y vuelve al terminar.
+function hideAgrupacionForRide() {
+  if (agrupacionAbierta) { agrupacionAbierta.remove(); agrupacionAbierta = null; }
+}
+function retryAgrupacion() {
+  if (!agrupacionPendiente) return;
+  setTimeout(() => { if (!currentRide) checkAgrupacion(agrupacionPendiente); }, 4000);
 }
 
 function checkBankChange(at) {
