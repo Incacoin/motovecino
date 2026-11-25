@@ -57,8 +57,9 @@ function pricingText() {
   const TEKAX = CITIES.find((c) => c.id === "tekax");
   const lines = [];
   for (const c of CITIES.filter((x) => !x.testOnly && !x.signupClosed)) {
-    const short = c.minOfferShort ? ` En ${c.label}, un viaje corto (hasta ${c.shortTripKm * 1000} m) va desde ${money(c.minOfferShort)} de día.` : "";
-    lines.push(`- ${c.label}: mototaxi desde ${money(c.minOffer)} por adulto de día y ${money(c.minOfferNight)} de noche; niños de 3 a 9 años ${money(c.minChild)} de día y ${money(c.minChildNight)} de noche.${short}`);
+    const short = c.minOfferShort ? ` En ${c.label}, un viaje corto (hasta ${c.shortTripKm * 1000} m) va desde ${money(c.minOfferShort)} de día${c.minOfferShortNight ? ` y ${money(c.minOfferShortNight)} de noche` : ""}.` : "";
+    const cupo = c.maxAdults ? ` El mototaxi lleva máximo ${c.maxAdults} adultos y ${c.maxChildren} niño${c.maxChildren === 1 ? "" : "s"}.` : "";
+    lines.push(`- ${c.label}: mototaxi desde ${money(c.minOffer)} por adulto de día y ${money(c.minOfferNight)} de noche; niños de 3 a 9 años ${money(c.minChild)} de día y ${money(c.minChildNight)} de noche.${short}${cupo}`);
   }
   for (const z of PROGRESO_ZONES.filter((x) => x.open)) {
     const full = zoneById("progreso", z.id) || {};

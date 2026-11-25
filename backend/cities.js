@@ -38,6 +38,10 @@ const CITIES = [
   // gremio): viaje corto (hasta shortTripKm en línea recta) mínimo
   // minOfferShort de día; más largo, minOffer y el chofer pide más si quiere.
   // De noche, minOfferNight sin importar la distancia.
+  // 25-nov-2026 (hoja oficial de la Dirección de Transporte de Ticul): de noche
+  // el viaje corto tiene su propio mínimo (minOfferShortNight $15; el largo
+  // sigue en minOfferNight $20). Mototaxi: máximo 3 adultos y 1 niño
+  // (maxAdults / maxChildren; sin estos campos, 4 personas como sea).
   // 15-nov-2026 (hecho el 28-oct, subido hasta hoy): taxis de Ticul recogen en sus
   // comisarías (Pustunich, Yotholín…). labelRadiusKm 12 (antes 7): hasta 12 km el
   // viaje es del cajón de Ticul y no de Tekax. El alcance REAL es 12 km: más lejos el
@@ -45,7 +49,7 @@ const CITIES = [
   // queda en 20 solo por si un día sube labelRadiusKm; no pasar de 12 sin revisar,
   // porque más allá están otros municipios (Sacalum, Santa Elena, Chapab, Muna).
   // El mototaxi sigue en 6 km. Prueba: tools/test-comisarias.js.
-  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, serviceRadiusKmTaxi: 20, labelRadiusKm: 12, offerOnly: true, minOffer: 15, minOfferShort: 10, shortTripKm: 0.5, minOfferNight: 20, minChild: 5, minChildNight: 10 },
+  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, serviceRadiusKmTaxi: 20, labelRadiusKm: 12, offerOnly: true, minOffer: 15, minOfferShort: 10, shortTripKm: 0.5, minOfferNight: 20, minOfferShortNight: 15, minChild: 5, minChildNight: 10, maxAdults: 3, maxChildren: 1 },
   { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // Akil (6-oct-2026): municipio con cajón propio (su selector en el
   // admin). Registro de choferes cerrado por ahora (signupClosed) y el
@@ -278,8 +282,14 @@ function motoReachesDest(cityId, lat, lng) {
 // app del pasajero (/api/cities/resolve). null si el pueblo tiene precio fijo.
 function cityOfferRules(city) {
   if (!city || !city.offerOnly || city.zones) return null;
-  const { minOffer, minOfferNight, minChild, minChildNight, minOfferShort, shortTripKm } = city;
-  return { minOffer, minOfferNight, minChild, minChildNight, serviceFee: SERVICE_FEE, ...(minOfferShort ? { minOfferShort, shortTripKm } : {}) };
+  const { minOffer, minOfferNight, minChild, minChildNight, minOfferShort, shortTripKm, minOfferShortNight, maxAdults, maxChildren } = city;
+  return {
+    minOffer, minOfferNight, minChild, minChildNight, serviceFee: SERVICE_FEE,
+    ...(minOfferShort ? { minOfferShort, shortTripKm } : {}),
+    ...(minOfferShort && minOfferShortNight ? { minOfferShortNight } : {}),
+    ...(maxAdults ? { maxAdults } : {}),
+    ...(maxChildren != null ? { maxChildren } : {}),
+  };
 }
 
 // Lo mínimo que puede ofrecer el pasajero en un pueblo offerOnly (con la

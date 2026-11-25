@@ -1861,7 +1861,12 @@ function motoOfferOnly() { return comisaria ? !!comisaria.offerOnly : !!cityOffe
 function cityOfferMin(night) {
   const short = !night && cityOffer.minOfferShort && pickup && dest &&
     haversine(pickup.lat, pickup.lng, dest.lat, dest.lng) <= cityOffer.shortTripKm;
-  const adult = night ? cityOffer.minOfferNight : short ? cityOffer.minOfferShort : cityOffer.minOffer;
+  // De noche el corto también tiene su precio si el municipio lo trae (Ticul $15, 25-nov-2026).
+  const shortAny = cityOffer.minOfferShort && pickup && dest &&
+    haversine(pickup.lat, pickup.lng, dest.lat, dest.lng) <= cityOffer.shortTripKm;
+  const adult = night
+    ? (shortAny && cityOffer.minOfferShortNight ? cityOffer.minOfferShortNight : cityOffer.minOfferNight)
+    : short ? cityOffer.minOfferShort : cityOffer.minOffer;
   const kid = night ? cityOffer.minChildNight : cityOffer.minChild;
   return adult * passengers + kid * children + SERVICE_FEE;
 }
@@ -2008,14 +2013,38 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Cupo del mototaxi por municipio (Ticul: 3 adultos y 1 niño). El taxi y los
+// municipios sin regla siguen con 4 personas como sea.
+function maxAdultsNow() {
+  const m = serviceType !== "taxi" && cityOffer && cityOffer.maxAdults;
+  return m ? Math.min(m, MAX_OCCUPANTS - children) : MAX_OCCUPANTS - children;
+}
+function maxChildrenNow() {
+  const m = serviceType !== "taxi" && cityOffer && cityOffer.maxChildren != null ? cityOffer.maxChildren : null;
+  return m != null ? Math.min(m, MAX_OCCUPANTS - passengers) : MAX_OCCUPANTS - passengers;
+}
+// Si cambió el municipio o el vehículo, baja lo que ya no cabe.
+function clampOccupants() {
+  const p0 = passengers, c0 = children;
+  children = Math.max(0, Math.min(children, maxChildrenNow()));
+  passengers = Math.max(1, Math.min(passengers, maxAdultsNow()));
+  document.getElementById("passengerCount").textContent = passengers;
+  document.getElementById("childrenCount").textContent = children;
+  if ((p0 !== passengers || c0 !== children) && cityOffer && cityOffer.maxAdults) showToast("En el mototaxi caben máximo " + cityOffer.maxAdults + " adultos y " + cityOffer.maxChildren + " niño");
+}
+
 function changePassengers(delta) {
-  passengers = Math.min(MAX_OCCUPANTS - children, Math.max(1, passengers + delta));
+  const before = passengers;
+  passengers = Math.min(maxAdultsNow(), Math.max(1, passengers + delta));
+  if (delta > 0 && passengers === before && cityOffer && cityOffer.maxAdults && serviceType !== "taxi") showToast("En el mototaxi caben máximo " + cityOffer.maxAdults + " adultos");
   document.getElementById("passengerCount").textContent = passengers;
   updateFareEstimate();
 }
 
 function changeChildren(delta) {
-  children = Math.min(MAX_OCCUPANTS - passengers, Math.max(0, children + delta));
+  const before = children;
+  children = Math.min(maxChildrenNow(), Math.max(0, children + delta));
+  if (delta > 0 && children === before && cityOffer && cityOffer.maxChildren != null && serviceType !== "taxi") showToast("En el mototaxi cabe máximo " + cityOffer.maxChildren + " niño");
   document.getElementById("childrenCount").textContent = children;
   updateFareEstimate();
 }
@@ -2354,7 +2383,7 @@ function greetingText() {
 // offer: reglas de "Propón tu precio" del pueblo (cityOffer de /api/cities/resolve);
 // undefined = no vino (resetPins), se quedan las de antes.
 function applyZone(zone, zoneLabel, com, soon, offer, reach) {
-  if (offer !== undefined) cityOffer = offer;
+  if (offer !== undefined) { cityOffer = offer; clampOccupants(); }
   if (reach !== undefined) motoReach = reach;
   setComisaria(com);
   if (motoOfferOnly() && serviceType === "moto" && priceMode !== "oferta") { priceMode = "oferta"; markActiveCard(); }
@@ -2474,6 +2503,7 @@ function setServiceType(type) {
   if (wantMoto) destForcedTaxi = false;
   serviceType = newType;
   if (wantMoto) priceMode = newMode;
+  if (vehicleChanged) clampOccupants();
   markActiveCard();
   if (!vehicleChanged) {
     if (pickup && dest) document.getElementById("pickHint").textContent = readyHint();

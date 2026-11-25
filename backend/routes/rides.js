@@ -138,6 +138,16 @@ function checkRideRequest(body, opts = {}) {
   // de moto con offer_price (el chofer acepta o contraoferta, igual que el taxi).
   const cityCfg = getCityById(city);
 
+  // Cupo del mototaxi (25-nov-2026, Ticul: máximo 3 adultos y 1 niño). Un
+  // viaje agendado antes de la regla (keepMotoDest) se respeta.
+  if (ride_type !== "taxi" && !opts.keepMotoDest && cityCfg) {
+    const adults = Number(passengers) || 1;
+    const kids = Number(children) || 0;
+    if ((cityCfg.maxAdults && adults > cityCfg.maxAdults) || (cityCfg.maxChildren != null && kids > cityCfg.maxChildren)) {
+      return { error: `En ${cityCfg.label} el mototaxi lleva máximo ${cityCfg.maxAdults} adultos y ${cityCfg.maxChildren} niño${cityCfg.maxChildren === 1 ? "" : "s"}. Para más personas pide Taxi.` };
+    }
+  }
+
   // 17-nov-2026: el mototaxi deja solo dentro de su municipio (el mismo radio
   // en el que recoge, y que el destino no sea de otro municipio). Para Uxmal,
   // Akil desde Tekax, etc. es taxi. Las comisarías de Progreso tienen su

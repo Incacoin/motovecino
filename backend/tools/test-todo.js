@@ -37,6 +37,7 @@ const TESTS = [
   ["agendar-oferta", ["DATABASE_URL"]],
   ["envio-asegurado", ["DATABASE_URL"]],
   ["soporte-viaje", ["DATABASE_URL"]],
+  ["tarifa-ticul", []],
   ["mantenimiento", ["DATABASE_URL", "RESTORE_URL"]],
   ["progreso", ["ADMIN_PIN_PROGRESO"]],
 ];
