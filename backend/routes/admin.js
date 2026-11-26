@@ -363,7 +363,8 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
 // cada chofer, para imprimir su etiqueta sin pedírsela. Si un chofer nunca ha
 // abierto su Perfil, se le crea aquí (es el mismo que luego verá en su app).
 // Solo choferes del municipio de este admin; el QR lo dibuja /api/qr/invita.
-router.post("/admin/drivers/qr/list", checkAdminPin, async (req, res) => {
+// (No termina en /list a propósito: crea códigos, y así queda en Movimientos.)
+router.post("/admin/drivers/qr-codes", checkAdminPin, async (req, res) => {
   const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))] : [];
   if (!ids.length || ids.length > 300) return res.status(400).json({ error: "Elige de 1 a 300 choferes" });
   const rows = await db
