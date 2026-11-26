@@ -533,6 +533,13 @@ function setDriverTheme(pref) {
   .td-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #16a34a, #4ade80); }
   .td-trips { font-size: 13px; font-weight: 700; color: var(--text-dim); margin: 8px 0 12px; }
   .td-card .btn { width: 100%; margin: 6px 0 0; }
+  #ctChoice { position: fixed; inset: 0; z-index: 3100; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; animation: tdIn .25s ease-out; }
+  .ct-title { font-size: 19px; font-weight: 800; margin: 4px 0 6px; }
+  .ct-sub { font-size: 15px; color: var(--text-dim); margin: 0 0 14px; line-height: 1.4; }
+  .ct-sub b { color: inherit; }
+  .ct-btn small { display: block; font-size: 12px; font-weight: 600; opacity: .8; }
+  .ct-later { background: none; border: 0; color: var(--text-dim); font-size: 13.5px; font-weight: 700; margin-top: 10px; padding: 8px; }
+  .ct-note { font-size: 12px; color: var(--text-dim); margin: 10px 0 0; }
   @keyframes tdIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes tdPop { from { transform: scale(.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { #tripDone, .td-card { animation: none; } }
@@ -1790,6 +1797,7 @@ function startApp() {
   refreshTodayEarnings();
   refreshRankBadge();
   showDriverTierBadge(driver.lifetimeTrips);
+  setTimeout(() => checkCourtesyChoice().catch(() => {}), 4000);
 
   map = L.map("map").setView([20.2071, -89.2809], 14); // Tekax aprox, antes de que resuelva el GPS
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -2536,6 +2544,10 @@ function syncPendingMarkers() {
 
 function addPendingRide(ride) {
   playNotificationSound();
+  // Una solicitud nueva va primero: si estaba abierta la ventanita del viaje
+  // cortesía, se quita (se le vuelve a preguntar después).
+  document.getElementById("ctChoice")?.remove();
+  ctAsking = false;
   pendingRides[ride.id] = ride;
   syncPendingMarkers();
   renderRideList();
@@ -2603,7 +2615,23 @@ function farRequestHtml(r, accepted) {
 }
 
 function forOtherHtml(r, accepted) {
-  return farRequestHtml(r, accepted) + forOtherBody(r, accepted);
+  return farRequestHtml(r, accepted) + courtesyHtml(r, accepted) + forOtherBody(r, accepted);
+}
+
+// "Invita a tu vecino" (25-nov-2026): el pasajero usa su viaje cortesía.
+// MotoVecino le paga al chofer hasta courtesy_max: en efectivo en la oficina
+// o, si prefiere, como descuento en su cuota.
+function courtesyHtml(r) {
+  const max = Number(r.courtesy_max) || 0;
+  if (!max) return "";
+  const price = Number(r.agreed_price || r.offer_price) || 0;
+  const covered = price ? Math.min(price, max) : max;
+  const cash = price > max ? price - max : 0;
+  return `<div class="for-other"><b>Viaje cortesía de MotoVecino</b>
+    <div class="for-other-by">${price
+      ? (cash ? `Cobra solo <b>$${cash}</b> en efectivo. Los otros $${covered} te los paga MotoVecino:` : `No le cobres al pasajero. Los $${covered} te los paga MotoVecino:`)
+      : `MotoVecino te paga hasta $${max} de este viaje; cobra solo lo que pase de eso. Te lo pagamos:`}
+      en efectivo en la oficina, o como saldo a favor en tu app si lo prefieres.</div></div>`;
 }
 
 function forOtherBody(r, accepted) {
@@ -3602,6 +3630,8 @@ async function completeRide(extra) {
     return false;
   }
   const data = await res.json();
+  const wasCourtesy = !!(currentRide && currentRide.courtesy_max);
+  if (wasCourtesy) setTimeout(() => checkCourtesyChoice().catch(() => {}), 6500);
   todayCount = data.todayCount ?? todayCount + 1;
   driver.todayCount = todayCount;
   if (data.todayEarned != null) {
@@ -4089,6 +4119,61 @@ function showTripDone(gained, today, trips) {
   el.onclick = () => el.remove();
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 6000);
+}
+
+// "Invita a tu vecino": al terminar un viaje cortesía, el chofer elige cómo
+// quiere lo que MotoVecino le debe: saldo a favor al instante o efectivo en la
+// oficina. Si dice «Después», se le vuelve a preguntar al abrir la app.
+let ctAsking = false;
+async function checkCourtesyChoice() {
+  if (ctAsking || !driver || !driver.pin || currentRide || document.getElementById("tripDone")) return;
+  // Con solicitudes en pantalla no se le tapa nada: se pregunta más tarde.
+  if (Object.keys(pendingRides).length) { setTimeout(() => checkCourtesyChoice().catch(() => {}), 60000); return; }
+  const res = await fetch(API + "/api/courtesy/pending", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ driverId: driver.id, pin: driver.pin }),
+  });
+  if (!res.ok) return;
+  const { rides } = await res.json();
+  if (!rides || !rides.length || currentRide || Object.keys(pendingRides).length) return;
+  showCourtesyChoice(rides[0]);
+}
+
+function showCourtesyChoice(ride) {
+  ctAsking = true;
+  const amount = fmtMoney(Number(ride.amount));
+  const el = document.createElement("div");
+  el.id = "ctChoice";
+  el.innerHTML = `<div class="td-card" role="dialog" aria-modal="true">
+    <div class="ct-title">Viaje cortesía de MotoVecino</div>
+    <p class="ct-sub">MotoVecino te debe <b>${amount}</b> de este viaje. ¿Cómo los quieres?</p>
+    <button class="btn btn-go ct-btn" data-how="saldo">Saldo a favor en mi app<small>Al instante</small></button>
+    <button class="btn btn-secondary ct-btn" data-how="efectivo">Efectivo en la oficina<small>Pasas a cobrarlo</small></button>
+    <p class="ct-note">Una vez que elijas ya no se puede cambiar.</p>
+    <button class="ct-later" data-how="">Decidir después</button></div>`;
+  const close = () => { el.remove(); ctAsking = false; };
+  el.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-how]");
+    if (!b) return;
+    const how = b.dataset.how;
+    if (!how) return close();
+    el.querySelectorAll("button").forEach((x) => (x.disabled = true));
+    const r = await fetch(API + `/api/courtesy/${ride.id}/choose`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ driverId: driver.id, pin: driver.pin, how }),
+    }).catch(() => null);
+    close();
+    if (!r || !r.ok) {
+      const err = r ? await r.json().catch(() => ({})) : {};
+      showToast(err.error || "No se pudo guardar, inténtalo otra vez");
+      return;
+    }
+    showToast(how === "saldo" ? `Listo: ${amount} de saldo a favor en tu app` : `Anotado: pasa a la oficina por tus ${amount}`);
+    setTimeout(() => checkCourtesyChoice().catch(() => {}), 1500);
+  });
+  document.body.appendChild(el);
 }
 
 function showEarnPlus(amount) {

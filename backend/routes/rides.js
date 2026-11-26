@@ -18,7 +18,7 @@ const { ABANDONED_AFTER_MIN_TAXI, TAXI_OFFER_TTL_SEC, MOTO_OFFER_MAX_UP, TAXI_OF
 const { suggestTaxiFare } = require("../taxiFares");
 const { driverEarnings, LOCAL_DONE_DATE, LOCAL_TODAY } = require("../earnings");
 const { checkReferralReward } = require("../referrals");
-const { checkRiderReferralForRide } = require("../riderReferrals");
+const { checkRiderReferralForRide, checkRiderFriendForRide, claimCourtesy, payCourtesy, courtesyAmountFor, pendingCourtesiesForDriver, chooseCourtesy } = require("../riderReferrals");
 const { cleanForOther } = require("./familyRides");
 const { rejectIfBlocked } = require("../riderBlock");
 const { rejectIfSuspended } = require("../driverSuspend");
@@ -302,6 +302,16 @@ router.post("/rides", async (req, res) => {
   if (checked.error) return res.status(400).json({ error: checked.error });
 
   const ride = await insertRide(rider, req.body, checked);
+
+  // "Invita a tu vecino": viaje cortesía, solo en mototaxi de pasaje. Si ya no
+  // tiene cortesía libre, el viaje sale normal (sin cortesía).
+  if (req.body.use_courtesy === true && ride.ride_type === "moto" && ride.service_kind === "pasaje" && ride.offer_price != null) {
+    try {
+      if (await claimCourtesy(db, rider.id, ride.id)) {
+        Object.assign(ride, await db.prepare("SELECT courtesy_max FROM rides WHERE id = ?").get(ride.id));
+      }
+    } catch (e) { console.error("[cortesia]", e.message); }
+  }
 
   // Viajes completados anteriores de este mismo teléfono y su foto — para
   // mostrarle al pasajero su propio contador/insignia, y (pegado al objeto
@@ -990,6 +1000,33 @@ router.post("/rides/:id/wait", async (req, res) => {
   res.json({ ok: true });
 });
 
+// "Invita a tu vecino": viajes cortesía del chofer que todavía no elige cómo
+// cobrar, y su elección (saldo a favor al instante o efectivo en la oficina).
+async function courtesyDriverAuth(req, res) {
+  const { driverId, pin } = req.body || {};
+  if (!driverId || !pin) { res.status(400).json({ error: "Falta driverId o PIN" }); return false; }
+  if (isRateLimited(req.ip, req.body)) { res.status(429).json({ error: RATE_LIMIT_MESSAGE }); return false; }
+  if (!await driverPinValid(driverId, pin)) {
+    recordFailedAttempt(req.ip, req.body);
+    res.status(401).json({ error: "PIN incorrecto" });
+    return false;
+  }
+  clearAttempts(req.ip);
+  return true;
+}
+
+router.post("/courtesy/pending", async (req, res) => {
+  if (!await courtesyDriverAuth(req, res)) return;
+  res.json({ rides: await pendingCourtesiesForDriver(db, Number(req.body.driverId)) });
+});
+
+router.post("/courtesy/:rideId/choose", async (req, res) => {
+  if (!await courtesyDriverAuth(req, res)) return;
+  const r = await chooseCourtesy(db, Number(req.body.driverId), Number(req.params.rideId), req.body.how);
+  if (r.error) return res.status(409).json(r);
+  res.json(r);
+});
+
 router.post("/rides/:id/complete", async (req, res) => {
   const rideId = Number(req.params.id);
   const { driverId, pin, agreedPrice, deliveryCode, deliveryPhoto } = req.body;
@@ -1048,12 +1085,16 @@ router.post("/rides/:id/complete", async (req, res) => {
     ? driverEarnings({ ...ride, agreed_price: ride.ride_type === "taxi" ? finalPrice : ride.agreed_price })
     : null;
 
+  // "Invita a tu vecino": lo que MotoVecino le debe al chofer se anota en el
+  // MISMO UPDATE que cierra el viaje (si fuera aparte y fallara, la deuda se
+  // perdería con el viaje ya cerrado).
+  const courtesyAmount = courtesyAmountFor(ride && { ...ride, agreed_price: ride.ride_type === "taxi" ? finalPrice : ride.agreed_price });
   const result = await db
     .prepare(
-      "UPDATE rides SET status = 'completado', agreed_price = ?, driver_earnings = ?, completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'en_curso'"
+      "UPDATE rides SET status = 'completado', agreed_price = ?, driver_earnings = ?, courtesy_amount = COALESCE(courtesy_amount, ?), completed_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND driver_id = ? AND status = 'en_curso'"
     )
     // Moto: se conserva el precio acordado por oferta (Propón tu precio); sin oferta queda en NULL como siempre.
-    .run(ride?.ride_type === "taxi" ? finalPrice : (ride?.agreed_price ?? null), earnings, rideId, driverId);
+    .run(ride?.ride_type === "taxi" ? finalPrice : (ride?.agreed_price ?? null), earnings, courtesyAmount, rideId, driverId);
 
   if (result.changes === 0) {
     return res.status(409).json({ error: "No se pudo actualizar el viaje" });
@@ -1071,11 +1112,18 @@ router.post("/rides/:id/complete", async (req, res) => {
   // Premio de "Invita a otro chofer": ¿con este viaje ya llegó a la meta?
   // Nunca debe tumbar el cierre del viaje, pase lo que pase.
   try { await checkReferralReward(db, driverId); } catch (e) { console.error("[referral]", e.message); }
-  // "Invita pasajeros": si este pasajero vino invitado, ¿su chofer ya juntó otros 20?
+  // "Invita pasajeros": si este pasajero vino invitado, ¿su chofer ya juntó otros 5?
   try {
     const rp = await db.prepare("SELECT rider_phone FROM rides WHERE id = ?").get(rideId);
     await checkRiderReferralForRide(db, rp && rp.rider_phone);
   } catch (e) { console.error("[invita-pasajeros]", e.message); }
+  // "Invita a tu vecino": (respaldo, ya va en el UPDATE de arriba) y ¿el
+  // pasajero que invitó a este ya juntó otros 5?
+  try { await payCourtesy(db, rideId); } catch (e) { console.error("[cortesia]", e.message); }
+  try {
+    const rp2 = await db.prepare("SELECT rider_phone FROM rides WHERE id = ?").get(rideId);
+    await checkRiderFriendForRide(db, rp2 && rp2.rider_phone);
+  } catch (e) { console.error("[invita-vecino]", e.message); }
 
   // todayEarned: para la cajita "hoy" arriba del mapa en chofer.html.
   const { count: todayCount, earned: todayEarned } = await db

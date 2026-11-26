@@ -1,5 +1,5 @@
 const express = require("express");
-const { riderInviterId } = require("../riderReferrals");
+const { inviterFromCode, friendStatus } = require("../riderReferrals");
 const db = require("../db");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const { photoUrls, cleanThumb } = require("../photos");
@@ -154,11 +154,16 @@ router.post("/riders/register", async (req, res) => {
   // "Invita pasajeros": solo cuentas NUEVAS quedan ligadas al chofer que
   // invitó (código del QR o escrito a mano). Un código que no sirve se ignora
   // sin estorbar el registro.
-  let inviterId = null;
-  try { inviterId = await riderInviterId(db, req.body.ref, phone); } catch (e) { console.error("[invita-pasajeros]", e.message); }
+  // 25-nov-2026: el código también puede ser de un PASAJERO ("Invita a tu vecino").
+  let inviterId = null, riderInviter = null;
+  try {
+    const inv = await inviterFromCode(db, req.body.ref, phone);
+    if (inv && inv.driverId) inviterId = inv.driverId;
+    if (inv && inv.riderId) riderInviter = inv.riderId;
+  } catch (e) { console.error("[invita-pasajeros]", e.message); }
   const result = await db
-    .prepare("INSERT INTO riders (phone, name, pin, city, city_located, referred_by_driver_id, referred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    .run(phone, name, pin, city, located, inviterId, inviterId ? new Date().toISOString().slice(0, 19).replace("T", " ") : null);
+    .prepare("INSERT INTO riders (phone, name, pin, city, city_located, referred_by_driver_id, referred_by_rider_id, referred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+    .run(phone, name, pin, city, located, inviterId, riderInviter, (inviterId || riderInviter) ? new Date().toISOString().slice(0, 19).replace("T", " ") : null);
   // Sin await: el WhatsApp de bienvenida no hace esperar a la persona.
   sendWelcome(parsed.e164, name);
   res.status(201).json({ id: result.lastInsertRowid, name, phone, pin, isNewPin: true });
@@ -183,6 +188,45 @@ router.post("/riders/:id/update-name", async (req, res) => {
   const trimmed = name.trim();
   await db.prepare("UPDATE riders SET name = ? WHERE id = ?").run(trimmed, rider.id);
   res.json({ id: rider.id, name: trimmed, phone, pin });
+});
+
+// "Invita a tu vecino": ¿este código de vecino sirve hoy? Solo responde ok
+// (no dice de quién es). Fuera de la promoción ya no liga a nadie → 404.
+// Con límite propio: que nadie pruebe códigos al azar para sacar los buenos.
+// Contador aparte del de registros: equivocarse al escribir el código no debe
+// quitarle a nadie la posibilidad de registrarse.
+const badInviteCodes = new Map(); // ip → { count, resetAt }
+const BAD_INVITE_MAX = 30, BAD_INVITE_WINDOW_MS = 60 * 60 * 1000;
+router.get("/riders/invite/:code", async (req, res) => {
+  const now = Date.now();
+  let e = badInviteCodes.get(req.ip);
+  if (e && now > e.resetAt) { badInviteCodes.delete(req.ip); e = null; }
+  if (e && e.count >= BAD_INVITE_MAX) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  const inv = await inviterFromCode(db, req.params.code, "");
+  if (!inv || !inv.riderId) {
+    if (!e) { e = { count: 0, resetAt: now + BAD_INVITE_WINDOW_MS }; badInviteCodes.set(req.ip, e); }
+    e.count++;
+    if (badInviteCodes.size > 5000) badInviteCodes.clear(); // que no crezca sin fin
+    return res.status(404).json({ error: "Invitación no encontrada" });
+  }
+  res.json({ ok: true });
+});
+
+// "Invita a tu vecino" (25-nov-2026): código, QR y avance del pasajero.
+router.post("/riders/:id/invite-status", async (req, res) => {
+  if (isRateLimited(req.ip, req.body)) {
+    return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
+  }
+  const { phone, pin } = req.body;
+  const rider = await db
+    .prepare("SELECT id, phone FROM riders WHERE id = ? AND phone = ? AND pin = ?")
+    .get(req.params.id, phone, pin);
+  if (!rider) {
+    recordFailedAttempt(req.ip, req.body);
+    return res.status(404).json({ error: "No autorizado" });
+  }
+  clearAttempts(req.ip);
+  res.json(await friendStatus(db, rider));
 });
 
 router.post("/riders/:id/change-pin", async (req, res) => {

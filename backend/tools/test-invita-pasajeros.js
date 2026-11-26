@@ -1,5 +1,5 @@
 // Prueba de "Invita pasajeros" (23-nov-2026): el pasajero nuevo que se
-// registra con el código de un chofer queda ligado a él; por cada 10 que
+// registra con el código de un chofer queda ligado a él; por cada 5 que
 // completan 3 viajes, el chofer gana $20 de saldo a favor (una sola vez
 // por tanda; reglas del 24-nov-2026). No cuentan pasajeros de prueba, ni sin viaje, ni el propio chofer.
 //   BASE=http://localhost:3077 node tools/test-invita-pasajeros.js
@@ -42,7 +42,7 @@ async function main() {
     // El perfil le crea su código.
     const prof0 = await post("/drivers/profile", { phone: driver.phone, pin: driver.pin });
     const code = prof0.data?.invite?.code;
-    check("el perfil trae código y estado de pasajeros", !!code && prof0.data?.invite?.riders?.perBatch === 10 && prof0.data.invite.riders.amount === 20, prof0.data?.invite);
+    check("el perfil trae código y estado de pasajeros", !!code && prof0.data?.invite?.riders?.perBatch === 5 && prof0.data.invite.riders.amount === 20, prof0.data?.invite);
     check("promoción activa", prof0.data?.invite?.riders?.active === true, prof0.data?.invite?.riders);
 
     // QR y página.
@@ -104,20 +104,20 @@ async function main() {
     await tres(taxiBarato, "completado", "taxi", 10);
     await tres(negocio, "completado", "moto", null, 999999);
 
-    check("con 9 no hay premio", (await checkRiderReferralReward(db, driver.id)) === 0);
+    check("con 9 ya ganó 1 tanda (cada 5)", (await checkRiderReferralReward(db, driver.id)) === 1);
     let prof = (await post("/drivers/profile", { phone: driver.phone, pin: driver.pin })).data;
-    check("perfil: 9 de 10 y 1 a medio camino", prof?.invite?.riders?.qualified === 9 && prof.invite.riders.inBatch === 9 && prof.invite.riders.started === 1 && prof.invite.riders.rewards === 0 && prof.invite.riders.ridesRequired === 3, prof?.invite?.riders);
+    check("perfil: 9 → 4 de 5 y 1 a medio camino", prof?.invite?.riders?.qualified === 9 && prof.invite.riders.inBatch === 4 && prof.invite.riders.started === 1 && prof.invite.riders.rewards === 1 && prof.invite.riders.ridesRequired === 3, prof?.invite?.riders);
     check("perfil: registrados no cuenta al de prueba", prof?.invite?.riders?.registered === 13, prof?.invite?.riders);
 
     // El tercer viaje del último: un taxi de $40 deja $2.40 de comisión, ese sí cuenta.
     await ride(tel("9708"), "completado", "taxi", 40);
     await ride(tel("9708")); // un cuarto viaje no lo cuenta doble
-    check("con 10 gana una tanda", (await checkRiderReferralReward(db, driver.id)) === 1);
+    check("con 10 gana la 2ª tanda", (await checkRiderReferralReward(db, driver.id)) === 1);
     check("revisar otra vez no paga doble", (await checkRiderReferralReward(db, driver.id)) === 0);
     const credits = await db.prepare("SELECT amount, reason FROM driver_credits WHERE driver_id = ?").all(driver.id);
-    check("saldo a favor de $20", credits.length === 1 && credits[0].amount === 20 && RIDER_REFERRAL.AMOUNT === 20 && credits[0].reason === "pasajeros", credits);
+    check("saldo a favor: 2 × $20", credits.length === 2 && credits.every((c) => c.amount === 20 && c.reason === "pasajeros") && RIDER_REFERRAL.AMOUNT === 20 && RIDER_REFERRAL.PER_BATCH === 5, credits);
     prof = (await post("/drivers/profile", { phone: driver.phone, pin: driver.pin })).data;
-    check("perfil: saldo $20 y contador regresa a 0", prof?.creditBalance === 20 && prof.invite.riders.inBatch === 0 && prof.invite.riders.rewards === 1 && prof.invite.riders.earnedTotal === 20, { c: prof?.creditBalance, r: prof?.invite?.riders });
+    check("perfil: saldo $40 y contador regresa a 0", prof?.creditBalance === 40 && prof.invite.riders.inBatch === 0 && prof.invite.riders.rewards === 2 && prof.invite.riders.earnedTotal === 40, { c: prof?.creditBalance, r: prof?.invite?.riders });
 
     // Chofer de prueba no gana.
     await db.prepare("UPDATE drivers SET es_prueba = 1 WHERE id = ?").run(driver.id);

@@ -874,6 +874,18 @@
     </table>
   </div>
   </div>
+  <div class="section-card" id="courtesyCard" style="display:none;">
+  <h1>Viajes cortesía por pagar</h1>
+  <p class="section-hint">«Invita a tu vecino»: el pasajero usó su viaje cortesía y MotoVecino le debe al chofer lo que cubrió. Págale en efectivo de la caja chica o, si lo prefiere, pásalo a su saldo a favor (se le resta de su cuota). Solo una de las dos.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Chofer</th><th>Viaje</th><th>Fecha</th><th>Monto</th><th></th></tr>
+      </thead>
+      <tbody id="courtesyRows"></tbody>
+    </table>
+  </div>
+  </div>
   <div class="section-card">
   <h1>Pasajeros registrados</h1>
   <p class="section-hint">Cuentas reales con PIN — si alguien pierde acceso (cambió de celular, olvidó su PIN), restablécelo aquí y pásaselo por su cuenta.</p>
@@ -2759,7 +2771,53 @@ async function loadPlayUsers() {
 
 let ridersCache = [];
 
+// "Invita a tu vecino": viajes cortesía que se le deben al chofer.
+async function loadCourtesies() {
+  const res = await fetch(API + "/api/admin/courtesies/list", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin }),
+  });
+  const rows = res.ok ? await res.json() : [];
+  const card = document.getElementById("courtesyCard");
+  card.style.display = rows.length ? "" : "none";
+  const debe = rows.filter((x) => !x.courtesy_paid_how).reduce((s, x) => s + Number(x.courtesy_amount || 0), 0);
+  card.querySelector("h1").textContent = debe ? `Viajes cortesía por pagar · $${debe}` : "Viajes cortesía (todo pagado)";
+  document.getElementById("courtesyRows").innerHTML = rows.map((x) => `
+    <tr>
+      <td>${escapeHtml(x.driver_name || "—")}${x.numero_unidad ? ` · #${escapeHtml(String(x.numero_unidad))}` : ""}</td>
+      <td>#${x.id}</td>
+      <td>${x.completed_at ? x.completed_at.slice(0, 10) : ""}</td>
+      <td><b>$${Number(x.courtesy_amount)}</b></td>
+      <td class="row-actions">${x.courtesy_paid_how
+        ? `<span class="ago">${x.courtesy_paid_how === "efectivo" ? "Pagado en efectivo" : x.courtesy_choice === "saldo" ? "El chofer lo pasó a su saldo" : "Pasado a su saldo"} · ${escapeHtml((x.courtesy_paid_at || "").slice(0, 10))}</span>`
+        : `<span class="ago">${x.courtesy_choice === "efectivo" ? "<b>Pidió efectivo</b>" : "Aún no elige"}</span>
+           <button class="btn-sm" onclick="payCourtesy(${x.id}, 'efectivo')">Pagado en efectivo</button>
+           <button class="btn-sm" onclick="payCourtesy(${x.id}, 'saldo')">Pasar a su saldo</button>`}</td>
+    </tr>`).join("");
+}
+
+async function payCourtesy(id, how) {
+  const ok = await mvConfirmAdmin(how === "efectivo"
+    ? "¿Ya le pagaste en efectivo de la caja chica? Ya no se podrá pasar a su saldo."
+    : "¿Pasar este viaje cortesía a su saldo a favor? Se le restará de su cuota y ya no se le paga en efectivo.",
+    how === "efectivo" ? "Sí, ya le pagué" : "Sí, a su saldo");
+  if (!ok) return;
+  const res = await fetch(API + `/api/admin/courtesies/${id}/pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminPin, how }),
+  });
+  if (!res.ok) {
+    showToast((await res.json().catch(() => ({}))).error || "No se pudo guardar");
+    return;
+  }
+  showToast(how === "efectivo" ? "Anotado: pagado en efectivo" : "Anotado: pasado a su saldo");
+  loadCourtesies();
+}
+
 async function loadRiders() {
+  loadCourtesies().catch(() => {});
   const res = await fetch(API + "/api/admin/riders/list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

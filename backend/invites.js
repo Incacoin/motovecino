@@ -8,12 +8,16 @@ const crypto = require("node:crypto");
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH = 6;
 
-function randomCode() {
-  const bytes = crypto.randomBytes(CODE_LENGTH);
+function randomCode(len = CODE_LENGTH) {
+  const bytes = crypto.randomBytes(len);
   let code = "";
-  for (let i = 0; i < CODE_LENGTH; i++) code += ALPHABET[bytes[i] % ALPHABET.length];
+  for (let i = 0; i < len; i++) code += ALPHABET[bytes[i] % ALPHABET.length];
   return code;
 }
+
+// "Invita a tu vecino" (25-nov-2026): el código del PASAJERO es de 7 letras
+// (el del chofer, de 6) para saber de quién es con solo verlo.
+const RIDER_CODE_LENGTH = 7;
 
 // Devuelve el código del chofer, creándolo si todavía no tiene.
 async function ensureInviteCode(db, driverId) {
@@ -55,4 +59,30 @@ function shortName(name) {
   return parts.length > 1 ? `${parts[0]} ${parts[1][0].toUpperCase()}.` : parts[0];
 }
 
-module.exports = { ensureInviteCode, findInviter, shortName };
+// Código del pasajero (lo crea la primera vez que lo pide).
+async function ensureRiderInviteCode(db, riderId) {
+  const row = await db.prepare("SELECT invite_code FROM riders WHERE id = ?").get(riderId);
+  if (!row) return null;
+  if (row.invite_code) return row.invite_code;
+  for (let i = 0; i < 10; i++) {
+    const code = randomCode(RIDER_CODE_LENGTH);
+    try {
+      await db.prepare("UPDATE riders SET invite_code = ? WHERE id = ? AND invite_code IS NULL").run(code, riderId);
+      return (await db.prepare("SELECT invite_code FROM riders WHERE id = ?").get(riderId)).invite_code;
+    } catch (e) {
+      // choque con el índice único (casi imposible) — se intenta otro.
+      // Cualquier otro error se avisa: si no, la opción desaparece sin rastro.
+      if (!db.isUniqueViolation(e)) throw e;
+    }
+  }
+  console.error("[invita-vecino] no se pudo crear código para el pasajero", riderId);
+  return null;
+}
+
+async function findRiderInviter(db, code) {
+  const clean = normalizeCode(code);
+  if (!clean || clean.length !== RIDER_CODE_LENGTH) return null;
+  return (await db.prepare("SELECT id, phone FROM riders WHERE invite_code = ?").get(clean)) || null;
+}
+
+module.exports = { ensureInviteCode, findInviter, shortName, ensureRiderInviteCode, findRiderInviter, RIDER_CODE_LENGTH };

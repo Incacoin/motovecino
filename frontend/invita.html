@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>MotoVecino — Te invitó tu chofer</title>
+<title>MotoVecino — Te invitaron</title>
 <meta name="description" content="Pide tu mototaxi o taxi desde tu celular, con choferes de aquí. Baja MotoVecino." />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="MotoVecino" />
-<meta property="og:title" content="MotoVecino — Te invitó tu chofer" />
+<meta property="og:title" content="MotoVecino — Te invitaron" />
 <meta property="og:description" content="Pide tu mototaxi o taxi desde tu celular, con choferes de aquí." />
 <meta property="og:image" content="https://motovecinoapp.com/og-motovecino-v2.jpg" />
 <meta property="og:locale" content="es_MX" />
@@ -52,9 +52,9 @@
   <p class="sub">Mototaxi, motocarro o taxi con choferes de aquí. Tú propones tu precio y ves por dónde viene tu chofer.</p>
 
   <div class="code" id="codeBox" hidden>
-    <small>Código de tu chofer</small>
+    <small id="codeLbl">Código de tu chofer</small>
     <b id="codeTxt"></b>
-    <small>Si al registrarte no aparece solo, escríbelo donde dice «¿Te invitó un chofer?».</small>
+    <small>Si al registrarte no aparece solo, escríbelo donde dice «¿Alguien te invitó?».</small>
   </div>
 
   <div class="iab" id="iabBox" hidden></div>
@@ -109,7 +109,8 @@
   if (!code) return;
   // Se guarda en el celular para que el registro del pasajero lo encuentre
   // aunque llegue después (por ejemplo, al abrir la app ya instalada de Play).
-  fetch("/api/drivers/invite/" + encodeURIComponent(code))
+  // 7 letras = código de un pasajero ("Invita a tu vecino"); 6 = de un chofer.
+  fetch((code.length === 7 ? "/api/riders/invite/" : "/api/drivers/invite/") + encodeURIComponent(code))
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d || !d.ok) {
@@ -118,6 +119,11 @@
       }
       try { localStorage.setItem("mv_ref_chofer", JSON.stringify({ c: code, t: Date.now() })); } catch (e) {}
       document.getElementById("codeTxt").textContent = code;
+      // 25-nov-2026: los códigos de 7 son de un pasajero ("Invita a tu vecino").
+      if (code.length === 7) {
+        document.getElementById("tag").textContent = "Te invitó tu vecino";
+        document.getElementById("codeLbl").textContent = "Código de tu vecino";
+      }
       document.getElementById("codeBox").hidden = false;
       document.getElementById("openApp").href = "/pasajero.html?chofer=" + encodeURIComponent(code);
     })

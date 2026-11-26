@@ -42,7 +42,7 @@ const { rideFee } = require("../fees");
 const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
-const { QUALIFYING_RIDE_SQL } = require("../riderReferrals");
+const { QUALIFYING_RIDE_SQL, settleCourtesy } = require("../riderReferrals");
 const { NO_SHOW_REASON, AUTO_LIMIT, AUTO_DAYS, AUTO_MIN_DRIVERS } = require("../riderBlock");
 const { SUSPEND_REASONS, suspendPayload } = require("../driverSuspend");
 const { toStored, inflateRow, isRef, toDataUrl } = require("../imageStore");
@@ -851,6 +851,14 @@ router.post("/admin/riders/:id/delete", checkAdminPin, async (req, res) => {
   const { trips } = await db
     .prepare("SELECT COUNT(*) AS trips FROM rides WHERE rider_id = ? AND status = 'completado'")
     .get(req.params.id);
+  // "Invita a tu vecino": si a un chofer todavía se le debe un viaje cortesía
+  // de este pasajero, borrarlo haría desaparecer esa deuda. Primero pagar.
+  const owed = await db
+    .prepare("SELECT COUNT(*) AS n FROM rides WHERE rider_id = ? AND courtesy_amount > 0 AND courtesy_paid_how IS NULL")
+    .get(req.params.id);
+  if (Number(owed.n) > 0) {
+    return res.status(409).json({ error: "Tiene viajes cortesía sin pagar al chofer — págalos primero (Pasajeros → Viajes cortesía por pagar)" });
+  }
   // Escotilla para casos de excepción (una cuenta de prueba propia con viajes
   // también de prueba): nunca la manda el botón del admin, solo una llamada
   // directa con este flag explícito. Sin él, el bloqueo de arriba se aplica
@@ -878,9 +886,33 @@ router.post("/admin/riders/:id/delete", checkAdminPin, async (req, res) => {
     await db.prepare("DELETE FROM booking_offers WHERE booking_id IN (SELECT id FROM ride_bookings WHERE rider_id = ?)").run(req.params.id);
     await db.prepare("DELETE FROM booking_push_subs WHERE booking_id IN (SELECT id FROM ride_bookings WHERE rider_id = ?)").run(req.params.id);
     await db.prepare("DELETE FROM ride_bookings WHERE rider_id = ?").run(req.params.id);
+    // "Invita a tu vecino": sus cortesías ganadas y el lazo con sus invitados.
+    await db.prepare("DELETE FROM rider_friend_rewards WHERE rider_id = ?").run(req.params.id);
+    await db.prepare("UPDATE riders SET referred_by_rider_id = NULL WHERE referred_by_rider_id = ?").run(req.params.id);
     await db.prepare("DELETE FROM riders WHERE id = ?").run(req.params.id);
   });
   res.json({ ok: true, deletedTrips: trips });
+});
+
+// "Invita a tu vecino" (26-nov-2026): viajes cortesía que MotoVecino le debe
+// al chofer. Se pagan en la oficina en efectivo o se pasan a su saldo a favor.
+router.post("/admin/courtesies/list", checkAdminPin, async (req, res) => {
+  const rows = await db
+    .prepare(
+      `SELECT r.id, r.completed_at, r.courtesy_amount, r.courtesy_paid_how, r.courtesy_paid_at, r.courtesy_choice, d.name AS driver_name, d.numero_unidad
+       FROM rides r LEFT JOIN drivers d ON d.id = r.driver_id
+       WHERE r.city = ? AND r.status = 'completado' AND r.courtesy_amount > 0
+       ORDER BY (r.courtesy_paid_how IS NULL) DESC, r.completed_at DESC LIMIT 200`
+    )
+    .all(req.adminCity);
+  res.json(rows);
+});
+
+router.post("/admin/courtesies/:id/pay", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("rides", req, res)) return;
+  const out = await settleCourtesy(db, Number(req.params.id), req.body.how);
+  if (out.error) return res.status(409).json({ error: out.error });
+  res.json({ ok: true });
 });
 
 router.post("/admin/rides/list", checkAdminPin, async (req, res) => {

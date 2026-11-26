@@ -527,6 +527,21 @@ function toggleRiderTheme() {
   .qj-opt { font: inherit; font-size: 14.5px; font-weight: 600; text-align: left; padding: 12px 10px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
   .qj-opt:active { background: rgba(34,197,94,.15); }
   .qj-opt:last-child { grid-column: 1 / -1; }
+  /* Invita a tu vecino (25-nov-2026) */
+  .vec-box { max-width: 340px; text-align: center; max-height: 90vh; overflow-y: auto; }
+  .vec-box h3 { margin: 0 0 6px; font-size: 20px; }
+  .vec-box .vec-sub { margin: 0 0 14px; font-size: 14.5px; line-height: 1.45; font-weight: 500; color: var(--text-dim); }
+  .vec-qr { background: #fff; border-radius: 14px; padding: 10px; width: 190px; height: 190px; margin: 0 auto 10px; box-sizing: border-box; }
+  .vec-qr img { width: 100%; height: 100%; display: block; }
+  .vec-code { font-size: 22px; font-weight: 800; letter-spacing: 3px; margin-bottom: 12px; }
+  .vec-bar { height: 10px; border-radius: 6px; background: var(--border); overflow: hidden; margin: 6px 0 6px; }
+  .vec-bar i { display: block; height: 100%; background: #22c55e; border-radius: 6px; }
+  .vec-prog { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .courtesy-row { display: flex; gap: 10px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(34,197,94,.5); background: rgba(34,197,94,.1); cursor: pointer; }
+  .courtesy-row input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: #22c55e; flex: none; }
+  .courtesy-row b { display: block; font-size: 14.5px; }
+  .courtesy-row small { display: block; font-size: 12.5px; color: var(--text-dim); }
+  .vec-box .btn { width: 100%; margin: 0 0 8px; }
   .qj-cancel { width: 100%; margin: 0; padding: 12px 10px; font-size: 14.5px; }
   /* Seguridad durante el viaje: 911 + avisar/compartir (no se anuncia, sin alarma roja). */
   .sg-box p { margin-bottom: 12px; font-size: 17px; }
@@ -1137,11 +1152,11 @@ function toggleRiderTheme() {
     </select>
     <input id="phoneInput" placeholder="Tu teléfono" inputmode="numeric" maxlength="10" oninput="this.value = this.value.replace(/\D/g, '')" />
   </div>
-  <button type="button" class="wb-hide ref-toggle" id="refToggle" onclick="showRefRow()">¿Te invitó un chofer?</button>
-  <div class="wb-hide ref-label" id="refLabel" style="display:none;">Código del chofer que te invitó</div>
+  <button type="button" class="wb-hide ref-toggle" id="refToggle" onclick="showRefRow()">¿Alguien te invitó?</button>
+  <div class="wb-hide ref-label" id="refLabel" style="display:none;">Código de quien te invitó (chofer o vecino)</div>
   <div class="input-icon-row wb-hide" id="refRow" style="display:none;">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/></svg>
-    <input id="refInput" placeholder="Código de tu chofer (opcional)" maxlength="12" autocapitalize="characters" autocomplete="off" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')" />
+    <input id="refInput" placeholder="Código de quien te invitó (opcional)" maxlength="12" autocapitalize="characters" autocomplete="off" oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')" />
   </div>
   <div class="input-icon-row" id="riderPinRow" style="display:none;">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9fab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
@@ -1332,6 +1347,7 @@ function toggleRiderTheme() {
     <button class="drawer-row" id="tourRow" style="display:none" onclick="openTour()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M5 20v-4h14v4"/><path d="M7 16v-4h10v4"/><path d="M9 12V8h6v4"/><path d="M11 8V5h2v3"/></svg></span><span id="tourRowLabel">Conoce tu municipio</span></button>
     <button class="drawer-row" id="bizRow" style="display:none" onclick="location.href='negocio.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span><span id="bizRowLabel">Mi negocio</span></button>
     <button class="drawer-row" onclick="openHistory()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>Mis viajes</button>
+    <button class="drawer-row" id="vecinoRow" style="display:none" onclick="openVecino()"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span>Invita a tu vecino</button>
     <button class="drawer-row" onclick="location.href='ayuda.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.3"/><path d="M12 17h.01"/></svg></span>Ayuda</button>
     <button class="drawer-row" onclick="location.href='chofer.html'"><span class="row-icon"><svg class="li" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l4 4-4 4"/><path d="M21 7H9a5 5 0 0 0-5 5v1"/><path d="M7 21l-4-4 4-4"/><path d="M3 17h12a5 5 0 0 0 5-5v-1"/></svg></span>Modo chofer</button>
   </div>
@@ -1455,6 +1471,7 @@ function toggleRiderTheme() {
         </div>
         </div>
         <div class="offer-note" id="motoOfferNote"></div>
+        <label id="courtesyRow" class="courtesy-row" style="display:none;"><input type="checkbox" id="courtesyChk" /><span><b>Usar mi viaje cortesía</b><small id="courtesyNote">MotoVecino paga parte de este viaje.</small></span></label>
       </div>
       <button class="btn" id="requestBtn" disabled onclick="requestRide()">Pedir mototaxi</button>
       <button class="btn btn-secondary" id="scheduleBtn" onclick="openSchedule()">Agendar para más tarde</button>
@@ -2156,6 +2173,7 @@ function updateFareEstimate() {
   const baseLabel = serviceType === "taxi" ? "Pedir taxi" : "Pedir mototaxi";
   document.getElementById("taxiOfferBox").style.display = "none";
   document.getElementById("motoOfferBox").style.display = "none";
+  updateCourtesyRow();
   if (serviceZone === "out" && pickup) {
     el.textContent = "";
     btn.textContent = baseLabel;
@@ -2208,6 +2226,7 @@ function showMotoOfferUi(fixed, where, maxUp, min) {
   const input = document.getElementById("motoOfferInput");
   if (document.activeElement !== input) input.value = motoOffer;
   document.getElementById("motoOfferBox").style.display = "block";
+  updateCourtesyRow();
   document.getElementById("motoOfferMin").textContent = min ? `Mínimo $${min}` : `Precio normal $${fixed}`;
   document.getElementById("motoOfferNote").textContent = `El chofer acepta tu precio o te pide hasta $${maxUp} más. Tú decides.`;
   const totalPeople = passengers + children;
@@ -2887,9 +2906,9 @@ async function goToMap() {
     // ya no se puede ligar). Si no hay internet para revisarlo, se sigue.
     const refCode = document.getElementById("refInput").value.trim();
     if (refCode) {
-      const chk = await fetch(API + "/api/drivers/invite/" + encodeURIComponent(refCode)).catch(() => null);
+      const chk = await fetch(API + (refCode.length === 7 ? "/api/riders/invite/" : "/api/drivers/invite/") + encodeURIComponent(refCode)).catch(() => null);
       if (chk && chk.status === 404) {
-        err.textContent = "Ese código de chofer no existe. Revísalo o bórralo para continuar.";
+        err.textContent = "Ese código no existe o ya no está vigente. Revísalo o bórralo para continuar.";
         document.getElementById("refInput").focus();
         return;
       }
@@ -2918,6 +2937,8 @@ async function goToMap() {
 // guardado en el celular y se usa por dentro.
 function finishRiderLogin(rider) {
   rememberRiderAccount(rider);
+  vecinoFailed = false; // PIN recién confirmado: se puede volver a preguntar
+  setTimeout(() => loadVecino().catch(() => {}), 1500);
   localStorage.setItem("motoya_rider", JSON.stringify({
     id: rider.id, name: rider.name, phone: rider.phone, pin: rider.pin, photo: rider.photo || null,
     home_lat: rider.home_lat ?? null, home_lng: rider.home_lng ?? null, home_label: rider.home_label || null,
@@ -3699,6 +3720,7 @@ async function requestRide() {
     document.getElementById("forNameInput").focus();
     return;
   }
+  const wantsCourtesy = courtesyWanted();
   const res = await fetch(API + "/api/rides", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -3715,6 +3737,7 @@ async function requestRide() {
       ride_type: serviceType,
       service_kind: serviceCategory,
       offer_price: serviceType === "taxi" ? taxiOffer : offerMode ? motoOffer : undefined,
+      use_courtesy: wantsCourtesy || undefined,
       extra: 0,
       for_name: askingForOther ? forName : undefined,
       for_note: askingForOther ? document.getElementById("forNoteInput").value.trim() : undefined,
@@ -3736,6 +3759,11 @@ async function requestRide() {
     return;
   }
   ride = await res.json();
+  if (wantsCourtesy) {
+    document.getElementById("courtesyChk").checked = false;
+    loadVecino().catch(() => {});
+    showToast(ride.courtesy_max ? "Viaje cortesía apartado: el chofer ya lo sabe" : "Ya no tenías viaje cortesía: el viaje salió normal");
+  }
   localStorage.setItem("motoya_active_ride", JSON.stringify({ id: ride.id, token: ride.share_token }));
   showTripCountBadge(ride.riderTripCount);
   if (ride.riderTripCount != null) {
@@ -4684,6 +4712,7 @@ let historyReturnScreen = "form";
 
 function openDrawer() {
   renderDrawerMe();
+  if (!vecinoInfo && !vecinoFailed) loadVecino();
   document.getElementById("appDrawer").classList.add("open");
   document.getElementById("drawerOverlay").classList.add("open");
 }
@@ -4698,6 +4727,88 @@ function renderDrawerMe() {
   const tier = riderTierLabel(count);
   box.innerHTML = `<div class="dm-av">${rider.photo ? `<img src="${rider.photo}" alt="" />` : initial}</div>
     <div class="dm-txt"><b>${escapeHtml(rider.name || "")}</b>${tier ? `<span>${count} viajes · ${tier}</span>` : count ? `<span>${count} viajes con MotoVecino</span>` : ""}</div>`;
+}
+
+// "Invita a tu vecino" (25-nov-2026): QR y código propios del pasajero.
+let vecinoInfo = null;
+// Si el PIN guardado ya no sirve (lo cambió en otro celular), no se vuelve a
+// intentar solo en esta sesión: cada intento cuenta contra el límite de PIN.
+let vecinoFailed = false;
+async function loadVecino() {
+  const rider = JSON.parse(localStorage.getItem("motoya_rider") || "null");
+  const row = document.getElementById("vecinoRow");
+  if (!rider || !rider.id || !rider.pin) { row.style.display = "none"; return null; }
+  try {
+    const r = await fetch(`/api/riders/${rider.id}/invite-status`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: rider.phone, pin: rider.pin }) });
+    vecinoInfo = r.ok ? await r.json() : null;
+    if (r.status === 404 || r.status === 401 || r.status === 429) vecinoFailed = true;
+  } catch { vecinoInfo = null; }
+  row.style.display = vecinoInfo && vecinoInfo.code && (vecinoInfo.active || vecinoInfo.available > 0) ? "" : "none";
+  updateCourtesyRow();
+  return vecinoInfo;
+}
+// Casilla "Usar mi viaje cortesía": solo mototaxi de pasaje y si tiene una libre.
+function updateCourtesyRow() {
+  const row = document.getElementById("courtesyRow");
+  if (!row) return;
+  const ok = !!(vecinoInfo && vecinoInfo.available > 0) && courtesyAllowed();
+  row.style.display = ok ? "" : "none";
+  if (!ok) document.getElementById("courtesyChk").checked = false;
+  if (ok && vecinoInfo.courtesyMax) document.getElementById("courtesyNote").textContent = `MotoVecino paga hasta $${vecinoInfo.courtesyMax} de este viaje.`;
+}
+// Solo cuando el viaje lleva precio propuesto (el servidor pide offer_price):
+// mototaxi de pasaje, modo «Propón tu precio» y con la cajita de precio a la vista.
+function courtesyAllowed() {
+  const box = document.getElementById("motoOfferBox");
+  return serviceType === "moto" && serviceCategory === "pasaje" && priceMode === "oferta" && !!box && box.style.display !== "none";
+}
+function courtesyWanted() {
+  const row = document.getElementById("courtesyRow");
+  return !!(row && row.style.display !== "none" && document.getElementById("courtesyChk").checked && courtesyAllowed());
+}
+// "30 de abril de 2027" a partir de "2027-04-30".
+function fechaLarga(iso) {
+  try { return new Date(iso + "T12:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }); } catch { return iso; }
+}
+// Al abrir la app ya con cuenta: saber si tiene viaje cortesía para la casilla.
+setTimeout(() => { try { if (JSON.parse(localStorage.getItem("motoya_rider") || "null")) loadVecino(); } catch {} }, 2500);
+function vecinoLink() { return `https://www.motovecinoapp.com/invita?c=${encodeURIComponent(vecinoInfo.code)}`; }
+async function openVecino() {
+  closeDrawer();
+  const v = vecinoInfo || (await loadVecino());
+  if (!v || !v.code || !(v.active || v.available > 0)) return;
+  const per = v.perBatch, falta = per - v.inBatch;
+  const ov = document.createElement("div");
+  ov.className = "mv-confirm";
+  ov.id = "vecinoSheet";
+  ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+  const box = document.createElement("div");
+  box.className = "mv-confirm-box vec-box";
+  box.innerHTML = `<h3>Invita a tu vecino</h3>
+    <p class="vec-sub">${v.active
+      ? `Comparte tu código. Cuando ${per} vecinos que invitaste hagan sus primeros ${v.ridesRequired} viajes, <b>tu siguiente viaje va por cuenta de MotoVecino</b>.`
+      : `La promoción para invitar ya terminó. <b>Tu viaje cortesía lo puedes usar hasta el ${fechaLarga(v.useEnd)}.</b>`}</p>
+    ${v.active ? `<div class="vec-qr"><img alt="Tu código QR" src="/api/qr/invita/${encodeURIComponent(v.code)}.svg"></div>
+    <div class="vec-code"></div>
+    <div class="vec-bar"><i style="width:${Math.round((v.inBatch / per) * 100)}%"></i></div>` : ""}
+    <div class="vec-prog"></div>
+    ${v.active ? `<button class="btn" type="button" id="vecShare">Compartir por WhatsApp</button>` : ""}
+    <button class="btn btn-secondary" type="button" id="vecClose">Cerrar</button>`;
+  if (v.active) box.querySelector(".vec-code").textContent = v.code;
+  box.querySelector(".vec-prog").textContent = !v.active
+    ? `Tienes ${v.available} viaje${v.available > 1 ? "s" : ""} cortesía: márcalo al pedir tu mototaxi.`
+    : `${v.inBatch} de ${per} vecinos ya cuentan` +
+    (v.started ? ` · ${v.started} en camino` : "") +
+    (falta < per ? ` · te faltan ${falta}` : "") +
+    (v.available ? ` · tienes ${v.available} viaje${v.available > 1 ? "s" : ""} cortesía: márcalo al pedir tu mototaxi (úsalo antes del ${fechaLarga(v.useEnd)})` : "");
+  if (v.active) box.querySelector("#vecShare").onclick = () => {
+    const txt = `Te invito a MotoVecino: pides tu mototaxi desde el celular, ves quién te recoge y tu familia ve tu viaje en vivo. Regístrate con mi código ${v.code}: ${vecinoLink()}`;
+    if (navigator.share) navigator.share({ text: txt }).catch(() => {});
+    else location.href = "https://wa.me/?text=" + encodeURIComponent(txt);
+  };
+  box.querySelector("#vecClose").onclick = () => ov.remove();
+  ov.appendChild(box);
+  document.body.appendChild(ov);
 }
 
 function closeDrawer() {
