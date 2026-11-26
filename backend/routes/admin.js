@@ -359,6 +359,24 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
   res.json(req.body.photoRefs ? drivers : drivers.map((d) => inflateRow(d, DRIVER_IMG_COLS)));
 });
 
+// Etiquetas QR para la moto (26-nov-2026): el código de "Invita pasajeros" de
+// cada chofer, para imprimir su etiqueta sin pedírsela. Si un chofer nunca ha
+// abierto su Perfil, se le crea aquí (es el mismo que luego verá en su app).
+// Solo choferes del municipio de este admin; el QR lo dibuja /api/qr/invita.
+router.post("/admin/drivers/qr/list", checkAdminPin, async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map(Number).filter((n) => Number.isInteger(n) && n > 0))] : [];
+  if (!ids.length || ids.length > 300) return res.status(400).json({ error: "Elige de 1 a 300 choferes" });
+  const rows = await db
+    .prepare(`SELECT id FROM drivers WHERE deleted_at IS NULL AND city = ? AND id IN (${ids.map(() => "?").join(",")})`)
+    .all(req.adminCity, ...ids);
+  const out = [];
+  for (const r of rows) {
+    const code = await ensureInviteCode(db, r.id);
+    if (code) out.push({ id: r.id, code });
+  }
+  res.json(out);
+});
+
 router.post("/admin/drivers/:id/paid-until", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("drivers", req, res)) return;
   const { paidUntil } = req.body;

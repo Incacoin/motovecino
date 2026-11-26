@@ -847,6 +847,8 @@
   <h1>Choferes registrados</h1>
   <button class="btn-sm" id="padronBtn" style="display:none;margin:0 0 10px;" onclick="showPadron()">📋 Padrón por agrupación</button>
   <div id="padronBox" style="display:none;margin:0 0 12px;"></div>
+  <button class="btn-sm" id="qrLabelsBtn" style="margin:0 0 10px;" onclick="showQrLabels()">🏷️ Imprimir QR de choferes</button>
+  <div id="qrLabelsBox" style="display:none;margin:0 0 12px;"></div>
   <input type="text" id="driverSearch" class="admin-search" placeholder="Buscar por nombre o teléfono..." oninput="renderDriverRows()" />
   <div class="table-wrap">
     <table>
@@ -1743,6 +1745,128 @@ function padronGrupos() {
     choferes: driversCache.filter((d) => !d.es_prueba && d.suspended_at).sort(porNombre) });
   return grupos;
 }
+// ---- Etiquetas QR para la moto (26-nov-2026) ----
+// Cada chofer tiene su QR de "Invita pasajeros" (el mismo de su Perfil). El
+// admin lo imprime sin pedírselo: 4 etiquetas de 10 × 13 cm por hoja carta.
+// En la etiqueta va su nombre, número y agrupación; NUNCA su teléfono (va
+// pegada en la moto, a la vista de todos).
+const qrLabelNames = {}; // nombre editado a mano, por chofer
+function qrDefaultName(d) {
+  // "Juan Pérez Chan" → "Juan Pérez": la etiqueta es pública, basta con dos palabras.
+  return String(d.name || "").trim().split(/\s+/).slice(0, 2).join(" ");
+}
+function qrLabelName(d) {
+  return (qrLabelNames[d.id] ?? qrDefaultName(d)).trim();
+}
+function qrPublicGrupo(d) {
+  // Solo las agrupaciones de la lista; «Otra agrupación» y lo escrito a mano
+  // son del padrón interno y no se imprimen.
+  return d.grupo && agrupacionesAdmin().some((a) => a.nombre === d.grupo) ? d.grupo : "";
+}
+function showQrLabels() {
+  const box = document.getElementById("qrLabelsBox");
+  if (box.style.display !== "none") { box.style.display = "none"; return; }
+  const lista = driversCache.filter((d) => !d.es_prueba)
+    .sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9) || String(a.name).localeCompare(String(b.name), "es"));
+  if (!lista.length) { box.innerHTML = `<div class="section-hint">Todavía no hay choferes en ${escapeHtml(adminCityLabel)}.</div>`; box.style.display = ""; return; }
+  box.innerHTML = `<div class="section-hint" style="margin-bottom:8px">Marca a quiénes les vas a imprimir su etiqueta. Salen 4 por hoja carta (10 × 13 cm). Puedes corregir el nombre como va a salir en la etiqueta. <b>No lleva teléfono.</b></div>
+    <div style="margin-bottom:8px"><button class="btn-sm" onclick="qrMarkAll(true)">Marcar todos</button> <button class="btn-sm" onclick="qrMarkAll(false)">Quitar todos</button></div>
+    <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px 10px">
+    ${lista.map((d) => `<label style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <input type="checkbox" class="qrPick" value="${d.id}" ${d.suspended_at ? "" : "checked"} onchange="qrCount()">
+      <input type="text" maxlength="28" value="${escapeHtml(qrLabelName(d))}" oninput="qrLabelNames[${d.id}]=this.value" style="flex:1;min-width:0" aria-label="Nombre en la etiqueta">
+      <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "sin número"}${qrPublicGrupo(d) ? " · " + escapeHtml(qrPublicGrupo(d)) : ""}${d.suspended_at ? " · suspendido" : ""}</span>
+    </label>`).join("")}
+    </div>
+    <button class="btn" id="qrPrintBtn" style="margin-top:10px" onclick="printQrLabels([...document.querySelectorAll('.qrPick:checked')].map((c) => Number(c.value)))"></button>`;
+  box.style.display = "";
+  qrCount();
+}
+function qrMarkAll(on) {
+  document.querySelectorAll(".qrPick").forEach((c) => { c.checked = on; });
+  qrCount();
+}
+function qrCount() {
+  const n = document.querySelectorAll(".qrPick:checked").length;
+  const b = document.getElementById("qrPrintBtn");
+  if (b) { b.textContent = n ? `Imprimir ${n} etiqueta${n === 1 ? "" : "s"} (${Math.ceil(n / 4)} hoja${Math.ceil(n / 4) === 1 ? "" : "s"})` : "Marca al menos un chofer"; b.disabled = !n; }
+}
+async function printQrLabels(ids) {
+  if (!ids.length) return;
+  // La ventana se abre antes de pedir los códigos: si se abre después de
+  // esperar, el navegador la bloquea.
+  const w = window.open("", "_blank");
+  if (!w) { showToast("Tu navegador bloqueó la ventana de las etiquetas"); return; }
+  w.document.write("<p style='font-family:sans-serif;padding:20px'>Preparando etiquetas…</p>");
+  let codes;
+  try {
+    const res = await fetch(API + "/api/admin/drivers/qr/list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminPin, ids }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((data && data.error) || "No se pudieron sacar los códigos");
+    codes = new Map(data.map((x) => [x.id, x.code]));
+  } catch (e) {
+    w.close();
+    showToast(e.message || "No se pudieron sacar los códigos");
+    return;
+  }
+  const origin = location.origin;
+  const choferes = ids.map((id) => driversCache.find((d) => d.id === id)).filter((d) => d && codes.get(d.id));
+  const etiqueta = (d) => {
+    const code = codes.get(d.id);
+    const taxi = d.vehicle_type === "taxi";
+    const datos = [d.numero_unidad ? `${taxi ? "Taxi" : "Mototaxi"} Nº ${escapeHtml(d.numero_unidad)}` : "", qrPublicGrupo(d) ? `Agrupación ${escapeHtml(qrPublicGrupo(d))}` : ""].filter(Boolean).join(" · ");
+    return `<div class="et">
+ <div class="top"><img src="${origin}/icons/logo-mark.svg" alt=""><b>Moto<span>Vecino</span></b></div>
+ <h1>Pide tu ${taxi ? "taxi" : "mototaxi"}<br><em>desde tu celular</em></h1>
+ <div class="sub">Escanea y baja MotoVecino</div>
+ <div class="qr"><img src="${origin}/api/qr/invita/${encodeURIComponent(code)}.svg" alt="QR"></div>
+ <div class="cam"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h3l2-3h8l2 3h3v13H3z"/><circle cx="12" cy="13" r="4"/></svg>Abre la cámara y apunta al código</div>
+ <div class="who"><div class="wn"><div class="n">${escapeHtml(qrLabelName(d) || qrDefaultName(d))}</div>${datos ? `<div class="d">${datos}</div>` : ""}</div><div class="c">Código<b>${escapeHtml(code)}</b></div></div>
+ <div class="foot"><b>www.motovecinoapp.com</b><span>Para Android y iPhone · Lealtad Digital</span></div>
+</div>`;
+  };
+  const hojas = [];
+  for (let i = 0; i < choferes.length; i += 4) hojas.push(`<div class="hoja">${choferes.slice(i, i + 4).map(etiqueta).join("")}</div>`);
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Etiquetas QR · MotoVecino ${escapeHtml(adminCityLabel)}</title>
+<style>
+  @page { size: letter; margin: 5mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: #e5e7eb; }
+  .barra { padding: 14px; text-align: center; font-size: 14px; color: #333; }
+  .imp { padding: 12px 20px; font-size: 16px; font-weight: 700; border: 0; border-radius: 10px; background: #16a34a; color: #fff; margin-bottom: 6px; }
+  .hoja { width: 205mm; height: 268mm; margin: 0 auto 10mm; display: grid; grid-template-columns: 100mm 100mm; grid-auto-rows: 130mm; gap: 4mm 5mm; justify-content: center; align-content: start; background: #fff; padding-top: 2mm; }
+  .et { width: 100mm; height: 130mm; border-radius: 6mm; overflow: hidden; background: radial-gradient(120% 80% at 50% 0%, #1b2230 0%, #0a0c10 70%); color: #fff; display: flex; flex-direction: column; align-items: center; padding: 6mm 6mm 4mm; }
+  .top { display: flex; align-items: center; gap: 2.5mm; }
+  .top img { width: 10mm; height: 10mm; border-radius: 2.5mm; }
+  .top b { font-size: 6.2mm; font-weight: 800; letter-spacing: -.02em; }
+  .top b span { color: #22c55e; }
+  h1 { margin-top: 3mm; font-size: 6.2mm; line-height: 1.08; font-weight: 800; text-align: center; letter-spacing: -.02em; }
+  h1 em { font-style: normal; color: #4ade80; }
+  .sub { margin-top: 1.6mm; font-size: 3.3mm; color: #cbd5e1; }
+  .qr { margin-top: 3mm; background: #fff; border-radius: 4mm; padding: 3mm; width: 56mm; height: 56mm; }
+  .qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .cam { margin-top: 2.4mm; font-size: 3.2mm; color: #94a3b8; display: flex; align-items: center; gap: 1.5mm; }
+  .who { margin-top: 3mm; width: 100%; background: rgba(255,255,255,.07); border: .3mm solid rgba(255,255,255,.12); border-radius: 3.5mm; padding: 2.6mm 3.5mm; display: flex; justify-content: space-between; align-items: center; gap: 2mm; }
+  .wn { min-width: 0; }
+  .who .n { font-size: 4.2mm; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who .d { font-size: 3mm; color: #94a3b8; margin-top: .6mm; }
+  .who .c { text-align: right; font-size: 2.6mm; color: #94a3b8; flex: none; }
+  .who .c b { display: block; font-size: 4.6mm; color: #fff; letter-spacing: .12em; font-weight: 800; }
+  .foot { margin-top: auto; width: 100%; display: flex; justify-content: space-between; font-size: 2.5mm; color: #64748b; }
+  .foot b { color: #cbd5e1; font-weight: 700; }
+  @media print { body { background: #fff; } .barra { display: none; } .hoja { margin: 0; page-break-after: always; break-after: page; } .hoja:last-child { page-break-after: auto; break-after: auto; } }
+</style></head><body>
+<div class="barra"><button class="imp" onclick="print()">Imprimir / Guardar PDF</button><br>${choferes.length} etiqueta${choferes.length === 1 ? "" : "s"} · Al imprimir, elige tamaño <b>Carta</b> y escala <b>100 %</b> (o «Tamaño real») para que el QR salga del tamaño correcto.</div>
+${hojas.join("")}
+</body></html>`);
+  w.document.close();
+}
 function showPadron() {
   const box = document.getElementById("padronBox");
   if (box.style.display !== "none") { box.style.display = "none"; return; }
@@ -1845,6 +1969,8 @@ function renderGrupoField() {
   // eran del municipio anterior.
   const box = document.getElementById("padronBox");
   if (box) { box.style.display = "none"; box.innerHTML = ""; }
+  const qb = document.getElementById("qrLabelsBox");
+  if (qb) { qb.style.display = "none"; qb.innerHTML = ""; }
 }
 let launchRankingCache = [];
 let driversCache = [];
@@ -3364,6 +3490,7 @@ function renderDriverRows() {
         <details class="more-actions" data-id="${d.id}" ${openMoreId === d.id ? "open" : ""} ontoggle="moreToggled(this)">
           <summary>Más opciones</summary>
           <div class="more-actions-list">
+            <button class="btn-sm" onclick="printQrLabels([${d.id}])">🏷️ Etiqueta QR</button>
             <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
             <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
             ${adminRoleNow === "tekax" && adminZones.length > 1 ? `<button class="btn-sm" onclick="moveDriverCity(${d.id})">Cambiar municipio</button>` : ""}
