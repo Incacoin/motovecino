@@ -240,10 +240,11 @@ app.get("/api/cities", (req, res) => {
 
 // Agrupaciones del municipio para el registro de chofer (vacío = no se pregunta).
 // Son públicas a propósito: nombre de la agrupación y de su líder, nada más.
-const { agrupacionesDe, POR_SU_CUENTA } = require("./agrupaciones");
+const { agrupacionesDe, POR_SU_CUENTA, nombreOtra } = require("./agrupaciones");
 const { COLORES_VEHICULO } = require("./colores");
 app.get("/api/agrupaciones", (req, res) => {
-  res.json({ agrupaciones: agrupacionesDe(String(req.query.city || "")), porSuCuenta: POR_SU_CUENTA });
+  const city = String(req.query.city || "");
+  res.json({ agrupaciones: agrupacionesDe(city), porSuCuenta: POR_SU_CUENTA, nombreOtra: nombreOtra(city) });
 });
 // Colores para "¿De qué color es tu mototaxi?" del registro.
 app.get("/api/colores-vehiculo", (req, res) => {

@@ -5,7 +5,7 @@ const { AVISO_LEGAL_VERSION, SERVICE_FEE, TAXI_COMMISSION_RATE, TAXI_COMMISSION_
 const { recomputeFounders } = require("../founders");
 const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } = require("../pinRateLimit");
 const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
-const { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoOtroValido, numeroValido } = require("../agrupaciones");
+const { AGRUPACIONES, POR_SU_CUENTA, NOMBRE_OTRA, agrupacionesDe, grupoValido, grupoOtroValido, numeroValido } = require("../agrupaciones");
 // «¿Cuál agrupación?» escrito pero que no sirve (una letra): se avisa en vez de
 // borrarlo sin decir nada. Vacío sí se acepta (la app del chofer lo pregunta).
 const CUAL_CORTO = "Escribe el nombre completo de su agrupación (al menos 2 letras)";
@@ -236,6 +236,7 @@ router.post("/admin/login", checkAdminPin, async (req, res) => {
     // Agrupaciones por municipio (padrón): el selector de cada chofer y el PDF.
     agrupaciones: AGRUPACIONES,
     porSuCuenta: POR_SU_CUENTA,
+    nombresOtra: NOMBRE_OTRA,
     coloresVehiculo: COLORES_VEHICULO,
   });
 });
@@ -335,6 +336,7 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
     .prepare(
       `SELECT d.id, d.name, d.phone, d.vehicle, d.pin, d.status, d.last_seen, d.paid_until, d.vouched_by, d.vouched_at,
               d.tipo, d.photo, d.photo_placa, d.signature, d.vehicle_type, d.vehicle_color, d.numero_unidad, d.cancel_count, d.cooldown_until, d.grupo, d.grupo_otro, d.grupo_por_confirmar, d.suspended_at, d.suspended_reason, d.suspended_note, d.city, d.zone, d.created_at,
+              d.qr_entregado_at, d.triptico_entregado_at, d.grupo_wa_at,
               d.emergency_contact_name, d.emergency_contact_phone, d.referred_by, d.es_fundador, d.es_prueba,
               d.play_last_open, d.play_opens,
               d.referred_by_driver_id, (SELECT name FROM drivers WHERE id = d.referred_by_driver_id) AS inviter_name,
@@ -544,6 +546,20 @@ router.post("/admin/drivers/:id/agrupacion-confirmar", checkAdminPin, async (req
   if (!r.changes) return res.status(409).json({ error: "Este chofer ya no tiene agrupación por confirmar" });
   // Igual que al editar: avisa si otro de esa agrupación ya trae ese número.
   res.json({ ok: true, grupo: ok ? g : null, numeroRepetido: ok ? await numeroRepetido(d.city, g, d.vehicle_type, d.numero_unidad, Number(req.params.id)) : false });
+});
+
+// Entregas (26-nov-2026): casillas «QR entregado», «Tríptico entregado» y
+// «En grupo de WhatsApp» por chofer. Solo el admin las ve; guardan la fecha.
+const ENTREGA_COLS = { qr: "qr_entregado_at", triptico: "triptico_entregado_at", grupo: "grupo_wa_at" };
+router.post("/admin/drivers/:id/entrega", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("drivers", req, res)) return;
+  const { que, hecho } = req.body;
+  if (!Object.hasOwn(ENTREGA_COLS, que) || typeof hecho !== "boolean") return res.status(400).json({ error: "Falta decir qué se entregó" });
+  const col = ENTREGA_COLS[que];
+  const r = await db.prepare(`UPDATE drivers SET ${col} = ${hecho ? "datetime('now')" : "NULL"} WHERE id = ? AND deleted_at IS NULL`).run(req.params.id);
+  if (!r.changes) return res.status(404).json({ error: "Ese chofer ya no existe" });
+  const row = await db.prepare(`SELECT ${col} AS at FROM drivers WHERE id = ?`).get(req.params.id);
+  res.json({ ok: true, at: row ? row.at : null });
 });
 
 router.post("/admin/drivers/:id/vouch", checkAdminPin, async (req, res) => {

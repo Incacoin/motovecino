@@ -308,9 +308,9 @@
     <div class="field" id="grupoField" style="display:none;">
       <label>¿A qué agrupación perteneces?</label>
       <div class="grupoOpts" id="grupoOpts"></div>
-      <!-- 24-nov-2026: con «Otra agrupación» se pide cuál (solo lo ve MotoVecino). -->
+      <!-- 24-nov-2026: con «Otra» se pregunta de cuál viene (solo lo ve MotoVecino). Opcional desde el 26-nov. -->
       <div id="grupoOtroBox" style="display:none;margin-top:10px;">
-        <label for="grupoOtro">¿Cuál agrupación?</label>
+        <label for="grupoOtro">¿De qué agrupación vienes? <span style="font-weight:400;opacity:.7">(opcional, solo lo ve MotoVecino)</span></label>
         <input id="grupoOtro" type="text" maxlength="60" autocomplete="off" placeholder="Ej.: Los Halcones" />
       </div>
       <p class="fieldHint" id="grupoLinkNote" style="display:none;margin:8px 0 0;">Ya viene marcada por el enlace que te mandaron. Si no es tu agrupación, cámbiala.</p>
@@ -535,6 +535,7 @@ function applyCityFromDetection(city, label) {
 // su líder a un lado, más "Otra agrupación" (19-nov: antes "Entré por mi cuenta / No pertenezco a ninguna", sonaba a pirata; en Ticul hay ~13 agrupaciones). Sin lista = no se pregunta.
 let agrupacionesCity = "";
 let agrupacionesCount = 0;
+let nombreOtraCity = "Otra agrupación"; // en Ticul: «MotoVecino Ticul Choferes» (26-nov-2026)
 // Listas cargadas (o confirmado que no hay): si la señal falló, al enviar se
 // vuelven a pedir en vez de dejar al chofer sin opciones (el servidor las pide).
 let agrupacionesLoadedFor = "";
@@ -557,11 +558,12 @@ function loadAgrupaciones(city) {
       const list = data.agrupaciones || [];
       if (!list.length) return;
       agrupacionesCount = list.length;
+      nombreOtraCity = data.nombreOtra || "Otra agrupación";
       const opt = (value, title, sub) =>
         `<label class="grupoOpt"><input type="radio" name="grupo" value="${escapeAttr(value)}" /><span class="dotSel"></span><span><b>${escapeAttr(title)}</b>${sub}</span></label>`;
       document.getElementById("grupoOpts").innerHTML =
         list.map((a) => opt(a.nombre, a.nombre, `<small>Líder: <strong>${escapeAttr(a.lider)}</strong></small>`)).join("") +
-        opt(data.porSuCuenta, "Otra agrupación", "<small>Tu agrupación todavía no aparece en la lista</small>");
+        opt(data.porSuCuenta, nombreOtraCity, `<small>Si tu agrupación no está en la lista, elige ${escapeAttr(nombreOtraCity)}</small>`);
       // Marca con clase (no :has(), que no existe en Chrome viejo de celulares sencillos).
       document.querySelectorAll('#grupoOpts input[name="grupo"]').forEach((inp) => inp.addEventListener("change", () => {
         document.querySelectorAll("#grupoOpts .grupoOpt").forEach((l) => l.classList.toggle("sel", l.contains(document.querySelector('#grupoOpts input:checked'))));
@@ -1054,15 +1056,15 @@ async function submitApplication() {
   }
   const grupoSel = document.querySelector('input[name="grupo"]:checked');
   if (agrupacionesCount && !grupoSel) {
-    err.textContent = "Elige tu agrupación (o «Otra agrupación»)";
+    err.textContent = `Elige tu agrupación (o «${nombreOtraCity}»)`;
     document.getElementById("grupoField").scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
-  // «Otra agrupación» → ¿cuál? (mismo criterio que el servidor: 2 letras o más).
+  // «Otra» → ¿de qué agrupación vienes? Opcional; si lo escribe, 2 letras o más (igual que el servidor).
   const otraSel = grupoSel && document.getElementById("grupoOtroBox").style.display !== "none";
   const grupoOtro = otraSel ? document.getElementById("grupoOtro").value.replace(/\s+/g, " ").trim() : "";
-  if (otraSel && grupoOtro.length < 2) {
-    err.textContent = "Escribe cuál es tu agrupación";
+  if (otraSel && grupoOtro.length === 1) {
+    err.textContent = "Escribe el nombre completo de tu agrupación, o déjalo vacío";
     document.getElementById("grupoOtro").focus();
     document.getElementById("grupoOtroBox").scrollIntoView({ behavior: "smooth", block: "center" });
     return;

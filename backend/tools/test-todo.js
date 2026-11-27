@@ -30,6 +30,7 @@ const TESTS = [
   ["moto-lejos", []],
   ["padron", ["DATABASE_URL"]],
   ["agrupacion", ["DATABASE_URL"]],
+  ["entregas", ["DATABASE_URL"]],
   ["numero", ["DATABASE_URL"]],
   ["invito", ["DATABASE_URL"]],
   ["invita-pasajeros", ["DATABASE_URL"]],

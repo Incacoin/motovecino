@@ -197,6 +197,21 @@
   .btn-secondary:hover { background: #e4e4e4; }
   .btn-sm { background: #fff; color: #000; border: 1px solid #e2e2e2; }
   .btn-sm:hover { background: #f3f3f3; }
+  /* Padrón y entregas (26-nov-2026) */
+  .padron-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .padron-tab.on { background: #000; color: #fff; border-color: #000; }
+  .padron-head { font-size: 13.5px; margin-bottom: 8px; }
+  .padron-interno { font-size: 11px; font-weight: 700; color: var(--danger); border: 1px solid currentColor; border-radius: 999px; padding: 1px 7px; margin-left: 4px; white-space: nowrap; }
+  .padron-tools { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .padron-list { max-height: 460px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; padding: 2px 10px; }
+  .padron-sec { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); margin: 12px 0 2px; }
+  .padron-row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .padron-row:last-child { border-bottom: 0; }
+  .padron-name { font-size: 14px; min-width: 0; }
+  .padron-extra { font-size: 12px; color: var(--text-dim); }
+  .padron-checks { display: flex; gap: 12px; font-size: 13px; }
+  .padron-checks label { display: flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
+  .padron-checks input { width: 18px; height: 18px; margin: 0; }
   .btn-sm.danger { color: var(--danger); border-color: rgba(211, 47, 47, 0.35); }
   .btn-sm.wa { background: #25d366; border-color: #25d366; color: #04240f; }
 
@@ -815,7 +830,7 @@
   <div class="field" id="driverGrupoField" style="display:none">
     <label>Agrupación</label>
     <select id="driverGrupo" class="tipo-select" onchange="syncCual('driverGrupo', 'driverGrupoOtro')"></select>
-    <input id="driverGrupoOtro" type="text" maxlength="60" placeholder="¿Cuál agrupación? (Ej.: Los Halcones)" style="margin-top:6px;display:none" />
+    <input id="driverGrupoOtro" type="text" maxlength="60" placeholder="¿De qué agrupación viene? (opcional)" style="margin-top:6px;display:none" />
   </div>
   <div class="field">
     <label>Número del mototaxi (opcional)</label>
@@ -845,7 +860,7 @@
 
   <div class="section-card">
   <h1>Choferes registrados</h1>
-  <button class="btn-sm" id="padronBtn" style="display:none;margin:0 0 10px;" onclick="showPadron()">📋 Padrón por agrupación</button>
+  <button class="btn-sm" id="padronBtn" style="display:none;margin:0 0 10px;" onclick="showPadron()">📋 Padrón y entregas</button>
   <div id="padronBox" style="display:none;margin:0 0 12px;"></div>
   <button class="btn-sm" id="qrLabelsBtn" style="margin:0 0 10px;" onclick="showQrLabels()">🏷️ Imprimir QR de choferes</button>
   <div id="qrLabelsBox" style="display:none;margin:0 0 12px;"></div>
@@ -1441,6 +1456,7 @@ const AUDIT_LABELS = {
   "/admin/drivers/:id/paid-until": "Cambió la fecha de pago",
   "/admin/drivers/:id/vouch": "Avaló a un chofer",
   "/admin/drivers/:id/agrupacion-confirmar": "Confirmó/rechazó la agrupación de un chofer",
+  "/admin/drivers/:id/entrega": "Marcó una entrega a un chofer (QR, tríptico o grupo)",
   "/admin/drivers/:id/test-account": "Marcó cuenta de prueba (chofer)",
   "/admin/chofer-solicitudes/:id/dismiss": "Descartó una solicitud",
   "/admin/riders/:id/delete": "Eliminó un pasajero",
@@ -1678,6 +1694,7 @@ let adminCityLabel = "Tekax";
 // Agrupaciones por municipio (padrón, 18-nov-2026) — llegan en el login.
 let agrupacionesMap = {};
 let porSuCuenta = "Por su cuenta";
+let nombresOtra = {}; // cómo se llama «Otra» por municipio (Ticul: «MotoVecino Ticul Choferes»)
 const agrupacionesAdmin = () => agrupacionesMap[adminCity] || [];
 // Colores del vehículo (lista fija del servidor).
 let coloresVehiculo = [];
@@ -1688,17 +1705,17 @@ function colorOptions(selected) {
 }
 function grupoLabel(grupo, grupoOtro) {
   const a = agrupacionesAdmin().find((x) => x.nombre === grupo);
-  if (grupo === porSuCuenta) return grupoOtro ? `Otra agrupación: ${grupoOtro}` : "Otra agrupación (falta decir cuál)";
+  if (grupo === porSuCuenta) return grupoOtro ? `${nombreOtraAdmin()} (viene de ${grupoOtro})` : nombreOtraAdmin();
   return a ? `${a.nombre} · Líder: ${a.lider}` : grupo;
 }
-// La casilla «¿Cuál agrupación?» solo se ve con «Otra agrupación» (25-nov-2026).
+// La casilla «¿De qué agrupación viene?» (opcional) solo se ve con «Otra» (25-nov-2026).
 function syncCual(selectId, inputId) {
   const sel = document.getElementById(selectId);
   const inp = document.getElementById(inputId);
   if (inp) inp.style.display = sel && sel.value === porSuCuenta ? "" : "none";
 }
 function grupoOptions(selected) {
-  const opts = [["", "— Sin elegir —"], ...agrupacionesAdmin().map((a) => [a.nombre, `${a.nombre} (líder: ${a.lider})`]), [porSuCuenta, "Otra agrupación (aún no en la lista)"]];
+  const opts = [["", "— Sin elegir —"], ...agrupacionesAdmin().map((a) => [a.nombre, `${a.nombre} (líder: ${a.lider})`]), [porSuCuenta, nombreOtraAdmin()]];
   // Un valor viejo que ya no está en la lista se conserva visible para no perderlo sin querer.
   if (selected && !opts.some(([v]) => v === selected)) opts.push([selected, selected + " (viejo)"]);
   return opts.map(([v, t]) => `<option value="${escapeHtml(v)}"${v === (selected || "") ? " selected" : ""}>${escapeHtml(t)}</option>`).join("");
@@ -1706,44 +1723,119 @@ function grupoOptions(selected) {
 // ---- Padrón por agrupación (18-nov-2026) ----
 // Para el líder de cada agrupación y la Dirección de Transporte: nombre,
 // servicio, desde cuándo y si se conecta. Nunca teléfono ni ubicación.
-// "Otra agrupación" (valor guardado "Por su cuenta") y "Sin elegir" son solo para MotoVecino (no se reparten).
-// 24-nov-2026: «Otra agrupación» se parte en «Invitados de <quien invitó>» (uno
-// por cada invitador) y «Entraron por MotoVecino» (sin invitación), con su
-// agrupación real (lo que escribieron en «¿Cuál?») en una columna.
+// 26-nov-2026: un solo panel con pestañas (antes eran 7-8 botones):
+//  · una por agrupación de la lista (Jaguar, Alcones Alfa): se imprimen para su líder;
+//  · «MotoVecino Ticul Choferes» (valor guardado "Por su cuenta"): los sin líder de
+//    la lista, partidos en «Invitados de <quien invitó>» y «Entraron solos»;
+//  · «Pendientes» (por confirmar + sin elegir) y «Suspendidos».
+// Las tres últimas son solo para MotoVecino. En la pantalla cada chofer trae
+// sus casillas de entrega (QR, tríptico, grupo de WhatsApp); el PDF no.
+function nombreOtraAdmin() { return nombresOtra[adminCity] || "Otra agrupación"; }
 function quienInvito(d) { return (d.inviter_name || d.referred_by || "").trim(); }
+// Ordenado por número del mototaxi (los que no tienen número, al final).
+const padronOrdenNum = (lista) => [...lista].sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9) || String(a.name).localeCompare(String(b.name), "es"));
 function padronGrupos() {
-  // Suspendidos (26-nov-2026) no salen en ningún padrón: van en su propia lista interna.
+  // Suspendidos (26-nov-2026) no salen en ningún padrón: van en su propia pestaña.
   const reales = driversCache.filter((d) => !d.es_prueba && !d.suspended_at);
-  const porNombre = (a, b) => a.name.localeCompare(b.name, "es");
-  const grupos = agrupacionesAdmin().map((a) => ({
-    titulo: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false,
-    choferes: reales.filter((d) => d.grupo === a.nombre).sort(porNombre),
+  const tabs = agrupacionesAdmin().map((a) => ({
+    titulo: a.nombre, tituloPdf: `Agrupación ${a.nombre}`, sub: `Líder: ${a.lider}`, interno: false,
+    secciones: [{ titulo: "", choferes: reales.filter((d) => d.grupo === a.nombre) }],
   }));
-  // Los «por confirmar» van solo en su lista (abajo), aunque antes tuvieran «Otra».
+  // Los «por confirmar» van solo en Pendientes, aunque antes tuvieran «Otra».
   const otras = reales.filter((d) => d.grupo === porSuCuenta && !d.grupo_por_confirmar);
   const invitadores = new Map();
   for (const d of otras) {
     const quien = quienInvito(d);
     if (!quien) continue;
     const k = refKey(quien);
-    if (!invitadores.has(k)) invitadores.set(k, { titulo: `Invitados de ${quien}`, sub: "De otras agrupaciones · entraron con su invitación", interno: true, otra: true, choferes: [] });
+    if (!invitadores.has(k)) invitadores.set(k, { titulo: `Invitados de ${quien}`, col: "otra", choferes: [] });
     invitadores.get(k).choferes.push(d);
   }
-  [...invitadores.values()]
-    .sort((a, b) => b.choferes.length - a.choferes.length || a.titulo.localeCompare(b.titulo, "es"))
-    .forEach((g) => { g.choferes.sort(porNombre); grupos.push(g); });
-  grupos.push({ titulo: "Entraron por MotoVecino", sub: "De otras agrupaciones · sin invitación de un compañero", interno: true, otra: true,
-    choferes: otras.filter((d) => !quienInvito(d)).sort(porNombre) });
+  const secOtra = [...invitadores.values()].sort((a, b) => b.choferes.length - a.choferes.length || a.titulo.localeCompare(b.titulo, "es"));
+  secOtra.push({ titulo: "Entraron solos (sin invitación de un compañero)", col: "otra", choferes: otras.filter((d) => !quienInvito(d)) });
+  tabs.push({ titulo: nombreOtraAdmin(), tituloPdf: nombreOtraAdmin(), sub: "Choferes sin líder en la lista · su grupo de WhatsApp lo maneja MotoVecino", interno: true, secciones: secOtra });
   const conocidos = new Set([...agrupacionesAdmin().map((a) => a.nombre), porSuCuenta]);
-  // Dijeron Jaguar/Alcones en la ventanita de su app: esperan tu «Confirmar»
-  // (hasta entonces no salen en el padrón de su líder).
-  grupos.push({ titulo: "Por confirmar", sub: "Dicen que son de Jaguar o Alcones · confírmalo en la lista de choferes", interno: true, porConfirmar: true,
-    choferes: reales.filter((d) => d.grupo_por_confirmar).sort(porNombre) });
-  grupos.push({ titulo: "Sin elegir agrupación", sub: "Su app se lo pregunta al abrirla", interno: true,
-    choferes: reales.filter((d) => !d.grupo_por_confirmar && (!d.grupo || !conocidos.has(d.grupo))).sort(porNombre) });
-  grupos.push({ titulo: "Suspendidos", sub: "No reciben viajes ni cuentan como choferes · Reactívalos en la lista de choferes", interno: true,
-    choferes: driversCache.filter((d) => !d.es_prueba && d.suspended_at).sort(porNombre) });
-  return grupos;
+  tabs.push({ titulo: "Pendientes", tituloPdf: "Pendientes", sub: "Les falta confirmar o elegir su agrupación", interno: true, secciones: [
+    // Dijeron Jaguar/Alcones en la ventanita de su app: esperan tu «Confirmar»
+    // (hasta entonces no salen en el padrón de su líder).
+    { titulo: "Por confirmar · confírmalo en la lista de choferes", col: "porConfirmar", choferes: reales.filter((d) => d.grupo_por_confirmar) },
+    { titulo: "Sin elegir agrupación · su app se lo pregunta al abrirla", col: "invito", choferes: reales.filter((d) => !d.grupo_por_confirmar && (!d.grupo || !conocidos.has(d.grupo))) },
+  ] });
+  tabs.push({ titulo: "Suspendidos", tituloPdf: "Suspendidos", sub: "No reciben viajes ni cuentan como choferes · Reactívalos en la lista de choferes", interno: true,
+    secciones: [{ titulo: "", choferes: driversCache.filter((d) => !d.es_prueba && d.suspended_at) }] });
+  for (const t of tabs) t.choferes = t.secciones.flatMap((s) => s.choferes);
+  return tabs;
+}
+// Columna extra de cada apartado interno (nunca en los padrones de líderes).
+const PADRON_COLS = {
+  otra: ["Viene de", (d) => d.grupo_otro || "—"],
+  porConfirmar: ["Dice que es de", (d) => d.grupo_por_confirmar || "—"],
+  invito: ["Lo invitó", (d) => quienInvito(d) || "—"],
+};
+// Entregas (26-nov-2026): [qué, columna, texto]. Solo las ve el admin.
+const ENTREGAS = [["qr", "qr_entregado_at", "QR"], ["triptico", "triptico_entregado_at", "Tríptico"], ["grupo", "grupo_wa_at", "Grupo WhatsApp"]];
+const faltaEntrega = (d) => ENTREGAS.some(([, col]) => !d[col]);
+let padronTab = 0;
+let padronFaltan = false;
+function showPadron() {
+  const box = document.getElementById("padronBox");
+  if (box.style.display !== "none") { box.style.display = "none"; return; }
+  box.style.display = "";
+  renderPadron();
+}
+function renderPadron() {
+  const box = document.getElementById("padronBox");
+  if (!box || box.style.display === "none") return;
+  if (!driversLoaded) { box.innerHTML = `<div class="section-hint">Cargando choferes… vuelve a tocar el botón en un momento.</div>`; return; }
+  const tabs = padronGrupos();
+  if (padronTab >= tabs.length) padronTab = 0;
+  const t = tabs[padronTab];
+  const total = t.choferes.length;
+  const tabBtns = tabs.map((g, i) => `<button class="btn-sm padron-tab${i === padronTab ? " on" : ""}" onclick="padronTab=${i};renderPadron()">${g.interno ? "🔒 " : ""}${escapeHtml(g.titulo)} (${g.choferes.length})</button>`).join("");
+  const cuenta = ENTREGAS.map(([, col, txt]) => `${txt}: <b>${t.choferes.filter((d) => d[col]).length}/${total}</b>`).join(" · ");
+  const fila = (d, col) => {
+    // En pantalla, el dato extra solo si lo hay (el PDF sí pone «—»).
+    const val = col && PADRON_COLS[col] ? PADRON_COLS[col][1](d) : "—";
+    const extra = val !== "—" ? ` <span class="padron-extra">· ${escapeHtml(PADRON_COLS[col][0])}: ${escapeHtml(val)}</span>` : "";
+    const checks = ENTREGAS.map(([que, c, txt]) => `<label title="${d[c] ? "Marcado el " + padronFecha(d[c]) : "Falta"}"><input type="checkbox" ${d[c] ? "checked" : ""} onchange="marcarEntrega(${Number(d.id)}, '${que}', this)"> ${txt}</label>`).join("");
+    return `<div class="padron-row"><div class="padron-name">${d.numero_unidad ? `<b>#${escapeHtml(d.numero_unidad)}</b> ` : ""}${escapeHtml(d.name)}${extra}</div><div class="padron-checks">${checks}</div></div>`;
+  };
+  const lista = t.secciones.map((s) => {
+    if (!s.choferes.length) return "";
+    const filas = padronOrdenNum(s.choferes).filter((d) => !padronFaltan || faltaEntrega(d)).map((d) => fila(d, s.col)).join("");
+    return `${s.titulo ? `<div class="padron-sec">${escapeHtml(s.titulo)} (${s.choferes.length})</div>` : ""}${filas || `<div class="section-hint" style="margin:4px 0 8px">A todos ya les entregaste todo.</div>`}`;
+  }).join("");
+  box.innerHTML = `<div class="padron-tabs">${tabBtns}</div>
+    <div class="padron-head"><b>${escapeHtml(t.tituloPdf)}</b> · ${escapeHtml(t.sub)}${t.interno ? ` <span class="padron-interno">Solo para MotoVecino</span>` : ""}</div>
+    ${total ? `<div class="padron-tools"><label><input type="checkbox" ${padronFaltan ? "checked" : ""} onchange="padronFaltan=this.checked;renderPadron()"> Solo a los que les falta algo</label><span>${cuenta}</span></div>
+    <div class="padron-list">${lista}</div>` : `<div class="section-hint">Todavía no hay choferes en esta lista.</div>`}
+    <button class="btn-sm" style="margin-top:10px" onclick="printPadron(${padronTab})">${t.interno ? "🔒 Imprimir / PDF (solo para MotoVecino)" : "📄 Imprimir / PDF para el líder"}</button>
+    <div class="section-hint" style="margin-top:6px">Las casillas solo las ves tú; el PDF no las lleva. Sin teléfonos ni ubicación.</div>`;
+}
+let entregaGuardando = 0;
+async function marcarEntrega(id, que, el) {
+  const hecho = el.checked;
+  const col = (ENTREGAS.find(([q]) => q === que) || [])[1];
+  el.disabled = true;
+  entregaGuardando++;
+  try {
+    const res = await fetch(API + `/api/admin/drivers/${id}/entrega`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adminPin, que, hecho }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || "No se pudo guardar");
+    const d = driversCache.find((x) => x.id === id);
+    if (d && col) d[col] = data.at || null;
+  } catch (e) {
+    el.checked = !hecho;
+    showToast(e.message && e.message !== "Failed to fetch" ? e.message : "No se pudo guardar. Revisa tu señal e intenta otra vez.");
+  }
+  entregaGuardando--;
+  el.disabled = false;
+  // Se vuelve a pintar al terminar todas (si se pinta antes, se pierde la casilla que aún guarda).
+  if (!entregaGuardando) renderPadron();
 }
 // ---- Etiquetas QR para la moto (26-nov-2026) ----
 // Cada chofer tiene su QR de "Invita pasajeros" (el mismo de su Perfil). El
@@ -1870,14 +1962,6 @@ ${hojas.join("")}
 </body></html>`);
   w.document.close();
 }
-function showPadron() {
-  const box = document.getElementById("padronBox");
-  if (box.style.display !== "none") { box.style.display = "none"; return; }
-  const grupos = padronGrupos();
-  box.innerHTML = `<div class="section-hint" style="margin-bottom:8px">Toca una agrupación para abrir su padrón y guardarlo en PDF. Sin teléfonos ni ubicación. Las de abajo son <b>solo para MotoVecino</b>: no se comparten con los líderes.</div>` +
-    grupos.map((g, i) => `<button class="btn-sm" style="margin:0 6px 6px 0" onclick="printPadron(${i})">${g.interno ? "🔒 " : "📄 "}${escapeHtml(g.titulo)} (${g.choferes.length})</button>`).join("");
-  box.style.display = "";
-}
 // Otro chofer (mismo municipio, agrupación y tipo de vehículo) con el mismo
 // número. «Otra agrupación» y sin agrupación no se comparan (igual que el servidor).
 function numeroRepetidoEnLista(d) {
@@ -1885,21 +1969,9 @@ function numeroRepetidoEnLista(d) {
   const tipo = (v) => (v === "taxi" ? "taxi" : "moto");
   return driversCache.some((x) => x.id !== d.id && x.city === d.city && x.numero_unidad === d.numero_unidad && x.grupo === d.grupo && tipo(x.vehicle_type) === tipo(d.vehicle_type));
 }
-// Padrón interno (23-nov-2026): separado por quién invitó. El link de un chofer
-// manda; si no, lo escrito a mano en "¿Quién lo invitó?". Solo en los padrones
-// internos (Otra agrupación / Sin elegir), nunca en los que se dan a líderes.
+// Quién invitó (23-nov-2026): el link de un chofer manda; si no, lo escrito a
+// mano en "¿Quién lo invitó?". Solo en los padrones internos, nunca en los de líderes.
 const refKey = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-function padronSecciones(choferes) {
-  const map = new Map();
-  for (const d of choferes) {
-    const quien = (d.inviter_name || d.referred_by || "").trim();
-    const k = quien ? refKey(quien) : "";
-    if (!map.has(k)) map.set(k, { titulo: quien ? `Invitados por ${quien}` : "Sin invitación", choferes: [] });
-    map.get(k).choferes.push(d);
-  }
-  // Los que tienen quien los invitó primero (más choferes arriba); "Sin invitación" al final.
-  return [...map.entries()].sort(([ka, a], [kb, b]) => (ka === "") - (kb === "") || b.choferes.length - a.choferes.length || a.titulo.localeCompare(b.titulo, "es")).map(([, s]) => s);
-}
 function padronActividad(d) {
   if (!d.last_connected_at) return "Nunca se ha conectado";
   const days = Math.floor((Date.now() - new Date(`${d.last_connected_at.replace(" ", "T")}Z`).getTime()) / 86400000);
@@ -1919,17 +1991,15 @@ function printPadron(i) {
   if (!w) { showToast("Tu navegador bloqueó la ventana del padrón"); return; }
   const hoy = new Date().toLocaleDateString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "long", year: "numeric" });
   const activos = g.choferes.filter((d) => padronActividad(d) === "Activo esta semana").length;
-  // Ordenado por número del mototaxi (los que no tienen número, al final).
-  const ordenNum = (lista) => [...lista].sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9));
-  const porNumero = ordenNum(g.choferes);
-  const colOtra = (d) => (g.otra ? `<td>${escapeHtml(d.grupo_otro || "Falta que diga cuál")}</td>` : g.porConfirmar ? `<td>${escapeHtml(d.grupo_por_confirmar)}</td>` : "");
-  const fila = (d, n) => `<tr><td>${n + 1}</td><td>${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "—"}</td><td>${escapeHtml(d.name)}</td>${colOtra(d)}<td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`;
-  const encabezado = `<thead><tr><th>#</th><th>Número</th><th>Nombre</th>${g.otra ? "<th>Su agrupación</th>" : g.porConfirmar ? "<th>Dice que es de</th>" : ""}<th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead>`;
-  const tablas = g.interno && !g.otra && !g.porConfirmar
-    ? padronSecciones(g.choferes).map((s) => `<h2>${escapeHtml(s.titulo)} (${s.choferes.length})</h2><table>${encabezado}<tbody>${ordenNum(s.choferes).map(fila).join("")}</tbody></table>`).join("")
-    : `<table>${encabezado}<tbody>${porNumero.map(fila).join("")}</tbody></table>`;
+  const tabla = (s) => {
+    const extra = s.col && PADRON_COLS[s.col];
+    const encabezado = `<thead><tr><th>#</th><th>Número</th><th>Nombre</th>${extra ? `<th>${escapeHtml(extra[0])}</th>` : ""}<th>Servicio</th><th>Color</th><th>En la app desde</th><th>Actividad</th></tr></thead>`;
+    const fila = (d, n) => `<tr><td>${n + 1}</td><td>${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "—"}</td><td>${escapeHtml(d.name)}</td>${extra ? `<td>${escapeHtml(extra[1](d))}</td>` : ""}<td>${d.vehicle_type === "taxi" ? "Taxi" : "Mototaxi"}</td><td>${escapeHtml(d.vehicle_color || "—")}</td><td>${padronFecha(d.created_at)}</td><td>${padronActividad(d)}</td></tr>`;
+    return `${s.titulo ? `<h2>${escapeHtml(s.titulo)} (${s.choferes.length})</h2>` : ""}<table>${encabezado}<tbody>${padronOrdenNum(s.choferes).map(fila).join("")}</tbody></table>`;
+  };
+  const tablas = g.secciones.filter((s) => s.choferes.length).map(tabla).join("");
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Padrón ${escapeHtml(g.titulo)} · MotoVecino ${escapeHtml(adminCityLabel)}</title>
+<title>Padrón ${escapeHtml(g.tituloPdf)} · MotoVecino ${escapeHtml(adminCityLabel)}</title>
 <style>
   body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #111; margin: 24px; }
   .marca { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #15803d; font-weight: 700; }
@@ -1948,7 +2018,7 @@ function printPadron(i) {
 </style></head><body>
 <button class="imp" onclick="print()">Imprimir / Guardar PDF</button>
 <div class="marca">MotoVecino · ${escapeHtml(adminCityLabel)}</div>
-<h1>Padrón de choferes · ${escapeHtml(g.titulo)}</h1>
+<h1>Padrón de choferes · ${escapeHtml(g.tituloPdf)}</h1>
 <p class="sub">${escapeHtml(g.sub)}</p>
 <p class="fecha">Al ${escapeHtml(hoy)}</p>
 ${g.interno ? `<div class="interno">USO INTERNO DE MOTOVECINO — NO COMPARTIR CON LÍDERES</div>` : ""}
@@ -1972,6 +2042,7 @@ function renderGrupoField() {
   // eran del municipio anterior.
   const box = document.getElementById("padronBox");
   if (box) { box.style.display = "none"; box.innerHTML = ""; }
+  padronTab = 0;
   const qb = document.getElementById("qrLabelsBox");
   if (qb) { qb.style.display = "none"; qb.innerHTML = ""; }
 }
@@ -2318,6 +2389,7 @@ async function login(withSavedToken) {
   comisarias = loginData.comisarias || [];
   agrupacionesMap = loginData.agrupaciones || {};
   porSuCuenta = loginData.porSuCuenta || porSuCuenta;
+  nombresOtra = loginData.nombresOtra || {};
   coloresVehiculo = loginData.coloresVehiculo || [];
   const dc = document.getElementById("driverColor");
   if (dc) dc.innerHTML = colorOptions("");
@@ -2829,6 +2901,7 @@ async function loadDrivers() {
   // borraría lo que el admin está escribiendo a medias.
   if (editingId === null) renderDriverRows();
   renderOnlineDrivers();
+  if (!entregaGuardando) renderPadron();
 }
 
 function renderOnlineDrivers() {
@@ -3097,7 +3170,7 @@ function startEdit(id) {
     <div class="field"><label for="edit-vehicletype-${d.id}">Tipo de vehículo</label>${vehicleTypeSelect(d.id, d.vehicle_type)}</div>
     <div class="field"><label for="edit-color-${d.id}">Color</label><select id="edit-color-${d.id}" class="tipo-select">${colorOptions(d.vehicle_color || "")}</select></div>
     <div class="field"><label for="edit-numero-${d.id}">Número del mototaxi</label><input id="edit-numero-${d.id}" type="text" inputmode="numeric" maxlength="4" placeholder="Ej. 45" value="${escapeHtml(d.numero_unidad || "")}" /></div>
-    ${agrupacionesAdmin().length ? `<div class="field"><label for="edit-grupo-${d.id}">Agrupación</label><select id="edit-grupo-${d.id}" class="tipo-select" onchange="syncCual('edit-grupo-${d.id}', 'edit-grupo-otro-${d.id}')">${grupoOptions(d.grupo || "")}</select><input id="edit-grupo-otro-${d.id}" type="text" maxlength="60" placeholder="¿Cuál agrupación? (Ej.: Los Halcones)" value="${escapeHtml(d.grupo_otro || "")}" style="margin-top:6px${d.grupo === porSuCuenta ? "" : ";display:none"}" /></div>` : ""}
+    ${agrupacionesAdmin().length ? `<div class="field"><label for="edit-grupo-${d.id}">Agrupación</label><select id="edit-grupo-${d.id}" class="tipo-select" onchange="syncCual('edit-grupo-${d.id}', 'edit-grupo-otro-${d.id}')">${grupoOptions(d.grupo || "")}</select><input id="edit-grupo-otro-${d.id}" type="text" maxlength="60" placeholder="¿De qué agrupación viene? (opcional)" value="${escapeHtml(d.grupo_otro || "")}" style="margin-top:6px${d.grupo === porSuCuenta ? "" : ";display:none"}" /></div>` : ""}
     <div class="field"><label for="edit-vehicle-${d.id}">Placa / descripción (opcional)</label><input id="edit-vehicle-${d.id}" value="${escapeHtml(d.vehicle || "")}" placeholder="Ej. placa YUC-123" /></div>
     <div class="field"><label for="edit-ref-${d.id}">¿Quién lo invitó?</label>${refEditField(d).replace('style="margin-top:6px;width:100%"', "")}</div>
     <div class="edit-btns"><button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button><button class="btn" id="editSaveBtn" onclick="saveEdit(${d.id})">Guardar</button></div>

@@ -1,5 +1,5 @@
-// Prueba del orden del padrón (24-nov-2026): «Otra agrupación» pide «¿Cuál?»
-// en el registro; la ventanita de la app del chofer (POST /drivers/agrupacion)
+// Prueba del orden del padrón (24-nov-2026): con «Otra agrupación» (en Ticul
+// «MotoVecino Ticul Choferes» desde el 26-nov) se pregunta de cuál viene, opcional; la ventanita de la app del chofer (POST /drivers/agrupacion)
 // solo sirve mientras le falte la agrupación y deja registro; el admin guarda y
 // borra el «¿Cuál?» y ve quién invitó (para «Invitados de…»). En Tekax nada.
 //   BASE=http://localhost:3077 node tools/test-agrupacion.js
@@ -41,10 +41,17 @@ async function main() {
     photo: JPG, photoPlaca: JPG, signature: PNG, acceptedLegal: true, vehicleType: "moto", city: "ticul", lat: TI.lat, lng: TI.lng,
     emergencyContactName: "Mamá", emergencyContactPhone: "9990000000", vehicleColor: "Rojo", numeroUnidad: "77",
   };
-  const r1 = { ...base, name: `Agr Otra ${stamp}`, phone: tel("97100"), grupo: "Por su cuenta", grupoOtro: " " };
+  const r1 = { ...base, name: `Agr Otra ${stamp}`, phone: tel("97100"), grupo: "Por su cuenta", grupoOtro: "x" };
   telefonos.push(r1.phone);
   const sinCual = await post("/chofer-solicitudes", r1);
-  check("registro: «Otra» sin decir cuál no se puede", sinCual.status === 400 && /cuál/i.test(sinCual.data?.error || ""), sinCual);
+  check("registro: «¿De qué agrupación vienes?» con una letra → aviso", sinCual.status === 400 && /nombre completo/i.test(sinCual.data?.error || ""), sinCual);
+  const r4 = { ...base, name: `Agr OtraVacia ${stamp}`, phone: tel("97800"), grupo: "Por su cuenta", grupoOtro: "  " };
+  telefonos.push(r4.phone);
+  const vacia = await post("/chofer-solicitudes", r4);
+  check("registro: «MotoVecino Ticul Choferes» sin decir de cuál viene se acepta (es opcional)", vacia.status === 201, vacia);
+  const lista = (await api("GET", "/agrupaciones?city=ticul")).data;
+  check("Ticul: la opción se llama «MotoVecino Ticul Choferes»", lista?.nombreOtra === "MotoVecino Ticul Choferes" && lista?.porSuCuenta === "Por su cuenta", lista);
+  check("Tekax: sigue «Otra agrupación»", (await api("GET", "/agrupaciones?city=tekax")).data?.nombreOtra === "Otra agrupación");
   const conCual = await post("/chofer-solicitudes", { ...r1, grupoOtro: "  Los   Halcones " });
   check("registro: «Otra» con «Los Halcones» se acepta", conCual.status === 201, conCual);
   const r2 = { ...base, name: `Agr Vieja ${stamp}`, phone: tel("97200"), grupo: "Por su cuenta" };
@@ -109,7 +116,7 @@ async function main() {
   const inventada = await post("/drivers/agrupacion", { ...cred, grupo: "Inventada" });
   check("ventanita: agrupación inventada no", inventada.status === 400, inventada);
   const otraSin = await post("/drivers/agrupacion", { ...cred, grupo: "Por su cuenta", grupoOtro: "x" });
-  check("ventanita: «Otra» sin decir cuál no", otraSin.status === 400, otraSin);
+  check("ventanita: «¿De qué agrupación vienes?» con una letra no", otraSin.status === 400, otraSin);
   const otraCon = await post("/drivers/agrupacion", { ...cred, grupo: "Por su cuenta", grupoOtro: "Los Pumas" });
   check("ventanita: «Otra: Los Pumas» se guarda", otraCon.status === 200 && otraCon.data?.grupoOtro === "Los Pumas", otraCon);
   perfil = (await post("/drivers/profile", cred)).data;
@@ -118,12 +125,14 @@ async function main() {
   check("ventanita: ya contestada, el chofer no puede cambiarla", cambiar.status === 409, cambiar);
   check("sigue en «Otra: Los Pumas»", (await listaDe(choferId))?.grupo_otro === "Los Pumas");
   const audit = await db.prepare("SELECT detail FROM admin_audit WHERE action = 'agrupacion_chofer' AND target_id = ? ORDER BY id DESC LIMIT 1").get(choferId);
-  check("queda en el registro del admin", audit && /sin agrupación → Otra agrupación \(Los Pumas\)/.test(audit.detail), audit);
+  check("queda en el registro del admin", audit && /sin agrupación → MotoVecino Ticul Choferes \(viene de Los Pumas\)/.test(audit.detail), audit);
 
-  // «Otra» sin cuál (registro viejo) → también le sale, y ya viene marcada «Otra».
+  // «Otra» sin decir de cuál viene: desde el 26-nov ya NO le sale (es opcional).
   await db.prepare("UPDATE drivers SET grupo = 'Por su cuenta', grupo_otro = NULL WHERE id = ?").run(choferId);
   perfil = (await post("/drivers/profile", cred)).data;
-  check("perfil: «Otra» sin cuál → falta", perfil?.faltaAgrupacion === true && perfil?.grupo === "Por su cuenta", perfil && { f: perfil.faltaAgrupacion });
+  check("perfil: «Otra» sin decir de cuál viene → ya no falta", perfil?.faltaAgrupacion === false && perfil?.grupo === "Por su cuenta", perfil && { f: perfil.faltaAgrupacion });
+  check("perfil: trae el nombre «MotoVecino Ticul Choferes»", perfil?.nombreOtra === "MotoVecino Ticul Choferes", perfil?.nombreOtra);
+  await db.prepare("UPDATE drivers SET grupo = NULL, grupo_otro = NULL WHERE id = ?").run(choferId); // otra vez sin agrupación
   // Doble toque: dos envíos a la vez → solo uno guarda, el otro 409.
   const [j1, j2] = await Promise.all([
     post("/drivers/agrupacion", { ...cred, grupo: "Jaguar", grupoOtro: "ignorado" }),
@@ -132,7 +141,7 @@ async function main() {
   check("ventanita: elige Jaguar (doble toque: uno 200 y otro 409)", [j1.status, j2.status].sort().join() === "200,409", [j1.status, j2.status]);
   check("responde «por confirmar»", [j1, j2].some((x) => x.data?.grupoPorConfirmar === "Jaguar"));
   let fin = await listaDe(choferId);
-  check("Jaguar queda POR CONFIRMAR (no entra al padrón del líder) y lo de antes no se borra", fin && fin.grupo === "Por su cuenta" && !fin.grupo_otro && fin.grupo_por_confirmar === "Jaguar", fin);
+  check("Jaguar queda POR CONFIRMAR (no entra al padrón del líder) y lo de antes no se borra", fin && !fin.grupo && !fin.grupo_otro && fin.grupo_por_confirmar === "Jaguar", fin);
   const nAudit = await db.prepare("SELECT COUNT(*) AS n FROM admin_audit WHERE action = 'agrupacion_chofer' AND target_id = ? AND detail LIKE '%por confirmar%'").get(choferId);
   check("doble toque anota una sola vez", Number(nAudit?.n) === 1, nAudit);
   perfil = (await post("/drivers/profile", cred)).data;
@@ -144,7 +153,7 @@ async function main() {
   check("confirmar sin decir sí o no → 400", (await post(`/admin/drivers/${choferId}/agrupacion-confirmar`, { adminPin: ADMIN, adminZone: "ticul" })).status === 400);
   // Rechazar: se borra y su app le vuelve a preguntar.
   const rech = await conf(false);
-  check("rechazado → se queda como estaba antes («Otra»)", (await listaDe(choferId))?.grupo === "Por su cuenta");
+  check("rechazado → se queda como estaba antes (sin agrupación)", !(await listaDe(choferId))?.grupo);
   check("admin: «No es de ahí»", rech.status === 200, rech);
   perfil = (await post("/drivers/profile", cred)).data;
   check("rechazado → la ventanita vuelve a salir", perfil?.faltaAgrupacion === true && !perfil?.grupoPorConfirmar, perfil && { f: perfil.faltaAgrupacion });

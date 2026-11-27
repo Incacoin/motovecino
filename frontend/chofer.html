@@ -4267,8 +4267,9 @@ function renderProfile(p) {
   document.getElementById("founderBadge").style.display = p.esFundador ? "inline-block" : "none";
   document.getElementById("pfAv").classList.toggle("gold", !!p.esFundador);
   document.getElementById("pfUnitImg").innerHTML = p.vehicleType === "taxi" ? MVVeh.taxiSide(118) : MVVeh.motoSide(108);
-  // "Por su cuenta" es el valor guardado de la opción «Otra agrupación» (19-nov).
-  const grupoVisible = (g) => (p.grupoPorConfirmar ? p.grupoPorConfirmar + " (por confirmar)" : g === "Por su cuenta" ? p.grupoOtro || "Otra agrupación" : g);
+  // "Por su cuenta" es el valor guardado de la opción «Otra»; en Ticul se ve
+  // como «MotoVecino Ticul Choferes» (26-nov-2026, p.nombreOtra).
+  const grupoVisible = (g) => (p.grupoPorConfirmar ? p.grupoPorConfirmar + " (por confirmar)" : g === "Por su cuenta" ? p.nombreOtra || "Otra agrupación" : g);
   document.getElementById("profileSub").textContent =
     (p.vehicleType === "taxi" ? "Taxi" : "Mototaxi") +
     (grupoVisible(p.grupo) ? ` · ${grupoVisible(p.grupo)}` : "") +
@@ -4394,7 +4395,7 @@ function markBankChangeSeen(at) {
   try { if (at) localStorage.setItem(BANK_SEEN_KEY, at); } catch (e) {}
 }
 // Ventanita «¿De qué agrupación eres?» (24-nov-2026): para los choferes que se
-// registraron antes de que se preguntara (o con «Otra» sin decir cuál). Sale
+// registraron antes de que se preguntara. Sale
 // al abrir la app y no se quita hasta contestar; ya contestada, solo el admin
 // la cambia. Valor guardado de «Otra agrupación» = "Por su cuenta".
 // 25-nov-2026: con viaje activo no sale (no le tapa el viaje); queda guardada
@@ -4407,6 +4408,7 @@ function checkAgrupacion(p) {
   agrupacionPendiente = p;
   if (agrupacionAbierta || currentRide) return;
   const OTRA = "Por su cuenta";
+  const nombreOtra = p.nombreOtra || "Otra agrupación";
   const ov = document.createElement("div");
   ov.className = "mv-confirm";
   const opt = (value, title, sub) =>
@@ -4415,8 +4417,8 @@ function checkAgrupacion(p) {
     <p id="mvAgrTit" style="margin:0 0 6px">¿De qué agrupación eres?</p>
     <div style="font-size:13.5px;color:var(--text-dim);margin:0 0 14px">Así queda tu número y tu agrupación bien registrados. Solo se pregunta una vez.</div>
     ${p.agrupaciones.map((a) => opt(a.nombre, a.nombre, "Líder: " + a.lider)).join("")}
-    ${opt(OTRA, "Otra agrupación", "Mi agrupación no aparece aquí")}
-    <div id="mvAgrOtroBox" style="display:none"><label for="mvAgrOtro" style="font-size:14px;font-weight:600">¿Cuál agrupación?</label>
+    ${opt(OTRA, nombreOtra, `Si tu agrupación no está en la lista, elige ${nombreOtra}`)}
+    <div id="mvAgrOtroBox" style="display:none"><label for="mvAgrOtro" style="font-size:14px;font-weight:600">¿De qué agrupación vienes? <span style="font-weight:400;color:var(--text-dim)">(opcional, solo lo ve MotoVecino)</span></label>
       <input id="mvAgrOtro" class="mv-agr-otro" type="text" maxlength="60" autocomplete="off" placeholder="Ej.: Los Halcones" /></div>
     <div class="mv-agr-err" id="mvAgrErr"></div>
     <div class="mv-confirm-actions"><button class="btn" id="mvAgrOk">Guardar</button></div>
@@ -4428,7 +4430,7 @@ function checkAgrupacion(p) {
     ov.querySelector("#mvAgrOtroBox").style.display = v === OTRA ? "" : "none";
     if (v === OTRA) ov.querySelector("#mvAgrOtro").focus();
   });
-  // Si ya tenía «Otra» (solo le faltaba decir cuál), viene marcada.
+  // Si ya tenía «Otra», viene marcada (hoy ya no le sale la ventanita por eso).
   if (p.grupo === OTRA) {
     const inp = ov.querySelector(`input[value="${OTRA}"]`);
     inp.checked = true;
@@ -4441,7 +4443,7 @@ function checkAgrupacion(p) {
     const grupo = ov.querySelector('input[name="mvAgr"]:checked')?.value;
     const grupoOtro = ov.querySelector("#mvAgrOtro").value.replace(/\s+/g, " ").trim();
     if (!grupo) { err.textContent = "Elige tu agrupación"; return; }
-    if (grupo === OTRA && grupoOtro.length < 2) { err.textContent = "Escribe cuál es tu agrupación"; ov.querySelector("#mvAgrOtro").focus(); return; }
+    if (grupo === OTRA && grupoOtro.length === 1) { err.textContent = "Escribe el nombre completo de tu agrupación, o déjalo vacío"; ov.querySelector("#mvAgrOtro").focus(); return; }
     err.textContent = "";
     ok.disabled = true;
     ok.textContent = "Guardando...";

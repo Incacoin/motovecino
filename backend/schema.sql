@@ -815,3 +815,8 @@ ALTER TABLE rides ADD COLUMN IF NOT EXISTS courtesy_paid_at TEXT;
 -- oficina y el admin ve que lo pidió así. («saldo» se paga al instante y
 -- queda en courtesy_paid_how.)
 ALTER TABLE rides ADD COLUMN IF NOT EXISTS courtesy_choice TEXT;
+-- Entregas (26-nov-2026): cuándo se le dio al chofer su QR, su tríptico y
+-- cuándo entró a su grupo de WhatsApp. Solo para el admin (casillas del padrón).
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS qr_entregado_at TEXT;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS triptico_entregado_at TEXT;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS grupo_wa_at TEXT;

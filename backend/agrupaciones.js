@@ -18,6 +18,13 @@ const AGRUPACIONES = {
 // ve; el valor guardado sigue igual para no tocar filas viejas).
 const POR_SU_CUENTA = "Por su cuenta";
 
+// Nombre que se VE para esa opción (26-nov-2026). En Ticul es el grupo de
+// choferes sin líder que maneja MotoVecino. El valor guardado no cambia.
+const NOMBRE_OTRA = { ticul: "MotoVecino Ticul Choferes" };
+function nombreOtra(cityId) {
+  return Object.hasOwn(NOMBRE_OTRA, cityId) ? NOMBRE_OTRA[cityId] : "Otra agrupación";
+}
+
 function agrupacionesDe(cityId) {
   return Object.hasOwn(AGRUPACIONES, cityId) ? AGRUPACIONES[cityId] : [];
 }
@@ -47,16 +54,15 @@ function grupoOtroValido(valor) {
 }
 
 // ¿Al chofer le falta decir su agrupación? Solo en municipios con lista: sin
-// elegir, con un valor que ya no está en la lista, o «Otra» sin decir cuál.
+// elegir o con un valor que ya no está en la lista. Desde el 26-nov-2026
+// «¿De qué agrupación vienes?» es opcional: «Otra» sin decir cuál ya no falta.
 // Es lo que hace salir la ventanita en su app. Si ya contestó Jaguar/Alcones y
 // espera que el admin lo confirme (porConfirmar), ya no le falta.
 function faltaAgrupacion(cityId, grupo, grupoOtro, porConfirmar) {
   if (!agrupacionesDe(cityId).length) return false;
   const pc = grupoValido(cityId, porConfirmar);
   if (pc && pc !== POR_SU_CUENTA) return false;
-  const g = grupoValido(cityId, grupo);
-  if (!g) return true;
-  return g === POR_SU_CUENTA && !grupoOtroValido(grupoOtro);
+  return !grupoValido(cityId, grupo);
 }
 
 // Número del mototaxi en su agrupación (23-nov-2026): solo números, hasta 4
@@ -68,4 +74,4 @@ function numeroValido(valor) {
   return n === "0" ? null : n;
 }
 
-module.exports = { AGRUPACIONES, POR_SU_CUENTA, agrupacionesDe, grupoValido, grupoOtroValido, faltaAgrupacion, grupoParaPasajero, numeroValido };
+module.exports = { AGRUPACIONES, POR_SU_CUENTA, NOMBRE_OTRA, nombreOtra, agrupacionesDe, grupoValido, grupoOtroValido, faltaAgrupacion, grupoParaPasajero, numeroValido };

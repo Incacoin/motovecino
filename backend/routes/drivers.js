@@ -8,7 +8,7 @@ const { haversineKm } = require("../geo");
 const { mapCode } = require("../mapCode");
 const { isRateLimited, recordFailedAttempt, clearAttempts, clearAccount, RATE_LIMIT_MESSAGE, isSubmissionRateLimited, recordSubmission } = require("../pinRateLimit");
 const MAX_APPLICATION_IMAGE_LENGTH = 900000;
-const { agrupacionesDe, grupoValido, grupoOtroValido, faltaAgrupacion, POR_SU_CUENTA, numeroValido } = require("../agrupaciones");
+const { agrupacionesDe, grupoValido, grupoOtroValido, faltaAgrupacion, POR_SU_CUENTA, nombreOtra, numeroValido } = require("../agrupaciones");
 const { colorValido } = require("../colores");
 const { DEFAULT_CITY_ID, getCityById, isWithinServiceRadius, resolveCity, sameComisaria, rideCityAt, sameCityForRide, openZoneAt } = require("../cities");
 const { otpEnabled, sendOtp, verifyOtp } = require("../whatsappOtp");
@@ -396,6 +396,8 @@ router.post("/drivers/profile", async (req, res) => {
     grupo: driver.grupo,
     grupoOtro: driver.grupo === POR_SU_CUENTA ? driver.grupo_otro || null : null,
     grupoPorConfirmar: driver.grupo_por_confirmar || null,
+    // Cómo se llama en su municipio la opción «Otra» (Ticul: «MotoVecino Ticul Choferes»).
+    nombreOtra: nombreOtra(driver.city),
     // Ventanita «¿De qué agrupación eres?» (24-nov-2026): sale mientras falte.
     faltaAgrupacion: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro, driver.grupo_por_confirmar),
     agrupaciones: faltaAgrupacion(driver.city, driver.grupo, driver.grupo_otro, driver.grupo_por_confirmar)
@@ -533,9 +535,12 @@ router.post("/drivers/agrupacion", async (req, res) => {
     return res.status(409).json(yaGuardada);
   }
   const g = grupoValido(driver.city, grupo);
-  if (!g) return res.status(400).json({ error: "Elige tu agrupación (o «Otra agrupación»)" });
+  if (!g) return res.status(400).json({ error: `Elige tu agrupación (o «${nombreOtra(driver.city)}»)` });
+  // «¿De qué agrupación vienes?» es opcional (26-nov-2026); si lo escribe, que sirva.
   const otro = g === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
-  if (g === POR_SU_CUENTA && !otro) return res.status(400).json({ error: "Escribe cuál es tu agrupación" });
+  if (g === POR_SU_CUENTA && !otro && typeof grupoOtro === "string" && grupoOtro.trim()) {
+    return res.status(400).json({ error: "Escribe el nombre completo de tu agrupación, o déjalo vacío" });
+  }
 
   // Jaguar / Alcones: no entra directo al padrón de su líder; queda «por
   // confirmar» hasta que el admin lo confirme (así nadie se mete a una
@@ -553,7 +558,7 @@ router.post("/drivers/agrupacion", async (req, res) => {
       ).run(g, otro, driver.id, driver.grupo || "", driver.grupo_otro || "", driver.grupo_por_confirmar || "");
   if (!r.changes) return res.status(409).json(yaGuardada);
   const antes = driver.grupo ? `${driver.grupo}${driver.grupo_otro ? ` (${driver.grupo_otro})` : ""}` : "sin agrupación";
-  const ahora = porConfirmar ? `${g} (por confirmar)` : `Otra agrupación (${otro})`;
+  const ahora = porConfirmar ? `${g} (por confirmar)` : `${nombreOtra(driver.city)}${otro ? ` (viene de ${otro})` : ""}`;
   await db.prepare("INSERT INTO admin_audit (role, zone, action, target_id, detail, ip, ok) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .run("chofer", driver.city || null, "agrupacion_chofer", driver.id, `${driver.name}: ${antes} → ${ahora}`.slice(0, 400), req.ip || null, 1);
   res.json(porConfirmar ? { ok: true, grupoPorConfirmar: g } : { ok: true, grupo: g, grupoOtro: otro });
@@ -688,13 +693,13 @@ router.post("/chofer-solicitudes", async (req, res) => {
   let grupoLimpio = typeof grupo === "string" ? grupo.trim().slice(0, 60) : "";
   if (agrupacionesDe(cityId).length && grupo !== undefined) {
     grupoLimpio = grupoValido(cityId, grupo);
-    if (!grupoLimpio) return res.status(400).json({ error: "Elige tu agrupación (o «Otra agrupación»)" });
+    if (!grupoLimpio) return res.status(400).json({ error: `Elige tu agrupación (o «${nombreOtra(cityId)}»)` });
   }
-  // «Otra agrupación» → «¿Cuál?» obligatorio (24-nov-2026). Un formulario viejo
-  // que no manda el campo se acepta igual: la ventanita de su app se lo pregunta.
+  // «Otra» → «¿De qué agrupación vienes?»: opcional desde el 26-nov-2026; si lo
+  // escribe, que tenga al menos 2 letras.
   const grupoOtroLimpio = grupoLimpio === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
-  if (grupoLimpio === POR_SU_CUENTA && grupoOtro !== undefined && !grupoOtroLimpio) {
-    return res.status(400).json({ error: "Escribe cuál es tu agrupación" });
+  if (grupoLimpio === POR_SU_CUENTA && typeof grupoOtro === "string" && grupoOtro.trim() && !grupoOtroLimpio) {
+    return res.status(400).json({ error: "Escribe el nombre completo de tu agrupación, o déjalo vacío" });
   }
   const color = vehicleColor === undefined ? null : colorValido(vehicleColor);
   if (vehicleColor !== undefined && !color) return res.status(400).json({ error: "Elige el color de tu vehículo" });
