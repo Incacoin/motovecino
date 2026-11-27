@@ -3547,7 +3547,54 @@ async function searchRideById() {
     ${row("Personas", `${r.passengers} adulto(s)${r.children ? ` + ${r.children} niño(s)` : ""}`)}
     ${row("Precio", price != null ? `$${price}${r.extra ? ` (+$${r.extra} extra)` : ""}` : "")}
     ${row("Calificación", rating)}
-  </table>`;
+  </table>
+  <div id="rideSearchMap" style="height:260px;max-width:520px;margin-top:12px;border-radius:12px;overflow:hidden;"></div>
+  <div id="rideSearchMapNote" class="section-hint" style="margin-top:6px;"></div>`;
+  drawRideSearchMap(r);
+}
+
+// Mapa del viaje buscado (26-nov): punto de encuentro (verde) y destino (rojo)
+// tal como los marcó el pasajero. Solo en el detalle de UN viaje, nunca en la
+// lista general. Viajes de más de 1 año: retention.js ya redondeó los puntos.
+let rideSearchMap = null;
+function drawRideSearchMap(r) {
+  if (rideSearchMap) { rideSearchMap.remove(); rideSearchMap = null; }
+  const el = document.getElementById("rideSearchMap");
+  const note = document.getElementById("rideSearchMapNote");
+  if (!el || typeof L === "undefined" || r.pickup_lat == null || r.pickup_lng == null) {
+    if (el) el.style.display = "none";
+    return;
+  }
+  const from = [Number(r.pickup_lat), Number(r.pickup_lng)];
+  const to = r.dest_lat != null && r.dest_lng != null ? [Number(r.dest_lat), Number(r.dest_lng)] : null;
+  rideSearchMap = L.map(el, { scrollWheelZoom: false });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap" }).addTo(rideSearchMap);
+  const dot = (pos, color, label) =>
+    L.circleMarker(pos, { radius: 9, color: "#fff", weight: 3, fillColor: color, fillOpacity: 1 })
+      .bindTooltip(label, { permanent: true, direction: "top", offset: [0, -8] })
+      .addTo(rideSearchMap);
+  dot(from, "#16a34a", "Encuentro");
+  if (to) {
+    dot(to, "#dc2626", "Destino");
+    L.polyline([from, to], { color: "#64748b", weight: 2, dashArray: "6 6" }).addTo(rideSearchMap);
+    rideSearchMap.fitBounds([from, to], { padding: [40, 40], maxZoom: 17 });
+  } else {
+    rideSearchMap.setView(from, 17);
+  }
+  setTimeout(() => rideSearchMap && rideSearchMap.invalidateSize(), 60);
+  const parts = [];
+  if (to) {
+    const km = rideSearchMap.distance(from, to) / 1000;
+    parts.push(`Distancia en línea recta: ${km < 1 ? Math.round(km * 1000) + " m" : km.toFixed(1) + " km"} (por calle es un poco más).`);
+  } else {
+    parts.push("El pasajero no marcó destino.");
+  }
+  const cs = r.created_at ? String(r.created_at) : "";
+  const created = cs ? new Date(/(Z|[+-]\d\d:?\d\d)$/.test(cs) ? cs : cs.replace(" ", "T") + "Z") : null;
+  if (created && !isNaN(created) &&Date.now() - created.getTime() > 365 * 24 * 3600 * 1000) {
+    parts.push("Viaje de hace más de un año: por privacidad solo queda la zona aproximada.");
+  }
+  note.textContent = parts.join(" ");
 }
 
 const DEPOSIT_STATUS_LABEL = {
