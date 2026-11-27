@@ -974,10 +974,10 @@ function setDriverTheme(pref) {
       </div>
     </div>
 
+    <div class="card profile-card" id="driverRankCard" style="display:none;"><div class="rank-box" id="driverRankBox"></div></div>
     <div class="card profile-card" id="riderInviteCard" style="display:none;">
       <div class="card-title ic-in" style="justify-content:flex-start;"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 18v3"/></svg>Invita pasajeros</div>
       <div class="profile-note" style="margin-top:0;">Enséñale este QR a tu pasajero para que baje MotoVecino. Toca el QR para verlo en grande.</div>
-      <div class="rank-box" id="driverRankBox"></div>
       <div class="invite-promo" id="riderInvitePromo"></div>
       <button type="button" class="rinv-qr" onclick="openRiderQr()" aria-label="Ver QR en grande"><img id="riderQrImg" alt="QR de invitación" width="190" height="190" /></button>
       <div class="rinv-code">Tu código: <b id="riderInviteCode"></b></div>
@@ -3952,7 +3952,9 @@ function rkFecha(utc, opts) {
 }
 function renderDriverRanking(rk) {
   const box = document.getElementById("driverRankBox");
-  if (!box) return;
+  const card = document.getElementById("driverRankCard");
+  if (!box || !card) return;
+  card.style.display = rk ? "flex" : "none";
   if (!rk) { box.innerHTML = ""; return; }
   // Termina a las 12:00 a.m. → el último día que cuenta es el anterior.
   const lastDay = rkFecha(new Date(new Date(String(rk.endsAt).replace(" ", "T") + "Z").getTime() - 1000).toISOString().slice(0, 19).replace("T", " "), { weekday: "long", day: "numeric", month: "long" });
@@ -3967,11 +3969,11 @@ function renderDriverRanking(rk) {
   const count = Number(rk.count) || 0;
   const lead = Number(rk.leaderCount) || 0;
   const faltan = Math.max(0, min - count);
-  box.innerHTML = `<div class="rk-t">🏆 Ranking de la semana · ${prize} en efectivo</div>
+  box.innerHTML = `<div class="rk-t">🏆 Ranking de choferes · ${prize} en efectivo</div>
     <div class="rk-big">${rk.place ? `Vas en el lugar <b>${Number(rk.place)}</b>` : "Todavía no entras"}</div>
     ${count ? `Llevas <b>${count} pasajero${count === 1 ? "" : "s"}</b>` : "Enseña tu QR para sumar tu primer pasajero"}${rk.place === 1 ? "" : lead ? ` · el primero lleva ${lead}` : ""}.
     ${faltan ? `Te falta${faltan === 1 ? "" : "n"} ${faltan} para el mínimo de ${min}.` : `Ya pasaste el mínimo de ${min}.`}
-    <small>Cuenta hasta el ${escapeHtml(lastDay)}. Cuentan los pasajeros nuevos que se registran con tu QR o tu código. MotoVecino revisa los registros antes de pagar.</small>`;
+    <small>Cuenta hasta el ${escapeHtml(lastDay)}. Enseña tu QR de «Invita pasajeros» (abajo). Cuentan los pasajeros nuevos que se registran con tu QR o tu código. MotoVecino revisa los registros antes de pagar.</small>`;
 }
 
 function openRiderQr() {

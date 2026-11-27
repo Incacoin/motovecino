@@ -15,9 +15,13 @@
 //    antes. Un municipio no puede tener dos rankings que se encimen.
 const { LOCAL_OFFSET } = require("./earnings");
 const { SERVICE_FEE, TAXI_COMMISSION_RATE } = require("./constants");
+const { RIDER_REFERRAL } = require("./riderReferrals");
 
 const OFFSET_HOURS = Number(String(LOCAL_OFFSET).match(/-?\d+/)[0]); // -6
 const MAX_DAYS = 31;
+// Después de que termina «Invita pasajeros» el registro ya no liga al pasajero
+// con el chofer (riderPromoActive), así que un ranking no puede pasar de ahí.
+const LAST_DAY = RIDER_REFERRAL.PROMO_END;
 
 // Viajes de pasaje completados que dejaron cuota (mismo filtro que «Invita
 // pasajeros»): solo para que el admin vea quién de verdad usa la app.
@@ -49,7 +53,7 @@ function effectiveEnd(c) {
 }
 
 function statusOf(c, now = nowUtc()) {
-  if (c.stopped_at && c.stopped_at <= c.starts_at) return "cancelado";
+  if (c.cancelled) return "cancelado";
   if (now < c.starts_at) return "programado";
   if (now >= effectiveEnd(c)) return c.stopped_at && c.stopped_at < c.ends_at ? "apagado" : "terminado";
   return "en_curso";
@@ -65,7 +69,34 @@ function excludedIds(c) {
 }
 
 // La lista: choferes del municipio con al menos un pasajero que cuenta.
+// Al terminar se congela (final_board): si después cambian a un chofer de
+// municipio, lo borran o lo marcan de prueba, el resultado ya no se mueve.
 async function board(db, c) {
+  const st = statusOf(c);
+  const ended = st === "terminado" || st === "apagado";
+  let rows = null;
+  if (ended && c.final_board) {
+    try { rows = JSON.parse(c.final_board); } catch { rows = null; }
+  }
+  if (!rows) {
+    rows = await liveRows(db, c);
+    if (ended) {
+      await db.prepare("UPDATE ranking_campaigns SET final_board = ? WHERE id = ? AND final_board IS NULL").run(JSON.stringify(rows), c.id);
+      const saved = await db.prepare("SELECT final_board FROM ranking_campaigns WHERE id = ?").get(c.id);
+      try { rows = JSON.parse(saved.final_board); } catch {}
+      c.final_board = saved.final_board;
+    }
+  }
+  const excluded = new Set(excludedIds(c));
+  let place = 0;
+  return rows.map((r) => {
+    const out = { ...r, excluded: excluded.has(r.id), place: null };
+    if (!out.excluded) out.place = ++place;
+    return out;
+  });
+}
+
+async function liveRows(db, c) {
   const end = effectiveEnd(c);
   const now = nowUtc();
   const until = now < end ? now : end;
@@ -86,10 +117,7 @@ async function board(db, c) {
        ORDER BY n DESC, last_at ASC, d.id ASC`
     )
     .all(c.starts_at, end, until, c.city);
-  const excluded = new Set(excludedIds(c));
-  let place = 0;
-  return rows.map((r) => {
-    const out = {
+  return rows.map((r) => ({
       id: r.id,
       name: r.name,
       grupo: r.grupo,
@@ -99,12 +127,7 @@ async function board(db, c) {
       count: Number(r.n) || 0,
       withRide: Number(r.with_ride) || 0,
       lastAt: r.last_at,
-      excluded: excluded.has(r.id),
-      place: null,
-    };
-    if (!out.excluded) out.place = ++place;
-    return out;
-  });
+  }));
 }
 
 // Quién gana (o va ganando): el primer lugar, si llegó al mínimo.
@@ -140,18 +163,23 @@ async function createCampaign(db, city, body) {
   if (!startsAt || !endsAt) return { error: "Revisa las fechas" };
   if (endsAt <= startsAt) return { error: "La fecha de fin debe ser después del inicio" };
   if (endsAt <= nowUtc()) return { error: "La fecha de fin ya pasó" };
+  if (endsAt > localToUtc(`${LAST_DAY}T23:59`)) return { error: `«Invita pasajeros» dura hasta el ${LAST_DAY}: el ranking no puede terminar después` };
   const days = (Date.parse(endsAt.replace(" ", "T") + "Z") - Date.parse(startsAt.replace(" ", "T") + "Z")) / 86400e3;
   if (days > MAX_DAYS) return { error: `Un ranking dura máximo ${MAX_DAYS} días` };
   if (!Number.isInteger(prize) || prize < 1 || prize > 10000) return { error: "El premio debe ser de $1 a $10,000" };
   if (!Number.isInteger(minCount) || minCount < 1 || minCount > 1000) return { error: "El mínimo debe ser de 1 a 1000 pasajeros" };
-  // No se enciman: un pasajero solo puede contar en un ranking a la vez.
-  const all = await db.prepare("SELECT * FROM ranking_campaigns WHERE city = ?").all(city);
-  const clash = all.find((c) => statusOf(c) !== "cancelado" && startsAt < effectiveEnd(c) && c.starts_at < endsAt);
-  if (clash) return { error: "Ya hay un ranking en esas fechas. Apágalo o elige otras fechas." };
-  const r = await db
-    .prepare("INSERT INTO ranking_campaigns (city, starts_at, ends_at, prize, min_count) VALUES (?, ?, ?, ?, ?)")
-    .run(city, startsAt, endsAt, prize, minCount);
-  return { ok: true, id: r.lastInsertRowid };
+  // No se enciman: un pasajero solo puede contar en un ranking a la vez. El
+  // candado hace que dos «Programar» al mismo tiempo no pasen los dos.
+  return db.tx(async () => {
+    await db.prepare("SELECT pg_advisory_xact_lock(7741101) AS ok").get();
+    const all = await db.prepare("SELECT * FROM ranking_campaigns WHERE city = ?").all(city);
+    const clash = all.find((c) => statusOf(c) !== "cancelado" && startsAt < effectiveEnd(c) && c.starts_at < endsAt);
+    if (clash) return { error: "Ya hay un ranking en esas fechas. Apágalo o elige otras fechas." };
+    const r = await db
+      .prepare("INSERT INTO ranking_campaigns (city, starts_at, ends_at, prize, min_count) VALUES (?, ?, ?, ?, ?)")
+      .run(city, startsAt, endsAt, prize, minCount);
+    return { ok: true, id: r.lastInsertRowid };
+  });
 }
 
 async function getCampaign(db, id) {
@@ -165,8 +193,9 @@ async function stopCampaign(db, id) {
   const st = statusOf(c);
   if (st !== "en_curso" && st !== "programado") return { error: "Este ranking ya terminó" };
   const now = nowUtc();
-  // Uno programado se cancela del todo (stopped_at = su inicio).
-  await db.prepare("UPDATE ranking_campaigns SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL").run(st === "programado" ? c.starts_at : now, id);
+  // Uno programado se cancela del todo; uno en curso se apaga (lo contado se queda).
+  if (st === "programado") await db.prepare("UPDATE ranking_campaigns SET cancelled = 1, stopped_at = starts_at WHERE id = ? AND stopped_at IS NULL").run(id);
+  else await db.prepare("UPDATE ranking_campaigns SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL").run(now, id);
   return { ok: true };
 }
 
@@ -208,8 +237,8 @@ async function driverRanking(db, driver) {
   if (!driver || driver.es_prueba) return null;
   const now = nowUtc();
   const rows = await db
-    .prepare("SELECT * FROM ranking_campaigns WHERE city = ? AND ends_at > ? ORDER BY starts_at LIMIT 5")
-    .all(driver.city, now);
+    .prepare("SELECT * FROM ranking_campaigns WHERE city = ? AND ends_at > ? AND cancelled = 0 AND (stopped_at IS NULL OR stopped_at > ?) ORDER BY starts_at")
+    .all(driver.city, now, now);
   const c = rows.find((x) => ["en_curso", "programado"].includes(statusOf(x, now)));
   if (!c || excludedIds(c).includes(driver.id)) return null;
   const status = statusOf(c, now);

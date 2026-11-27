@@ -70,6 +70,7 @@ async function main() {
   check("premio 0 → 400", (await post("/admin/ranking/create", { ...base, prize: 0 })).status === 400);
   check("premio con centavos → 400", (await post("/admin/ranking/create", { ...base, prize: 300.5 })).status === 400);
   check("mínimo 0 → 400", (await post("/admin/ranking/create", { ...base, minCount: 0 })).status === 400);
+  check("terminar después de «Invita pasajeros» (31-mar-2027) → 400", (await post("/admin/ranking/create", { ...base, startsLocal: "2027-03-29T00:00", endsLocal: "2027-04-02T00:00" })).status === 400);
   check("sin PIN → 401", (await post("/admin/ranking/create", { ...base, adminPin: "" })).status === 401);
 
   const cr = await post("/admin/ranking/create", base);
@@ -138,6 +139,11 @@ async function main() {
   bd = (await post(`/admin/ranking/${id}/list`, TI)).data;
   check("apagado: estado «apagado» y Beto sigue con 3", bd?.campaign?.status === "apagado" && bd.rows.find((r) => r.id === B.id)?.count === 3, bd?.campaign);
   check("apagar otra vez → 400", (await post(`/admin/ranking/${id}/stop`, TI)).status === 400);
+  // Ya terminó: la lista quedó congelada. Si mueven a Ana de municipio, sigue ganando.
+  await db.prepare("UPDATE drivers SET city = 'tekax' WHERE id = ?").run(A.id);
+  bd = (await post(`/admin/ranking/${id}/list`, TI)).data;
+  check("lista congelada: Ana sigue aunque la cambiaron de municipio", bd?.rows?.find((r) => r.id === A.id)?.place === 1 && bd.leaderId === A.id, bd?.rows);
+  await db.prepare("UPDATE drivers SET city = 'ticul' WHERE id = ?").run(A.id);
   check("el chofer ya no ve el ranking apagado", (await post("/drivers/profile", { phone: B.phone, pin: B.pin })).data?.ranking === null);
   check("pagar a Beto (no ganó) → 400", (await post(`/admin/ranking/${id}/paid`, { ...TI, driverId: B.id })).status === 400);
   const paid = await post(`/admin/ranking/${id}/paid`, { ...TI, driverId: A.id });
