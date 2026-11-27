@@ -43,6 +43,7 @@ const { generateRiderPin } = require("./riders");
 const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
 const { QUALIFYING_RIDE_SQL, settleCourtesy } = require("../riderReferrals");
+const ranking = require("../ranking");
 const { NO_SHOW_REASON, AUTO_LIMIT, AUTO_DAYS, AUTO_MIN_DRIVERS } = require("../riderBlock");
 const { SUSPEND_REASONS, suspendPayload } = require("../driverSuspend");
 const { toStored, inflateRow, isRef, toDataUrl } = require("../imageStore");
@@ -359,6 +360,48 @@ router.post("/admin/drivers/list", checkAdminPin, async (req, res) => {
     )
     .all(TAXI_COMMISSION_RATE, TAXI_COMMISSION_CAP, SERVICE_FEE, req.adminCity);
   res.json(req.body.photoRefs ? drivers : drivers.map((d) => inflateRow(d, DRIVER_IMG_COLS)));
+});
+
+// ---- Ranking de choferes (27-nov-2026, ver ranking.js) ----
+// Solo el municipio de este admin. Progreso no tiene permiso (PROGRESO_ALLOWED).
+router.post("/admin/ranking/list", checkAdminPin, async (req, res) => {
+  res.json(await ranking.listCampaigns(db, req.adminCity));
+});
+
+router.post("/admin/ranking/create", checkAdminPin, async (req, res) => {
+  const r = await ranking.createCampaign(db, req.adminCity, req.body);
+  if (r.error) return res.status(400).json(r);
+  res.status(201).json(r);
+});
+
+// La lista con conteos (termina en /list: solo consulta, no va a Movimientos).
+router.post("/admin/ranking/:id/list", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("ranking_campaigns", req, res)) return;
+  const c = await ranking.getCampaign(db, req.params.id);
+  const rows = await ranking.board(db, c);
+  const leader = ranking.leaderOf(c, rows);
+  res.json({ campaign: ranking.publicCampaign(c), rows, leaderId: leader ? leader.id : null, cityLabel: getCityById(c.city)?.label || c.city });
+});
+
+router.post("/admin/ranking/:id/stop", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("ranking_campaigns", req, res)) return;
+  const r = await ranking.stopCampaign(db, req.params.id);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+router.post("/admin/ranking/:id/exclude", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("ranking_campaigns", req, res)) return;
+  const r = await ranking.setExcluded(db, req.params.id, req.body.driverId, req.body.excluded);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+router.post("/admin/ranking/:id/paid", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("ranking_campaigns", req, res)) return;
+  const r = await ranking.markPaid(db, req.params.id, req.body.driverId);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
 });
 
 // Etiquetas QR para la moto (26-nov-2026): el código de "Invita pasajeros" de

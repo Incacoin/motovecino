@@ -19,6 +19,7 @@ const { toStored } = require("../imageStore");
 const { ensureInviteCode, findInviter, shortName } = require("../invites");
 const { checkReferralReward, creditBalance, referralStatus } = require("../referrals");
 const { checkRiderReferralReward, riderReferralStatus } = require("../riderReferrals");
+const { driverRanking } = require("../ranking");
 
 const router = express.Router();
 
@@ -308,7 +309,7 @@ router.post("/drivers/profile", async (req, res) => {
   const driver = await db
     .prepare(
       `SELECT id, name, phone, vehicle, vehicle_type, vehicle_color, grupo, grupo_otro, grupo_por_confirmar, numero_unidad, photo, tipo, pin, created_at,
-              paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, deposit_changed_at, city
+              paid_until, cancel_count, es_fundador, deposit_bank, deposit_account, deposit_holder, deposit_changed_at, city, es_prueba
        FROM drivers WHERE phone = ? AND pin = ? AND deleted_at IS NULL`
     )
     .get(phone, pin);
@@ -438,6 +439,9 @@ router.post("/drivers/profile", async (req, res) => {
       // Si falla, solo se esconde la tarjeta del QR; el perfil sigue.
       riders: await riderReferralStatus(db, driver).catch((e) => { console.error("[invita-pasajeros]", e.message); return null; }),
     },
+    // Ranking de choferes (27-nov-2026): su lugar en el de esta semana. Si
+    // falla, solo no se ve el ranking.
+    ranking: await driverRanking(db, driver).catch((e) => { console.error("[ranking]", e.message); return null; }),
   });
 });
 

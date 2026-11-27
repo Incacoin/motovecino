@@ -16,6 +16,7 @@ const TABLES = [
   "referral_rewards",
   "rider_referral_rewards",
   "rider_friend_rewards",
+  "ranking_campaigns",
   "driver_credits",
   "driver_activity_log",
   "ride_offers",

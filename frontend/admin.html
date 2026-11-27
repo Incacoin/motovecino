@@ -762,6 +762,11 @@
 
   <div id="tabPanel-choferes" class="tab-panel">
   <div class="com-tabs" id="comTabsChoferes" style="display:none"></div>
+  <div class="section-card" id="rankingCard">
+  <h1>🏆 Ranking de choferes</h1>
+  <p class="section-hint">El chofer que más pasajeros <b>nuevos</b> invite con su QR entre las fechas gana el premio en efectivo, si llega al mínimo. Cuenta quien se registra con su código (el registro pide el código de WhatsApp). No cuentan cuentas de prueba ni el teléfono del propio chofer. Se prende y se apaga solo en las fechas.</p>
+  <div id="rankingBox"><div class="section-hint">Cargando…</div></div>
+  </div>
   <div class="section-card">
   <h1>Link / QR de registro</h1>
   <p class="section-hint">Compártelo con quien quiera registrarse como chofer — cualquiera que se registre queda como independiente.</p>
@@ -1858,12 +1863,279 @@ async function marcarEntrega(id, que, el) {
   // Se vuelve a pintar al terminar todas (si se pinta antes, se pierde la casilla que aún guarda).
   if (!entregaGuardando) renderPadron();
 }
+// ---- Ranking de choferes (27-nov-2026, ver backend/ranking.js) ----
+// Programar (fechas, premio, mínimo), ver la lista, quitar a quien meta
+// registros falsos, sacar la imagen para Facebook y marcar el premio pagado.
+let rankingList = [];
+let rankingSel = null; // id del ranking que se está viendo
+let rankingData = null; // { campaign, rows, leaderId, cityLabel }
+const RK_TZ = "America/Merida";
+function rkDate(utc, opts) {
+  if (!utc) return "";
+  return new Date(utc.replace(" ", "T") + "Z").toLocaleString("es-MX", { timeZone: RK_TZ, ...opts });
+}
+const rkDay = (utc) => rkDate(utc, { weekday: "long", day: "numeric", month: "short" });
+const rkWhen = (utc) => rkDate(utc, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+const rkEnd = (c) => (c.stoppedAt && c.stoppedAt < c.endsAt ? c.stoppedAt : c.endsAt);
+// Fin (exclusivo) → el último día que cuenta: si termina a las 12:00 a.m.,
+// el último día es el anterior.
+function rkLastDay(utc) {
+  const d = new Date(new Date(utc.replace(" ", "T") + "Z").getTime() - 1000);
+  return rkDay(d.toISOString().slice(0, 19).replace("T", " "));
+}
+const RK_STATUS = { programado: "Programado", en_curso: "En curso", terminado: "Terminado", apagado: "Apagado antes", cancelado: "Cancelado" };
+const RK_COLOR = { programado: "#60a5fa", en_curso: "#22c55e", terminado: "#a3abb7", apagado: "#f59e0b", cancelado: "#ef4444" };
+// "yyyy-mm-ddThh:mm" en hora de Yucatán, para los campos de fecha.
+function rkLocalInput(ms) {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: RK_TZ, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date(ms));
+  const g = (t) => p.find((x) => x.type === t).value;
+  return `${g("year")}-${g("month")}-${g("day")}T${g("hour") === "24" ? "00" : g("hour")}:${g("minute")}`;
+}
+async function rkPost(path, body = {}) {
+  const res = await fetch(API + "/api/admin/ranking" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, ...body }) });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error((data && data.error) || "No se pudo");
+  return data;
+}
+let rkLoading = 0;
+async function loadRanking() {
+  const box = document.getElementById("rankingBox");
+  if (!box || adminRoleNow === "progreso") return;
+  // Si llegan dos respuestas desordenadas (cambio de zona), solo pinta la última.
+  const ticket = ++rkLoading;
+  let list, data = null;
+  try {
+    list = await rkPost("/list");
+  } catch (e) {
+    if (ticket === rkLoading) box.innerHTML = `<div class="section-hint">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  let sel = rankingSel;
+  if (!list.some((c) => c.id === sel)) {
+    const cur = list.find((c) => c.status === "en_curso") || list.find((c) => c.status === "programado") || list[0];
+    sel = cur ? cur.id : null;
+  }
+  if (sel) {
+    try { data = await rkPost(`/${sel}/list`); } catch (e) { if (ticket === rkLoading) showToast(e.message); }
+  }
+  if (ticket !== rkLoading) return;
+  rankingList = list;
+  rankingSel = sel;
+  rankingData = data;
+  renderRanking();
+}
+function rkPlaceName(r) {
+  return String(r.name || "").trim().split(/\s+/).slice(0, 2).join(" ");
+}
+function rkSub(r) {
+  const taxi = r.vehicleType === "taxi";
+  const g = r.grupo && agrupacionesAdmin().some((a) => a.nombre === r.grupo) ? r.grupo : "";
+  return [r.numeroUnidad ? `${taxi ? "Taxi" : "Mototaxi"} Nº ${r.numeroUnidad}` : "", g].filter(Boolean).join(" · ");
+}
+function renderRanking() {
+  const box = document.getElementById("rankingBox");
+  if (!box) return;
+  const openNew = document.getElementById("rkNewBox")?.open;
+  let html = "";
+  if (rankingList.length) {
+    html += `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <select class="admin-search" style="flex:1;min-width:220px;margin:0" onchange="rankingSel=Number(this.value);loadRanking()" aria-label="Ranking">
+      ${rankingList.map((c) => `<option value="${c.id}"${c.id === rankingSel ? " selected" : ""}>${escapeHtml(RK_STATUS[c.status] || c.status)} · ${escapeHtml(rkDay(c.startsAt))} → ${escapeHtml(rkLastDay(rkEnd(c)))} · $${c.prize}</option>`).join("")}
+      </select>
+      <button class="btn-sm" onclick="loadRanking()">Actualizar</button></div>`;
+  }
+  const d = rankingData;
+  if (d) {
+    const c = d.campaign;
+    const end = rkEnd(c);
+    const done = c.status === "terminado" || c.status === "apagado";
+    const leader = d.rows.find((r) => r.id === d.leaderId);
+    const paidTo = c.paidAt ? d.rows.find((r) => r.id === c.winnerDriverId) : null;
+    html += `<div class="card" style="padding:12px 14px;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
+        <b style="color:${RK_COLOR[c.status]}">● ${escapeHtml(RK_STATUS[c.status])}</b>
+        <span style="font-size:13px;color:var(--text-dim)">Premio <b style="color:var(--text)">$${c.prize}</b> en efectivo · mínimo <b style="color:var(--text)">${c.minCount}</b> pasajeros</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-dim);margin-top:6px">Empieza: <b style="color:var(--text)">${escapeHtml(rkWhen(c.startsAt))}</b> · Termina: <b style="color:var(--text)">${escapeHtml(rkWhen(end))}</b> (cuenta hasta el ${escapeHtml(rkLastDay(end))} completo)</div>
+      ${done ? (c.paidAt
+        ? `<div style="margin-top:8px;font-size:14px">✅ Premio pagado a <b>${escapeHtml(paidTo ? paidTo.name : "chofer #" + c.winnerDriverId)}</b> el ${escapeHtml(rkWhen(c.paidAt))}</div>`
+        : leader
+          ? `<div style="margin-top:8px;font-size:14px">🏆 Ganó <b>${escapeHtml(leader.name)}</b> con ${leader.count} pasajeros. Revisa la lista antes de pagar.<br><button class="btn-sm" style="margin-top:6px" onclick="rkPaid(${c.id}, ${leader.id})">Marcar $${c.prize} pagado en efectivo</button></div>`
+          : `<div style="margin-top:8px;font-size:14px">Nadie llegó al mínimo de ${c.minCount} pasajeros: no hay premio.</div>`)
+        : c.status === "en_curso"
+          ? `<div style="margin-top:8px;font-size:14px">${leader ? `Va ganando <b>${escapeHtml(leader.name)}</b> con ${leader.count}.` : `Nadie ha llegado al mínimo de ${c.minCount} todavía.`}</div>`
+          : ""}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        ${c.status !== "programado" && c.status !== "cancelado" ? `<button class="btn-sm" onclick="rkImage()">🖼️ Imagen para Facebook</button>` : ""}
+        ${c.status === "en_curso" ? `<button class="btn-sm" onclick="rkStop(${c.id}, false)">Apagar ranking</button>` : ""}
+        ${c.status === "programado" ? `<button class="btn-sm" onclick="rkStop(${c.id}, true)">Cancelar</button>` : ""}
+        ${done || c.status === "en_curso" ? `<button class="btn-sm" onclick="rkRepeat()">Repetir otra semana</button>` : ""}
+      </div>
+    </div>`;
+    if (c.status !== "programado" && c.status !== "cancelado") {
+      html += d.rows.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Lugar</th><th>Chofer</th><th>Pasajeros</th><th title="Cuántos de esos ya hicieron al menos un viaje">Con viaje</th><th></th></tr></thead><tbody>
+          ${d.rows.map((r) => `<tr style="${r.excluded ? "opacity:.45" : ""}">
+            <td><b>${r.place ? r.place + "º" : "—"}</b></td>
+            <td><b>${escapeHtml(r.name)}</b><div style="font-size:12px;color:var(--text-dim)">${escapeHtml(rkSub(r) || "Sin número ni agrupación")}${r.suspended ? " · suspendido" : ""}${r.excluded ? " · QUITADO del ranking" : ""}</div></td>
+            <td><b>${r.count}</b></td>
+            <td>${r.withRide}</td>
+            <td>${c.paidAt ? "" : `<button class="btn-sm" onclick="rkExclude(${c.id}, ${r.id}, ${!r.excluded})">${r.excluded ? "Regresar" : "Quitar"}</button>`}</td>
+          </tr>`).join("")}
+          </tbody></table></div>
+          <p class="section-hint" style="margin-top:6px">«Con viaje» = cuántos de sus invitados ya hicieron al menos un viaje. Si alguien tiene muchos registros y ninguno con viaje, revísalo antes de pagar. «Quitar» lo saca del ranking (no borra nada; se puede regresar).</p>`
+        : `<div class="section-hint">Todavía ningún chofer tiene pasajeros nuevos en este ranking.</div>`;
+    }
+  }
+  // Programar uno nuevo. Por defecto: mañana a las 12:00 a.m. por 7 días.
+  const tomorrow = new Date(rkLocalInput(Date.now()).slice(0, 10) + "T00:00:00-06:00").getTime() + 86400e3;
+  const last = rankingList[0];
+  html += `<details id="rkNewBox" style="margin-top:12px"${!rankingList.length || openNew ? " open" : ""}><summary style="cursor:pointer;font-weight:700">➕ Programar un ranking</summary>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px">
+      <label class="section-hint">Empieza<input type="datetime-local" id="rkStart" value="${rkLocalInput(tomorrow)}" class="admin-search" style="margin:4px 0 0"></label>
+      <label class="section-hint">Termina<input type="datetime-local" id="rkEnd" value="${rkLocalInput(tomorrow + 7 * 86400e3)}" class="admin-search" style="margin:4px 0 0"></label>
+      <label class="section-hint">Premio en efectivo ($)<input type="number" id="rkPrize" min="1" max="10000" step="1" value="${last ? last.prize : 300}" class="admin-search" style="margin:4px 0 0"></label>
+      <label class="section-hint">Mínimo de pasajeros para ganar<input type="number" id="rkMin" min="1" max="1000" step="1" value="${last ? last.minCount : 10}" class="admin-search" style="margin:4px 0 0"></label>
+    </div>
+    <p class="section-hint" style="margin-top:6px">Hora de Yucatán. Si termina a las 12:00 a.m., el último día que cuenta es el día anterior completo.</p>
+    <button class="btn" style="margin-top:8px" onclick="rkCreate()">Programar ranking</button>
+  </details>`;
+  box.innerHTML = html;
+}
+function rkRepeat() {
+  const c = rankingData && rankingData.campaign;
+  if (!c) return;
+  const end = new Date(rkEnd(c).replace(" ", "T") + "Z").getTime();
+  const len = end - new Date(c.startsAt.replace(" ", "T") + "Z").getTime();
+  const start = Math.max(end, Date.now() + 60e3);
+  document.getElementById("rkNewBox").open = true;
+  document.getElementById("rkStart").value = rkLocalInput(start);
+  document.getElementById("rkEnd").value = rkLocalInput(start + (len > 0 ? len : 7 * 86400e3));
+  document.getElementById("rkPrize").value = c.prize;
+  document.getElementById("rkMin").value = c.minCount;
+  document.getElementById("rkNewBox").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+async function rkCreate() {
+  const body = {
+    startsLocal: document.getElementById("rkStart").value,
+    endsLocal: document.getElementById("rkEnd").value,
+    prize: Number(document.getElementById("rkPrize").value),
+    minCount: Number(document.getElementById("rkMin").value),
+  };
+  try {
+    const r = await rkPost("/create", body);
+    rankingSel = r.id;
+    showToast("Ranking programado");
+    loadRanking();
+  } catch (e) { showToast(e.message); }
+}
+async function rkStop(id, programado) {
+  if (!confirm(programado ? "¿Cancelar este ranking programado?" : "¿Apagar el ranking ahora? Lo que ya contó se queda y ya no suma nadie más.")) return;
+  try { await rkPost(`/${id}/stop`); showToast(programado ? "Ranking cancelado" : "Ranking apagado"); loadRanking(); } catch (e) { showToast(e.message); }
+}
+async function rkExclude(id, driverId, excluded) {
+  if (excluded && !confirm("¿Quitar a este chofer del ranking? No se borra nada y lo puedes regresar.")) return;
+  try { await rkPost(`/${id}/exclude`, { driverId, excluded }); loadRanking(); } catch (e) { showToast(e.message); }
+}
+async function rkPaid(id, driverId) {
+  if (!confirm("¿Ya le entregaste el premio en efectivo? Queda anotado en Movimientos.")) return;
+  try { await rkPost(`/${id}/paid`, { driverId }); showToast("Premio marcado como pagado"); loadRanking(); } catch (e) { showToast(e.message); }
+}
+// Imagen 1080×1350 para Facebook: top 10 con nombre corto, número y
+// agrupación (nunca teléfono). Se dibuja aquí y se descarga como PNG.
+async function rkImage() {
+  const d = rankingData;
+  if (!d) return;
+  const canvas = await drawRankingImage({
+    cityLabel: d.cityLabel,
+    campaign: d.campaign,
+    rows: d.rows.filter((r) => !r.excluded).slice(0, 10).map((r) => ({ place: r.place, name: rkPlaceName(r), sub: rkSub(r), count: r.count })),
+    updatedAt: new Date().toISOString().slice(0, 19).replace("T", " "),
+  });
+  const a = document.createElement("a");
+  a.download = `Ranking choferes ${d.cityLabel} ${rkLocalInput(Date.now()).slice(0, 10)}.png`;
+  a.href = canvas.toDataURL("image/png");
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+async function drawRankingImage({ cityLabel, campaign: c, rows, updatedAt }) {
+  const W = 1080, H = 1350;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const x = cv.getContext("2d");
+  try { await document.fonts.load("800 40px Inter"); } catch {}
+  const F = (w, s) => `${w} ${s}px Inter, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+  const bg = x.createRadialGradient(W / 2, 0, 60, W / 2, 0, H * 1.05);
+  bg.addColorStop(0, "#1b2230"); bg.addColorStop(0.7, "#0a0c10"); bg.addColorStop(1, "#07080b");
+  x.fillStyle = bg; x.fillRect(0, 0, W, H);
+  const round = (X, Y, w, h, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w, Y, X + w, Y + h, r); x.arcTo(X + w, Y + h, X, Y + h, r); x.arcTo(X, Y + h, X, Y, r); x.arcTo(X, Y, X + w, Y, r); x.closePath(); };
+  const fit = (t, max) => { let s = String(t); while (s.length > 1 && x.measureText(s).width > max) s = s.slice(0, -1); return s === String(t) ? s : s.trimEnd() + "…"; };
+  // Encabezado: logo + MotoVecino + municipio.
+  const logo = new Image();
+  logo.src = "icons/logo-mark.svg";
+  try { await logo.decode(); x.drawImage(logo, 64, 56, 72, 72); } catch {}
+  x.textBaseline = "middle";
+  x.font = F(800, 44); x.fillStyle = "#f4f6f8"; x.fillText("Moto", 152, 93);
+  const mw = x.measureText("Moto").width;
+  x.fillStyle = "#22c55e"; x.fillText("Vecino", 152 + mw, 93);
+  x.font = F(700, 26);
+  const pill = cityLabel || "";
+  const pw = x.measureText(pill).width + 44;
+  round(W - 64 - pw, 70, pw, 46, 23); x.fillStyle = "rgba(34,197,94,.14)"; x.fill();
+  x.strokeStyle = "rgba(34,197,94,.5)"; x.lineWidth = 2; x.stroke();
+  x.fillStyle = "#86efac"; x.fillText(pill, W - 64 - pw + 22, 94);
+  // Títulos.
+  const done = c.status === "terminado" || c.status === "apagado";
+  x.textBaseline = "alphabetic";
+  x.font = F(800, 78); x.fillStyle = "#f4f6f8"; x.fillText("Ranking de choferes", 64, 240);
+  x.font = F(500, 34); x.fillStyle = "#cbd5e1"; x.fillText(done ? "Resultado final · quien más pasajeros invitó con su QR" : "Quien más pasajeros invite con su QR gana", 64, 296);
+  const g = x.createLinearGradient(64, 0, 700, 0);
+  g.addColorStop(0, "#86efac"); g.addColorStop(0.5, "#4ade80"); g.addColorStop(1, "#16a34a");
+  x.font = F(800, 52); x.fillStyle = g; x.fillText(`$${c.prize} en efectivo`, 64, 360);
+  x.font = F(500, 27); x.fillStyle = "#94a3b8"; x.fillText(`Del ${rkDay(c.startsAt)} al ${rkLastDay(rkEnd(c))}`, 64, 410);
+  // Filas.
+  const top = 446, rh = 68, gap = 8;
+  const medal = ["#fbbf24", "#e2e8f0", "#f59e0b"];
+  if (!rows.length) {
+    x.font = F(700, 38); x.fillStyle = "#f4f6f8"; x.fillText("¡El ranking ya empezó!", 64, top + 90);
+    x.font = F(500, 30); x.fillStyle = "#cbd5e1"; x.fillText("Enseña tu QR a tus pasajeros para que bajen MotoVecino.", 64, top + 145);
+  }
+  rows.forEach((r, i) => {
+    const y = top + i * (rh + gap);
+    round(64, y, W - 128, rh, 18);
+    x.fillStyle = i < 3 ? "rgba(34,197,94,.10)" : "rgba(255,255,255,.05)"; x.fill();
+    x.strokeStyle = i < 3 ? "rgba(34,197,94,.35)" : "rgba(255,255,255,.08)"; x.lineWidth = 2; x.stroke();
+    x.beginPath(); x.arc(64 + 46, y + rh / 2, 25, 0, Math.PI * 2);
+    x.fillStyle = i < 3 ? medal[i] : "rgba(255,255,255,.12)"; x.fill();
+    x.textAlign = "center"; x.textBaseline = "middle";
+    x.font = F(800, 26); x.fillStyle = i < 3 ? "#0a0c10" : "#f4f6f8"; x.fillText(String(r.place), 64 + 46, y + rh / 2 + 1);
+    x.textAlign = "left";
+    x.font = F(700, 31); x.fillStyle = "#f4f6f8"; x.fillText(fit(r.name, 560), 160, y + (r.sub ? 24 : rh / 2));
+    if (r.sub) { x.font = F(500, 21); x.fillStyle = "#94a3b8"; x.fillText(fit(r.sub, 560), 160, y + 50); }
+    x.textAlign = "right";
+    x.font = F(800, 40); x.fillStyle = "#4ade80"; x.fillText(String(r.count), W - 64 - 160, y + rh / 2 + 1);
+    x.font = F(500, 22); x.fillStyle = "#cbd5e1"; x.fillText(r.count === 1 ? "pasajero" : "pasajeros", W - 64 - 30, y + rh / 2 + 2);
+    x.textAlign = "left";
+  });
+  // Pie.
+  x.textBaseline = "alphabetic";
+  x.strokeStyle = "rgba(255,255,255,.12)"; x.lineWidth = 2; x.beginPath(); x.moveTo(64, 1222); x.lineTo(W - 64, 1222); x.stroke();
+  x.font = F(500, 22); x.fillStyle = "#94a3b8";
+  x.fillText(`${done ? "Resultado final" : "Actualizado: " + rkWhen(updatedAt)} · Mínimo ${c.minCount} pasajeros para ganar`, 64, 1258);
+  x.fillText("Cuentan pasajeros nuevos. MotoVecino revisa los registros antes de pagar.", 64, 1290);
+  x.font = F(700, 26); x.fillStyle = "#4ade80"; x.fillText("www.motovecinoapp.com", 64, 1328);
+  x.textAlign = "right"; x.font = F(500, 22); x.fillStyle = "#94a3b8"; x.fillText("Para Android y iPhone", W - 64, 1328);
+  x.textAlign = "left";
+  return cv;
+}
 // ---- Etiquetas QR para la moto (26-nov-2026) ----
 // Cada chofer tiene su QR de "Invita pasajeros" (el mismo de su Perfil). El
 // admin lo imprime sin pedírselo: 4 etiquetas de 10 × 13 cm por hoja carta.
 // En la etiqueta va su nombre, número y agrupación; NUNCA su teléfono (va
 // pegada en la moto, a la vista de todos).
 const qrLabelNames = {}; // nombre editado a mano, por chofer
+let qrSticker = false; // 27-nov-2026: sticker de 20 × 20 cm (uno por hoja) en vez de etiqueta
 function qrDefaultName(d) {
   // "Juan Pérez Chan" → "Juan Pérez": la etiqueta es pública, basta con dos palabras.
   return String(d.name || "").trim().split(/\s+/).slice(0, 2).join(" ");
@@ -1883,7 +2155,11 @@ function showQrLabels() {
     .sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9) || String(a.name).localeCompare(String(b.name), "es"));
   if (!driversLoaded) { box.innerHTML = `<div class="section-hint">Cargando choferes… vuelve a tocar el botón en un momento.</div>`; box.style.display = ""; return; }
   if (!lista.length) { box.innerHTML = `<div class="section-hint">Todavía no hay choferes en ${escapeHtml(adminCityLabel)}.</div>`; box.style.display = ""; return; }
-  box.innerHTML = `<div class="section-hint" style="margin-bottom:8px">Marca a quiénes les vas a imprimir su etiqueta. Salen 4 por hoja carta (10 × 13 cm). Puedes corregir el nombre como va a salir en la etiqueta. <b>No lleva teléfono.</b></div>
+  box.innerHTML = `<div class="section-hint" style="margin-bottom:8px">Marca a quiénes les vas a imprimir su QR. Puedes corregir el nombre como va a salir. <b>No lleva teléfono.</b></div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;font-size:14px">
+      <label><input type="radio" name="qrSize" value="etiqueta" ${qrSticker ? "" : "checked"} onchange="qrSticker=false;qrCount()"> Etiqueta 10 × 13 cm (4 por hoja)</label>
+      <label><input type="radio" name="qrSize" value="sticker" ${qrSticker ? "checked" : ""} onchange="qrSticker=true;qrCount()"> Sticker 20 × 20 cm para la moto (1 por hoja)</label>
+    </div>
     <div style="margin-bottom:8px"><button class="btn-sm" onclick="qrMarkAll(true)">Marcar todos</button> <button class="btn-sm" onclick="qrMarkAll(false)">Quitar todos</button></div>
     <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px 10px">
     ${lista.map((d) => `<label style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -1892,7 +2168,7 @@ function showQrLabels() {
       <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "sin número"}${qrPublicGrupo(d) ? " · " + escapeHtml(qrPublicGrupo(d)) : ""}${d.suspended_at ? " · suspendido" : ""}</span>
     </label>`).join("")}
     </div>
-    <button class="btn" id="qrPrintBtn" style="margin-top:10px" onclick="printQrLabels([...document.querySelectorAll('.qrPick:checked')].map((c) => Number(c.value)))"></button>`;
+    <button class="btn" id="qrPrintBtn" style="margin-top:10px" onclick="printQrLabels([...document.querySelectorAll('.qrPick:checked')].map((c) => Number(c.value)), qrSticker)"></button>`;
   box.style.display = "";
   qrCount();
 }
@@ -1903,9 +2179,11 @@ function qrMarkAll(on) {
 function qrCount() {
   const n = document.querySelectorAll(".qrPick:checked").length;
   const b = document.getElementById("qrPrintBtn");
-  if (b) { b.textContent = n ? `Imprimir ${n} etiqueta${n === 1 ? "" : "s"} (${Math.ceil(n / 4)} hoja${Math.ceil(n / 4) === 1 ? "" : "s"})` : "Marca al menos un chofer"; b.disabled = !n; }
+  const per = qrSticker ? 1 : 4;
+  const what = qrSticker ? "sticker" : "etiqueta";
+  if (b) { b.textContent = n ? `Imprimir ${n} ${what}${n === 1 ? "" : "s"} (${Math.ceil(n / per)} hoja${Math.ceil(n / per) === 1 ? "" : "s"})` : "Marca al menos un chofer"; b.disabled = !n; }
 }
-async function printQrLabels(ids) {
+async function printQrLabels(ids, sticker = false) {
   if (!ids.length) return;
   // La ventana se abre antes de pedir los códigos: si se abre después de
   // esperar, el navegador la bloquea.
@@ -1945,11 +2223,27 @@ async function printQrLabels(ids) {
  <div class="foot"><b>www.motovecinoapp.com</b><span>Para Android y iPhone · Lealtad Digital</span></div>
 </div>`;
   };
+  // Sticker 20 × 20 cm (27-nov-2026): para pegar en la moto, casi todo QR.
+  const stickerHtml = (d) => {
+    const code = codes.get(d.id);
+    const taxi = d.vehicle_type === "taxi";
+    const datos = [d.numero_unidad ? `${taxi ? "Taxi" : "Mototaxi"} Nº ${escapeHtml(d.numero_unidad)}` : "", qrPublicGrupo(d) ? `Agrupación ${escapeHtml(qrPublicGrupo(d))}` : ""].filter(Boolean).join(" · ");
+    return `<div class="st">
+ <div class="st-top"><img src="${origin}/icons/logo-mark.svg" alt=""><b>Moto<span>Vecino</span></b></div>
+ <h1>Pide tu ${taxi ? "taxi" : "mototaxi"} <em>desde tu celular</em></h1>
+ <div class="st-qr"><img src="${origin}/api/qr/invita/${encodeURIComponent(code)}.svg" alt="QR"></div>
+ <div class="st-scan">Escanéame y descarga MotoVecino</div>
+ <div class="st-who"><div class="wn"><div class="n">${escapeHtml(qrLabelName(d) || qrDefaultName(d))}</div>${datos ? `<div class="d">${datos}</div>` : ""}</div><div class="c">Código<b>${escapeHtml(code)}</b></div></div>
+ <div class="st-foot"><b>www.motovecinoapp.com</b><span>Para Android y iPhone</span></div>
+</div>`;
+  };
   const hojas = [];
-  for (let i = 0; i < choferes.length; i += 4) hojas.push(`<div class="hoja">${choferes.slice(i, i + 4).map(etiqueta).join("")}</div>`);
+  if (sticker) choferes.forEach((d) => hojas.push(`<div class="hoja hoja-st">${stickerHtml(d)}</div>`));
+  else for (let i = 0; i < choferes.length; i += 4) hojas.push(`<div class="hoja">${choferes.slice(i, i + 4).map(etiqueta).join("")}</div>`);
+  const nombre = sticker ? "sticker" : "etiqueta";
   w.document.open();
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Etiquetas QR · MotoVecino ${escapeHtml(adminCityLabel)}</title>
+<title>${sticker ? "Stickers" : "Etiquetas"} QR · MotoVecino ${escapeHtml(adminCityLabel)}</title>
 <style>
   @page { size: letter; margin: 5mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1976,9 +2270,28 @@ async function printQrLabels(ids) {
   .who .c b { display: block; font-size: 4.6mm; color: #fff; letter-spacing: .12em; font-weight: 800; }
   .foot { margin-top: auto; width: 100%; display: flex; justify-content: space-between; font-size: 2.5mm; color: #64748b; }
   .foot b { color: #cbd5e1; font-weight: 700; }
+  .hoja-st { display: flex; justify-content: center; align-items: flex-start; padding-top: 4mm; }
+  .st { width: 200mm; height: 200mm; border-radius: 10mm; overflow: hidden; background: radial-gradient(120% 85% at 50% 0%, #1b2230 0%, #0a0c10 70%); color: #fff; display: flex; flex-direction: column; align-items: center; padding: 9mm 11mm 7mm; }
+  .st-top { display: flex; align-items: center; gap: 4mm; }
+  .st-top img { width: 15mm; height: 15mm; border-radius: 3.5mm; }
+  .st-top b { font-size: 12mm; font-weight: 800; letter-spacing: -.03em; }
+  .st-top b span { color: #22c55e; }
+  .st h1 { margin-top: 3mm; font-size: 8.4mm; line-height: 1.1; font-weight: 800; text-align: center; letter-spacing: -.02em; }
+  .st h1 em { font-style: normal; color: #4ade80; }
+  .st-qr { margin-top: 4mm; background: #fff; border-radius: 6mm; padding: 4.5mm; width: 96mm; height: 96mm; flex: none; }
+  .st-qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .st-scan { margin-top: 3.5mm; font-size: 7mm; font-weight: 800; letter-spacing: -.01em; }
+  .st-who { margin-top: 4mm; width: 100%; background: rgba(255,255,255,.07); border: .4mm solid rgba(255,255,255,.14); border-radius: 5mm; padding: 3mm 5mm; display: flex; justify-content: space-between; align-items: center; gap: 3mm; }
+  .st-who .wn { min-width: 0; }
+  .st-who .n { font-size: 6.4mm; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st-who .d { font-size: 4.2mm; color: #94a3b8; margin-top: .8mm; }
+  .st-who .c { text-align: right; font-size: 3.6mm; color: #94a3b8; flex: none; }
+  .st-who .c b { display: block; font-size: 7mm; color: #fff; letter-spacing: .12em; font-weight: 800; }
+  .st-foot { margin-top: auto; width: 100%; display: flex; justify-content: space-between; font-size: 4mm; color: #64748b; }
+  .st-foot b { color: #cbd5e1; font-weight: 700; }
   @media print { body { background: #fff; } .barra { display: none; } .hoja { margin: 0; page-break-after: always; break-after: page; } .hoja:last-child { page-break-after: auto; break-after: auto; } }
 </style></head><body>
-<div class="barra"><button class="imp" onclick="print()">Imprimir / Guardar PDF</button><br>${choferes.length} etiqueta${choferes.length === 1 ? "" : "s"}${faltan ? ` · <b style="color:#b91c1c">${faltan} chofer${faltan === 1 ? "" : "es"} no salió (ya no está en este municipio)</b>` : ""} · Al imprimir, elige tamaño <b>Carta</b> y escala <b>100 %</b> (o «Tamaño real») para que el QR salga del tamaño correcto.</div>
+<div class="barra"><button class="imp" onclick="print()">Imprimir / Guardar PDF</button><br>${choferes.length} ${nombre}${choferes.length === 1 ? "" : "s"}${faltan ? ` · <b style="color:#b91c1c">${faltan} chofer${faltan === 1 ? "" : "es"} no salió (ya no está en este municipio)</b>` : ""} · Al imprimir, elige tamaño <b>Carta</b> y escala <b>100 %</b> (o «Tamaño real») para que el QR salga del tamaño correcto.</div>
 ${hojas.join("")}
 </body></html>`);
   w.document.close();
@@ -2166,6 +2479,7 @@ function switchTab(tab) {
   try { localStorage.setItem("motoyaAdminTab", tab); } catch {}
   if (tab === "movimientos") { loadAudit(); loadPasskeys(); }
   if (tab === "soporte") loadSupport();
+  if (tab === "choferes") loadRanking();
   closeDrawer();
 }
 
@@ -2407,6 +2721,9 @@ async function login(withSavedToken) {
   // Etiquetas QR: el PIN de Progreso no tiene permiso en el servidor.
   const qrBtn = document.getElementById("qrLabelsBtn");
   if (qrBtn) qrBtn.style.display = adminRoleNow === "progreso" ? "none" : "";
+  // Ranking de choferes: tampoco para el PIN de Progreso.
+  const rkCard = document.getElementById("rankingCard");
+  if (rkCard) rkCard.style.display = adminRoleNow === "progreso" ? "none" : "";
   comisarias = loginData.comisarias || [];
   agrupacionesMap = loginData.agrupaciones || {};
   porSuCuenta = loginData.porSuCuenta || porSuCuenta;
@@ -2478,6 +2795,7 @@ function loadAllAdminData() {
     return;
   }
   loadDrivers();
+  loadRanking();
   loadRiders();
   loadPlayUsers();
   loadRides();
