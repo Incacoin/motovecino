@@ -7,7 +7,7 @@ const { isRateLimited, recordFailedAttempt, clearAttempts, RATE_LIMIT_MESSAGE } 
 const { getCityById, ADMIN_ZONES, zoneAt, zoneById, PROGRESO_ZONES } = require("../cities");
 const { AGRUPACIONES, POR_SU_CUENTA, NOMBRE_OTRA, agrupacionesDe, grupoValido, grupoOtroValido, numeroValido } = require("../agrupaciones");
 // «¿Cuál agrupación?» escrito pero que no sirve (una letra): se avisa en vez de
-// borrarlo sin decir nada. Vacío sí se acepta (la app del chofer lo pregunta).
+// borrarlo sin decir nada. Vacío sí se acepta (es opcional desde el 26-nov-2026; la app ya no lo pregunta).
 const CUAL_CORTO = "Escribe el nombre completo de su agrupación (al menos 2 letras)";
 const cualMalEscrito = (v) => typeof v === "string" && v.trim() !== "" && !grupoOtroValido(v);
 // Otro chofer del mismo municipio, agrupación y tipo de vehículo con ese
@@ -268,7 +268,7 @@ router.post("/admin/drivers", checkAdminPin, async (req, res) => {
   }
   const grupoAlta = adminGrupo(cityId, grupo);
   if (grupoAlta === undefined) return res.status(400).json({ error: "Esa agrupación no existe en este municipio" });
-  // «¿Cuál agrupación?» con «Otra»: opcional desde el admin (si falta, la app del chofer se lo pregunta).
+  // «¿De qué agrupación viene?» con «Otra»: opcional (26-nov-2026; la app ya no lo pregunta).
   const grupoOtroAlta = grupoAlta === POR_SU_CUENTA ? grupoOtroValido(grupoOtro) : null;
   if (grupoAlta === POR_SU_CUENTA && cualMalEscrito(grupoOtro)) return res.status(400).json({ error: CUAL_CORTO });
   // Color: opcional desde el admin (vacío = sin dato), pero si viene tiene que ser de la lista.

@@ -1786,7 +1786,12 @@ function showPadron() {
 function renderPadron() {
   const box = document.getElementById("padronBox");
   if (!box || box.style.display === "none") return;
-  if (!driversLoaded) { box.innerHTML = `<div class="section-hint">Cargando choferes… vuelve a tocar el botón en un momento.</div>`; return; }
+  if (!driversLoaded) { box.innerHTML = `<div class="section-hint">Cargando choferes…</div>`; return; }
+  // Al volver a pintar (al marcar una casilla o con el refresco de 20 s) la
+  // lista se queda donde iba, no salta hasta arriba.
+  const prevList = box.querySelector(".padron-list");
+  const prevScroll = prevList ? prevList.scrollTop : 0;
+  const prevTab = box.dataset.tab;
   const tabs = padronGrupos();
   if (padronTab >= tabs.length) padronTab = 0;
   const t = tabs[padronTab];
@@ -1811,6 +1816,21 @@ function renderPadron() {
     <div class="padron-list">${lista}</div>` : `<div class="section-hint">Todavía no hay choferes en esta lista.</div>`}
     <button class="btn-sm" style="margin-top:10px" onclick="printPadron(${padronTab})">${t.interno ? "🔒 Imprimir / PDF (solo para MotoVecino)" : "📄 Imprimir / PDF para el líder"}</button>
     <div class="section-hint" style="margin-top:6px">Las casillas solo las ves tú; el PDF no las lleva. Sin teléfonos ni ubicación.</div>`;
+  const list = box.querySelector(".padron-list");
+  if (list && prevTab === String(padronTab)) list.scrollTop = prevScroll;
+  box.dataset.tab = String(padronTab);
+}
+// Casillas guardadas hace poco: un refresco de la lista que salió ANTES de
+// guardarlas trae el dato viejo; se vuelven a poner encima por 60 s.
+const entregasRecientes = new Map(); // "id:columna" → { at, ts }
+function aplicarEntregasRecientes() {
+  const ahora = Date.now();
+  for (const [k, v] of entregasRecientes) {
+    if (ahora - v.ts > 60000) { entregasRecientes.delete(k); continue; }
+    const [id, col] = k.split(":");
+    const d = driversCache.find((x) => x.id === Number(id));
+    if (d) d[col] = v.at;
+  }
 }
 let entregaGuardando = 0;
 async function marcarEntrega(id, que, el) {
@@ -1828,6 +1848,7 @@ async function marcarEntrega(id, que, el) {
     if (!res.ok || !data.ok) throw new Error(data.error || "No se pudo guardar");
     const d = driversCache.find((x) => x.id === id);
     if (d && col) d[col] = data.at || null;
+    if (col) entregasRecientes.set(`${id}:${col}`, { at: data.at || null, ts: Date.now() });
   } catch (e) {
     el.checked = !hecho;
     showToast(e.message && e.message !== "Failed to fetch" ? e.message : "No se pudo guardar. Revisa tu señal e intenta otra vez.");
@@ -2896,6 +2917,7 @@ async function loadDrivers() {
     body: JSON.stringify({ adminPin, photoRefs: true }),
   });
   driversCache = await resolvePhotoRefs(await res.json());
+  aplicarEntregasRecientes();
   driversLoaded = true;
   // No re-pintar la tabla si hay una fila en edición — el refresco automático
   // borraría lo que el admin está escribiendo a medias.
