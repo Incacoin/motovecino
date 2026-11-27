@@ -2135,7 +2135,6 @@ async function drawRankingImage({ cityLabel, campaign: c, rows, updatedAt }) {
 // En la etiqueta va su nombre, número y agrupación; NUNCA su teléfono (va
 // pegada en la moto, a la vista de todos).
 const qrLabelNames = {}; // nombre editado a mano, por chofer
-let qrSticker = false; // 27-nov-2026: sticker de 20 × 20 cm (uno por hoja) en vez de etiqueta
 function qrDefaultName(d) {
   // "Juan Pérez Chan" → "Juan Pérez": la etiqueta es pública, basta con dos palabras.
   return String(d.name || "").trim().split(/\s+/).slice(0, 2).join(" ");
@@ -2155,11 +2154,7 @@ function showQrLabels() {
     .sort((a, b) => (Number(a.numero_unidad) || 1e9) - (Number(b.numero_unidad) || 1e9) || String(a.name).localeCompare(String(b.name), "es"));
   if (!driversLoaded) { box.innerHTML = `<div class="section-hint">Cargando choferes… vuelve a tocar el botón en un momento.</div>`; box.style.display = ""; return; }
   if (!lista.length) { box.innerHTML = `<div class="section-hint">Todavía no hay choferes en ${escapeHtml(adminCityLabel)}.</div>`; box.style.display = ""; return; }
-  box.innerHTML = `<div class="section-hint" style="margin-bottom:8px">Marca a quiénes les vas a imprimir su QR. Puedes corregir el nombre como va a salir. <b>No lleva teléfono.</b></div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px;font-size:14px">
-      <label><input type="radio" name="qrSize" value="etiqueta" ${qrSticker ? "" : "checked"} onchange="qrSticker=false;qrCount()"> Etiqueta 10 × 13 cm (4 por hoja)</label>
-      <label><input type="radio" name="qrSize" value="sticker" ${qrSticker ? "checked" : ""} onchange="qrSticker=true;qrCount()"> Sticker 20 × 20 cm para la moto (1 por hoja)</label>
-    </div>
+  box.innerHTML = `<div class="section-hint" style="margin-bottom:8px">Marca a quiénes les vas a imprimir su etiqueta. Salen 4 por hoja carta (10 × 13 cm). Puedes corregir el nombre como va a salir en la etiqueta. <b>No lleva teléfono.</b></div>
     <div style="margin-bottom:8px"><button class="btn-sm" onclick="qrMarkAll(true)">Marcar todos</button> <button class="btn-sm" onclick="qrMarkAll(false)">Quitar todos</button></div>
     <div style="max-height:360px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px 10px">
     ${lista.map((d) => `<label style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
@@ -2168,7 +2163,7 @@ function showQrLabels() {
       <span style="font-size:12px;color:var(--text-dim);white-space:nowrap">${d.numero_unidad ? "#" + escapeHtml(d.numero_unidad) : "sin número"}${qrPublicGrupo(d) ? " · " + escapeHtml(qrPublicGrupo(d)) : ""}${d.suspended_at ? " · suspendido" : ""}</span>
     </label>`).join("")}
     </div>
-    <button class="btn" id="qrPrintBtn" style="margin-top:10px" onclick="printQrLabels([...document.querySelectorAll('.qrPick:checked')].map((c) => Number(c.value)), qrSticker)"></button>`;
+    <button class="btn" id="qrPrintBtn" style="margin-top:10px" onclick="printQrLabels([...document.querySelectorAll('.qrPick:checked')].map((c) => Number(c.value)))"></button>`;
   box.style.display = "";
   qrCount();
 }
@@ -2179,11 +2174,9 @@ function qrMarkAll(on) {
 function qrCount() {
   const n = document.querySelectorAll(".qrPick:checked").length;
   const b = document.getElementById("qrPrintBtn");
-  const per = qrSticker ? 1 : 4;
-  const what = qrSticker ? "sticker" : "etiqueta";
-  if (b) { b.textContent = n ? `Imprimir ${n} ${what}${n === 1 ? "" : "s"} (${Math.ceil(n / per)} hoja${Math.ceil(n / per) === 1 ? "" : "s"})` : "Marca al menos un chofer"; b.disabled = !n; }
+  if (b) { b.textContent = n ? `Imprimir ${n} etiqueta${n === 1 ? "" : "s"} (${Math.ceil(n / 4)} hoja${Math.ceil(n / 4) === 1 ? "" : "s"})` : "Marca al menos un chofer"; b.disabled = !n; }
 }
-async function printQrLabels(ids, sticker = false) {
+async function printQrLabels(ids) {
   if (!ids.length) return;
   // La ventana se abre antes de pedir los códigos: si se abre después de
   // esperar, el navegador la bloquea.
@@ -2223,27 +2216,11 @@ async function printQrLabels(ids, sticker = false) {
  <div class="foot"><b>www.motovecinoapp.com</b><span>Para Android y iPhone · Lealtad Digital</span></div>
 </div>`;
   };
-  // Sticker 20 × 20 cm (27-nov-2026): para pegar en la moto, casi todo QR.
-  const stickerHtml = (d) => {
-    const code = codes.get(d.id);
-    const taxi = d.vehicle_type === "taxi";
-    const datos = [d.numero_unidad ? `${taxi ? "Taxi" : "Mototaxi"} Nº ${escapeHtml(d.numero_unidad)}` : "", qrPublicGrupo(d) ? `Agrupación ${escapeHtml(qrPublicGrupo(d))}` : ""].filter(Boolean).join(" · ");
-    return `<div class="st">
- <div class="st-top"><img src="${origin}/icons/logo-mark.svg" alt=""><b>Moto<span>Vecino</span></b></div>
- <h1>Pide tu ${taxi ? "taxi" : "mototaxi"} <em>desde tu celular</em></h1>
- <div class="st-qr"><img src="${origin}/api/qr/invita/${encodeURIComponent(code)}.svg" alt="QR"></div>
- <div class="st-scan">Escanéame y descarga MotoVecino</div>
- <div class="st-who"><div class="wn"><div class="n">${escapeHtml(qrLabelName(d) || qrDefaultName(d))}</div>${datos ? `<div class="d">${datos}</div>` : ""}</div><div class="c">Código<b>${escapeHtml(code)}</b></div></div>
- <div class="st-foot"><b>www.motovecinoapp.com</b><span>Para Android y iPhone</span></div>
-</div>`;
-  };
   const hojas = [];
-  if (sticker) choferes.forEach((d) => hojas.push(`<div class="hoja hoja-st">${stickerHtml(d)}</div>`));
-  else for (let i = 0; i < choferes.length; i += 4) hojas.push(`<div class="hoja">${choferes.slice(i, i + 4).map(etiqueta).join("")}</div>`);
-  const nombre = sticker ? "sticker" : "etiqueta";
+  for (let i = 0; i < choferes.length; i += 4) hojas.push(`<div class="hoja">${choferes.slice(i, i + 4).map(etiqueta).join("")}</div>`);
   w.document.open();
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${sticker ? "Stickers" : "Etiquetas"} QR · MotoVecino ${escapeHtml(adminCityLabel)}</title>
+<title>Etiquetas QR · MotoVecino ${escapeHtml(adminCityLabel)}</title>
 <style>
   @page { size: letter; margin: 5mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -2270,28 +2247,9 @@ async function printQrLabels(ids, sticker = false) {
   .who .c b { display: block; font-size: 4.6mm; color: #fff; letter-spacing: .12em; font-weight: 800; }
   .foot { margin-top: auto; width: 100%; display: flex; justify-content: space-between; font-size: 2.5mm; color: #64748b; }
   .foot b { color: #cbd5e1; font-weight: 700; }
-  .hoja-st { display: flex; justify-content: center; align-items: flex-start; padding-top: 4mm; }
-  .st { width: 200mm; height: 200mm; border-radius: 10mm; overflow: hidden; background: radial-gradient(120% 85% at 50% 0%, #1b2230 0%, #0a0c10 70%); color: #fff; display: flex; flex-direction: column; align-items: center; padding: 9mm 11mm 7mm; }
-  .st-top { display: flex; align-items: center; gap: 4mm; }
-  .st-top img { width: 15mm; height: 15mm; border-radius: 3.5mm; }
-  .st-top b { font-size: 12mm; font-weight: 800; letter-spacing: -.03em; }
-  .st-top b span { color: #22c55e; }
-  .st h1 { margin-top: 3mm; font-size: 8.4mm; line-height: 1.1; font-weight: 800; text-align: center; letter-spacing: -.02em; }
-  .st h1 em { font-style: normal; color: #4ade80; }
-  .st-qr { margin-top: 4mm; background: #fff; border-radius: 6mm; padding: 4.5mm; width: 96mm; height: 96mm; flex: none; }
-  .st-qr img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-  .st-scan { margin-top: 3.5mm; font-size: 7mm; font-weight: 800; letter-spacing: -.01em; }
-  .st-who { margin-top: 4mm; width: 100%; background: rgba(255,255,255,.07); border: .4mm solid rgba(255,255,255,.14); border-radius: 5mm; padding: 3mm 5mm; display: flex; justify-content: space-between; align-items: center; gap: 3mm; }
-  .st-who .wn { min-width: 0; }
-  .st-who .n { font-size: 6.4mm; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .st-who .d { font-size: 4.2mm; color: #94a3b8; margin-top: .8mm; }
-  .st-who .c { text-align: right; font-size: 3.6mm; color: #94a3b8; flex: none; }
-  .st-who .c b { display: block; font-size: 7mm; color: #fff; letter-spacing: .12em; font-weight: 800; }
-  .st-foot { margin-top: auto; width: 100%; display: flex; justify-content: space-between; font-size: 4mm; color: #64748b; }
-  .st-foot b { color: #cbd5e1; font-weight: 700; }
   @media print { body { background: #fff; } .barra { display: none; } .hoja { margin: 0; page-break-after: always; break-after: page; } .hoja:last-child { page-break-after: auto; break-after: auto; } }
 </style></head><body>
-<div class="barra"><button class="imp" onclick="print()">Imprimir / Guardar PDF</button><br>${choferes.length} ${nombre}${choferes.length === 1 ? "" : "s"}${faltan ? ` · <b style="color:#b91c1c">${faltan} chofer${faltan === 1 ? "" : "es"} no salió (ya no está en este municipio)</b>` : ""} · Al imprimir, elige tamaño <b>Carta</b> y escala <b>100 %</b> (o «Tamaño real») para que el QR salga del tamaño correcto.</div>
+<div class="barra"><button class="imp" onclick="print()">Imprimir / Guardar PDF</button><br>${choferes.length} etiqueta${choferes.length === 1 ? "" : "s"}${faltan ? ` · <b style="color:#b91c1c">${faltan} chofer${faltan === 1 ? "" : "es"} no salió (ya no está en este municipio)</b>` : ""} · Al imprimir, elige tamaño <b>Carta</b> y escala <b>100 %</b> (o «Tamaño real») para que el QR salga del tamaño correcto.</div>
 ${hojas.join("")}
 </body></html>`);
   w.document.close();
