@@ -3526,10 +3526,15 @@ async function loadRides() {
 async function searchRideById() {
   const id = Number(document.getElementById("rideSearchInput").value);
   const box = document.getElementById("rideSearchResult");
+  // Quitar el mapa anterior antes de tocar la caja, y si llegan respuestas
+  // desordenadas (búsquedas rápidas) solo pinta la última que se pidió.
+  clearRideSearchMap();
+  const seq = ++rideSearchSeq;
   if (!id) { box.innerHTML = ""; return; }
   box.innerHTML = '<p class="section-hint">Buscando…</p>';
   const res = await fetch(API + `/api/admin/rides/${id}/detail`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin }) });
   const r = await res.json().catch(() => ({}));
+  if (seq !== rideSearchSeq) return;
   if (!res.ok) { box.innerHTML = `<p class="section-hint">${escapeHtml(r.error || "No se encontró")}</p>`; return; }
   const row = (k, v) => v === null || v === undefined || v === "" ? "" : `<tr><td style="color:var(--text-dim);padding:5px 12px 5px 0;white-space:nowrap;">${k}</td><td style="padding:5px 0;">${v}</td></tr>`;
   const price = r.agreed_price ?? r.offer_price;
@@ -3543,7 +3548,7 @@ async function searchRideById() {
     ${row("Para", r.for_name ? escapeHtml(r.for_name) + (r.for_note ? " · " + escapeHtml(r.for_note) : "") : "")}
     ${row("Chofer", r.driver_name ? `${escapeHtml(r.driver_name)}${r.driver_phone ? " · " + escapeHtml(r.driver_phone) : ""}${r.driver_vehicle ? " · " + escapeHtml(r.driver_vehicle) : ""}` : "Sin chofer")}
     ${row("De", escapeHtml(r.pickup_label || "punto en el mapa"))}
-    ${row("A", r.dest_lat ? escapeHtml(r.dest_label || "punto en el mapa") : "Sin destino")}
+    ${row("A", r.dest_lat != null ? escapeHtml(r.dest_label || "punto en el mapa") : "Sin destino")}
     ${row("Personas", `${r.passengers} adulto(s)${r.children ? ` + ${r.children} niño(s)` : ""}`)}
     ${row("Precio", price != null ? `$${price}${r.extra ? ` (+$${r.extra} extra)` : ""}` : "")}
     ${row("Calificación", rating)}
@@ -3555,10 +3560,14 @@ async function searchRideById() {
 
 // Mapa del viaje buscado (26-nov): punto de encuentro (verde) y destino (rojo)
 // tal como los marcó el pasajero. Solo en el detalle de UN viaje, nunca en la
-// lista general. Viajes de más de 1 año: retention.js ya redondeó los puntos.
+// lista general. Envíos de negocio: Recoger (negocio) y Entrega (cliente).
 let rideSearchMap = null;
-function drawRideSearchMap(r) {
+let rideSearchSeq = 0;
+function clearRideSearchMap() {
   if (rideSearchMap) { rideSearchMap.remove(); rideSearchMap = null; }
+}
+function drawRideSearchMap(r) {
+  clearRideSearchMap();
   const el = document.getElementById("rideSearchMap");
   const note = document.getElementById("rideSearchMapNote");
   if (!el || typeof L === "undefined" || r.pickup_lat == null || r.pickup_lng == null) {
@@ -3573,9 +3582,10 @@ function drawRideSearchMap(r) {
     L.circleMarker(pos, { radius: 9, color: "#fff", weight: 3, fillColor: color, fillOpacity: 1 })
       .bindTooltip(label, { permanent: true, direction: "top", offset: [0, -8] })
       .addTo(rideSearchMap);
-  dot(from, "#16a34a", "Encuentro");
+  const isDelivery = r.service_kind && r.service_kind !== "pasaje";
+  dot(from, "#16a34a", isDelivery ? "Recoger" : "Encuentro");
   if (to) {
-    dot(to, "#dc2626", "Destino");
+    dot(to, "#dc2626", isDelivery ? "Entrega" : "Destino");
     L.polyline([from, to], { color: "#64748b", weight: 2, dashArray: "6 6" }).addTo(rideSearchMap);
     rideSearchMap.fitBounds([from, to], { padding: [40, 40], maxZoom: 17 });
   } else {
@@ -3587,12 +3597,13 @@ function drawRideSearchMap(r) {
     const km = rideSearchMap.distance(from, to) / 1000;
     parts.push(`Distancia en línea recta: ${km < 1 ? Math.round(km * 1000) + " m" : km.toFixed(1) + " km"} (por calle es un poco más).`);
   } else {
-    parts.push("El pasajero no marcó destino.");
+    parts.push(isDelivery ? "No hay punto de entrega marcado." : "El pasajero no marcó destino.");
   }
-  const cs = r.created_at ? String(r.created_at) : "";
-  const created = cs ? new Date(/(Z|[+-]\d\d:?\d\d)$/.test(cs) ? cs : cs.replace(" ", "T") + "Z") : null;
-  if (created && !isNaN(created) &&Date.now() - created.getTime() > 365 * 24 * 3600 * 1000) {
-    parts.push("Viaje de hace más de un año: por privacidad solo queda la zona aproximada.");
+  // retention.js borra las referencias y redondea los puntos a 2 decimales
+  // (~1 km) en viajes de más de 1 año: se nota en los propios datos.
+  const two = (v) => v == null || Math.round(Number(v) * 100) / 100 === Number(v);
+  if (!r.pickup_label && !r.dest_label && two(r.pickup_lat) && two(r.pickup_lng) && two(r.dest_lat) && two(r.dest_lng)) {
+    parts.push("Puntos aproximados (~1 km): en viajes de más de un año, por privacidad, solo queda la zona.");
   }
   note.textContent = parts.join(" ");
 }
