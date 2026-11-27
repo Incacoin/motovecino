@@ -1932,6 +1932,11 @@ function rkSub(r) {
   const g = r.grupo && agrupacionesAdmin().some((a) => a.nombre === r.grupo) ? r.grupo : "";
   return [r.numeroUnidad ? `${taxi ? "Taxi" : "Mototaxi"} Nº ${r.numeroUnidad}` : "", g].filter(Boolean).join(" · ");
 }
+// En la imagen pública: solo el número de unidad (la agrupación se queda en el admin).
+function rkImgSub(r) {
+  const taxi = r.vehicleType === "taxi";
+  return r.numeroUnidad ? `${taxi ? "Taxi" : "Mototaxi"} Nº ${r.numeroUnidad}` : taxi ? "Taxi" : "Mototaxi";
+}
 function renderRanking() {
   const box = document.getElementById("rankingBox");
   if (!box) return;
@@ -2049,7 +2054,7 @@ async function rkImage() {
   const canvas = await drawRankingImage({
     cityLabel: d.cityLabel,
     campaign: d.campaign,
-    rows: d.rows.filter((r) => !r.excluded).slice(0, 10).map((r) => ({ place: r.place, name: rkPlaceName(r), sub: rkSub(r), count: r.count })),
+    rows: d.rows.filter((r) => !r.excluded).slice(0, 10).map((r) => ({ place: r.place, name: rkPlaceName(r), sub: rkImgSub(r), count: r.count })),
     updatedAt: new Date().toISOString().slice(0, 19).replace("T", " "),
   });
   const a = document.createElement("a");
@@ -2096,25 +2101,35 @@ async function drawRankingImage({ cityLabel, campaign: c, rows, updatedAt }) {
   x.font = F(500, 27); x.fillStyle = "#94a3b8"; x.fillText(`Del ${rkDay(c.startsAt)} al ${rkLastDay(rkEnd(c))}`, 64, 410);
   // Filas.
   const top = 446, rh = 68, gap = 8;
-  const medal = ["#fbbf24", "#e2e8f0", "#f59e0b"];
+  // Solo gana el 1º (y solo si llega al mínimo): únicamente él va resaltado.
   if (!rows.length) {
     x.font = F(700, 38); x.fillStyle = "#f4f6f8"; x.fillText("¡El ranking ya empezó!", 64, top + 90);
     x.font = F(500, 30); x.fillStyle = "#cbd5e1"; x.fillText("Enseña tu QR a tus pasajeros para que bajen MotoVecino.", 64, top + 145);
   }
   rows.forEach((r, i) => {
     const y = top + i * (rh + gap);
+    const first = r.place === 1;
+    const prized = first && r.count >= c.minCount;
     round(64, y, W - 128, rh, 18);
-    x.fillStyle = i < 3 ? "rgba(34,197,94,.10)" : "rgba(255,255,255,.05)"; x.fill();
-    x.strokeStyle = i < 3 ? "rgba(34,197,94,.35)" : "rgba(255,255,255,.08)"; x.lineWidth = 2; x.stroke();
+    x.fillStyle = first ? "rgba(251,191,36,.13)" : "rgba(255,255,255,.05)"; x.fill();
+    x.strokeStyle = first ? "rgba(251,191,36,.6)" : "rgba(255,255,255,.08)"; x.lineWidth = first ? 3 : 2; x.stroke();
     x.beginPath(); x.arc(64 + 46, y + rh / 2, 25, 0, Math.PI * 2);
-    x.fillStyle = i < 3 ? medal[i] : "rgba(255,255,255,.12)"; x.fill();
+    x.fillStyle = first ? "#fbbf24" : "rgba(255,255,255,.12)"; x.fill();
     x.textAlign = "center"; x.textBaseline = "middle";
-    x.font = F(800, 26); x.fillStyle = i < 3 ? "#0a0c10" : "#f4f6f8"; x.fillText(String(r.place), 64 + 46, y + rh / 2 + 1);
+    x.font = F(800, 26); x.fillStyle = first ? "#0a0c10" : "#f4f6f8"; x.fillText(String(r.place), 64 + 46, y + rh / 2 + 1);
     x.textAlign = "left";
-    x.font = F(700, 31); x.fillStyle = "#f4f6f8"; x.fillText(fit(r.name, 560), 160, y + (r.sub ? 24 : rh / 2));
-    if (r.sub) { x.font = F(500, 21); x.fillStyle = "#94a3b8"; x.fillText(fit(r.sub, 560), 160, y + 50); }
+    const nameMax = prized ? 380 : 560;
+    x.font = F(700, 31); x.fillStyle = "#f4f6f8"; x.fillText(fit(r.name, nameMax), 160, y + (r.sub ? 24 : rh / 2));
+    if (r.sub) { x.font = F(500, 21); x.fillStyle = "#94a3b8"; x.fillText(fit(r.sub, nameMax), 160, y + 50); }
+    if (prized) {
+      const label = `🏆 ${done ? "Ganó" : "Va ganando"} $${c.prize}`;
+      x.font = F(800, 22);
+      const bw = x.measureText(label).width + 32, bx = W - 64 - 250 - bw, by = y + rh / 2 - 20;
+      round(bx, by, bw, 40, 20); x.fillStyle = "#fbbf24"; x.fill();
+      x.fillStyle = "#1c1300"; x.textBaseline = "middle"; x.fillText(label, bx + 16, by + 21);
+    }
     x.textAlign = "right";
-    x.font = F(800, 40); x.fillStyle = "#4ade80"; x.fillText(String(r.count), W - 64 - 160, y + rh / 2 + 1);
+    x.font = F(800, 40); x.fillStyle = first ? "#fbbf24" : "#4ade80"; x.fillText(String(r.count), W - 64 - 160, y + rh / 2 + 1);
     x.font = F(500, 22); x.fillStyle = "#cbd5e1"; x.fillText(r.count === 1 ? "pasajero" : "pasajeros", W - 64 - 30, y + rh / 2 + 2);
     x.textAlign = "left";
   });
