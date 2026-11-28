@@ -891,6 +891,7 @@ footer .wrap{display:grid;gap:26px}
   function enChrome(url){return 'intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme='+(url.indexOf('http:')===0?'http':'https')+';package=com.android.chrome;S.browser_fallback_url='+encodeURIComponent(url)+';end';}
   function abrir(id){
     var d=T[id]; if(!d||!dlg.showModal) return;
+    dlg.dataset.guia=id;
     document.getElementById('tutoTitulo').textContent=d.t;
     document.getElementById('tutoSub').textContent=d.s;
     document.getElementById('tutoPasos').innerHTML=d.pasos.map(function(p){return '<li><span>'+p+'</span></li>'}).join('');
@@ -919,21 +920,36 @@ footer .wrap{display:grid;gap:26px}
   }
   function cerrar(){var v=media.querySelector('video'); if(v) v.pause(); dlg.close();}
   // Botón «Instalar MotoVecino» (28-nov-2026): en Android con Chrome sale la
-  // ventanita «¿Instalar app?» aquí mismo. Si el celular no la ofrece (ya la
-  // tiene, otro navegador, dentro de Facebook...) se explica el ⋮ en la nota.
-  var instalar=null;
+  // ventanita «¿Instalar app?» aquí mismo. Chrome avisa que se puede instalar
+  // (beforeinstallprompt) unos segundos después de abrir la página: si la
+  // persona toca antes, se espera un poco. Si no llega (ya la tiene, otro
+  // navegador...) se explica el ⋮ en la nota. Dentro de Facebook se abre Chrome
+  // una sola vez (?instalar=1); si ya se intentó, solo se explica cómo.
+  var instalar=null, esperando=false;
   window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();instalar=e;});
-  function notaInstalar(txt){var n=document.getElementById('tutoNota');n.hidden=false;n.textContent=txt;}
+  function notaInstalar(txt){if(dlg.dataset.guia!=='android'||!dlg.open) return; var n=document.getElementById('tutoNota');n.hidden=false;n.textContent=txt;}
   var NO_SALE='Tu celular no mostró la ventanita. Toca los tres puntitos ⋮ de arriba a la derecha y elige «Instalar app» o «Agregar a pantalla de inicio». Si ya la tienes, ábrela desde tu pantalla.';
+  var EN_IAB='Aquí dentro de '+IAB_APP+' no se puede instalar. Toca los tres puntitos ⋮ de arriba y elige «Abrir en Chrome» o «Abrir en el navegador», y ahí toca otra vez Instalar MotoVecino.';
+  var EN_IPHONE='En iPhone se instala desde Safari: toca Compartir (el cuadrito con la flecha) y luego «Agregar a pantalla de inicio».'+(IAB?' Si estás dentro de '+IAB_APP+', primero toca ⋯ y elige «Abrir en Safari».':'');
   var LISTO='¡Listo! MotoVecino ya está en tu pantalla de inicio. Ábrela desde ahí.';
   window.addEventListener('appinstalled',function(){notaInstalar(LISTO);});
+  function pedirInstalar(){var pr=instalar; instalar=null; pr.prompt(); pr.userChoice.then(function(c){notaInstalar(c&&c.outcome==='accepted'?LISTO:NO_SALE);}).catch(function(){notaInstalar(NO_SALE);});}
   document.getElementById('tutoAcc').addEventListener('click',function(e){
     var a=e.target.closest('a[href="#instalar"]'); if(!a) return;
     e.preventDefault();
-    if(IAB&&ANDROID){location.href=enChrome(location.origin+'/?instalar=1');return;}
-    if(!instalar){notaInstalar(NO_SALE);return;}
-    var pr=instalar; instalar=null; pr.prompt();
-    pr.userChoice.then(function(c){notaInstalar(c&&c.outcome==='accepted'?LISTO:NO_SALE);}).catch(function(){notaInstalar(NO_SALE);});
+    if(!ANDROID&&/iPhone|iPad|iPod/i.test(UA)){notaInstalar(EN_IPHONE);return;}
+    if(IAB&&ANDROID){
+      if(/[?&]instalar(=|&|$)/.test(location.search)){notaInstalar(EN_IAB);return;}
+      location.href=enChrome(location.origin+'/?instalar=1');return;
+    }
+    if(instalar) return pedirInstalar();
+    if(esperando) return;
+    esperando=true; var txt=a.textContent; a.textContent='Preparando…'; var t0=Date.now();
+    (function revisar(){
+      if(instalar){esperando=false;a.textContent=txt;return pedirInstalar();}
+      if(Date.now()-t0>4000){esperando=false;a.textContent=txt;return notaInstalar(NO_SALE);}
+      setTimeout(revisar,250);
+    })();
   });
   document.addEventListener('click',function(e){var b=e.target.closest('[data-tuto]'); if(b){e.preventDefault(); abrir(b.getAttribute('data-tuto'));}});
   document.getElementById('tutoCerrar').addEventListener('click',cerrar);

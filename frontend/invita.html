@@ -41,6 +41,7 @@
   .note { color: #5b6270; font-size: 13px; line-height: 1.45; margin-top: 10px; }
   .iab { background: #fff7e6; border: 1px solid #f5d38a; border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.45; margin-bottom: 14px; }
   .iab .btn { margin-top: 10px; }
+  .iab small { display: block; margin-top: 8px; color: #5b6270; font-size: 13px; }
   .foot { text-align: center; color: #5b6270; font-size: 13px; margin-top: 20px; }
   .foot a { color: #15803d; font-weight: 700; text-decoration: none; }
   .atajo { display: block; background: #e9fbe9; border: 1px solid #9be3a9; color: #0b0d12; border-radius: 14px; padding: 12px 14px; font-size: 15px; line-height: 1.4; text-decoration: none; margin-bottom: 14px; text-align: center; }
@@ -105,14 +106,27 @@
   var IOS = /iPhone|iPad|iPod/i.test(UA);
   var IAB = /FBAN|FBAV|FB_IAB|FBIOS|Instagram|; wv\)/i.test(UA);
 
+  // El código se guarda en el celular DE INMEDIATO (como pasajero.html), para
+  // que la app instalada desde aquí (abre en /pasajero.html sin ?chofer=) lo
+  // encuentre al registrarse aunque la revisión de abajo no haya terminado.
+  // Solo se borra si el servidor dice que ese código no existe.
+  if (code) { try { localStorage.setItem("mv_ref_chofer", JSON.stringify({ c: code, t: Date.now() })); } catch (e) {} }
+  var web = "/pasajero.html" + (code ? "?chofer=" + encodeURIComponent(code) : "");
+  var openApp = document.getElementById("openApp");
+  var paso = document.getElementById("webPaso");
+  document.getElementById("sinInstalar").href = web;
+
   // iPhone: no hay Play Store; se usa desde Safari.
   if (IOS) {
     document.getElementById("androidCard").hidden = true;
     document.getElementById("atajo").hidden = true;
     document.getElementById("facilTag").textContent = "iPhone";
     document.getElementById("webTitle").textContent = "Instálala desde Safari";
-    document.getElementById("webPaso").innerHTML = "Toca el botón. Ya dentro, toca <b>Compartir</b> (el cuadrito con la flecha) y luego <b>Agregar a pantalla de inicio</b>.";
-    document.getElementById("openApp").textContent = "Abrir MotoVecino";
+    paso.innerHTML = IAB
+      ? "Primero ábrela en <b>Safari</b>: toca los tres puntitos <b>⋯</b> y elige <b>Abrir en Safari</b> (o <b>Abrir en navegador externo</b>). Ya en Safari, toca <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b>."
+      : "Toca el botón. Ya dentro, toca <b>Compartir</b> (el cuadrito con la flecha) y luego <b>Agregar a pantalla de inicio</b>.";
+    openApp.textContent = "Abrir MotoVecino";
+    openApp.href = web;
     document.getElementById("webNote").hidden = true;
   }
 
@@ -121,54 +135,78 @@
   }
   // Dentro de Facebook/Instagram no está la cuenta de Google: el grupo diría
   // «No tienes permiso». En Android lo mandamos a Chrome (mismo truco que la página web).
+  // Ahí tampoco se puede instalar: el botón verde también lleva a Chrome y lo dice.
   if (IAB && ANDROID) {
     var box = document.getElementById("iabBox");
     box.hidden = false;
-    box.innerHTML = "<b>Estás dentro de otra app.</b> Para bajarla de Google Play, primero ábrela en Chrome:" +
-      '<a class="btn negro" href="' + enChrome(location.href) + '">Abrir en Chrome</a>';
+    box.innerHTML = "<b>Estás dentro de otra app.</b> Para instalarla, primero ábrela en Chrome:" +
+      '<a class="btn negro" href="' + enChrome(location.href) + '">Abrir en Chrome</a>' +
+      "<small>¿No se abre? Toca los tres puntitos ⋮ de arriba y elige «Abrir en Chrome» o «Abrir en el navegador».</small>";
     [].forEach.call(document.querySelectorAll("a.lnk"), function (a) { a.href = enChrome(a.href); a.removeAttribute("target"); });
-    document.getElementById("openApp").href = enChrome(location.href);
+    openApp.href = enChrome(location.href);
+    openApp.textContent = "Abrir en Chrome para instalar";
+    paso.innerHTML = "Aquí dentro de Facebook no se puede instalar. Toca el botón: se abre esta página en <b>Chrome</b> y ahí tocas otra vez <b>Instalar MotoVecino</b>.";
   }
 
   // Botón «Instalar MotoVecino» (28-nov-2026): en Android con Chrome sale la
-  // ventanita «¿Instalar app?» aquí mismo, sin pasar por otra página. Si el
-  // celular no la ofrece (ya instalada, otro navegador...), se explica el ⋮.
+  // ventanita «¿Instalar app?» aquí mismo, sin pasar por otra página.
+  // Chrome avisa que se puede instalar (beforeinstallprompt) unos segundos
+  // después de abrir la página: si la persona toca antes, se espera un poco.
+  // Si no llega (ya instalada, otro navegador...), se explica el ⋮ y el botón
+  // pasa a «Abrir MotoVecino» para que nadie se quede sin entrar.
   // Instalar así NO cuenta como tester de Google Play, pero el código de quien
-  // invitó sí se guarda igual (ver abajo), así que su premio cuenta.
-  var deferredInstall = null;
+  // invitó sí se guarda igual (arriba), así que su premio cuenta.
+  var deferredInstall = null, esperando = false, soloAbrir = false;
   window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferredInstall = e; });
   function installed() {
     document.getElementById("installHelp").hidden = true;
     document.getElementById("installOk").hidden = false;
   }
   window.addEventListener("appinstalled", installed);
+  function noSale() {
+    document.getElementById("installHelp").hidden = false;
+    openApp.textContent = "Abrir MotoVecino";
+    soloAbrir = true;
+  }
+  function pedir() {
+    var p = deferredInstall;
+    deferredInstall = null;
+    p.prompt();
+    p.userChoice.then(function (c) {
+      if (c && c.outcome === "accepted") installed(); else noSale();
+    }).catch(noSale);
+  }
   if (!IOS && !IAB) {
-    document.getElementById("openApp").addEventListener("click", function (ev) {
+    openApp.href = web;
+    openApp.addEventListener("click", function (ev) {
+      if (soloAbrir) return; // sigue el enlace: entra a la app
       ev.preventDefault();
-      if (!deferredInstall) { document.getElementById("installHelp").hidden = false; return; }
-      var p = deferredInstall;
-      deferredInstall = null;
-      p.prompt();
-      p.userChoice.then(function (c) {
-        if (c && c.outcome === "accepted") installed();
-        else document.getElementById("installHelp").hidden = false;
-      }).catch(function () { document.getElementById("installHelp").hidden = false; });
+      if (deferredInstall) return pedir();
+      if (esperando) return;
+      esperando = true;
+      openApp.textContent = "Preparando…";
+      var t0 = Date.now();
+      (function revisar() {
+        if (deferredInstall) { esperando = false; openApp.textContent = "Instalar MotoVecino"; return pedir(); }
+        if (Date.now() - t0 > 4000) { esperando = false; return noSale(); }
+        setTimeout(revisar, 250);
+      })();
     });
   }
 
   if (!code) return;
-  // Se guarda en el celular para que el registro del pasajero lo encuentre
-  // aunque llegue después (por ejemplo, al abrir la app ya instalada de Play).
   // 7 letras = código de un pasajero ("Invita a tu vecino"); 6 = de un chofer;
   // 5 = de un promotor (27-nov-2026), se revisa en la misma ruta del vecino.
   fetch((code.length === 7 || code.length === 5 ? "/api/riders/invite/" : "/api/drivers/invite/") + encodeURIComponent(code))
-    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (r) {
+      if (r.status === 404) { try { localStorage.removeItem("mv_ref_chofer"); } catch (e) {} }
+      return r.ok ? r.json() : null;
+    })
     .then(function (d) {
       if (!d || !d.ok) {
         document.getElementById("tag").textContent = "Bienvenido";
         return;
       }
-      try { localStorage.setItem("mv_ref_chofer", JSON.stringify({ c: code, t: Date.now() })); } catch (e) {}
       document.getElementById("codeTxt").textContent = code;
       // 25-nov-2026: los códigos de 7 son de un pasajero ("Invita a tu vecino").
       if (code.length === 7) {
@@ -180,9 +218,6 @@
         document.getElementById("codeLbl").textContent = "Código de invitación";
       }
       document.getElementById("codeBox").hidden = false;
-      var web = "/pasajero.html?chofer=" + encodeURIComponent(code);
-      document.getElementById("sinInstalar").href = web;
-      if (IOS) document.getElementById("openApp").href = web;
     })
     .catch(function () {});
 })();
