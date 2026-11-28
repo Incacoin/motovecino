@@ -40,8 +40,9 @@ const CITIES = [
   // De noche, minOfferNight sin importar la distancia.
   // 25-nov-2026 (hoja oficial de la Dirección de Transporte de Ticul): de noche
   // el viaje corto tiene su propio mínimo (minOfferShortNight $15; el largo
-  // sigue en minOfferNight $20). Mototaxi: máximo 3 adultos y 1 niño
-  // (maxAdults / maxChildren; sin estos campos, 4 personas como sea).
+  // sigue en minOfferNight $20). Mototaxi: máximo 3 adultos y 3 niños
+  // (maxAdults / maxChildren; 28-nov-2026 el líder pidió 3 niños en vez de 1;
+  // con los dos campos el tope total es su suma; sin ellos, 4 personas como sea).
   // De punta a punta (25-nov-2026, acordado con el líder de Alcones Alfa):
   // viaje de longTripKm (2.5 km en línea recta) o más, mínimo minOfferLong
   // ($25) de día y minOfferLongNight ($30) de noche. Ticul mide ~2.9 x 3.8 km.
@@ -52,7 +53,7 @@ const CITIES = [
   // queda en 20 solo por si un día sube labelRadiusKm; no pasar de 12 sin revisar,
   // porque más allá están otros municipios (Sacalum, Santa Elena, Chapab, Muna).
   // El mototaxi sigue en 6 km. Prueba: tools/test-comisarias.js.
-  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, serviceRadiusKmTaxi: 20, labelRadiusKm: 12, offerOnly: true, minOffer: 15, minOfferShort: 10, shortTripKm: 0.5, minOfferNight: 20, minOfferShortNight: 15, longTripKm: 2.5, minOfferLong: 25, minOfferLongNight: 30, minChild: 5, minChildNight: 10, maxAdults: 3, maxChildren: 1 },
+  { id: "ticul", label: "Ticul", lat: 20.39528, lng: -89.53389, serviceRadiusKm: 6, serviceRadiusKmTaxi: 20, labelRadiusKm: 12, offerOnly: true, minOffer: 15, minOfferShort: 10, shortTripKm: 0.5, minOfferNight: 20, minOfferShortNight: 15, longTripKm: 2.5, minOfferLong: 25, minOfferLongNight: 30, minChild: 5, minChildNight: 10, maxAdults: 3, maxChildren: 3 },
   { id: "oxkutzcab", label: "Oxkutzcab", lat: 20.3028, lng: -89.4180, serviceRadiusKm: 7, labelRadiusKm: 7, offerOnly: true, minOffer: 15, minOfferNight: 20, minChild: 5, minChildNight: 10 },
   // Akil (6-oct-2026): municipio con cajón propio (su selector en el
   // admin). Registro de choferes cerrado por ahora (signupClosed) y el

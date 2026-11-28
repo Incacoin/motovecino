@@ -2043,15 +2043,20 @@ function haversine(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// Cupo del mototaxi por municipio (Ticul: 3 adultos y 1 niño). El taxi y los
-// municipios sin regla siguen con 4 personas como sea.
+// Cupo del mototaxi por municipio (Ticul: 3 adultos y 3 niños, 28-nov-2026).
+// Si el municipio pone los dos topes, el total es su suma (3 + 3 = 6). El taxi
+// y los municipios sin regla siguen con 4 personas como sea.
+function maxTotalNow() {
+  const c = serviceType !== "taxi" && cityOffer;
+  return c && c.maxAdults && c.maxChildren != null ? c.maxAdults + c.maxChildren : MAX_OCCUPANTS;
+}
 function maxAdultsNow() {
   const m = serviceType !== "taxi" && cityOffer && cityOffer.maxAdults;
-  return m ? Math.min(m, MAX_OCCUPANTS - children) : MAX_OCCUPANTS - children;
+  return m ? Math.min(m, maxTotalNow() - children) : maxTotalNow() - children;
 }
 function maxChildrenNow() {
   const m = serviceType !== "taxi" && cityOffer && cityOffer.maxChildren != null ? cityOffer.maxChildren : null;
-  return m != null ? Math.min(m, MAX_OCCUPANTS - passengers) : MAX_OCCUPANTS - passengers;
+  return m != null ? Math.min(m, maxTotalNow() - passengers) : maxTotalNow() - passengers;
 }
 // Si cambió el municipio o el vehículo, baja lo que ya no cabe.
 function clampOccupants() {
@@ -2061,7 +2066,7 @@ function clampOccupants() {
   document.getElementById("passengerCount").textContent = passengers;
   document.getElementById("childrenCount").textContent = children;
   if (p0 !== passengers) showToast("En el mototaxi caben máximo " + passengers + " adultos");
-  else if (c0 !== children) showToast("En el mototaxi cabe máximo " + children + " niño" + (children === 1 ? "" : "s"));
+  else if (c0 !== children) showToast("En el mototaxi " + (children === 1 ? "cabe" : "caben") + " máximo " + children + " niño" + (children === 1 ? "" : "s"));
 }
 
 function changePassengers(delta) {
@@ -2075,7 +2080,7 @@ function changePassengers(delta) {
 function changeChildren(delta) {
   const before = children;
   children = Math.min(maxChildrenNow(), Math.max(0, children + delta));
-  if (delta > 0 && children === before && cityOffer && cityOffer.maxChildren != null && serviceType !== "taxi") showToast("En el mototaxi cabe máximo " + cityOffer.maxChildren + " niño");
+  if (delta > 0 && children === before && cityOffer && cityOffer.maxChildren != null && serviceType !== "taxi") showToast("En el mototaxi caben máximo " + cityOffer.maxChildren + " niño" + (cityOffer.maxChildren === 1 ? "" : "s"));
   document.getElementById("childrenCount").textContent = children;
   updateFareEstimate();
 }

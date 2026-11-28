@@ -1,7 +1,7 @@
 // Tarifa del mototaxi en Ticul según la hoja oficial de la Dirección de
 // Transporte (25-nov-2026): de noche el viaje corto (hasta 0.5 km) tiene su
 // propio mínimo ($15; el largo $20) y el mototaxi lleva máximo 3 adultos y
-// 1 niño. El taxi y Tekax siguen igual.
+// 3 niños (28-nov-2026; antes 1). El taxi y Tekax siguen igual.
 //   BASE=http://localhost:3077 node tools/test-tarifa-ticul.js
 const path = require("node:path");
 const fs = require("node:fs");
@@ -49,16 +49,21 @@ async function main() {
   check("Ticul: de día corto $10 y largo $15", o.minOfferShort === 10 && o.minOffer === 15 && o.shortTripKm === 0.5, o);
   check("Ticul: de noche corto $15 y largo $20", o.minOfferShortNight === 15 && o.minOfferNight === 20, o);
   check("Ticul: niño $5 de día y $10 de noche", o.minChild === 5 && o.minChildNight === 10, o);
-  check("Ticul: máximo 3 adultos y 1 niño", o.maxAdults === 3 && o.maxChildren === 1, o);
+  check("Ticul: máximo 3 adultos y 3 niños", o.maxAdults === 3 && o.maxChildren === 3, o);
   check("Ticul: de punta a punta (2.5 km) $25 de día y $30 de noche", o.longTripKm === 2.5 && o.minOfferLong === 25 && o.minOfferLongNight === 30, o);
   const tk = await api("GET", `/cities/resolve?lat=${TEKAX.lat}&lng=${TEKAX.lng}`);
   check("Tekax: sin cupo especial ni corto de noche", tk.data?.cityOffer && tk.data.cityOffer.maxAdults === undefined && tk.data.cityOffer.minOfferShortNight === undefined, tk.data?.cityOffer);
 
   // Cupo del mototaxi en Ticul
   const cuatro = await pedir({ passengers: 4, children: 0, offer_price: 62 });
-  check("Ticul: 4 adultos en mototaxi no", cuatro.status === 400 && /3 adultos y 1 niño/.test(cuatro.data?.error || ""), cuatro);
-  const dosNinos = await pedir({ passengers: 2, children: 2, offer_price: 42 });
-  check("Ticul: 2 niños en mototaxi no", dosNinos.status === 400 && /Taxi/.test(dosNinos.data?.error || ""), dosNinos);
+  check("Ticul: 4 adultos en mototaxi no", cuatro.status === 400 && /3 adultos y 3 niños/.test(cuatro.data?.error || ""), cuatro);
+  const cuatroNinos = await pedir({ passengers: 1, children: 4, offer_price: 60 });
+  check("Ticul: 4 niños en mototaxi no", cuatroNinos.status === 400 && /Taxi/.test(cuatroNinos.data?.error || ""), cuatroNinos);
+  const seisBajo = await pedir({ passengers: 3, children: 3, offer_price: 61 });
+  check("Ticul: 3 adultos + 3 niños, menos de $62 no", seisBajo.status === 400 && /62/.test(seisBajo.data?.error || ""), seisBajo);
+  const seis = await pedir({ passengers: 3, children: 3, offer_price: 62 });
+  check("Ticul: 3 adultos + 3 niños por $62 sí", seis.status === 201 && seis.data?.passengers === 3 && seis.data?.children === 3, seis);
+  await cancelar(seis);
   const bajo = await pedir({ passengers: 3, children: 1, offer_price: 51 });
   check("Ticul: 3 adultos + 1 niño, menos de $52 no", bajo.status === 400 && /52/.test(bajo.data?.error || ""), bajo);
   const ok = await pedir({ passengers: 3, children: 1, offer_price: 52 });

@@ -140,7 +140,7 @@ function checkRideRequest(body, opts = {}) {
   // de moto con offer_price (el chofer acepta o contraoferta, igual que el taxi).
   const cityCfg = getCityById(city);
 
-  // Cupo del mototaxi (25-nov-2026, Ticul: máximo 3 adultos y 1 niño). Un
+  // Cupo del mototaxi (25-nov-2026, Ticul: máximo 3 adultos; 28-nov-2026: 3 niños). Un
   // viaje agendado antes de la regla (keepMotoDest) se respeta.
   if (ride_type !== "taxi" && !opts.keepMotoDest && cityCfg) {
     const adults = Number(passengers) || 1;

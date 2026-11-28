@@ -116,7 +116,7 @@ ${pricingText()}
 
 # Pasajeros
 - Pedir viaje: marcar el punto de encuentro en el mapa, luego el destino, ver el precio y confirmar. Puede pedir para otra persona y compartir su viaje en vivo con su familia.
-- En un mismo viaje caben hasta 4 personas en total (adultos más niños). Al pedir se marca cuántos adultos y cuántos niños van, y el precio se calcula solo.
+- En un mismo viaje caben hasta 4 personas en total (adultos más niños), salvo donde el municipio tenga su propio cupo de mototaxi (ver Tarifas por municipio). Al pedir se marca cuántos adultos y cuántos niños van, y el precio se calcula solo.
 - Al terminar puede calificar al chofer.
 - Domicilios: en "Negocios" de la app puede pedirle a un negocio y escribirle por mensajes. El pago del pedido es directo al negocio (transferencia o efectivo); MotoVecino nunca toca ese dinero.
 
