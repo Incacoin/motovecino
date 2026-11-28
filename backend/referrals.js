@@ -1,15 +1,17 @@
-// Premio de "Invita a otro chofer" (parte 2). Reglas acordadas 29-sep-2026,
-// pensadas para que el premio se pague solo y nunca salga efectivo:
-//  - Cuando el invitado completa REQUIRED_TRIPS viajes (esos ya dejaron al
-//    menos $40 de cuota), los DOS ganan REWARD_AMOUNT de saldo a favor.
+// Premio de "Invita a otro chofer" (parte 2). Reglas acordadas 29-sep-2026 y
+// cambiadas el 28-nov-2026 a pedido del dueño (antes: 20 viajes con 10
+// pasajeros distintos y ganaban LOS DOS $20; casi nadie llegaba):
+//  - Cuando el invitado completa REQUIRED_TRIPS viajes, SOLO EL QUE INVITÓ
+//    gana REWARD_AMOUNT de saldo a favor (INVITEE_AMOUNT = 0). Ya no se paga
+//    solo (3 viajes dejan ~$6 de cuota): es lo que cuesta conseguir un chofer.
 //  - Los viajes deben ser con al menos REQUIRED_RIDERS pasajeros distintos
 //    (que no se inventen viajes entre amigos). No cuentan pasajeros de
 //    prueba, ni viajes pedidos desde el teléfono del invitado o del que
 //    invitó.
 //  - Solo invitados aprobados en el admin (tienen fila en drivers) y que no
 //    sean cuenta de prueba.
-//  - El que invita cobra máximo MONTHLY_CAP premios por mes; pasado eso el
-//    invitado sí recibe el suyo, el que invita no.
+//  - El que invita cobra máximo MONTHLY_CAP premios por mes; pasado eso ese
+//    invitado queda marcado como completado pero no paga nada.
 //  - Promoción hasta PROMO_END (hora de Yucatán).
 // El saldo a favor NO es dinero: se resta de la cuota que el chofer entrega
 // (ver register-trip-fees en routes/admin.js). Lo que no alcance a usarse se
@@ -17,9 +19,10 @@
 const { LOCAL_OFFSET } = require("./earnings");
 
 const REFERRAL = {
-  REWARD_AMOUNT: 20,
-  REQUIRED_TRIPS: 20,
-  REQUIRED_RIDERS: 10,
+  REWARD_AMOUNT: 20,   // para el que invita
+  INVITEE_AMOUNT: 0,   // el invitado ya no gana (28-nov-2026)
+  REQUIRED_TRIPS: 3,
+  REQUIRED_RIDERS: 3,
   MONTHLY_CAP: 5,
   PROMO_END: "2027-03-31",
 };
@@ -73,9 +76,9 @@ async function checkReferralReward(db, inviteeId) {
     await db.tx(async () => {
       const r = await db
         .prepare("INSERT INTO referral_rewards (inviter_id, invitee_id, inviter_amount, invitee_amount) VALUES (?, ?, ?, ?)")
-        .run(inviter.id, invitee.id, inviterAmount, REFERRAL.REWARD_AMOUNT);
+        .run(inviter.id, invitee.id, inviterAmount, REFERRAL.INVITEE_AMOUNT);
       const addCredit = db.prepare("INSERT INTO driver_credits (driver_id, amount, reason, reward_id) VALUES (?, ?, ?, ?)");
-      await addCredit.run(invitee.id, REFERRAL.REWARD_AMOUNT, "invitado", r.lastInsertRowid);
+      if (REFERRAL.INVITEE_AMOUNT) await addCredit.run(invitee.id, REFERRAL.INVITEE_AMOUNT, "invitado", r.lastInsertRowid);
       if (inviterAmount) await addCredit.run(inviter.id, inviterAmount, "invito", r.lastInsertRowid);
     });
     return { inviterId: inviter.id, inviterAmount };
@@ -96,7 +99,7 @@ async function creditBalance(db, driverId) {
 async function referralStatus(db, driver, shortName) {
   const active = await promoActive(db);
   const status = {
-    promo: { active, amount: REFERRAL.REWARD_AMOUNT, trips: REFERRAL.REQUIRED_TRIPS, riders: REFERRAL.REQUIRED_RIDERS, end: REFERRAL.PROMO_END },
+    promo: { active, amount: REFERRAL.REWARD_AMOUNT, trips: REFERRAL.REQUIRED_TRIPS, riders: REFERRAL.REQUIRED_RIDERS, cap: REFERRAL.MONTHLY_CAP, end: REFERRAL.PROMO_END },
     mine: null,
     invitees: [],
   };

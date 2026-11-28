@@ -33,6 +33,7 @@ const TESTS = [
   ["entregas", ["DATABASE_URL"]],
   ["numero", ["DATABASE_URL"]],
   ["invito", ["DATABASE_URL"]],
+  ["premio-chofer", ["ADMIN_PIN", "DATABASE_URL"]],
   ["invita-pasajeros", ["DATABASE_URL"]],
   ["invita-vecino", ["DATABASE_URL"]],
   ["promotores", ["ADMIN_PIN", "DATABASE_URL"]],

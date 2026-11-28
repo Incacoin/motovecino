@@ -269,6 +269,17 @@ function setDriverTheme(pref) {
   .rinv-full-c { font-size: 14px; margin-top: 6px; color: #d1fae5; }
   .rinv-full-c b { font-size: 22px; letter-spacing: 0.12em; color: #fff; }
   .rinv-full-x { font-size: 13px; color: rgba(209,250,229,.6); margin-top: 10px; }
+  /* Mis premios (28-nov-2026): los 3 premios juntos, cada uno con cuándo cuenta */
+  .mp-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--border); cursor: pointer; }
+  .mp-row:first-of-type { border-top: 0; padding-top: 4px; }
+  .mp-ico { width: 38px; height: 38px; flex: 0 0 auto; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--bg-card-hover); font-size: 19px; }
+  .mp-txt { flex: 1; min-width: 0; }
+  .mp-t { font-size: 14.5px; font-weight: 800; }
+  .mp-r { font-size: 13px; line-height: 1.4; color: var(--text-dim); margin-top: 2px; }
+  .mp-r b { color: var(--text); }
+  .mp-s { display: inline-block; margin-top: 6px; font-size: 12.5px; font-weight: 700; color: var(--success); }
+  .mp-go { align-self: center; color: var(--text-dim); font-size: 18px; }
+  .mp-note { font-size: 12px; line-height: 1.45; color: var(--text-dim); background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 9px 12px; margin-top: 4px; }
   /* Invita a otro chofer */
   .invite-stats { font-size: 13px; color: var(--text); background: var(--bg-card-hover); border-radius: var(--radius-sm); padding: 9px 12px; }
   .invite-stats:empty { display: none; }
@@ -1028,6 +1039,10 @@ function setDriverTheme(pref) {
       </div>
     </div>
 
+    <div class="card profile-card" id="misPremiosCard" style="display:none;">
+      <div class="card-title ic-in" style="justify-content:flex-start;">🎁 Mis premios</div>
+      <div id="misPremiosBox"></div>
+    </div>
     <div class="card profile-card" id="driverRankCard" style="display:none;"><div class="rank-box" id="driverRankBox"></div></div>
     <div class="card profile-card" id="riderInviteCard" style="display:none;">
       <div class="card-title ic-in" style="justify-content:flex-start;"><svg class="li" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 18v3"/></svg>Invita pasajeros</div>
@@ -4097,8 +4112,8 @@ async function openProfile() {
 }
 
 // "Invita pasajeros" (23-nov-2026): su QR lleva a motovecinoapp.com/invita?c=CÓDIGO
-// (página para bajar la app). Por cada 20 invitados con su primer viaje
-// completado gana saldo a favor (lo cuenta el servidor, ver riderReferrals.js).
+// (página para bajar la app). Por cada 5 invitados con 3 viajes completados
+// gana saldo a favor (lo cuenta el servidor, ver riderReferrals.js).
 let riderInviteInfo = null;
 function renderRiderInvite(inv) {
   const r = inv && inv.code && inv.riders ? inv.riders : null;
@@ -4216,6 +4231,43 @@ ${link}`;
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
 
+// «Mis premios» (28-nov-2026): los 3 premios juntos para que no se confundan.
+// Cada renglón dice qué gana y CUÁNDO cuenta; al tocarlo baja a su tarjeta.
+// Un mismo pasajero cuenta para el ranking al registrarse y para los $20
+// cuando hace sus 3 viajes: se explica en la nota de abajo.
+function misPremiosIr(id) {
+  const c = document.getElementById(id);
+  if (c) c.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function renderMisPremios(rk) {
+  const card = document.getElementById("misPremiosCard");
+  const box = document.getElementById("misPremiosBox");
+  if (!card || !box) return;
+  const row = (ico, t, r, st, go) =>
+    `<div class="mp-row" role="button" tabindex="0" onclick="misPremiosIr('${go}')"><div class="mp-ico" aria-hidden="true">${ico}</div>` +
+    `<div class="mp-txt"><div class="mp-t">${t}</div><div class="mp-r">${r}</div>${st ? `<span class="mp-s">${st}</span>` : ""}</div><div class="mp-go" aria-hidden="true">›</div></div>`;
+  const rows = [];
+  const ri = riderInviteInfo && riderInviteInfo.active ? riderInviteInfo : null;
+  if (rk) {
+    const n = Number(rk.count) || 0;
+    const st = rk.status === "programado" ? "Empieza pronto" : `Llevas ${n} pasajero${n === 1 ? "" : "s"}${rk.place ? ` · lugar ${Number(rk.place)}` : ""}`;
+    rows.push(row("🏆", "Ranking de la semana", `El que más pasajeros nuevos <b>registre</b> con su QR gana <b>$${Number(rk.prize) || 0} en efectivo</b>. Cuenta en cuanto se registra.`, st, "driverRankCard"));
+  }
+  if (ri) {
+    rows.push(row("🧍", "Pasajeros que invitas", `Cada <b>${ri.perBatch}</b> pasajeros que hagan <b>${ri.ridesRequired} viajes</b> = <b>$${ri.amount}</b> de saldo a favor.`, `Llevas ${ri.inBatch} de ${ri.perBatch}`, "riderInviteCard"));
+  }
+  const ip = inviteInfo && inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
+  if (ip) {
+    const ganados = (inviteInfo.invitees || []).filter((x) => x.rewarded && x.myAmount > 0).length;
+    const st = ganados ? `Te han contado ${ganados}` : (inviteInfo.registered ? `Invitaste ${inviteInfo.registered}` : "");
+    rows.push(row("🛵", "Choferes que invitas", `Cada compañero que haga <b>${ip.trips} viajes</b> = <b>$${ip.amount}</b> de saldo a favor para ti.`, st, "inviteCard"));
+  }
+  card.style.display = rows.length ? "flex" : "none";
+  box.innerHTML = rows.join("") + (rk && ri
+    ? `<div class="mp-note">Tu QR de pasajeros sirve para los dos: el pasajero te cuenta en el ranking cuando se registra, y para los $${ri.amount} cuando hace sus ${ri.ridesRequired} viajes.</div>`
+    : "");
+}
+
 // "Invita a otro chofer": abre WhatsApp con el mensaje y su link personal
 // (quiero-ser-chofer.html?inv=CÓDIGO). Siempre el dominio actual, aunque la
 // app se haya abierto desde un dominio viejo.
@@ -4226,7 +4278,7 @@ function renderInvite(inv) {
   if (!inviteInfo) return;
   const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   document.getElementById("invitePromo").innerHTML = promo
-    ? `<span class="inv-gift"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8c-2-3-6-3-6 0h6zM12 8c2-3 6-3 6 0h-6z"/></svg></span><b>Cuando tu invitado complete ${promo.trips} viajes, los dos ganan $${promo.amount}</b> de saldo a favor. Promoción hasta el ${fmtPromoEnd(promo.end)}.<small class="invite-fine">El saldo a favor se usa dentro de la app y lo que sobre se guarda para la próxima vez. No se cambia por efectivo.</small>`
+    ? `<span class="inv-gift"><svg class="li" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8c-2-3-6-3-6 0h6zM12 8c2-3 6-3 6 0h-6z"/></svg></span><b>Por cada compañero que invites y haga ${promo.trips} viajes, tú ganas $${promo.amount}</b> de saldo a favor. Promoción hasta el ${fmtPromoEnd(promo.end)}.<small class="invite-fine">Cuenta cuando lo aprobamos y completa ${promo.trips} viajes con ${promo.riders} pasajeros distintos (no valen viajes pedidos desde tu teléfono ni el suyo). Hasta ${promo.cap || 5} premios al mes. El saldo a favor se usa dentro de la app y lo que sobre se guarda para la próxima vez. No se cambia por efectivo.</small>`
     : "";
   const parts = [];
   if (inviteInfo.registered) {
@@ -4236,9 +4288,9 @@ function renderInvite(inv) {
   if (inviteInfo.pending) parts.push(`${inviteInfo.pending} en revisión`);
   document.getElementById("inviteStats").innerHTML = parts.join(" · ");
 
-  // Cómo va cada quien rumbo al premio: sus invitados y, si a él lo
-  // invitaron, él mismo.
-  const need = inviteInfo.promo || { trips: 20, riders: 10, amount: 20 };
+  // Cómo va cada uno de sus invitados rumbo al premio. Desde el 28-nov-2026 el
+  // invitado ya no gana, así que ya no se le enseña su propia barra.
+  const need = inviteInfo.promo || { trips: 3, riders: 3, amount: 20 };
   const progressLine = (label, x, doneText) => {
     if (x.rewarded) return `<div class="inv-row"><span>${label}</span><b>${doneText}</b></div>`;
     const pct = Math.min(100, Math.round((x.trips / need.trips) * 100));
@@ -4248,9 +4300,6 @@ function renderInvite(inv) {
       ${x.trips >= need.trips && ridersLeft ? `<div class="inv-hint">Faltan viajes con ${ridersLeft} pasajero${ridersLeft === 1 ? "" : "s"} distinto${ridersLeft === 1 ? "" : "s"}.</div>` : ""}`;
   };
   const lines = [];
-  if (inviteInfo.mine && (promo || inviteInfo.mine.rewarded)) {
-    lines.push(progressLine("Tú (te invitó un compañero)", inviteInfo.mine, `✓ Ganaste $${need.amount}`));
-  }
   for (const x of inviteInfo.invitees || []) {
     if (!promo && !x.rewarded) continue;
     lines.push(progressLine(escapeHtml(x.name), x, x.myAmount > 0 ? `✓ Ganaste $${x.myAmount}` : "✓ Completó (límite del mes)"));
@@ -4269,11 +4318,8 @@ function shareInvite() {
   if (!inviteInfo) return;
   const link = `https://motovecinoapp.com/quiero-ser-chofer?inv=${encodeURIComponent(inviteInfo.code)}`;
   const place = inviteInfo.cityLabel ? `aquí en ${inviteInfo.cityLabel}` : "aquí en tu municipio";
-  const promo = inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   const text = `¡Hola! Yo ya manejo con MotoVecino, la app para pedir mototaxi y taxi ${place}. ` +
-    `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación` +
-    (promo ? `; cuando completes ${promo.trips} viajes, los dos ganamos $${promo.amount} de saldo a favor` : "") +
-    `:\n${link}`;
+    `Recibes viajes en tu celular y cobras directo al pasajero. Regístrate con mi invitación:\n${link}`;
   window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
 }
 
@@ -4571,6 +4617,7 @@ function renderProfile(p) {
   renderInvite(p.invite);
   renderRiderInvite(p.invite);
   renderDriverRanking(p.ranking);
+  renderMisPremios(p.ranking);
 
   // --- Mi cuenta (estado de pago) ---
   // Ya no hay mensualidad (descontinuada 2026-09-08) — el único cobro es el
