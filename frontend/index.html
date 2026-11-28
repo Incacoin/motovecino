@@ -11,6 +11,8 @@
 <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg?v=2">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=2">
 <link rel="apple-touch-icon" href="/icons/icon-512.png?v=2">
+<link rel="manifest" href="/manifest.json">
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(function(){});</script>
 <link rel="canonical" href="https://motovecinoapp.com/">
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="MotoVecino" />
@@ -870,7 +872,7 @@ footer .wrap{display:grid;gap:26px}
   // ===== Tutoriales =====
   var WA='https://wa.me/529979739422';
   var T={
-    android:{t:'Instalar en Android',s:'Tenla a un toque, como cualquier app.',video:'/inicio/videos/android.mp4',poster:'/inicio/videos/android.jpg',pasos:['Abre <b>Chrome</b> y entra a <b>www.motovecinoapp.com</b>.','Toca <b>Abrir MotoVecino</b> para entrar a la app.','Ya dentro de la app, toca <b>Instalar app</b>. Si no te sale, toca los tres puntitos ⋮ de arriba y luego <b>Agregar a pantalla de inicio</b>.','Confirma con <b>Instalar</b>. ¡Listo! Ya la tienes en tu pantalla.'],nota:'¿La abriste desde Facebook? Toca ⋮ y elige «Abrir en Chrome». Muy pronto también en Google Play.',acc:[['Abrir MotoVecino','/pasajero.html',1]]},
+    android:{t:'Instalar en Android',s:'Tenla a un toque, como cualquier app.',video:'/inicio/videos/android.mp4',poster:'/inicio/videos/android.jpg',pasos:['Toca el botón verde <b>Instalar MotoVecino</b>.','En la ventanita toca <b>Instalar</b>. ¡Listo! Ya la tienes en tu pantalla.'],nota:'Si no te sale la ventanita: toca los tres puntitos ⋮ de arriba y elige «Instalar app» o «Agregar a pantalla de inicio». ¿La abriste desde Facebook? Toca ⋮ y elige «Abrir en Chrome».',acc:[['Instalar MotoVecino','#instalar',1],['Usarla sin instalar','/pasajero.html',0]]},
     iphone:{t:'Instalar en iPhone',s:'En iPhone se instala desde Safari.',video:'/inicio/videos/iphone.mp4',poster:'/inicio/videos/iphone.jpg',pasos:['Abre <b>Safari</b> y entra a <b>www.motovecinoapp.com</b>.','Toca <b>Abrir MotoVecino</b> para entrar a la app.','Ya dentro de la app, toca <b>Compartir</b> (el cuadrito con la flecha, abajo).','Toca <b>Agregar a pantalla de inicio</b>. Baja un poquito en el menú si no lo ves.','Toca <b>Agregar</b>. ¡Listo! Ya la tienes como cualquier app.'],acc:[['Abrir MotoVecino','/pasajero.html',1]]},
     viaje:{t:'Pedir un viaje',s:'Mototaxi, motocarro o taxi, desde tu puerta.',video:'/inicio/videos/viaje.mp4',poster:'/inicio/videos/viaje.jpg',pasos:['Abre MotoVecino y entra con <b>tu nombre y tu teléfono</b>.','<b>Partida:</b> mueve el mapa hasta tu puerta y toca <b>Confirmar punto de encuentro</b>.','<b>Destino:</b> marca a dónde vas.','<b>Tu viaje:</b> elige mototaxi o taxi y <b>propón tu precio</b>. El chofer lo acepta o te propone otro.','Sigue en el mapa por dónde viene tu chofer.'],acc:[['Pedir un viaje','/pasajero.html',1]]},
     agendar:{t:'Agendar un viaje',s:'Deja tu viaje listo para más tarde.',video:'/inicio/videos/agendar.mp4',poster:'/inicio/videos/agendar.jpg',pasos:['Marca tu partida y tu destino, como en un viaje normal.','Toca <b>Agendar para más tarde</b> y elige el día y la hora (con al menos 40 minutos de anticipación).','Te avisamos cuando un chofer confirme. Si te propone otro precio, <b>tú lo aceptas o lo rechazas</b>.','Tus viajes quedan en <b>Mis viajes agendados</b>.'],nota:'Por ahora, agendar es solo para pasaje.',acc:[['Agendar mi viaje','/pasajero.html',1]]},
@@ -916,9 +918,27 @@ footer .wrap{display:grid;gap:26px}
     var v=media.querySelector('video'); if(v){var pr=v.play(); if(pr&&pr.catch) pr.catch(function(){});}
   }
   function cerrar(){var v=media.querySelector('video'); if(v) v.pause(); dlg.close();}
+  // Botón «Instalar MotoVecino» (28-nov-2026): en Android con Chrome sale la
+  // ventanita «¿Instalar app?» aquí mismo. Si el celular no la ofrece (ya la
+  // tiene, otro navegador, dentro de Facebook...) se explica el ⋮ en la nota.
+  var instalar=null;
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();instalar=e;});
+  function notaInstalar(txt){var n=document.getElementById('tutoNota');n.hidden=false;n.textContent=txt;}
+  var NO_SALE='Tu celular no mostró la ventanita. Toca los tres puntitos ⋮ de arriba a la derecha y elige «Instalar app» o «Agregar a pantalla de inicio». Si ya la tienes, ábrela desde tu pantalla.';
+  var LISTO='¡Listo! MotoVecino ya está en tu pantalla de inicio. Ábrela desde ahí.';
+  window.addEventListener('appinstalled',function(){notaInstalar(LISTO);});
+  document.getElementById('tutoAcc').addEventListener('click',function(e){
+    var a=e.target.closest('a[href="#instalar"]'); if(!a) return;
+    e.preventDefault();
+    if(IAB&&ANDROID){location.href=enChrome(location.origin+'/?instalar=1');return;}
+    if(!instalar){notaInstalar(NO_SALE);return;}
+    var pr=instalar; instalar=null; pr.prompt();
+    pr.userChoice.then(function(c){notaInstalar(c&&c.outcome==='accepted'?LISTO:NO_SALE);}).catch(function(){notaInstalar(NO_SALE);});
+  });
   document.addEventListener('click',function(e){var b=e.target.closest('[data-tuto]'); if(b){e.preventDefault(); abrir(b.getAttribute('data-tuto'));}});
   document.getElementById('tutoCerrar').addEventListener('click',cerrar);
   if(location.hash==='#probar'||/[?&]probar(=|&|$)/.test(location.search)) setTimeout(function(){abrir('tester')},400);
+  else if(/[?&]instalar(=|&|$)/.test(location.search)) setTimeout(function(){abrir('android')},400);
   dlg.addEventListener('click',function(e){if(e.target!==dlg) return; var r=dlg.getBoundingClientRect(); if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom) cerrar();});
   dlg.addEventListener('close',function(){var v=media.querySelector('video'); if(v) v.pause();});
 
