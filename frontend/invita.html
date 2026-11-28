@@ -13,6 +13,8 @@
 <meta property="og:locale" content="es_MX" />
 <meta name="robots" content="noindex" />
 <link rel="icon" type="image/svg+xml" href="icons/favicon.svg?v=2" />
+<link rel="manifest" href="manifest.json" />
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});</script>
 <meta name="theme-color" content="#ffffff" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
 <style>
@@ -41,6 +43,15 @@
   .iab .btn { margin-top: 10px; }
   .foot { text-align: center; color: #5b6270; font-size: 13px; margin-top: 20px; }
   .foot a { color: #15803d; font-weight: 700; text-decoration: none; }
+  .atajo { display: block; background: #e9fbe9; border: 1px solid #9be3a9; color: #0b0d12; border-radius: 14px; padding: 12px 14px; font-size: 15px; line-height: 1.4; text-decoration: none; margin-bottom: 14px; text-align: center; }
+  .atajo b { color: #15803d; }
+  .op { display: inline-block; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #5b6270; margin-bottom: 6px; }
+  .op.verde2 { color: #15803d; }
+  .card.facil { border: 2px solid #22c55e; }
+  .paso { font-size: 15px; line-height: 1.45; color: #3b4250; margin: 0 0 14px; }
+  .ayuda { background: #fff7e6; border: 1px solid #f5d38a; border-radius: 12px; padding: 11px 13px; font-size: 14px; line-height: 1.45; margin-top: 12px; }
+  .ayuda.ok { background: #e9fbe9; border-color: #9be3a9; }
+  .note a { color: #15803d; font-weight: 700; text-decoration: none; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -59,8 +70,12 @@
 
   <div class="iab" id="iabBox" hidden></div>
 
+  <a class="atajo" id="atajo" href="#facil">¿Se te complica Google Play? <b>Instálala fácil aquí ↓</b></a>
+
   <div class="card" id="androidCard">
-    <h2>Android: bájala de Google Play</h2>
+    <span class="op">Opción 1</span>
+    <h2>Bájala de Google Play</h2>
+    <div class="note" style="margin:-6px 0 12px">Solo Android con cuenta de Gmail. Así nos ayudas a llegar a Play Store.</div>
     <ol>
       <li><span>Únete al grupo con tu cuenta de Gmail. Toca <b>Unirse al grupo</b> y confirma otra vez.<br><a class="lnk" href="https://groups.google.com/g/testers-motovecino" target="_blank" rel="noopener">Unirse al grupo ↗</a></span></li>
       <li><span>Hazte probador: toca <b>Convertirse en verificador</b> (o <b>probador</b>).<br><a class="lnk" href="https://play.google.com/apps/testing/com.motovecino.app" target="_blank" rel="noopener">Hazte probador ↗</a></span></li>
@@ -69,10 +84,14 @@
     <div class="note">Si en el paso 3 dice «no se encontró», espera unos minutos y vuelve a intentar.</div>
   </div>
 
-  <div class="card">
-    <h2 id="webTitle">¿Prefieres no instalar nada todavía?</h2>
-    <a class="btn verde" id="openApp" href="/pasajero.html">Abrir MotoVecino aquí</a>
-    <div class="note" id="webNote">Funciona desde el navegador. Después la puedes guardar en tu pantalla de inicio.</div>
+  <div class="card facil" id="facil">
+    <span class="op verde2" id="facilTag">Opción 2 · La más fácil</span>
+    <h2 id="webTitle">Instálala sin Play Store</h2>
+    <p class="paso" id="webPaso">Toca el botón y luego confirma <b>Instalar</b>. ¡Listo! Te queda el ícono en tu pantalla.</p>
+    <a class="btn verde" id="openApp" href="/pasajero.html">Instalar MotoVecino</a>
+    <div class="ayuda" id="installHelp" hidden>Tu celular no mostró la ventanita. Toca los tres puntitos <b>⋮</b> de arriba a la derecha y elige <b>Instalar app</b> o <b>Agregar a pantalla de inicio</b>. Si ya la tienes, ábrela desde tu pantalla.</div>
+    <div class="ayuda ok" id="installOk" hidden>¡Listo! MotoVecino ya está en tu pantalla de inicio. Ábrela desde ahí y regístrate.</div>
+    <div class="note" id="webNote">Es la misma app y funciona igual. <a id="sinInstalar" href="/pasajero.html">Usarla sin instalar →</a></div>
   </div>
 
   <div class="foot">¿Dudas? Escríbenos por <a href="https://wa.me/529979739422" rel="noopener">WhatsApp 997 973 9422</a></div>
@@ -89,8 +108,12 @@
   // iPhone: no hay Play Store; se usa desde Safari.
   if (IOS) {
     document.getElementById("androidCard").hidden = true;
-    document.getElementById("webTitle").textContent = "iPhone: úsala desde Safari";
-    document.getElementById("webNote").innerHTML = "Ya dentro, toca <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b> para tenerla como app.";
+    document.getElementById("atajo").hidden = true;
+    document.getElementById("facilTag").textContent = "iPhone";
+    document.getElementById("webTitle").textContent = "Instálala desde Safari";
+    document.getElementById("webPaso").innerHTML = "Toca el botón. Ya dentro, toca <b>Compartir</b> (el cuadrito con la flecha) y luego <b>Agregar a pantalla de inicio</b>.";
+    document.getElementById("openApp").textContent = "Abrir MotoVecino";
+    document.getElementById("webNote").hidden = true;
   }
 
   function enChrome(url) {
@@ -104,6 +127,33 @@
     box.innerHTML = "<b>Estás dentro de otra app.</b> Para bajarla de Google Play, primero ábrela en Chrome:" +
       '<a class="btn negro" href="' + enChrome(location.href) + '">Abrir en Chrome</a>';
     [].forEach.call(document.querySelectorAll("a.lnk"), function (a) { a.href = enChrome(a.href); a.removeAttribute("target"); });
+    document.getElementById("openApp").href = enChrome(location.href);
+  }
+
+  // Botón «Instalar MotoVecino» (28-nov-2026): en Android con Chrome sale la
+  // ventanita «¿Instalar app?» aquí mismo, sin pasar por otra página. Si el
+  // celular no la ofrece (ya instalada, otro navegador...), se explica el ⋮.
+  // Instalar así NO cuenta como tester de Google Play, pero el código de quien
+  // invitó sí se guarda igual (ver abajo), así que su premio cuenta.
+  var deferredInstall = null;
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferredInstall = e; });
+  function installed() {
+    document.getElementById("installHelp").hidden = true;
+    document.getElementById("installOk").hidden = false;
+  }
+  window.addEventListener("appinstalled", installed);
+  if (!IOS && !IAB) {
+    document.getElementById("openApp").addEventListener("click", function (ev) {
+      ev.preventDefault();
+      if (!deferredInstall) { document.getElementById("installHelp").hidden = false; return; }
+      var p = deferredInstall;
+      deferredInstall = null;
+      p.prompt();
+      p.userChoice.then(function (c) {
+        if (c && c.outcome === "accepted") installed();
+        else document.getElementById("installHelp").hidden = false;
+      }).catch(function () { document.getElementById("installHelp").hidden = false; });
+    });
   }
 
   if (!code) return;
@@ -130,7 +180,9 @@
         document.getElementById("codeLbl").textContent = "Código de invitación";
       }
       document.getElementById("codeBox").hidden = false;
-      document.getElementById("openApp").href = "/pasajero.html?chofer=" + encodeURIComponent(code);
+      var web = "/pasajero.html?chofer=" + encodeURIComponent(code);
+      document.getElementById("sinInstalar").href = web;
+      if (IOS) document.getElementById("openApp").href = web;
     })
     .catch(function () {});
 })();
