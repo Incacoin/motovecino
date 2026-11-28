@@ -4244,21 +4244,21 @@ function renderMisPremios(rk) {
   const box = document.getElementById("misPremiosBox");
   if (!card || !box) return;
   const row = (ico, t, r, st, go) =>
-    `<div class="mp-row" role="button" tabindex="0" onclick="misPremiosIr('${go}')"><div class="mp-ico" aria-hidden="true">${ico}</div>` +
+    `<div class="mp-row" role="button" tabindex="0" onclick="misPremiosIr('${go}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();misPremiosIr('${go}')}"><div class="mp-ico" aria-hidden="true">${ico}</div>` +
     `<div class="mp-txt"><div class="mp-t">${t}</div><div class="mp-r">${r}</div>${st ? `<span class="mp-s">${st}</span>` : ""}</div><div class="mp-go" aria-hidden="true">›</div></div>`;
   const rows = [];
   const ri = riderInviteInfo && riderInviteInfo.active ? riderInviteInfo : null;
   if (rk) {
     const n = Number(rk.count) || 0;
     const st = rk.status === "programado" ? "Empieza pronto" : `Llevas ${n} pasajero${n === 1 ? "" : "s"}${rk.place ? ` · lugar ${Number(rk.place)}` : ""}`;
-    rows.push(row("🏆", "Ranking de la semana", `El que más pasajeros nuevos <b>registre</b> con su QR gana <b>$${Number(rk.prize) || 0} en efectivo</b>. Cuenta en cuanto se registra.`, st, "driverRankCard"));
+    rows.push(row("🏆", "Ranking de choferes", `El que más pasajeros nuevos <b>registre</b> con su QR gana <b>$${Number(rk.prize) || 0} en efectivo</b>. Cuenta en cuanto se registra.`, st, "driverRankCard"));
   }
   if (ri) {
     rows.push(row("🧍", "Pasajeros que invitas", `Cada <b>${ri.perBatch}</b> pasajeros que hagan <b>${ri.ridesRequired} viajes</b> = <b>$${ri.amount}</b> de saldo a favor.`, `Llevas ${ri.inBatch} de ${ri.perBatch}`, "riderInviteCard"));
   }
   const ip = inviteInfo && inviteInfo.promo && inviteInfo.promo.active ? inviteInfo.promo : null;
   if (ip) {
-    const ganados = (inviteInfo.invitees || []).filter((x) => x.rewarded && x.myAmount > 0).length;
+    const ganados = Number(inviteInfo.earned) || 0;
     const st = ganados ? `Te han contado ${ganados}` : (inviteInfo.registered ? `Invitaste ${inviteInfo.registered}` : "");
     rows.push(row("🛵", "Choferes que invitas", `Cada compañero que haga <b>${ip.trips} viajes</b> = <b>$${ip.amount}</b> de saldo a favor para ti.`, st, "inviteCard"));
   }
