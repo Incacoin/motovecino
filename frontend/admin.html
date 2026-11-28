@@ -85,7 +85,8 @@
   /* Daniel (PIN de Progreso), 7-oct-2026: opera su zona (choferes, cobros,
      viajes, alertas, negocios, anuncios). Sin pasajeros, movimientos,
      borrar, cuentas de prueba ni interruptores de lanzamiento. */
-  body.role-progreso #tabBtn-pasajeros, body.role-progreso #tabBtn-movimientos,
+  body.role-progreso #tabBtn-pasajeros, body.role-progreso #tabBtn-movimientos, body.role-progreso #tabBtn-premios,
+  body.role-progreso #driverRows .more-danger,
   body.role-progreso .owner-only,
   body.role-progreso #driverRows .row-actions .btn-sm.danger,
   body.role-progreso #driverRows .row-actions button[onclick^="toggleTestAccount"],
@@ -492,7 +493,7 @@
   .audit-det { font-size: 12px; color: var(--text-dim); margin-top: 2px; word-break: break-word; }
   .audit-row.fail .audit-act { color: var(--danger); }
   /* Mientras no ha entrado, el menú fijo no debe verse. */
-  body:has(#login.active) .admin-drawer { display: none; }
+  body:not(.theme-light) .admin-drawer { display: none; }
   /* Entrar con huella */
   .login-or { text-align: center; font-size: 12px; opacity: .6; margin: 12px 0 2px; }
   #passkeyLoginWrap { width: 100%; }
@@ -595,6 +596,240 @@
   .sup-m a { color: inherit; text-decoration: underline; }
   .sup-m small { display: block; font-size: 10.5px; opacity: .65; margin-top: 2px; }
   #supportBadge { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; align-items: center; justify-content: center; margin-left: auto; }
+  /* ================================================================
+     TEMA BLANCO tipo Uber (28-nov-2026, escogido por el usuario).
+     Va al final para ganarle a "Noche ejecutiva" y "Tecnológico".
+     Fondo blanco, letras y botones negros, color solo en los avisos
+     (verde, azul, ámbar, rojo). La pantalla del PIN se queda oscura.
+     Solo cambia cómo se ve: ningún id ni función cambia aquí.
+     ================================================================ */
+  body.theme-light {
+    --bg: #ffffff;
+    --bg-panel: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f3f3f3;
+    --bg-card-2: #f6f6f6;
+    --border: #e8e8e8;
+    --accent: #000000;
+    --accent-light: #333333;
+    --accent-dark: #000000;
+    --accent-ink: #ffffff;
+    --accent-soft: #f0f0f0;
+    --text: #000000;
+    --text-dim: #5e5e5e;
+    --text-faint: #9a9a9a;
+    --success: #05944f;
+    --danger: #d81e1e;
+    --warn: #b45309;
+    --info: #276ef1;
+    --shadow-card: none;
+    --shadow-float: 0 16px 48px rgba(0, 0, 0, 0.18);
+    --line: #eeeeee;
+    --glass: #ffffff;
+    --mono: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light;
+    background: #ffffff;
+    color: #000;
+  }
+  body.theme-light #app { background: #fff; }
+
+  /* Botones: negro sólido / contorno gris */
+  #app .btn, .modal-card .btn { background: #000; color: #fff; border-radius: 10px; font-weight: 700; box-shadow: none; }
+  #app .btn:hover, .modal-card .btn:hover { filter: none; background: #222; }
+  #app .btn:disabled, .modal-card .btn:disabled { background: #e2e2e2; color: #9a9a9a; }
+  #app .btn-secondary, .modal-card .btn-secondary { background: #fff; color: #000; border: 1px solid #d6d6d6; }
+  #app .btn-sm, .modal-card .btn-sm { background: #fff; color: #000; border: 1px solid #dcdcdc; border-radius: 8px; font-weight: 600; box-shadow: none; }
+  #app .btn-sm:hover, .modal-card .btn-sm:hover { background: #f3f3f3; }
+  #app .btn-sm.primary { background: #000; border-color: #000; color: #fff; }
+  #app .btn-sm.primary:hover { background: #222; }
+  #app .btn-sm.danger, .modal-card .btn-sm.danger { color: var(--danger); border-color: #f1c4c4; background: #fff; }
+  #app .btn-sm.wa, .modal-card .btn-sm.wa { background: #fff; border-color: #bfe5cf; color: #05753f; }
+  #app .btn-sm.wa:hover { background: #effaf4; }
+
+  /* Campos */
+  body.theme-light input, body.theme-light select, body.theme-light textarea,
+  body.theme-light select.tipo-select, body.theme-light .phoneRow .prefix,
+  body.theme-light .paidRow input[type="date"], body.theme-light .payRow input[type="number"] {
+    background: #fff; border: 1px solid #d6d6d6; color: #000; border-radius: 8px;
+  }
+  body.theme-light .phoneRow .prefix { background: #f6f6f6; }
+  body.theme-light input:focus, body.theme-light select:focus, body.theme-light textarea:focus {
+    border-color: #000; background: #fff; box-shadow: 0 0 0 1px #000;
+  }
+  body.theme-light input[type="date"] { color-scheme: light; }
+  body.theme-light select option { background: #fff; color: #000; }
+  body.theme-light input:-webkit-autofill { -webkit-text-fill-color: #000; -webkit-box-shadow: 0 0 0 1000px #fff inset; caret-color: #000; }
+  #app .admin-search { background: #f3f3f3; border-color: #f3f3f3; }
+  #app .admin-search:focus { background: #fff; border-color: #000; }
+
+  /* Tarjetas */
+  #app .card, #app .section-card { background: #fff; border: 1px solid var(--border); box-shadow: none; }
+  #app .section-card { border-radius: 14px; padding: 22px 24px; }
+  #app .card .card, #app .section-card .card { background: #fff; }
+  #app h1 { color: #000; font-weight: 700; letter-spacing: -0.02em; font-size: 19px; }
+  #app .section-hint { color: var(--text-dim); }
+  #newPinCard .pin { color: #000; }
+  .legalCheck a, #app .histLink, .modal-card .histLink { color: #000; text-decoration: underline; text-underline-offset: 2px; }
+  #driverCityDisplay { color: #000 !important; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .card-head h1 { margin: 0; }
+  .card-count:not(:empty) { background: #000; color: #fff; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 9px; }
+
+  /* Números grandes (gris claro, sin raya verde) */
+  #app .stats-grid { gap: 12px; }
+  #app .stat-tile { background: #f6f6f6; border: none; border-radius: 12px; padding: 16px 18px; }
+  #app .stat-tile::after { display: none; }
+  #app .stat-tile .label { color: var(--text-dim); font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  #app .stat-tile .value { font-size: 30px; font-weight: 700; color: #000; margin-top: 6px; }
+  #app .stat-tile.danger .value { color: var(--danger); }
+  #app .stat-sub { color: var(--text-dim); }
+
+  /* Saludo de Inicio */
+  #app .rx-hero { background: #fff; border: none; padding: 4px 0 8px; }
+  #app .rx-hello { font-size: 30px; font-weight: 700; color: #000; }
+  #app .rx-kicker { color: var(--text-dim); font-family: inherit; letter-spacing: 0; text-transform: none; font-size: 13.5px; }
+  #app .rx-clock { color: #000; font-family: inherit; }
+  #app .lx-live { color: var(--success); font-family: inherit; letter-spacing: .04em; }
+  #app .lx-live i { background: var(--success); }
+  #capacityCard div[style*="rgba(255,255,255,.08)"] { background: #eee !important; }
+
+  /* Por hacer */
+  .todo-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .todo-row:last-child { border-bottom: none; padding-bottom: 2px; }
+  .todo-tag { flex: 0 0 auto; min-width: 92px; font-size: 11.5px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+  .todo-text { flex: 1; font-size: 14.5px; line-height: 1.35; }
+  .todo-row .btn-sm { flex: 0 0 auto; }
+
+  /* Tablas */
+  #app .table-wrap { border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+  #app th { color: var(--text-dim); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; background: #fafafa; border-bottom: 1px solid var(--border); padding: 11px 12px; }
+  #app td { border-bottom: 1px solid #f0f0f0; padding: 13px 12px; vertical-align: top; }
+  #app tbody tr:hover { background: #fafafa; }
+  .cell-sub { color: var(--text-dim); font-size: 12px; margin-top: 2px; line-height: 1.35; }
+  .drv-name { font-weight: 600; }
+  .st-line { display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+  .ok-text { color: var(--success); font-weight: 600; font-size: 13px; }
+  .money-link { background: none; border: none; padding: 0; font: inherit; font-size: 15px; color: #000; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .money-big { font-size: 16px; }
+  .money-all { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text-dim); margin: 0 0 12px; }
+  .money-all input { width: auto; }
+  .tag-pill { font-size: 10.5px; font-weight: 700; border: 1px solid #cfcfcf; border-radius: 999px; padding: 1px 7px; color: #333; vertical-align: 1px; }
+  .tag-pill.dim { color: var(--text-dim); font-weight: 600; }
+
+  /* Menú ⋯ de cada chofer */
+  #app .more-actions { flex-basis: auto; margin-top: 0; position: relative; }
+  #app .more-actions summary { border: 1px solid #dcdcdc; border-radius: 8px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; color: #000; background: #fff; }
+  #app .more-actions summary::before { content: "⋯ "; }
+  #app .more-actions[open] summary { background: #f3f3f3; }
+  #app .more-actions-list { flex-direction: column; align-items: stretch; gap: 6px; border-top: none; padding-top: 0; margin-top: 6px; min-width: 170px; }
+  #app .more-actions-list .btn-sm { text-align: left; }
+  .more-danger { font-size: 11px; font-weight: 700; color: var(--danger); text-transform: uppercase; letter-spacing: .05em; margin: 6px 0 0; padding-top: 8px; border-top: 1px solid var(--border); }
+  #app .row-actions { gap: 6px; align-items: flex-start; }
+
+  /* Sub-pestañas (Choferes, Premios) */
+  .sub-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 18px; overflow-x: auto; scrollbar-width: none; }
+  .sub-tabs::-webkit-scrollbar { display: none; }
+  .sub-tabs button { flex: 0 0 auto; background: none; border: none; border-bottom: 2px solid transparent; padding: 10px 12px; font: inherit; font-size: 14px; font-weight: 600; color: var(--text-dim); cursor: pointer; margin-bottom: -1px; display: inline-flex; align-items: center; gap: 6px; }
+  .sub-tabs button:hover { color: #000; }
+  .sub-tabs button.on { color: #000; border-bottom-color: #000; }
+  .sub-count:not(:empty), .nav-count:not(:empty) { background: #000; color: #fff; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 7px; line-height: 1.5; }
+  .section-card.sub-hidden { display: none !important; }
+
+  /* Comisarías */
+  #app .com-tabs button { border-color: #dcdcdc; color: #000; }
+  #app .com-tabs button.on { background: #000; border-color: #000; color: #fff; }
+
+  /* Barra de arriba */
+  #app .app-topbar { background: rgba(255, 255, 255, 0.92); border-bottom: 1px solid var(--border); }
+  #app .app-topbar-title { color: #000; font-weight: 700; }
+  #app .hamburger-btn { background: #fff; border-color: #dcdcdc; color: #000; }
+  #app .zone-select { background: #fff; border-color: #dcdcdc; color: #000; }
+
+  /* Menú lateral con grupos */
+  body.theme-light .admin-drawer { background: #fff; border-right: 1px solid var(--border); }
+  body.theme-light .drawer-overlay { background: rgba(0, 0, 0, 0.4); }
+  .admin-drawer .drawer-header { border-bottom: none; padding: 22px 18px 10px; }
+  .admin-drawer .drawer-header .brand { color: #000; }
+  .admin-drawer .drawer-header .brand::after { content: "Centro de control"; letter-spacing: 0; text-transform: none; font-size: 12px; font-weight: 500; }
+  .admin-drawer .brand .brand-icon { background: #000; box-shadow: none; border-radius: 8px; }
+  .admin-drawer .drawer-city { color: var(--text-dim); }
+  .admin-drawer .drawer-nav { padding: 6px 10px; gap: 1px; overflow-y: auto; }
+  .drawer-grp { font-size: 11px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .07em; padding: 16px 12px 6px; }
+  .admin-drawer .drawer-row { color: #333; font-weight: 500; font-size: 14px; border-radius: 8px; padding: 9px 12px; gap: 10px; }
+  .admin-drawer .drawer-row .row-icon { color: #555; }
+  .admin-drawer .drawer-row:hover { background: #f3f3f3; color: #000; }
+  .admin-drawer .drawer-row.active { background: #000; color: #fff; font-weight: 600; box-shadow: none; }
+  .admin-drawer .drawer-row.active .row-icon { color: #fff; }
+  .admin-drawer .drawer-row .nav-count { margin-left: auto; }
+  .admin-drawer .drawer-row.active .nav-count { background: #fff; color: #000; }
+  .admin-drawer #supportBadge { margin-left: auto; background: #000; color: #fff; }
+  .admin-drawer .drawer-row.active #supportBadge { background: #fff; color: #000; }
+  .admin-drawer .drawer-foot { border-top: 1px solid var(--border); }
+  .admin-drawer .drawer-row.logout { color: var(--danger); }
+  .admin-drawer .drawer-row.logout .row-icon { color: var(--danger); }
+
+  /* Ventanas */
+  body.theme-light .modal-overlay { background: rgba(0, 0, 0, 0.45); }
+  body.theme-light .modal-card { background: #fff; color: #000; border: none; box-shadow: var(--shadow-float); border-radius: 16px; }
+  body.theme-light .toast { background: #000; color: #fff; }
+
+  /* Colores que avisan algo (solo aquí hay color) */
+  #app .badge-tipo { font-weight: 600; border-radius: 999px; padding: 2px 9px; font-size: 12px; }
+  #app .badge-tipo.formal { background: #e9f0fe; color: #1e54b7; }
+  #app .badge-tipo.informal { background: #f3f3f3; color: #222; }
+  #app .pct-badge.medio { background: #fff4e0; color: #8a4b00; }
+  #app .pct-badge.alto { background: #fdecec; color: var(--danger); }
+  #app .pct-badge.bajo { background: #f3f3f3; color: var(--text-dim); }
+  #app .dot.disponible, #app .dot.completado { background: var(--success); box-shadow: none; }
+  #app .dot.en_viaje, #app .dot.aceptado, #app .dot.llegue, #app .dot.en_curso { background: #276ef1; box-shadow: none; }
+  #app .dot.cancelado { background: var(--danger); box-shadow: none; }
+  #app .dot.buscando { background: #f59e0b; box-shadow: none; }
+  #app .live-dot { background: var(--success); box-shadow: none; }
+  #app .top-driver-bar-wrap { background: #f0f0f0; }
+  #app .top-driver-bar { background: #000; }
+  #app .thumb { background: #f3f3f3; border-color: var(--border); }
+  #app .ally-switch, #app .ally-form, #app .ally-item { background: #fff; border-color: var(--border); }
+  #app .ally-switch.on { border-color: #bfe5cf; background: #f2fbf6; }
+  #app .ally-preview-wrap, #app .ally-stats div, #app .ally-chips span { background: #f6f6f6; }
+  #app .ally-chips .on { background: #e7f6ee; color: var(--success); }
+  #app .ally-chips .off { background: #fdecec; color: var(--danger); }
+  #app #bizResults button { background: #fff; color: #000; }
+  .pk-this { color: var(--success); }
+  #app .sup-item:hover { background: #fafafa; }
+
+  /* Computadora */
+  @media (min-width: 1024px) {
+    #app { padding: 0 40px 60px; }
+    #app > .tab-panel { max-width: 1240px; }
+    #tabPanel-resumen .stats-grid { grid-template-columns: repeat(5, 1fr); }
+    .money-grid { grid-template-columns: repeat(3, 1fr) !important; margin-bottom: 18px; }
+    #tabPanel-resumen.active > .section-card:last-child, #tabPanel-resumen.active > .rx-chart-card { grid-column: auto; }
+    .drv-table td:last-child { width: 1%; white-space: nowrap; }
+    .drv-table .row-actions { flex-wrap: nowrap; }
+    .drv-table .more-actions[open] .more-actions-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.12); }
+  }
+  /* Celular */
+  @media (max-width: 1023px) {
+    #app .section-card { padding: 18px 16px; border-radius: 12px; }
+    #app .rx-hello { font-size: 25px; }
+    #app .money-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    #app .money-grid .stat-tile { padding: 12px; }
+    #app .money-grid .stat-tile .value { font-size: 22px; }
+    #app .money-grid .stat-tile .label { font-size: 11.5px; }
+    .todo-row { flex-wrap: wrap; gap: 4px 10px; }
+    .todo-tag { min-width: 0; width: 100%; }
+    /* Tablas de choferes y dinero: cada fila se vuelve una tarjeta */
+    .drv-table thead, .money-table thead { display: none; }
+    .drv-table, .drv-table tbody, .drv-table tr, .drv-table td,
+    .money-table, .money-table tbody, .money-table tr, .money-table td { display: block; width: 100%; }
+    .drv-table tr, .money-table tr { padding: 14px 14px 12px; border-bottom: 1px solid var(--border); }
+    #app .drv-table td, #app .money-table td { border: none; padding: 3px 0; }
+    .drv-table td:nth-child(2), .drv-table td:nth-child(3), .drv-table td:nth-child(4), .drv-table td:nth-child(5), .drv-table td:nth-child(6) { display: inline-block; width: auto; margin-right: 14px; vertical-align: top; }
+    .drv-table td:last-child, .money-table td:last-child { padding-top: 10px; }
+    .drv-table .row-actions, .money-table .row-actions { display: flex; flex-wrap: wrap; }
+    .money-table td:nth-child(2), .money-table td:nth-child(3), .money-table td:nth-child(4), .money-table td:nth-child(5) { display: inline-block; width: auto; margin-right: 14px; }
+    #app .table-wrap:has(.drv-table), #app .table-wrap:has(.money-table) { overflow: visible; }
+  }
 </style>
 </head>
 <body>
@@ -625,18 +860,25 @@
 <div id="drawerOverlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 <div id="adminDrawer" class="admin-drawer">
   <div class="drawer-header">
-    <div class="brand brand-sm"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino Admin</div>
+    <div class="brand brand-sm"><span class="brand-icon"><img src="icons/logo-mark.svg" alt="" /></span>MotoVecino</div>
     <div class="drawer-city" id="adminCityBadge">Tekax</div>
   </div>
   <div class="drawer-nav">
-    <button id="tabBtn-resumen" class="drawer-row active" onclick="switchTab('resumen')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>Resumen</button>
-    <button id="tabBtn-choferes" class="drawer-row" onclick="switchTab('choferes')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3.5 2.8 3.5 6"/></svg></span>Choferes</button>
-    <button id="tabBtn-pasajeros" class="drawer-row" onclick="switchTab('pasajeros')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg></span>Pasajeros</button>
+    <button id="tabBtn-resumen" class="drawer-row active" onclick="switchTab('resumen')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 9.5V20h14V9.5"/></svg></span>Inicio<span class="nav-count" id="navCount-resumen"></span></button>
+    <div class="drawer-grp">Operación</div>
     <button id="tabBtn-viajes" class="drawer-row" onclick="switchTab('viajes')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.5"/></svg></span>Viajes</button>
-    <button id="tabBtn-alertas" class="drawer-row" onclick="switchTab('alertas')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span>Alertas</button>
+    <button id="tabBtn-alertas" class="drawer-row" onclick="switchTab('alertas')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span>Alertas<span class="nav-count" id="navCount-alertas"></span></button>
     <button id="tabBtn-soporte" class="drawer-row" style="display:none" onclick="switchTab('soporte')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/></svg></span>Soporte<span id="supportBadge"></span></button>
+    <div class="drawer-grp">Personas</div>
+    <button id="tabBtn-choferes" class="drawer-row" onclick="switchTab('choferes')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3.5 2.8 3.5 6"/></svg></span>Choferes<span class="nav-count" id="navCount-choferes"></span></button>
+    <button id="tabBtn-pasajeros" class="drawer-row" onclick="switchTab('pasajeros')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5 21c0-3.9 3.1-7 7-7s7 3.1 7 7"/></svg></span>Pasajeros</button>
     <button id="tabBtn-negocios" class="drawer-row" onclick="switchTab('negocios')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v11h16V9"/><path d="M3 9h18"/><path d="M9 20v-6h6v6"/></svg></span>Negocios</button>
-    <button id="tabBtn-movimientos" class="drawer-row" onclick="switchTab('movimientos')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg></span>Movimientos</button>
+    <div class="drawer-grp owner-only">Crecimiento</div>
+    <button id="tabBtn-premios" class="drawer-row" onclick="switchTab('premios')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8M9 17h6"/></svg></span>Premios e invitaciones<span class="nav-count" id="navCount-premios"></span></button>
+    <div class="drawer-grp">Administración</div>
+    <button id="tabBtn-dinero" class="drawer-row" onclick="switchTab('dinero')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg></span>Dinero<span class="nav-count" id="navCount-dinero"></span></button>
+    <button id="tabBtn-movimientos" class="drawer-row" onclick="switchTab('movimientos')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M5 12h14M5 17h9"/></svg></span>Movimientos</button>
+    <button id="tabBtn-ajustes" class="drawer-row" onclick="switchTab('ajustes')"><span class="row-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></span>Ajustes</button>
   </div>
   <div class="drawer-foot">
     <div class="sess" id="sessionInfo">Sesión segura</div>
@@ -717,17 +959,18 @@
       <div class="label">Satisfacción</div>
       <div class="value" id="statSatisfaction">—</div>
     </div>
-    <div class="card stat-tile accent">
-      <span class="icon"></span>
-      <div class="label">Cobrado esta semana</div>
-      <div class="value owner-mark" id="statCollectedWeek">—</div>
-    </div>
-    <div class="card stat-tile accent">
-      <span class="icon"></span>
-      <div class="label">Cobrado este mes</div>
-      <div class="value owner-mark" id="statCollectedMonth">—</div>
-    </div>
   </div>
+  </div>
+
+  <div class="section-card" id="todoCard">
+  <div class="card-head"><h1 style="font-size:17px;">Por hacer</h1><span class="card-count" id="todoCount"></span></div>
+  <div id="todoList"><div class="ago">Cargando…</div></div>
+  </div>
+
+  <div class="section-card" id="onlineDriversWrap">
+    <h1 style="font-size:17px;">En línea ahora</h1>
+    <p class="section-hint" style="margin-bottom:10px;">Choferes conectados en este momento.</p>
+    <div id="onlineDriversList"></div>
   </div>
 
   <div class="section-card rx-chart-card">
@@ -741,33 +984,18 @@
     <div id="rxChart" class="rx-chart"></div>
   </div>
 
-  <div class="section-card" id="onlineDriversWrap">
-    <h1 style="font-size:17px;">En línea ahora</h1>
-    <p class="section-hint" style="margin-bottom:10px;">Choferes conectados en este momento.</p>
-    <div id="onlineDriversList"></div>
-  </div>
-
   <div class="section-card" id="topDriversWrap">
     <h1 style="font-size:17px;">Choferes más activos</h1>
     <p class="section-hint" style="margin-bottom:10px;">Últimos 7 días.</p>
     <div class="top-drivers" id="topDrivers"></div>
   </div>
 
-  <div class="section-card">
-  <h1>Ranking de lanzamiento</h1>
-  <p class="section-hint">Desde el 14 de agosto. Los choferes con más viajes completados.</p>
-  <div class="top-drivers" id="launchRanking" style="margin-bottom:0;"></div>
-  </div>
   </div>
 
   <div id="tabPanel-choferes" class="tab-panel">
   <div class="com-tabs" id="comTabsChoferes" style="display:none"></div>
-  <div class="section-card" id="rankingCard">
-  <h1>🏆 Ranking de choferes</h1>
-  <p class="section-hint">El chofer que más pasajeros <b>nuevos</b> invite con su QR entre las fechas gana el premio en efectivo, si llega al mínimo. Cuenta quien se registra con su código (el registro pide el código de WhatsApp). No cuentan cuentas de prueba ni el teléfono del propio chofer. Se prende y se apaga solo en las fechas.</p>
-  <div id="rankingBox"><div class="section-hint">Cargando…</div></div>
-  </div>
-  <div class="section-card">
+  <div class="sub-tabs" id="subTabs-choferes"><button data-sub="lista" class="on" onclick="setSubTab('choferes','lista')">Lista</button><button data-sub="solicitudes" onclick="setSubTab('choferes','solicitudes')">Solicitudes<span class="sub-count" id="subCount-solicitudes"></span></button><button data-sub="alta" onclick="setSubTab('choferes','alta')">Dar de alta</button><button data-sub="registro" onclick="setSubTab('choferes','registro')">Link / QR de registro</button></div>
+  <div class="section-card" data-sub="registro">
   <h1>Link / QR de registro</h1>
   <p class="section-hint">Compártelo con quien quiera registrarse como chofer — cualquiera que se registre queda como independiente.</p>
   <div class="card" style="text-align:center; padding:18px;">
@@ -777,13 +1005,13 @@
   </div>
   </div>
 
-  <div class="section-card">
+  <div class="section-card" data-sub="solicitudes">
   <h1>Solicitudes de chofer</h1>
   <p class="section-hint">Gente que se registró desde el link/QR de "Quiero ser chofer".</p>
   <div id="applicationsList"></div>
   </div>
 
-  <div class="section-card">
+  <div class="section-card" data-sub="alta">
   <h1>Dar de alta un chofer</h1>
   <p class="section-hint">Genera su PIN y envíaselo directo por WhatsApp.</p>
   <div class="field">
@@ -863,17 +1091,17 @@
   </div>
   </div>
 
-  <div class="section-card">
+  <div class="section-card" data-sub="lista">
   <h1>Choferes registrados</h1>
-  <button class="btn-sm" id="padronBtn" style="display:none;margin:0 0 10px;" onclick="showPadron()">📋 Padrón y entregas</button>
+  <button class="btn-sm" id="padronBtn" style="display:none;margin:0 0 10px;" onclick="showPadron()">Padrón y entregas</button>
   <div id="padronBox" style="display:none;margin:0 0 12px;"></div>
-  <button class="btn-sm" id="qrLabelsBtn" style="margin:0 0 10px;" onclick="showQrLabels()">🏷️ Imprimir QR de choferes</button>
+  <button class="btn-sm" id="qrLabelsBtn" style="margin:0 0 10px;" onclick="showQrLabels()">Imprimir QR de choferes</button>
   <div id="qrLabelsBox" style="display:none;margin:0 0 12px;"></div>
   <input type="text" id="driverSearch" class="admin-search" placeholder="Buscar por nombre o teléfono..." oninput="renderDriverRows()" />
   <div class="table-wrap">
-    <table>
+    <table class="drv-table">
       <thead>
-        <tr><th>Nombre</th><th>PIN</th><th>Teléfono</th><th>Servicio</th><th>Ciudad</th><th>Estado</th><th>Actividad</th><th>Vehículo</th><th>Inscrito</th><th>Cobros</th><th>Cancelaciones</th><th></th></tr>
+        <tr><th>Chofer</th><th>Unidad</th><th>Estado</th><th>Cuotas</th><th>Cancelaciones</th><th>PIN</th><th></th></tr>
       </thead>
       <tbody id="driverRows"></tbody>
     </table>
@@ -883,11 +1111,6 @@
   </div>
 
   <div id="tabPanel-pasajeros" class="tab-panel">
-  <div class="section-card" id="promotersCard" style="display:none;">
-  <h1>📣 Promotores</h1>
-  <p class="section-hint">Personas que salen a la calle a instalarle la app a la gente. Cada uno tiene su código y su QR. Se le paga en efectivo por cada pasajero <b>nuevo</b> registrado con su código que ya hizo <b>3 viajes</b>. No cuentan cuentas de prueba ni el teléfono del propio promotor. El promotor no ve teléfonos: tú le dices sus números.</p>
-  <div id="promotersBox"><div class="section-hint">Cargando…</div></div>
-  </div>
   <div class="section-card" id="playUsersCard" style="display:none;">
   <h1>App de Google Play</h1>
   <p class="section-hint">Quién abrió MotoVecino desde la app instalada de Play Store y entró con su cuenta (todas las zonas). Quien la instaló pero nunca la abrió no aparece aquí.</p>
@@ -898,18 +1121,6 @@
         <tr><th>Nombre</th><th>Teléfono</th><th>Tipo</th><th>Zona</th><th>Primera vez</th><th>Última vez</th><th>Veces</th></tr>
       </thead>
       <tbody id="playUsersRows"></tbody>
-    </table>
-  </div>
-  </div>
-  <div class="section-card" id="courtesyCard" style="display:none;">
-  <h1>Viajes cortesía por pagar</h1>
-  <p class="section-hint">«Invita a tu vecino»: el pasajero usó su viaje cortesía y MotoVecino le debe al chofer lo que cubrió. Págale en efectivo de la caja chica o, si lo prefiere, pásalo a su saldo a favor (se le resta de su cuota). Solo una de las dos.</p>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>Chofer</th><th>Viaje</th><th>Fecha</th><th>Monto</th><th></th></tr>
-      </thead>
-      <tbody id="courtesyRows"></tbody>
     </table>
   </div>
   </div>
@@ -931,14 +1142,6 @@
 
   <div id="tabPanel-viajes" class="tab-panel">
   <div class="com-tabs" id="comTabsViajes" style="display:none"></div>
-  <div class="section-card">
-  <h1>Pedir para otra persona</h1>
-  <p class="section-hint">La mamá (o quien sea) pide el viaje desde su cuenta para otra persona: pone su nombre y una seña para reconocerla. El chofer habla con quien lo pidió por el chat. Prende esto solo cuando tengas choferes de noche.</p>
-  <div class="ally-switch" id="familySwitch">
-    <div><b id="familySwitchTitle">Apagado</b><span id="familySwitchHint">Los pasajeros todavía no ven la opción.</span></div>
-    <button class="btn" id="familySwitchBtn" onclick="toggleFamilyEnabled()">Prender</button>
-  </div>
-  </div>
   <div class="section-card">
   <h1>Buscar viaje #</h1>
   <p class="section-hint">Las quejas por WhatsApp llegan con "(viaje #840)". Escribe el número para ver de qué viaje se trata.</p>
@@ -1040,8 +1243,78 @@
   </div>
   </div>
 
-  <div id="tabPanel-movimientos" class="tab-panel">
+  <div id="tabPanel-premios" class="tab-panel">
+  <div class="sub-tabs" id="subTabs-premios"><button data-sub="ranking" class="on" onclick="setSubTab('premios','ranking')">Ranking de choferes</button><button data-sub="promotores" onclick="setSubTab('premios','promotores')">Promotores<span class="sub-count" id="subCount-promotores"></span></button><button data-sub="cortesias" onclick="setSubTab('premios','cortesias')">Viajes cortesía<span class="sub-count" id="subCount-cortesias"></span></button><button data-sub="lanzamiento" onclick="setSubTab('premios','lanzamiento')">Más viajes</button></div>
+  <div class="section-card" data-sub="ranking" id="rankingCard">
+  <h1>Ranking de choferes</h1>
+  <p class="section-hint">El chofer que más pasajeros <b>nuevos</b> invite con su QR entre las fechas gana el premio en efectivo, si llega al mínimo. Cuenta quien se registra con su código (el registro pide el código de WhatsApp). No cuentan cuentas de prueba ni el teléfono del propio chofer. Se prende y se apaga solo en las fechas.</p>
+  <div id="rankingBox"><div class="section-hint">Cargando…</div></div>
+  </div>
+  <div class="section-card" data-sub="promotores" id="promotersCard" style="display:none;">
+  <h1>Promotores</h1>
+  <p class="section-hint">Personas que salen a la calle a instalarle la app a la gente. Cada uno tiene su código y su QR. Se le paga en efectivo por cada pasajero <b>nuevo</b> registrado con su código que ya hizo <b>3 viajes</b>. No cuentan cuentas de prueba ni el teléfono del propio promotor. El promotor no ve teléfonos: tú le dices sus números.</p>
+  <div id="promotersBox"><div class="section-hint">Cargando…</div></div>
+  </div>
+  <div class="section-card" data-sub="cortesias" id="courtesyCard">
+  <h1>Viajes cortesía por pagar</h1>
+  <p class="section-hint">«Invita a tu vecino»: el pasajero usó su viaje cortesía y MotoVecino le debe al chofer lo que cubrió. Págale en efectivo de la caja chica o, si lo prefiere, pásalo a su saldo a favor (se le resta de su cuota). Solo una de las dos.</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Chofer</th><th>Viaje</th><th>Fecha</th><th>Monto</th><th></th></tr>
+      </thead>
+      <tbody id="courtesyRows"></tbody>
+    </table>
+  </div>
+  </div>
+  <div class="section-card" data-sub="lanzamiento">
+  <h1>Ranking de lanzamiento</h1>
+  <p class="section-hint">Desde el 14 de agosto. Los choferes con más viajes completados.</p>
+  <div class="top-drivers" id="launchRanking" style="margin-bottom:0;"></div>
+  </div>
+  </div>
+
+  <div id="tabPanel-dinero" class="tab-panel">
+  <div class="stats-grid money-grid">
+    <div class="card stat-tile">
+      <span class="icon"></span>
+      <div class="label">Por cobrar ahora</div>
+      <div class="value" id="moneyPending">—</div>
+    </div>
+    <div class="card stat-tile accent">
+      <span class="icon"></span>
+      <div class="label">Cobrado esta semana</div>
+      <div class="value owner-mark" id="statCollectedWeek">—</div>
+    </div>
+    <div class="card stat-tile accent">
+      <span class="icon"></span>
+      <div class="label">Cobrado este mes</div>
+      <div class="value owner-mark" id="statCollectedMonth">—</div>
+    </div>
+  </div>
   <div class="section-card">
+  <h1>Cuotas por cobrar</h1>
+  <p class="section-hint">Lo que cada chofer debe de sus viajes. Al recibir el dinero toca «Cobrar viajes»: se anota el pago y el saldo a favor por invitar se resta solo.</p>
+  <input type="text" id="moneySearch" class="admin-search" placeholder="Buscar chofer..." oninput="renderMoney()" />
+  <label class="money-all"><input type="checkbox" id="moneyAll" onchange="renderMoney()"> Ver también a los que no deben nada</label>
+  <div class="table-wrap">
+    <table class="money-table">
+      <thead>
+        <tr><th>Chofer</th><th>Viajes sin cobrar</th><th>Saldo a favor</th><th>A pagar</th><th>Último pago</th><th></th></tr>
+      </thead>
+      <tbody id="moneyRows"></tbody>
+    </table>
+  </div>
+  </div>
+  <div class="section-card owner-only">
+  <h1 style="font-size:17px;">Por pagar tú</h1>
+  <div id="moneyOwed" class="ago" style="margin-bottom:10px;"></div>
+  <button class="btn-sm" onclick="switchTab('premios')">Ir a Premios e invitaciones</button>
+  </div>
+  </div>
+
+  <div id="tabPanel-ajustes" class="tab-panel">
+  <div class="section-card owner-only">
   <h1>Entrar con huella</h1>
   <p class="section-hint">Entra al admin con la huella del celular en vez del PIN. Tu huella nunca sale del teléfono: MotoVecino solo guarda una llave que no sirve en ningún otro aparato. El PIN sigue sirviendo de respaldo.</p>
   <div id="passkeyRows" class="ago">Cargando…</div>
@@ -1051,16 +1324,30 @@
   <div id="passkeyMsg" class="section-hint" style="margin-top:8px;"></div>
   </div>
   <div class="section-card">
+  <h1>Pedir para otra persona</h1>
+  <p class="section-hint">La mamá (o quien sea) pide el viaje desde su cuenta para otra persona: pone su nombre y una seña para reconocerla. El chofer habla con quien lo pidió por el chat. Prende esto solo cuando tengas choferes de noche.</p>
+  <div class="ally-switch" id="familySwitch">
+    <div><b id="familySwitchTitle">Apagado</b><span id="familySwitchHint">Los pasajeros todavía no ven la opción.</span></div>
+    <button class="btn" id="familySwitchBtn" onclick="toggleFamilyEnabled()">Prender</button>
+  </div>
+  </div>
+  <div class="section-card">
+  <h1>Sesiones</h1>
+  <div style="margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn-sm danger" onclick="logoutAllAdmin()">Cerrar sesión en todos los celulares</button>
+  </div>
+  <p class="section-hint" style="margin-top:8px;">Úsalo si perdiste un celular donde tenías abierto el admin: todas las sesiones con tu PIN se cierran y hay que volver a entrar.</p>
+  </div>
+  </div>
+
+  <div id="tabPanel-movimientos" class="tab-panel">
+  <div class="section-card">
   <h1>Movimientos</h1>
   <p class="section-hint">Quién entró y quién cambió algo en esta zona (los últimos 200). Nunca se guardan PINs ni fotos.</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Cuándo</th><th>Quién</th><th>Qué hizo</th></tr></thead>
     <tbody id="auditRows"><tr><td colspan="3" class="ago">Cargando…</td></tr></tbody>
   </table></div>
-  <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-    <button class="btn-sm danger" onclick="logoutAllAdmin()">Cerrar sesión en todos los celulares</button>
-  </div>
-  <p class="section-hint" style="margin-top:8px;">Úsalo si perdiste un celular donde tenías abierto el admin: todas las sesiones con tu PIN se cierran y hay que volver a entrar.</p>
   </div>
   </div>
 
@@ -1249,6 +1536,7 @@ function adminSessionEnded(msg) {
   clearInterval(ridesPollTimer);
   document.getElementById("app").classList.remove("active");
   document.getElementById("login").classList.add("active");
+  document.body.classList.remove("theme-light");
   document.getElementById("err").textContent = msg || "Tu sesión se cerró. Vuelve a entrar con tu PIN.";
   const pkMsg = document.getElementById("passkeyMsg");
   if (pkMsg) pkMsg.textContent = "";
@@ -1528,6 +1816,8 @@ async function loadSupport() {
   const badge = document.getElementById("supportBadge");
   badge.textContent = d.waiting;
   badge.style.display = d.waiting ? "inline-flex" : "none";
+  todoState.support = d.waiting || 0;
+  renderTodo();
   document.getElementById("supportResolveBtn").textContent = d.bot ? "Resuelto (vuelve el asistente)" : "Resuelto";
   refreshSupportPush();
   document.getElementById("supportHint").innerHTML = d.bot
@@ -1897,6 +2187,12 @@ async function loadPromoters() {
   }
   if (ticket !== prLoading) return;
   promotersData = data;
+  // Aunque esté pausado, lo que ya ganó se le debe.
+  const pay = (data.promoters || []).filter((p) => p.toPay > 0);
+  todoState.promoOwed = pay.reduce((t, p) => t + Number(p.owed || 0), 0);
+  todoState.promoCount = pay.length;
+  renderTodo();
+  renderMoney();
   if (!detail) promoterOpen = null;
   promoterDetail = detail;
   renderPromoters();
@@ -2616,20 +2912,36 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && document.getElementById("app").classList.contains("active")) adminPollTick();
 });
 
-const TAB_TITLES = { resumen: "Resumen", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes", alertas: "Alertas", soporte: "Soporte", negocios: "Negocios aliados", movimientos: "Movimientos" };
+const TAB_TITLES = { resumen: "Inicio", choferes: "Choferes", pasajeros: "Pasajeros", viajes: "Viajes en vivo", alertas: "Alertas", soporte: "Soporte", negocios: "Negocios aliados", premios: "Premios e invitaciones", dinero: "Dinero", movimientos: "Movimientos", ajustes: "Ajustes" };
+const ALL_TABS = Object.keys(TAB_TITLES);
+// Pestañas que el PIN de Progreso no ve (el servidor tampoco le deja).
+const PROGRESO_HIDDEN_TABS = ["pasajeros", "movimientos", "premios", "soporte"];
 
 function switchTab(tab) {
-  ["resumen", "choferes", "pasajeros", "viajes", "alertas", "soporte", "negocios", "movimientos"].forEach((t) => {
+  if (!ALL_TABS.includes(tab) || (adminRoleNow === "progreso" && PROGRESO_HIDDEN_TABS.includes(tab))) tab = "resumen";
+  ALL_TABS.forEach((t) => {
     document.getElementById(`tabPanel-${t}`).classList.toggle("active", t === tab);
     document.getElementById(`tabBtn-${t}`).classList.toggle("active", t === tab);
   });
   document.getElementById("appTopbarTitle").textContent = TAB_TITLES[tab] || "";
   try { localStorage.setItem("motoyaAdminTab", tab); } catch {}
-  if (tab === "movimientos") { loadAudit(); loadPasskeys(); }
+  if (tab === "movimientos") loadAudit();
+  if (tab === "ajustes" && adminRoleNow !== "progreso") loadPasskeys();
   if (tab === "soporte") loadSupport();
-  if (tab === "choferes") loadRanking();
-  if (tab === "pasajeros") loadPromoters();
+  if (tab === "premios") { loadRanking(); loadPromoters(); loadCourtesies().catch(() => {}); }
+  if (tab === "dinero") renderMoney();
+  if (tab === "alertas") markAlertsSeen();
+  window.scrollTo(0, 0);
   closeDrawer();
+}
+
+// Sub-pestañas dentro de Choferes y Premios (28-nov-2026): solo esconden o
+// enseñan tarjetas; cada tarjeta sigue con sus mismos ids y funciones.
+function setSubTab(panel, sub) {
+  const box = document.getElementById(`tabPanel-${panel}`);
+  if (!box) return;
+  box.querySelectorAll(".sub-tabs button[data-sub]").forEach((b) => b.classList.toggle("on", b.dataset.sub === sub));
+  box.querySelectorAll(".section-card[data-sub]").forEach((c) => c.classList.toggle("sub-hidden", c.dataset.sub !== sub));
 }
 
 function openDrawer() {
@@ -2889,7 +3201,11 @@ async function login(withSavedToken) {
   applyAdminZone(loginData.city || "tekax", loginData.cityLabel || "Tekax");
   tickClocks();
   document.getElementById("login").classList.remove("active");
+  document.body.classList.add("theme-light");
   document.getElementById("app").classList.add("active");
+  setSubTab("choferes", "lista");
+  setSubTab("premios", "ranking");
+  Object.keys(todoState).forEach((k) => { todoState[k] = 0; });
   let savedTab = "resumen";
   try { savedTab = localStorage.getItem("motoyaAdminTab") || "resumen"; } catch {}
   // Al tocar el aviso "Te escribieron en Ayuda" se abre admin.html#soporte.
@@ -2906,6 +3222,7 @@ async function login(withSavedToken) {
 function applyAdminZone(id, label) {
   const prevLabel = adminCityLabel;
   adminCity = id;
+  alertsLoaded = false; alertKeysNow = []; // las alertas vistas son por municipio
   adminCityLabel = label;
   try { localStorage.setItem("motoyaAdminZone", id); } catch {}
   document.title = document.title.replace(prevLabel + " ", label + " ").replace(/Tekax /, label + " ");
@@ -2931,6 +3248,7 @@ function switchAdminZone(id) {
   const z = adminZones.find((x) => x.id === id);
   if (!z || id === adminCity) return;
   applyAdminZone(z.id, z.label);
+  Object.keys(todoState).forEach((k) => { todoState[k] = 0; });
   driversCache = [];
   driversLoaded = false;
   loadAllAdminData();
@@ -2968,6 +3286,19 @@ function pctBadgeClass(pct) {
   return "bajo";
 }
 
+let alertKeysNow = [];
+let alertsLoaded = false;
+function seenAlertsKey() { return `mvAdminAlertasVistas:${adminCity}`; }
+function readSeenAlerts() {
+  try { return JSON.parse(localStorage.getItem(seenAlertsKey()) || "[]"); } catch { return []; }
+}
+function markAlertsSeen() {
+  if (!alertsLoaded) return; // todavía no llega la lista: no borrar lo ya visto
+  try { localStorage.setItem(seenAlertsKey(), JSON.stringify(alertKeysNow)); } catch {}
+  todoState.alerts = 0;
+  renderTodo();
+}
+
 async function loadAlertas() {
   const res = await fetch(API + "/api/admin/reports/cancelaciones", {
     method: "POST",
@@ -2976,6 +3307,22 @@ async function loadAlertas() {
   });
   if (!res.ok) return;
   const { porChofer, paresRepetidos, inasistencias } = await res.json();
+  // 28-nov-2026: el contador solo cuenta alertas NUEVAS desde la última vez que
+  // se abrió la pestaña Alertas (si no, un pasajero que faltó 2 veces hace meses
+  // dejaba «1 alerta» para siempre). Si el caso crece (otra falta, otra
+  // cancelación), cambia su clave y vuelve a contar.
+  alertKeysNow = [
+    ...paresRepetidos.map((p) => `p:${p.driver_id}:${p.rider_name || ""}:${p.veces}`),
+    ...inasistencias.map((r) => `n:${r.id}:${r.no_show_count}`),
+    ...porChofer.filter((d) => d.pct >= 30).map((d) => `c:${d.id}:${d.cancelados_pasajero}`),
+  ];
+  alertsLoaded = true;
+  if (document.getElementById("tabPanel-alertas").classList.contains("active")) markAlertsSeen();
+  else {
+    const seen = new Set(readSeenAlerts());
+    todoState.alerts = alertKeysNow.filter((k) => !seen.has(k)).length;
+  }
+  renderTodo();
 
   document.getElementById("alertaChoferRows").innerHTML = porChofer.length
     ? porChofer.map((d) => `
@@ -3017,6 +3364,8 @@ async function loadApplications() {
   if (!res.ok) return;
   applicationsCache = await resolvePhotoRefs(await res.json());
   renderApplications(applicationsCache);
+  todoState.apps = applicationsCache.length; // todo el municipio, como Dinero
+  renderTodo();
 }
 
 function renderApplications(apps) {
@@ -3084,6 +3433,7 @@ function useApplication(id) {
   pendingApplicationId = id;
   if (app.zone && document.getElementById("driverZone")) document.getElementById("driverZone").value = app.zone;
   renderPendingPhotoPreview();
+  setSubTab("choferes", "alta");
   document.getElementById("driverName").scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -3195,14 +3545,14 @@ function renderRidesChart(byDay) {
   const grid = [0.25, 0.5, 0.75, 1].map((f) => `<line x1="${padX}" x2="${W - padX}" y1="${top + (base - top) * (1 - f)}" y2="${top + (base - top) * (1 - f)}" stroke="rgba(148,163,184,.10)" stroke-dasharray="3 5"/>`).join("");
   box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Viajes completados por día, últimos 7 días">
     <defs>
-      <linearGradient id="rxFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#34d399" stop-opacity=".32"/><stop offset="1" stop-color="#34d399" stop-opacity="0"/></linearGradient>
+      <linearGradient id="rxFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000000" stop-opacity=".10"/><stop offset="1" stop-color="#000000" stop-opacity="0"/></linearGradient>
     </defs>
     ${grid}
     <line x1="${padX}" x2="${W - padX}" y1="${base}" y2="${base}" stroke="rgba(148,163,184,.22)"/>
     <path d="${path} L${pts[6][0]},${base} L${pts[0][0]},${base} Z" fill="url(#rxFill)"/>
-    <path d="${path}" fill="none" stroke="#34d399" stroke-width="2.2" stroke-linecap="round"/>
-    ${pts.map(([px, py], i) => `<circle cx="${px}" cy="${py}" r="${i === 6 ? 5 : 3.2}" fill="${i === 6 ? "#34d399" : "#0a1020"}" stroke="#34d399" stroke-width="1.8"/>${days[i].n ? `<text class="val" x="${px}" y="${py - 11}" text-anchor="middle">${days[i].n}</text>` : ""}`).join("")}
-    ${days.map((d, i) => `<text class="ax" x="${x(i)}" y="${H - 8}" text-anchor="middle"${i === 6 ? ' style="fill:#34d399"' : ""}>${i === 6 ? "HOY" : d.lbl}</text>`).join("")}
+    <path d="${path}" fill="none" stroke="#000000" stroke-width="2.2" stroke-linecap="round"/>
+    ${pts.map(([px, py], i) => `<circle cx="${px}" cy="${py}" r="${i === 6 ? 5 : 3.2}" fill="${i === 6 ? "#000000" : "#ffffff"}" stroke="#000000" stroke-width="1.8"/>${days[i].n ? `<text class="val" x="${px}" y="${py - 11}" text-anchor="middle">${days[i].n}</text>` : ""}`).join("")}
+    ${days.map((d, i) => `<text class="ax" x="${x(i)}" y="${H - 8}" text-anchor="middle"${i === 6 ? ' style="fill:#000000"' : ""}>${i === 6 ? "HOY" : d.lbl}</text>`).join("")}
   </svg>`;
 }
 
@@ -3395,6 +3745,8 @@ async function loadDrivers() {
   if (editingId === null) renderDriverRows();
   renderOnlineDrivers();
   if (!entregaGuardando) renderPadron();
+  renderMoney();
+  renderTodo();
 }
 
 function renderOnlineDrivers() {
@@ -3411,7 +3763,7 @@ function renderOnlineDrivers() {
     ? online.map((d) => `
       <div class="card app-row">
         <div class="info">
-          <span class="dot ${d.status}"></span>
+          <span class="dot ${escapeHtml(d.status)}"></span>
           <div class="who">
             <span class="name">${escapeHtml(d.name)}</span>
             <span class="meta">${vehicleTypeBadge(d.vehicle_type)} · ${d.status === "en_viaje" ? "En viaje" : "Disponible"}</span>
@@ -3481,9 +3833,13 @@ async function loadCourtesies() {
   });
   const rows = res.ok ? await res.json() : [];
   const card = document.getElementById("courtesyCard");
-  card.style.display = rows.length ? "" : "none";
-  const debe = rows.filter((x) => !x.courtesy_paid_how).reduce((s, x) => s + Number(x.courtesy_amount || 0), 0);
-  card.querySelector("h1").textContent = debe ? `Viajes cortesía por pagar · $${debe}` : "Viajes cortesía (todo pagado)";
+  const unpaid = rows.filter((x) => !x.courtesy_paid_how);
+  const debe = unpaid.reduce((s, x) => s + Number(x.courtesy_amount || 0), 0);
+  todoState.courtesyOwed = debe;
+  todoState.courtesyCount = unpaid.length;
+  renderTodo();
+  renderMoney();
+  card.querySelector("h1").textContent = debe ? `Viajes cortesía por pagar · $${debe}` : rows.length ? "Viajes cortesía (todo pagado)" : "Viajes cortesía";
   document.getElementById("courtesyRows").innerHTML = rows.map((x) => `
     <tr>
       <td>${escapeHtml(x.driver_name || "—")}${x.numero_unidad ? ` · #${escapeHtml(String(x.numero_unidad))}` : ""}</td>
@@ -3495,7 +3851,7 @@ async function loadCourtesies() {
         : `<span class="ago">${x.courtesy_choice === "efectivo" ? "<b>Pidió efectivo</b>" : "Aún no elige"}</span>
            <button class="btn-sm" onclick="payCourtesy(${x.id}, 'efectivo')">Pagado en efectivo</button>
            <button class="btn-sm" onclick="payCourtesy(${x.id}, 'saldo')">Pasar a su saldo</button>`}</td>
-    </tr>`).join("");
+    </tr>`).join("") || `<tr><td colspan="5" class="ago">Todavía no hay viajes cortesía.</td></tr>`;
 }
 
 async function payCourtesy(id, how) {
@@ -3982,33 +4338,26 @@ function setComisariaFilter(id) {
   renderRideRows(ridesCacheAll);
 }
 
+const DRIVER_STATUS_LABEL = { disponible: "Disponible", en_viaje: "En viaje", offline: "Desconectado", desconectado: "Desconectado", ocupado: "Ocupado" };
+
+// Tabla de choferes (28-nov-2026): 7 columnas en vez de 12. Lo de cobrar pasó
+// a la pestaña Dinero (ahí está el botón «Cobrar viajes»); aquí solo se ve
+// cuánto debe. Mismos datos de siempre, nada nuevo sale al público.
 function renderDriverRows() {
   const query = (document.getElementById("driverSearch") || {}).value || "";
   const filtered = driversCache.filter((d) => matchesSearch(d.name, d.phone, query) && inComisaria(d.zone));
   if (query && filtered.length === 0) {
     document.getElementById("driverShowMore").innerHTML = "";
-    document.getElementById("driverRows").innerHTML = `<tr><td colspan="12" class="ago">Sin resultados para "${query}".</td></tr>`;
+    document.getElementById("driverRows").innerHTML = `<tr><td colspan="7" class="ago">Sin resultados para "${escapeHtml(query)}".</td></tr>`;
     return;
   }
   const visible = applyPreviewCap(filtered, query, showAllDrivers, "driverShowMore", "toggleShowAllDrivers");
+  const dim = (t, extra = "") => `<div class="meta cell-sub"${extra}>${t}</div>`;
   document.getElementById("driverRows").innerHTML = visible.map((d) => {
-
-    const lastPaymentLabel = d.last_payment_at
-      ? `<div class="lastPayment">último pago: $${d.last_payment_amount} el ${d.last_payment_at.slice(0, 10)}</div>`
-      : `<div class="lastPayment">sin pagos registrados</div>`;
     const pendingRides = d.pending_rides || 0;
     const pendingFeeAmount = Math.round(d.pending_fee_amount || 0);
-    const pendingFeeRate = d.vehicle_type === "taxi"
-      ? `comisión ${Math.round(TAXI_COMMISSION_RATE * 100)}% (tope $${TAXI_COMMISSION_CAP})`
-      : `$${SERVICE_FEE}/viaje`;
-    // Saldo a favor por invitaciones: se resta solo al registrar el cobro.
     const credit = Math.round((d.credit_balance || 0) * 100) / 100;
-    const creditLabel = credit > 0
-      ? `<div class="lastPayment">saldo a favor por invitar: $${credit}${pendingFeeAmount > 0 ? ` → a pagar <strong>$${Math.max(0, pendingFeeAmount - credit)}</strong>` : ""}</div>`
-      : "";
-    const pendingFeesLabel = (pendingRides > 0
-      ? `<div class="lastPayment">viajes sin cobrar: ${pendingRides} · ${pendingFeeRate} = <strong>$${pendingFeeAmount}</strong></div>`
-      : `<div class="lastPayment">sin viajes pendientes de cobrar</div>`) + creditLabel;
+    const toPay = Math.max(0, pendingFeeAmount - credit);
     const placaThumb = d.photo_placa
       ? `<img class="thumb" src="${d.photo_placa}" onclick="viewImage('${d.photo_placa}')" title="Foto con su moto" />`
       : "";
@@ -4016,9 +4365,9 @@ function renderDriverRows() {
       ? `<img class="thumb" style="background:#fff" src="${d.signature}" onclick="viewImage('${d.signature}')" title="Firma del contrato" />`
       : "";
     const founderTag = d.es_fundador
-      ? ` <span title="Chofer fundador" style="font-size:10.5px;font-weight:700;border:1px solid currentColor;border-radius:999px;padding:1px 6px;opacity:.8;">Fundador</span>`
+      ? ` <span class="tag-pill" title="Chofer fundador">Fundador</span>`
       : d.es_prueba
-      ? ` <span title="Cuenta de prueba: no cuenta para fundador, ranking ni resumen" style="font-size:11px;color:var(--text-dim);">prueba</span>`
+      ? ` <span title="Cuenta de prueba: no cuenta para fundador, ranking ni resumen" class="tag-pill dim">prueba</span>`
       : "";
     // "Invita a otro chofer": quién lo trajo (con su link, o lo que escribió
     // a mano) y a cuántos ha traído él.
@@ -4030,45 +4379,45 @@ function renderDriverRows() {
       d.inviter_name ? `Lo invitó ${escapeHtml(d.inviter_name)} (chofer)` : d.referred_by ? `Invitado por ${escapeHtml(d.referred_by)}` : "",
       d.invited_count ? `Ha invitado a ${d.invited_count} chofer${d.invited_count === 1 ? "" : "es"}` : "",
       Number(d.riders_invited) ? `Invitó ${d.riders_invited} pasajero${Number(d.riders_invited) === 1 ? "" : "s"} (${Number(d.riders_invited_active) || 0} con 3 viajes)` : "",
-    ].filter(Boolean).map((t) => `<div class="meta" style="color:var(--text-dim);font-size:11.5px;">${t}</div>`).join("");
-    const nameWithReferral = `<span>${escapeHtml(d.name)}${founderTag}${playTag(d)}</span>${referralLines}`;
+    ].filter(Boolean).map((t) => dim(t)).join("");
+    const contact = dim(`${escapeHtml(d.phone)}${d.created_at ? ` · desde ${d.created_at.slice(0, 10)}` : ""}`);
+    const nameWithReferral = `<span class="drv-name">${escapeHtml(d.name)}${founderTag}${playTag(d)}</span>${contact}${referralLines}`;
     const nameCell = d.photo
       ? `<div class="info"><img class="thumb" src="${d.photo}" onclick="viewImage('${d.photo}')" />${placaThumb}${sigThumb}<div>${nameWithReferral}</div></div>`
       : nameWithReferral;
+    const showCity = adminRoleNow === "tekax" && adminZones.length > 1;
+    const unitCell = vehicleTypeBadge(d.vehicle_type)
+      + (d.numero_unidad ? dim(`#${escapeHtml(d.numero_unidad)}${numeroRepetidoEnLista(d) ? ` <span title="Otro chofer de la misma agrupación tiene este número" style="color:var(--danger,#d32f2f);font-weight:700">⚠ repetido</span>` : ""}`) : "")
+      + (d.vehicle_color ? dim(escapeHtml(d.vehicle_color)) : "")
+      + (d.vehicle ? dim(escapeHtml(d.vehicle)) : "")
+      + (showCity ? dim(cityLabel(d.city)) : "")
+      + (d.zone ? dim(escapeHtml(comisariaLabel(d.zone)), ' style="color:var(--accent);font-weight:700;"') : "");
+    const statusCell = `<div class="st-line"><span class="dot ${escapeHtml(d.status)}"></span>${escapeHtml(DRIVER_STATUS_LABEL[d.status] || String(d.status || "").replace(/_/g, " "))}</div>
+        <div class="cell-sub">${activityBadge(d.last_connected_at)}</div>
+        <button class="histLink" onclick="showActivityModal(${d.id})">Ver actividad</button>`;
+    const feeCell = pendingRides > 0
+      ? `<button class="money-link" onclick="switchTab('dinero')" title="Cobrar en la pestaña Dinero"><b>$${toPay}</b></button>${dim(`${pendingRides} viaje${pendingRides === 1 ? "" : "s"} sin cobrar`)}${credit > 0 ? dim(`saldo a favor $${credit}`) : ""}`
+      : `<span class="ok-text">Al corriente</span>${credit > 0 ? dim(`saldo a favor $${credit}`) : ""}`;
     return `
     <tr>
       <td>${nameCell}</td>
-      <td>${pinCell(d.id, d.pin)}</td>
-      <td>${escapeHtml(d.phone)}</td>
-      <td>${vehicleTypeBadge(d.vehicle_type)}${d.vehicle_color ? `<div class="meta" style="font-size:11.5px;color:var(--text-dim);">${escapeHtml(d.vehicle_color)}</div>` : ""}${d.numero_unidad ? `<div class="meta" style="font-size:11.5px;color:var(--text-dim);">#${escapeHtml(d.numero_unidad)}${numeroRepetidoEnLista(d) ? ` <span title="Otro chofer de la misma agrupación tiene este número" style="color:var(--danger,#d32f2f);font-weight:700">⚠ repetido</span>` : ""}</div>` : ""}</td>
-      <td>${cityLabel(d.city)}${d.zone ? `<div class="meta" style="font-size:11.5px;color:var(--accent);font-weight:700;">${escapeHtml(comisariaLabel(d.zone))}</div>` : ""}</td>
-      <td><span class="dot ${d.status}"></span>${d.status}</td>
-      <td>
-        ${activityBadge(d.last_connected_at)}
-        <button class="histLink" onclick="showActivityModal(${d.id})">Ver actividad</button>
-      </td>
-      <td>${escapeHtml(d.vehicle) || "—"}</td>
-      <td>${d.created_at ? d.created_at.slice(0, 10) : ""}</td>
-      <td>
-        ${lastPaymentLabel}
-        ${pendingFeesLabel}
-        ${pendingRides > 0 ? `<button class="btn-sm" id="feesBtn-${d.id}" onclick="registerTripFees(${d.id})">Cobrar viajes ($${Math.max(0, pendingFeeAmount - credit)})</button>` : ""}
-        <button class="histLink" onclick="showPaymentsModal(${d.id})">Ver historial</button>
-        <div class="payRow">
-          <button class="btn-sm wa" onclick="sendPaymentReminder(${d.id})">Recordatorio pago</button>
-        </div>
-      </td>
+      <td>${unitCell}</td>
+      <td>${statusCell}</td>
+      <td>${feeCell}<div><button class="histLink" onclick="showPaymentsModal(${d.id})">Ver pagos</button></div></td>
       <td>${cancelCountCell(d)}</td>
+      <td>${pinCell(d.id, d.pin)}</td>
       <td class="row-actions">
         <button class="btn-sm wa" onclick="sendWhatsappFor(${d.id})">WhatsApp</button>
-        <button class="btn-sm" onclick="startEdit(${d.id})">✏️ Editar</button>
+        <button class="btn-sm" onclick="startEdit(${d.id})">Editar</button>
         <details class="more-actions" data-id="${d.id}" ${openMoreId === d.id ? "open" : ""} ontoggle="moreToggled(this)">
-          <summary>Más opciones</summary>
+          <summary>Más</summary>
           <div class="more-actions-list">
-            ${adminRoleNow === "progreso" ? "" : `<button class="btn-sm" onclick="printQrLabels([${d.id}])">🏷️ Etiqueta QR</button>`}
+            ${adminRoleNow === "progreso" ? "" : `<button class="btn-sm" onclick="printQrLabels([${d.id}])">Etiqueta QR</button>`}
+            <button class="btn-sm" onclick="sendPaymentReminder(${d.id})">Recordatorio de pago</button>
             <button class="btn-sm" onclick="resetDriverPin(${d.id})">Restablecer PIN</button>
             <button class="btn-sm" onclick="toggleTestAccount(${d.id})">${d.es_prueba ? "Quitar prueba" : "Es prueba"}</button>
             ${adminRoleNow === "tekax" && adminZones.length > 1 ? `<button class="btn-sm" onclick="moveDriverCity(${d.id})">Cambiar municipio</button>` : ""}
+            <div class="more-danger">Zona de cuidado</div>
             ${d.suspended_at ? `<button class="btn-sm" onclick="suspendDriver(${d.id}, false)">Reactivar</button>` : `<button class="btn-sm danger" onclick="suspendDriver(${d.id}, true)">Suspender</button>`}
             <button class="btn-sm danger" onclick="deleteDriver(${d.id})">Eliminar</button>
           </div>
@@ -4076,6 +4425,101 @@ function renderDriverRows() {
       </td>
     </tr>`;
   }).join("");
+}
+
+// ---- Dinero (28-nov-2026) ----
+// Cuotas por cobrar de cada chofer. Usa los mismos datos de la lista de
+// choferes (driversCache) y las mismas funciones de siempre: registerTripFees,
+// sendPaymentReminder y showPaymentsModal.
+function moneyRowData(d) {
+  const pendingRides = d.pending_rides || 0;
+  const amount = Math.round(d.pending_fee_amount || 0);
+  const credit = Math.round((d.credit_balance || 0) * 100) / 100;
+  return { pendingRides, amount, credit, toPay: Math.max(0, amount - credit) };
+}
+function renderMoney() {
+  const tbody = document.getElementById("moneyRows");
+  if (!tbody) return;
+  if (!driversLoaded) { tbody.innerHTML = `<tr><td colspan="6" class="ago">Cargando…</td></tr>`; return; }
+  // Siempre todo el municipio: aquí no hay pestañas de comisaría y el
+  // «Cobrado semana/mes» de al lado también es del municipio completo.
+  const inZone = driversCache;
+  const totals = inZone.reduce((t, d) => { const m = moneyRowData(d); if (m.toPay > 0) { t.sum += m.toPay; t.n += 1; } return t; }, { sum: 0, n: 0 });
+  document.getElementById("moneyPending").innerHTML = `$${Math.round(totals.sum)}<small class="stat-sub">${totals.n} chofer${totals.n === 1 ? "" : "es"}</small>`;
+  const query = (document.getElementById("moneySearch") || {}).value || "";
+  const all = (document.getElementById("moneyAll") || {}).checked;
+  const rows = inZone
+    .filter((d) => matchesSearch(d.name, d.phone, query))
+    .map((d) => ({ d, m: moneyRowData(d) }))
+    .filter(({ m }) => all || query || m.pendingRides > 0 || m.credit > 0)
+    .sort((x, y) => y.m.toPay - x.m.toPay || x.d.name.localeCompare(y.d.name, "es"));
+  tbody.innerHTML = rows.length ? rows.map(({ d, m }) => {
+    const rate = d.vehicle_type === "taxi"
+      ? `comisión ${Math.round(TAXI_COMMISSION_RATE * 100)}% (tope $${TAXI_COMMISSION_CAP})`
+      : `$${SERVICE_FEE} por viaje`;
+    return `
+    <tr>
+      <td><span class="drv-name">${escapeHtml(d.name)}</span><div class="meta cell-sub">${d.numero_unidad ? `#${escapeHtml(d.numero_unidad)} · ` : ""}${d.vehicle_type === "taxi" ? "Taxi" : adminCity === "progreso" ? "Motocarro" : "Mototaxi"}</div></td>
+      <td>${m.pendingRides ? `${m.pendingRides} · $${m.amount}` : "—"}<div class="meta cell-sub">${rate}</div></td>
+      <td>${m.credit > 0 ? `$${m.credit}` : "—"}</td>
+      <td>${m.toPay > 0 ? `<b class="money-big">$${m.toPay}</b>` : m.pendingRides ? `<span class="ok-text">Lo cubre su saldo</span>` : `<span class="ok-text">Al corriente</span>`}</td>
+      <td class="ago">${d.last_payment_at ? `$${d.last_payment_amount} · ${d.last_payment_at.slice(0, 10)}` : "sin pagos"}</td>
+      <td class="row-actions">
+        ${m.pendingRides > 0 ? `<button class="btn-sm primary" id="feesBtn-${d.id}" onclick="registerTripFees(${d.id})">${m.toPay > 0 ? `Cobrar $${m.toPay}` : "Anotar con su saldo"}</button>` : ""}
+        <button class="btn-sm wa" onclick="sendPaymentReminder(${d.id})">Recordatorio</button>
+        <button class="btn-sm" onclick="showPaymentsModal(${d.id})">Historial</button>
+      </td>
+    </tr>`;
+  }).join("") : `<tr><td colspan="6" class="ago">${query ? `Sin resultados para "${escapeHtml(query)}".` : "Nadie debe cuotas en este momento."}</td></tr>`;
+  const owed = document.getElementById("moneyOwed");
+  if (owed) {
+    const parts = [];
+    if (todoState.promoOwed) parts.push(`Promotores: <b>$${todoState.promoOwed}</b>`);
+    if (todoState.courtesyOwed) parts.push(`Viajes cortesía: <b>$${todoState.courtesyOwed}</b>`);
+    owed.innerHTML = parts.length ? parts.join(" · ") : "Nada por pagar a promotores ni de viajes cortesía.";
+  }
+}
+
+// ---- Inicio › «Por hacer» (28-nov-2026) ----
+// Junta en un solo lugar lo que ya avisaba cada pestaña. Cada número sale de
+// lo que ya carga el panel (no hay rutas nuevas en el servidor).
+const todoState = { apps: 0, alerts: 0, support: 0, promoOwed: 0, promoCount: 0, courtesyOwed: 0, courtesyCount: 0 };
+function goTo(tab, sub) {
+  switchTab(tab);
+  if (sub) setSubTab(tab, sub);
+}
+function setNavCount(id, n) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = n > 0 ? String(n) : "";
+  el.style.display = n > 0 ? "" : "none";
+}
+function renderTodo() {
+  const list = document.getElementById("todoList");
+  if (!list) return;
+  const owner = adminRoleNow !== "progreso";
+  const owing = driversCache.map(moneyRowData).filter((m) => m.toPay > 0);
+  const owingSum = Math.round(owing.reduce((t, m) => t + m.toPay, 0));
+  const pl = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const items = [];
+  if (todoState.apps) items.push(["Solicitudes", `${pl(todoState.apps, "persona quiere", "personas quieren")} ser chofer`, "Revisar", "goTo('choferes','solicitudes')"]);
+  if (todoState.alerts) items.push(["Alertas", `${pl(todoState.alerts, "alerta nueva", "alertas nuevas")} de cancelaciones o pasajeros que no llegaron`, "Ver", "goTo('alertas')"]);
+  if (todoState.support && adminRoleNow === "tekax") items.push(["Soporte", `${pl(todoState.support, "plática espera", "pláticas esperan")} tu respuesta`, "Responder", "goTo('soporte')"]);
+  if (owner && todoState.promoOwed) items.push(["Promotores", `Pagar <b>$${todoState.promoOwed}</b> a ${pl(todoState.promoCount, "promotor", "promotores")}`, "Pagar", "goTo('premios','promotores')"]);
+  if (owner && todoState.courtesyOwed) items.push(["Cortesías", `Pagar <b>$${todoState.courtesyOwed}</b> de ${pl(todoState.courtesyCount, "viaje cortesía", "viajes cortesía")}`, "Pagar", "goTo('premios','cortesias')"]);
+  if (owing.length) items.push(["Cuotas", `${pl(owing.length, "chofer debe", "choferes deben")} cuotas · <b>$${owingSum}</b> en total`, "Cobrar", "goTo('dinero')"]);
+  list.innerHTML = items.length
+    ? items.map(([tag, text, btn, go]) => `<div class="todo-row"><span class="todo-tag">${tag}</span><span class="todo-text">${text}</span><button class="btn-sm" onclick="${go}">${btn}</button></div>`).join("")
+    : `<div class="ago">Todo al día. No hay nada pendiente.</div>`;
+  const count = document.getElementById("todoCount");
+  if (count) count.textContent = items.length ? String(items.length) : "";
+  setNavCount("navCount-resumen", items.length);
+  setNavCount("navCount-choferes", todoState.apps);
+  setNavCount("navCount-alertas", todoState.alerts);
+  setNavCount("navCount-premios", owner ? todoState.promoCount + todoState.courtesyCount : 0);
+  setNavCount("subCount-solicitudes", todoState.apps);
+  setNavCount("subCount-promotores", owner ? todoState.promoCount : 0);
+  setNavCount("subCount-cortesias", owner ? todoState.courtesyCount : 0);
 }
 
 async function loadRides() {
@@ -4266,6 +4710,16 @@ const pendingPaymentActions = new Set();
 
 async function registerTripFees(id) {
   if (pendingPaymentActions.has(`fees-${id}`)) return;
+  // 28-nov-2026: el botón «Cobrar» es grande en el celular; un toque sin querer
+  // anotaba el pago (y gastaba el saldo a favor) sin poder deshacerlo.
+  const drv = driversCache.find((x) => x.id === id);
+  if (drv) {
+    const m = moneyRowData(drv);
+    const ask = m.toPay > 0
+      ? `¿Ya recibiste $${m.toPay} de ${drv.name}? Se ${m.pendingRides === 1 ? "anota" : "anotan"} ${m.pendingRides} viaje${m.pendingRides === 1 ? "" : "s"} como pagado${m.pendingRides === 1 ? "" : "s"}${m.credit > 0 ? " y se usa su saldo a favor" : ""}.`
+      : `${drv.name} no tiene que pagar: su saldo a favor cubre ${m.pendingRides} viaje${m.pendingRides === 1 ? "" : "s"}. ¿Anotarlo${m.pendingRides === 1 ? "" : "s"} como pagado${m.pendingRides === 1 ? "" : "s"}?`;
+    if (!(await mvConfirmAdmin(ask, m.toPay > 0 ? "Sí, ya me pagó" : "Sí, anotar"))) return;
+  } else if (!(await mvConfirmAdmin("¿Ya recibiste el pago de este chofer?", "Sí, ya me pagó"))) return;
   pendingPaymentActions.add(`fees-${id}`);
   const btn = document.getElementById(`feesBtn-${id}`);
   if (btn) btn.disabled = true;
