@@ -1,6 +1,12 @@
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", () => {});
+// La app del chofer pregunta qué sabe hacer este archivo antes de mandar sus
+// llaves de aviso: si el celular aún tiene el sw.js viejo, un mensaje del chat
+// se vería como "Nuevo viaje cerca" (27-nov-2026).
+self.addEventListener("message", (e) => {
+  if (e.data && e.data.type === "sw-features" && e.ports && e.ports[0]) e.ports[0].postMessage({ chofer: true });
+});
 
 // Aviso de viaje nuevo al chofer (ver backend/push.js). El mensaje llega sin
 // contenido: el detalle del viaje lo ve al abrir la app. Si la app del chofer
@@ -45,6 +51,24 @@ self.addEventListener("push", (event) => {
         requireInteraction: true,
         vibrate: [300, 120, 300, 120, 300],
         data: { url: "/negocio.html" },
+      });
+    })());
+    return;
+  }
+  // Aviso con texto al chofer (27-nov-2026): mensaje del pasajero en un viaje
+  // agendado. Si la app del chofer está en pantalla no se muestra: ahí le sale.
+  if (msg && msg.kind === "chofer") {
+    event.waitUntil((async () => {
+      const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (wins.some((c) => c.visibilityState === "visible" && new URL(c.url).pathname.endsWith("/chofer.html"))) return;
+      await self.registration.showNotification(msg.title, {
+        body: msg.body,
+        icon: "icons/icon-192.png?v=2",
+        badge: "icons/icon-192.png?v=2",
+        tag: msg.tag,
+        renotify: true,
+        vibrate: [200, 100, 200],
+        data: { url: "/chofer.html" },
       });
     })());
     return;

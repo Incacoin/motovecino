@@ -117,11 +117,46 @@ async function setWantsRides(driverId, wants) {
   await db.prepare("UPDATE drivers SET wants_rides = ?, wants_rides_at = datetime('now') WHERE id = ?").run(wants ? 1 : 0, driverId);
 }
 
-async function saveSubscription(driverId, endpoint) {
+// p256dh/auth (27-nov-2026): opcionales. Con ellas se le puede mandar un aviso
+// con texto (chat de viajes agendados, notifyDriverText). Sin ellas (celular
+// viejo o llaves raras) se guarda igual y solo recibe "Nuevo viaje cerca".
+// Si el celular cambió de dueño (otro chofer), las llaves viejas no se quedan.
+async function saveSubscription(driverId, endpoint, p256dh, auth) {
+  const keys = isValidRiderKeys(p256dh, auth);
   await db.prepare(
-    `INSERT INTO driver_push_subs (driver_id, endpoint) VALUES (?, ?)
-     ON CONFLICT(endpoint) DO UPDATE SET driver_id = excluded.driver_id`
-  ).run(driverId, endpoint);
+    `INSERT INTO driver_push_subs (driver_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET driver_id = excluded.driver_id,
+       p256dh = CASE WHEN excluded.p256dh IS NOT NULL OR driver_push_subs.driver_id != excluded.driver_id THEN excluded.p256dh ELSE driver_push_subs.p256dh END,
+       auth = CASE WHEN excluded.auth IS NOT NULL OR driver_push_subs.driver_id != excluded.driver_id THEN excluded.auth ELSE driver_push_subs.auth END`
+  ).run(driverId, endpoint, keys ? p256dh : null, keys ? auth : null);
+}
+
+// Aviso CON texto al chofer (cifrado igual que el del pasajero). Solo a los
+// celulares que ya mandaron sus llaves. kind "chofer": el service worker no
+// lo confunde con "Nuevo viaje cerca".
+async function notifyDriverText(driverId, message) {
+  const subs = await db
+    .prepare("SELECT id, driver_id, endpoint, p256dh, auth FROM driver_push_subs WHERE driver_id = ? AND p256dh IS NOT NULL AND auth IS NOT NULL")
+    .all(driverId);
+  await Promise.allSettled(subs.map(async (sub) => {
+    try {
+      const res = await fetch(sub.endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: await vapidHeader(sub.endpoint),
+          TTL: "3600",
+          Urgency: "high",
+          "Content-Encoding": "aes128gcm",
+          "Content-Type": "application/octet-stream",
+        },
+        body: encryptPayload(sub.p256dh, sub.auth, JSON.stringify({ kind: "chofer", ...message })),
+      });
+      if (res.status === 404 || res.status === 410) await db.prepare("DELETE FROM driver_push_subs WHERE id = ?").run(sub.id);
+      else if (!res.ok) console.warn("[push] respuesta", res.status, "chofer", sub.driver_id);
+    } catch (e) {
+      console.warn("[push] error", e.message);
+    }
+  }));
 }
 async function removeSubscription(driverId, endpoint) {
   await db.prepare("DELETE FROM driver_push_subs WHERE driver_id = ? AND endpoint = ?").run(driverId, endpoint);
@@ -365,7 +400,7 @@ async function saveSupportSubscription(userType, userId, endpoint, p256dh, auth)
 }
 
 module.exports = {
-  getKeys, notifyNewRide, setWantsRides, saveSubscription, removeSubscription, isValidEndpoint,
+  getKeys, notifyNewRide, setWantsRides, saveSubscription, removeSubscription, isValidEndpoint, notifyDriverText,
   notifyRider, saveRiderSubscription, isValidRiderKeys, encryptPayload, sendToRider, sendOne,
   notifyBusiness, saveBusinessSubscription, removeBusinessSubscription,
   notifySupport, saveSupportSubscription,

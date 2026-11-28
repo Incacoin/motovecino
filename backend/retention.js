@@ -8,6 +8,9 @@ const RETENTION_DAYS = 365;
 // Fotos de comprobantes de anticipo (misma promesa, sección del Aviso sobre
 // anticipos) — si se cambia aquí, cambiarlo allá.
 const RECEIPT_RETENTION_DAYS = 90;
+// Mensajes del chat de viajes agendados (booking_messages): solo sirven para
+// coordinar ese viaje y aclarar una queja reciente.
+const BOOKING_CHAT_RETENTION_DAYS = 30;
 
 // Una vez al día basta — el plazo se mide en días, no en minutos.
 const PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -45,6 +48,7 @@ async function purgeOldPersonalData() {
 
     // Viajes agendados (routes/bookings.js) de hace más de un año: el viaje que
     // salió queda en rides (ya anonimizado arriba); la agenda ya no sirve.
+    await db.prepare("DELETE FROM booking_messages WHERE julianday('now') - julianday(created_at) > ?").run(BOOKING_CHAT_RETENTION_DAYS);
     await db.prepare("DELETE FROM booking_offers WHERE booking_id IN (SELECT id FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?)").run(RETENTION_DAYS);
     await db.prepare("DELETE FROM booking_push_subs WHERE booking_id IN (SELECT id FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?)").run(RETENTION_DAYS);
     await db.prepare("DELETE FROM ride_bookings WHERE julianday('now') - julianday(created_at) > ?").run(RETENTION_DAYS);

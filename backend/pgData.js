@@ -36,6 +36,7 @@ const TABLES = [
   "ride_bookings",
   "booking_push_subs",
   "booking_offers",
+  "booking_messages",
   "phone_otps",
   "admin_sessions",
   "admin_audit",

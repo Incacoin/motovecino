@@ -194,6 +194,8 @@ async function riderView(b) {
   if (b.driver_id && b.status === "confirmado") {
     const d = await db.prepare("SELECT id, name, vehicle, vehicle_color, numero_unidad, photo, es_fundador FROM drivers WHERE id = ?").get(b.driver_id);
     if (d) out.driver = { name: firstName(d.name), vehicle: d.vehicle, ...colorParaPasajero(d.vehicle_color), numero_unidad: d.numero_unidad, es_fundador: d.es_fundador, photo: photoUrls("d", d.id, d.photo).photo };
+    // Chat con su chofer (27-nov-2026): mensajes del chofer sin leer.
+    if (d && !b.business_id) out.chatUnread = (await chatUnreadMap([b.id], b.driver_id, "driver"))[b.id] || 0;
   }
   if (b.ride_id) {
     const r = await db.prepare("SELECT id, status, share_token FROM rides WHERE id = ?").get(b.ride_id);
@@ -376,8 +378,9 @@ router.post("/bookings/driver", async (req, res) => {
     .filter((b) => Number(b.scheduled_at_ms) > now + launchConfirmedMs(b) && driverFits(driver, b));
   const offers = await db.prepare("SELECT id, booking_id, price, reason FROM booking_offers WHERE driver_id = ? AND status = 'pendiente'").all(driver.id);
   const myOffers = Object.fromEntries(offers.map((o) => [o.booking_id, o]));
+  const unread = await chatUnreadMap(mine.filter((b) => !isEnvio(b)).map((b) => b.id), driver.id, "rider");
   res.json({
-    mine: mine.map((b) => driverView(b, driver.id)),
+    mine: mine.map((b) => ({ ...driverView(b, driver.id), chat: !isEnvio(b), chatUnread: unread[b.id] || 0 })),
     available: open.map((b) => driverView(b, driver.id, myOffers)),
     offerReasons: BOOKING_OFFER_REASONS,
     offerMaxUp: taxi ? TAXI_OFFER_MAX_UP : MOTO_OFFER_MAX_UP,
@@ -547,6 +550,111 @@ router.post("/bookings/:id/release", async (req, res) => {
     ["Tu chofer asegurado ya no podrá ir", `El envío de las ${hourText(b.scheduled_at_ms)} sigue apartado: otro chofer lo puede asegurar, o sale a los choferes cercanos 5 min antes.`]).catch(() => {});
   bookingsChanged(b).catch(() => {});
   res.json({ ok: true });
+});
+
+// ---- Chat del viaje agendado (27-nov-2026) ----
+// Desde que un chofer confirma hasta que sale el viaje (15 min antes; de ahí
+// sigue el chat normal del viaje). Solo pasaje: en los envíos el chofer
+// trata con el negocio. Se guarda en booking_messages porque casi nunca están
+// conectados al mismo tiempo; cada mensaje avisa al celular del otro. Como en
+// el chat del viaje, los teléfonos se tapan para que no se arregle por fuera.
+const CHAT_MAX_LEN = 300;
+const CHAT_MAX_PER_BOOKING = 80; // entre los dos, en toda la plática
+const CHAT_MIN_GAP_MS = 1500; // no más de un mensaje cada 1.5 s por persona
+const chatLastSend = new Map(); // "viaje:chofer:quien" -> cuándo mandó el último (ms)
+
+// Mensajes sin leer que mandó `from` ("rider" o "driver") en esos viajes, solo
+// de la plática con ese chofer.
+async function chatUnreadMap(ids, driverId, from) {
+  if (!ids.length) return {};
+  const rows = await db
+    .prepare(`SELECT booking_id, COUNT(*) AS n FROM booking_messages WHERE booking_id IN (${ids.map(() => "?").join(", ")}) AND driver_id = ? AND sender = ? AND read_at IS NULL GROUP BY booking_id`)
+    .all(...ids, driverId, from);
+  return Object.fromEntries(rows.map((r) => [r.booking_id, Number(r.n)]));
+}
+
+const chatIsOpen = (b) => b.status === "confirmado" && !!b.driver_id && !b.business_id;
+
+// Lo que ve `me` ("rider" o "driver"): la plática con el chofer actual. Lo que
+// le mandó el otro queda como leído.
+async function chatPayload(b, me) {
+  if (!chatIsOpen(b)) {
+    const launched = b.status === "lanzando" || b.status === "lanzado";
+    return { open: false, closedText: launched ? "Tu viaje ya salió: sigan platicando en el chat del viaje." : "Este chat ya se cerró.", messages: [] };
+  }
+  const other = me === "rider" ? "driver" : "rider";
+  await db.prepare("UPDATE booking_messages SET read_at = datetime('now') WHERE booking_id = ? AND driver_id = ? AND sender = ? AND read_at IS NULL").run(b.id, b.driver_id, other);
+  const rows = await db
+    .prepare("SELECT id, sender, text, created_at FROM booking_messages WHERE booking_id = ? AND driver_id = ? ORDER BY id")
+    .all(b.id, b.driver_id);
+  return { open: true, messages: rows.map((m) => ({ id: m.id, mine: m.sender === me, text: m.text, at: m.created_at })) };
+}
+
+// Guarda el mensaje de `me` y avisa al otro. Regresa un error en texto o null.
+async function chatSend(b, me, rawText, senderName) {
+  if (typeof rawText !== "string" || !rawText.trim()) return { status: 400, error: "Escribe un mensaje" };
+  if (!chatIsOpen(b)) return { status: 409, error: "Este chat ya se cerró" };
+  // Uno cada 1.5 s por persona y viaje. Se revisa y se aparta antes de
+  // cualquier await, así varios envíos al mismo tiempo no pasan juntos.
+  const gapKey = `${b.id}:${b.driver_id}:${me}`;
+  const nowMs = Date.now();
+  if (nowMs - (chatLastSend.get(gapKey) || 0) < CHAT_MIN_GAP_MS) return { status: 429, error: "Espera un momento antes de mandar otro mensaje" };
+  chatLastSend.set(gapKey, nowMs);
+  if (chatLastSend.size > 5000) for (const [k, t] of chatLastSend) if (nowMs - t > CHAT_MIN_GAP_MS) chatLastSend.delete(k);
+  const { n } = await db.prepare("SELECT COUNT(*) AS n FROM booking_messages WHERE booking_id = ? AND driver_id = ?").get(b.id, b.driver_id);
+  if (Number(n) >= CHAT_MAX_PER_BOOKING) return { status: 409, error: "Ya se mandaron muchos mensajes en este viaje. Lo demás, en el chat del viaje cuando salga." };
+  // Teléfono partido en varios mensajes ("997 123" y luego "4567"): se pegan
+  // los números con los que terminaron sus mensajes anteriores y se tapa todo
+  // junto. Se tapa antes de recortar para que el corte no deje dígitos sueltos.
+  const prev = await db
+    .prepare("SELECT text FROM booking_messages WHERE booking_id = ? AND driver_id = ? AND sender = ? ORDER BY id DESC LIMIT 4")
+    .all(b.id, b.driver_id, me);
+  let tail = "";
+  for (const m of prev) {
+    const t = (String(m.text).match(/[\d\s.\-()+]*$/) || [""])[0];
+    tail = `${t} ${tail}`;
+    if (t.length !== String(m.text).length) break; // el mensaje traía más que números
+  }
+  const clean = rawText.trim().replace(/\s+/g, " ");
+  const joined = realtime.maskPhones(`${tail} ${clean}`);
+  const text = joined.slice(tail.length + 1).slice(0, CHAT_MAX_LEN);
+  await db.prepare("INSERT INTO booking_messages (booking_id, driver_id, sender, text) VALUES (?, ?, ?, ?)").run(b.id, b.driver_id, me, text);
+  const preview = text.length > 120 ? text.slice(0, 117) + "…" : text;
+  if (me === "rider") {
+    realtime.notifyDriver(b.driver_id, "booking_chat", { bookingId: b.id });
+    push.notifyDriverText(b.driver_id, { tag: `agenda-chat-${b.id}`, title: `💬 ${senderName} (viaje agendado ${hourText(b.scheduled_at_ms)})`, body: preview }).catch(() => {});
+  } else {
+    pushRider(b.id, `💬 ${senderName}, tu chofer, te escribió`, preview).catch(() => {});
+  }
+  return null;
+}
+
+router.post("/bookings/:id/chat", async (req, res) => {
+  const rider = await authRider(req, res);
+  if (!rider) return;
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND rider_id = ? AND business_id IS NULL").get(Number(req.params.id), rider.id);
+  if (!b) return res.status(404).json({ error: "No encontrado" });
+  if (req.body.text !== undefined) {
+    // Bloqueado (pasajero falso / pausa automática): ya no le escribe al chofer.
+    if (await rejectIfBlocked(rider, res)) return;
+    const err = await chatSend(b, "rider", req.body.text, firstName(rider.name) || "Tu pasajero");
+    if (err) return res.status(err.status).json({ error: err.error });
+  }
+  res.json(await chatPayload(b, "rider"));
+});
+
+router.post("/bookings/:id/driver-chat", async (req, res) => {
+  const driver = await authDriver(req, res);
+  if (!driver) return;
+  // Solo el chofer que lo tiene confirmado: si lo soltó, ya no ve la plática.
+  const b = await db.prepare("SELECT * FROM ride_bookings WHERE id = ? AND driver_id = ? AND business_id IS NULL").get(Number(req.params.id), driver.id);
+  if (!b) return res.status(404).json({ error: "Este chat ya no está disponible" });
+  if (req.body.text !== undefined) {
+    if (await rejectIfSuspended(driver.id, res)) return;
+    const err = await chatSend(b, "driver", req.body.text, firstName(driver.name) || "Tu chofer");
+    if (err) return res.status(err.status).json({ error: err.error });
+  }
+  res.json(await chatPayload(b, "driver"));
 });
 
 // Al suspender a un chofer (admin.js, driverSuspend.js): sus propuestas de

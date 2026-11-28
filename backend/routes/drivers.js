@@ -795,7 +795,7 @@ router.post("/drivers/push/subscribe", async (req, res) => {
   if (!driver) return;
   const endpoint = req.body.endpoint;
   if (!push.isValidEndpoint(endpoint)) return res.status(400).json({ error: "Suscripción no válida" });
-  await push.saveSubscription(driver.id, endpoint);
+  await push.saveSubscription(driver.id, endpoint, req.body.p256dh, req.body.auth);
   res.json({ ok: true });
 });
 

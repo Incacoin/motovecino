@@ -39,6 +39,7 @@ const TESTS = [
   ["ranking", ["ADMIN_PIN", "DATABASE_URL"]],
   ["agendar", ["DATABASE_URL"]],
   ["agendar-oferta", ["DATABASE_URL"]],
+  ["agendar-chat", ["ADMIN_PIN", "DATABASE_URL"]],
   ["envio-asegurado", ["DATABASE_URL"]],
   ["soporte-viaje", ["DATABASE_URL"]],
   ["tarifa-ticul", []],

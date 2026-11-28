@@ -1085,6 +1085,16 @@ function toggleRiderTheme() {
   .bk-when { font-weight: 800; font-size: 15px; }
   /* Propuestas de precio de los choferes (13-nov-2026) */
   #bookingsPill.offer .dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.25); }
+  /* Chat del viaje agendado (27-nov-2026) */
+  .bk-unread { display: inline-block; min-width: 20px; padding: 1px 6px; margin-left: 4px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 800; line-height: 18px; }
+  .bkc-ov { z-index: 3100; }
+  .bkc-box { display: flex; flex-direction: column; gap: 10px; }
+  .bkc-head b { display: block; font-size: 17px; }
+  .bkc-head small { color: var(--text-dim); font-size: 13px; }
+  .bkc-msgs { min-height: 140px; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 0; }
+  .bkc-msgs .chat-msg small { display: block; margin-top: 3px; font-size: 10.5px; opacity: .65; }
+  .bkc-empty, .bkc-hint { color: var(--text-dim); font-size: 13px; line-height: 1.4; }
+  .bkc-closed { border-radius: 12px; padding: 10px 12px; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.45); font-size: 14px; }
   .bk-off { border: 1.5px solid rgba(245,158,11,.6); background: rgba(245,158,11,.08); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
   .bk-off .who { display: flex; align-items: center; gap: 10px; }
   .bk-off .who img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--bg-card); }
@@ -5829,6 +5839,10 @@ async function loadBookings() {
       if (bookingOffersPrimed) showToast(`💬 ${o.driver.name} propone $${o.price} para tu viaje agendado`);
     }
   }
+  // Mensaje nuevo de su chofer en un viaje agendado (si no tiene ese chat abierto).
+  const unreadNow = myBookings.reduce((n, b) => n + (b.chatUnread || 0), 0);
+  if (bookingOffersPrimed && unreadNow > lastBookingUnread && !riderBkChat) showToast("💬 Tu chofer te escribió. Toca tu viaje agendado arriba para verlo.");
+  lastBookingUnread = unreadNow;
   bookingOffersPrimed = true;
   // ¿Ya salió uno y sigue vivo? Se abre como cualquier viaje (la app arranca
   // de nuevo y restoreActiveRide lo enseña).
@@ -5848,8 +5862,11 @@ function renderBookingsPill() {
   const next = pending[0];
   pill.classList.toggle("ok", next.status === "confirmado");
   const withOffer = pending.find((b) => (b.offers || []).length);
-  pill.classList.toggle("offer", !!withOffer);
-  document.getElementById("bookingsPillText").textContent = withOffer
+  const withChat = pending.find((b) => b.chatUnread);
+  pill.classList.toggle("offer", !!(withOffer || withChat));
+  document.getElementById("bookingsPillText").textContent = withChat
+    ? `💬 ${withChat.driver ? withChat.driver.name : "Tu chofer"} te escribió`
+    : withOffer
     ? `💬 Un chofer te propone $${Math.min(...withOffer.offers.map((o) => o.price))}`
     : pending.length > 1
       ? `${pending.length} viajes agendados · ${bookingWhen(next.scheduled_at_ms)}`
@@ -5937,6 +5954,100 @@ async function onBookingOfferAction(e) {
   return true;
 }
 
+// ---- Chat con el chofer del viaje agendado (27-nov-2026, backend/routes/bookings.js) ----
+// Se abre desde que un chofer confirma hasta que sale el viaje (15 min antes;
+// de ahí sigue el chat normal). Revisa mensajes nuevos cada 5 s mientras está
+// abierto; con la app cerrada le llega el aviso al celular.
+let riderBkChat = null; // { id, ov, timer, first }
+let lastBookingUnread = 0;
+
+function bkChatTime(at) {
+  const d = new Date(String(at || "").replace(" ", "T") + "Z");
+  if (isNaN(d)) return "";
+  return d.toLocaleString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }).replace(/\./g, "");
+}
+
+async function riderBkChatCall(id, extra) {
+  const creds = riderCreds();
+  if (!creds) return { ok: false, data: { error: "Vuelve a entrar a tu cuenta" } };
+  const res = await fetch(API + `/api/bookings/${id}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...creds, ...extra }),
+  }).catch(() => null);
+  const data = res ? await res.json().catch(() => ({})) : {};
+  return { ok: !!(res && res.ok), data };
+}
+
+function renderRiderBkChat(data) {
+  if (!riderBkChat) return;
+  const box = riderBkChat.ov.querySelector(".bkc-msgs");
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  const msgs = data.messages || [];
+  box.innerHTML = msgs.length
+    ? msgs.map((m) => `<div class="chat-msg ${m.mine ? "me" : "them"}">${escapeHtml(m.text)}<small>${escapeHtml(bkChatTime(m.at))}</small></div>`).join("")
+    : `<div class="bkc-empty">Todavía no hay mensajes. Puedes darle una referencia de tu casa o avisarle cualquier cambio.</div>`;
+  if (nearBottom || riderBkChat.first) { box.scrollTop = box.scrollHeight; riderBkChat.first = false; }
+  const closed = !data.open;
+  riderBkChat.ov.querySelector(".bkc-row").style.display = closed ? "none" : "";
+  const note = riderBkChat.ov.querySelector(".bkc-closed");
+  note.textContent = closed ? data.closedText || "Este chat ya se cerró." : "";
+  note.style.display = closed ? "" : "none";
+}
+
+async function refreshRiderBkChat() {
+  if (!riderBkChat) return;
+  const id = riderBkChat.id;
+  const r = await riderBkChatCall(id, {});
+  if (!riderBkChat || riderBkChat.id !== id) return;
+  renderRiderBkChat(r.ok ? r.data : { open: false, closedText: r.data.error || "Este chat ya no está disponible.", messages: [] });
+}
+
+function openRiderBookingChat(id, onClose) {
+  const b = myBookings.find((x) => x.id === id);
+  if (!b || !b.driver) return;
+  // Ya hay uno abierto (doble toque): se cierra antes, con su revisión cada 5 s.
+  if (riderBkChat) { clearInterval(riderBkChat.timer); riderBkChat.ov.remove(); riderBkChat = null; }
+  const ov = document.createElement("div");
+  ov.className = "mv-confirm bkc-ov";
+  ov.innerHTML = `<div class="mv-confirm-box bk-box bkc-box" role="dialog" aria-modal="true">
+    <div class="bkc-head"><b>💬 ${escapeHtml(b.driver.name)}</b><small>Tu viaje agendado · ${escapeHtml(bookingWhen(b.scheduled_at_ms))}</small></div>
+    <div class="bkc-msgs"></div>
+    <div class="bkc-closed" style="display:none"></div>
+    <div class="chat-row bkc-row"><input maxlength="300" placeholder="Escríbele a tu chofer..." /><button class="btn" type="button" data-bkcsend="1">Enviar</button></div>
+    <div class="bkc-hint">Los números de teléfono se tapan. 15 minutos antes del viaje la plática sigue en el chat del viaje.</div>
+    <button class="btn btn-secondary" type="button" data-bkcclose="1">Cerrar</button>
+  </div>`;
+  document.body.appendChild(ov);
+  riderBkChat = { id, ov, first: true, timer: setInterval(() => { if (document.visibilityState === "visible") refreshRiderBkChat(); }, 5000) };
+  const close = async () => {
+    if (!riderBkChat) return;
+    clearInterval(riderBkChat.timer);
+    ov.remove();
+    riderBkChat = null;
+    await loadBookings();
+    if (onClose) onClose();
+  };
+  const input = ov.querySelector("input");
+  const send = async () => {
+    const btn = ov.querySelector("[data-bkcsend]");
+    const text = input.value.trim();
+    if (!text || btn.disabled) return;
+    btn.disabled = true;
+    const r = await riderBkChatCall(id, { text });
+    btn.disabled = false;
+    if (!r.ok) { showToast(r.data.error || "No se pudo mandar, intenta de nuevo"); return; }
+    input.value = "";
+    if (riderBkChat && riderBkChat.id === id) { riderBkChat.first = true; renderRiderBkChat(r.data); }
+  };
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  ov.addEventListener("click", (e) => {
+    if (e.target === ov || e.target.closest("[data-bkcclose]")) return close();
+    if (e.target.closest("[data-bkcsend]")) send();
+  });
+  refreshRiderBkChat();
+}
+
 function openBookings() {
   const ov = document.createElement("div");
   ov.className = "mv-confirm";
@@ -5949,6 +6060,7 @@ function openBookings() {
         <div class="bk-when">${escapeHtml(bookingWhen(b.scheduled_at_ms))}</div>
         <div class="bk-line">${b.ride_type === "taxi" ? "Taxi" : "Mototaxi"} · $${b.offer_price}${b.pickup_label ? ` · ${escapeHtml(b.pickup_label)}` : ""}</div>
         ${bookingStateHtml(b)}
+        ${b.status === "confirmado" && b.driver ? `<button class="btn" style="margin-bottom:8px" data-bkchat="${b.id}">💬 Escribirle a ${escapeHtml(b.driver.name)}${b.chatUnread ? ` <span class="bk-unread">${b.chatUnread}</span>` : ""}</button>` : ""}
         ${bookingOffersHtml(b)}
         ${bookingRaiseHtml(b)}
         <button class="btn btn-secondary" data-cancel="${b.id}">Cancelar este viaje</button>
@@ -5961,6 +6073,8 @@ function openBookings() {
   ov.addEventListener("click", async (e) => {
     if (e.target === ov || e.target.closest("[data-close]")) return ov.remove();
     if (await onBookingOfferAction(e)) { render(); return; }
+    const chatBtn = e.target.closest("[data-bkchat]");
+    if (chatBtn) { openRiderBookingChat(Number(chatBtn.dataset.bkchat), render); return; }
     const c = e.target.closest("[data-cancel]");
     if (!c) return;
     const id = Number(c.dataset.cancel);
