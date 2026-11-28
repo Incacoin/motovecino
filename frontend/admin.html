@@ -883,6 +883,11 @@
   </div>
 
   <div id="tabPanel-pasajeros" class="tab-panel">
+  <div class="section-card" id="promotersCard" style="display:none;">
+  <h1>📣 Promotores</h1>
+  <p class="section-hint">Personas que salen a la calle a instalarle la app a la gente. Cada uno tiene su código y su QR. Se le paga en efectivo por cada pasajero <b>nuevo</b> registrado con su código que ya hizo <b>3 viajes</b>. No cuentan cuentas de prueba ni el teléfono del propio promotor. El promotor no ve teléfonos: tú le dices sus números.</p>
+  <div id="promotersBox"><div class="section-hint">Cargando…</div></div>
+  </div>
   <div class="section-card" id="playUsersCard" style="display:none;">
   <h1>App de Google Play</h1>
   <p class="section-hint">Quién abrió MotoVecino desde la app instalada de Play Store y entró con su cuenta (todas las zonas). Quien la instaló pero nunca la abrió no aparece aquí.</p>
@@ -1863,6 +1868,169 @@ async function marcarEntrega(id, que, el) {
   // Se vuelve a pintar al terminar todas (si se pinta antes, se pierde la casilla que aún guarda).
   if (!entregaGuardando) renderPadron();
 }
+// ---- Promotores (27-nov-2026, ver backend/promoters.js) ----
+// Alta (nombre, teléfono opcional, pago por pasajero), QR para imprimir,
+// cuántos lleva cada uno, «Pagar» (marca sus pasajeros como pagados) y
+// anotar pagos por jornada.
+let promotersData = null; // { promoters, ridesRequired, defaultPay }
+let promoterOpen = null; // id del promotor con el detalle abierto
+let promoterDetail = null;
+async function prPost(path, body = {}) {
+  const res = await fetch(API + "/api/admin/promoters" + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ adminPin, ...body }) });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error((data && data.error) || "No se pudo");
+  if (!data) throw new Error("Respuesta no válida del servidor");
+  return data;
+}
+let prLoading = 0;
+async function loadPromoters() {
+  const box = document.getElementById("promotersBox");
+  if (!box || adminRoleNow === "progreso") return;
+  const ticket = ++prLoading;
+  let data, detail = null;
+  try {
+    data = await prPost("/list");
+    if (promoterOpen && data.promoters.some((p) => p.id === promoterOpen)) detail = await prPost(`/${promoterOpen}/list`);
+  } catch (e) {
+    if (ticket === prLoading) box.innerHTML = `<div class="section-hint">${escapeHtml(e.message)}</div>`;
+    return;
+  }
+  if (ticket !== prLoading) return;
+  promotersData = data;
+  if (!detail) promoterOpen = null;
+  promoterDetail = detail;
+  renderPromoters();
+}
+function prDate(utc) {
+  if (!utc) return "";
+  return new Date(String(utc).replace(" ", "T") + "Z").toLocaleString("es-MX", { timeZone: "America/Merida", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+const prPlural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function renderPromoters() {
+  const box = document.getElementById("promotersBox");
+  if (!box || !promotersData) return;
+  const { promoters, ridesRequired, defaultPay } = promotersData;
+  let html = "";
+  if (promoters.length) {
+    // Tarjetas (no tabla): el dueño lo usa en el celular y una tabla de 8
+    // columnas escondía «Por pagar» y el botón «Pagar».
+    const stat = (n, label) => `<div style="flex:1;min-width:70px;text-align:center"><div style="font-size:20px;font-weight:800">${n}</div><div style="font-size:11.5px;color:var(--text-dim);line-height:1.2">${label}</div></div>`;
+    html += promoters.map((p) => `<div style="border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:10px${p.active ? "" : ";opacity:.55"}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div><b style="font-size:16px">${escapeHtml(p.name)}</b><div style="font-size:12.5px;color:var(--text-dim)">$${p.payPerRider} por pasajero${p.phone ? " · " + escapeHtml(p.phone) : ""}${p.active ? "" : " · PAUSADO"}</div></div>
+          <div style="text-align:right"><div style="font-size:11px;color:var(--text-dim)">Código</div><div style="font-family:monospace;font-size:18px;font-weight:800;letter-spacing:.12em">${escapeHtml(p.code)}</div></div>
+        </div>
+        <div style="display:flex;gap:6px;margin:12px 0 10px">
+          ${stat(p.registered, "Registrados")}${stat(p.started, "A medio camino")}${stat(p.qualified, `Con ${ridesRequired} viajes`)}${stat("$" + p.paidTotal, "Ya pagado")}
+        </div>
+        ${p.toPay ? `<div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:10px;padding:8px 10px;margin-bottom:10px;font-size:14px">Por pagar: <b>$${p.owed}</b> (${prPlural(p.toPay, "pasajero", "pasajeros")})</div>` : ""}
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${p.toPay ? `<button class="btn-sm" onclick="prPay(${p.id}, ${p.toPay}, ${p.owed})"><b>Pagar $${p.owed}</b></button>` : ""}
+          <button class="btn-sm" onclick="prPrint(${p.id})">Imprimir QR</button>
+          <button class="btn-sm" onclick="prToggle(${p.id})">${promoterOpen === p.id ? "Cerrar" : "Ver más"}</button>
+        </div>
+        ${promoterOpen === p.id && promoterDetail ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">${prDetailHtml(p, promoterDetail)}</div>` : ""}
+      </div>`).join("") + `
+      <p class="section-hint" style="margin-top:6px">«A medio camino» = ya hicieron 1 o 2 viajes. «Pagar» marca como pagados a todos los que ya tienen ${ridesRequired} viajes y no se habían pagado: dale el efectivo y luego toca el botón. Si alguien tiene muchos registrados y casi nadie con viajes, revísalo antes de pagar.</p>
+      <button class="btn-sm" onclick="loadPromoters()">Actualizar</button>`;
+  } else {
+    html += `<div class="section-hint">Todavía no hay promotores en este municipio.</div>`;
+  }
+  html += `<details style="margin-top:12px"${promoters.length ? "" : " open"}><summary style="cursor:pointer;font-weight:700">➕ Dar de alta un promotor</summary>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+      <input id="prName" class="admin-search" style="flex:2;min-width:180px;margin:0" placeholder="Nombre" maxlength="60" />
+      <input id="prPhone" class="admin-search" style="flex:1;min-width:140px;margin:0" placeholder="Teléfono (opcional)" inputmode="numeric" maxlength="10" />
+      <label style="display:flex;align-items:center;gap:6px;font-size:14px">$ por pasajero <input id="prPay" class="admin-search" style="width:70px;margin:0" type="number" min="0" max="100" value="${defaultPay}" /></label>
+    </div>
+    <p class="section-hint" style="margin-top:6px">El teléfono solo sirve para que el promotor no se cuente a sí mismo. Solo se ve aquí en el admin.</p>
+    <button class="btn" style="margin-top:8px" onclick="prCreate()">Crear promotor y su código</button>
+  </details>`;
+  box.innerHTML = html;
+}
+function prDetailHtml(p, d) {
+  const riders = d.riders.length
+    ? `<div style="font-size:14px">${d.riders.map((r) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <div>${escapeHtml(r.name || "Sin nombre")}<div style="font-size:12px;color:var(--text-dim)">Se registró ${escapeHtml(prDate(r.createdAt))}</div></div>
+        <div style="text-align:right;white-space:nowrap">${r.rides} de ${d.ridesRequired} viajes<div style="font-size:12px;${r.qualified && !r.paidAt ? "font-weight:700" : "color:var(--text-dim)"}">${r.paidAt ? "Pagado " + escapeHtml(prDate(r.paidAt)) : r.qualified ? "Por pagar" : "Todavía no"}</div></div>
+      </div>`).join("")}</div>`
+    : `<div class="section-hint">Todavía nadie se ha registrado con su código.</div>`;
+  const payouts = d.payouts.length
+    ? `<ul style="margin:6px 0 0 18px;font-size:14px">${d.payouts.map((o) => `<li>${escapeHtml(prDate(o.createdAt))} · <b>$${o.amount}</b> · ${o.kind === "pasajeros" ? prPlural(o.ridersCount, "pasajero", "pasajeros") : "Jornada"}${o.note ? " · " + escapeHtml(o.note) : ""}</li>`).join("")}</ul>`
+    : `<div class="section-hint">Sin pagos todavía.</div>`;
+  return `<div style="padding:6px 0">
+    <h3 style="margin:0 0 6px;font-size:15px">Pasajeros de ${escapeHtml(p.name)}</h3>${riders}
+    <h3 style="margin:14px 0 6px;font-size:15px">Pagos</h3>${payouts}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px">
+      <input id="prJAmount" class="admin-search" style="width:100px;margin:0" type="number" min="1" max="2000" placeholder="$" />
+      <input id="prJNote" class="admin-search" style="flex:1;min-width:160px;margin:0" placeholder="Nota (ej. sábado mercado)" maxlength="120" />
+      <button class="btn-sm" onclick="prJornada(${p.id})">Anotar pago de jornada</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px">
+      <input id="prEName" class="admin-search" style="flex:2;min-width:160px;margin:0" value="${escapeHtml(p.name)}" maxlength="60" aria-label="Nombre" />
+      <input id="prEPhone" class="admin-search" style="flex:1;min-width:130px;margin:0" value="${escapeHtml(p.phone || "")}" placeholder="Teléfono (opcional)" inputmode="numeric" maxlength="10" aria-label="Teléfono" />
+      <label style="display:flex;align-items:center;gap:6px;font-size:14px">$ por pasajero <input id="prEPay" class="admin-search" style="width:70px;margin:0" type="number" min="0" max="100" value="${p.payPerRider}" /></label>
+      <button class="btn-sm" onclick="prSave(${p.id})">Guardar cambios</button>
+      <button class="btn-sm${p.active ? " danger" : ""}" onclick="prActive(${p.id}, ${!p.active})">${p.active ? "Pausar promotor" : "Reactivar promotor"}</button>
+    </div>
+    <p class="section-hint" style="margin-top:6px">Si cambias el pago por pasajero, cuenta para los que todavía no se han pagado. Pausado: su código deja de servir para registros nuevos; lo que ya tiene se queda.</p>
+  </div>`;
+}
+async function prToggle(id) {
+  if (promoterOpen === id) { promoterOpen = null; promoterDetail = null; renderPromoters(); return; }
+  try { promoterDetail = await prPost(`/${id}/list`); promoterOpen = id; renderPromoters(); } catch (e) { showToast(e.message); }
+}
+async function prCreate() {
+  const name = document.getElementById("prName").value.trim();
+  const phone = document.getElementById("prPhone").value.trim();
+  const payPerRider = document.getElementById("prPay").value.trim();
+  try {
+    const r = await prPost("/create", { name, phone, payPerRider });
+    showToast(`Promotor creado. Su código: ${r.code}`);
+    loadPromoters();
+  } catch (e) { showToast(e.message); }
+}
+async function prSave(id) {
+  try {
+    await prPost(`/${id}/update`, { name: document.getElementById("prEName").value, phone: document.getElementById("prEPhone").value.trim(), payPerRider: document.getElementById("prEPay").value.trim() });
+    showToast("Cambios guardados");
+    loadPromoters();
+  } catch (e) { showToast(e.message); }
+}
+async function prActive(id, active) {
+  if (!active && !confirm("¿Pausar a este promotor? Su código ya no servirá para registros nuevos. Lo que ya tiene se queda.")) return;
+  try { await prPost(`/${id}/update`, { active }); showToast(active ? "Promotor reactivado" : "Promotor pausado"); loadPromoters(); } catch (e) { showToast(e.message); }
+}
+async function prPay(id, count, owed) {
+  if (!confirm(`¿Ya le diste $${owed} en efectivo por ${prPlural(count, "pasajero", "pasajeros")}? Se marcan como pagados.`)) return;
+  try { const r = await prPost(`/${id}/pay`); showToast(`Pago anotado: $${r.amount} por ${prPlural(r.riders, "pasajero", "pasajeros")}`); loadPromoters(); } catch (e) { showToast(e.message); }
+}
+async function prJornada(id) {
+  const amount = Number(document.getElementById("prJAmount").value);
+  const note = document.getElementById("prJNote").value.trim();
+  if (!amount) return showToast("Escribe la cantidad");
+  if (!confirm(`¿Anotar pago de jornada de $${amount}?`)) return;
+  try { await prPost(`/${id}/jornada`, { amount, note }); showToast("Pago de jornada anotado"); loadPromoters(); } catch (e) { showToast(e.message); }
+}
+// Hoja para imprimir: QR grande (lleva a /invita con su código), nombre y código.
+function prPrint(id) {
+  const p = promotersData && promotersData.promoters.find((x) => x.id === id);
+  if (!p) return;
+  const w = window.open("", "_blank");
+  if (!w) return showToast("Permite las ventanas emergentes para imprimir");
+  const qr = (API || location.origin) + "/api/qr/invita/" + encodeURIComponent(p.code) + ".svg";
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>QR ${escapeHtml(p.name)}</title>
+    <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;display:flex;justify-content:center}
+    .card{width:10cm;margin:1cm auto;border:2px solid #111;border-radius:16px;padding:18px;text-align:center}
+    .brand{font-weight:800;font-size:22px} .t{font-size:16px;margin:6px 0 10px} img{width:7cm;height:7cm}
+    .code{font-size:30px;font-weight:800;letter-spacing:.18em;margin-top:8px} .n{font-size:14px;color:#444;margin-top:4px}
+    @media print{.noprint{display:none}}</style></head><body>
+    <div class="card"><div class="brand">MotoVecino</div><div class="t">Pide tu mototaxi desde tu celular<br><b>Escanea y descarga la app</b></div>
+    <img src="${escapeHtml(qr)}" alt="QR"><div class="code">${escapeHtml(p.code)}</div><div class="n">Código de invitación · ${escapeHtml(p.name)}</div></div>
+    <div class="noprint" style="position:fixed;bottom:16px;left:0;right:0;text-align:center"><button onclick="print()" style="font-size:16px;padding:10px 20px">Imprimir</button></div>
+    </body></html>`);
+  w.document.close();
+}
+
 // ---- Ranking de choferes (27-nov-2026, ver backend/ranking.js) ----
 // Programar (fechas, premio, mínimo), ver la lista, quitar a quien meta
 // registros falsos, sacar la imagen para Facebook y marcar el premio pagado.
@@ -2453,6 +2621,7 @@ function switchTab(tab) {
   if (tab === "movimientos") { loadAudit(); loadPasskeys(); }
   if (tab === "soporte") loadSupport();
   if (tab === "choferes") loadRanking();
+  if (tab === "pasajeros") loadPromoters();
   closeDrawer();
 }
 
@@ -2694,6 +2863,9 @@ async function login(withSavedToken) {
   // Etiquetas QR: el PIN de Progreso no tiene permiso en el servidor.
   const qrBtn = document.getElementById("qrLabelsBtn");
   if (qrBtn) qrBtn.style.display = adminRoleNow === "progreso" ? "none" : "";
+  // Promotores: tampoco para el PIN de Progreso.
+  const prCard = document.getElementById("promotersCard");
+  if (prCard) prCard.style.display = adminRoleNow === "progreso" ? "none" : "";
   // Ranking de choferes: tampoco para el PIN de Progreso.
   const rkCard = document.getElementById("rankingCard");
   if (rkCard) rkCard.style.display = adminRoleNow === "progreso" ? "none" : "";
@@ -2769,6 +2941,7 @@ function loadAllAdminData() {
   }
   loadDrivers();
   loadRanking();
+  loadPromoters();
   loadRiders();
   loadPlayUsers();
   loadRides();

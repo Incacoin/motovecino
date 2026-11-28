@@ -109,8 +109,9 @@
   if (!code) return;
   // Se guarda en el celular para que el registro del pasajero lo encuentre
   // aunque llegue después (por ejemplo, al abrir la app ya instalada de Play).
-  // 7 letras = código de un pasajero ("Invita a tu vecino"); 6 = de un chofer.
-  fetch((code.length === 7 ? "/api/riders/invite/" : "/api/drivers/invite/") + encodeURIComponent(code))
+  // 7 letras = código de un pasajero ("Invita a tu vecino"); 6 = de un chofer;
+  // 5 = de un promotor (27-nov-2026), se revisa en la misma ruta del vecino.
+  fetch((code.length === 7 || code.length === 5 ? "/api/riders/invite/" : "/api/drivers/invite/") + encodeURIComponent(code))
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d || !d.ok) {
@@ -123,6 +124,10 @@
       if (code.length === 7) {
         document.getElementById("tag").textContent = "Te invitó tu vecino";
         document.getElementById("codeLbl").textContent = "Código de tu vecino";
+      }
+      if (code.length === 5) {
+        document.getElementById("tag").textContent = "Bienvenido";
+        document.getElementById("codeLbl").textContent = "Código de invitación";
       }
       document.getElementById("codeBox").hidden = false;
       document.getElementById("openApp").href = "/pasajero.html?chofer=" + encodeURIComponent(code);

@@ -2906,7 +2906,8 @@ async function goToMap() {
     // ya no se puede ligar). Si no hay internet para revisarlo, se sigue.
     const refCode = document.getElementById("refInput").value.trim();
     if (refCode) {
-      const chk = await fetch(API + (refCode.length === 7 ? "/api/riders/invite/" : "/api/drivers/invite/") + encodeURIComponent(refCode)).catch(() => null);
+      // 7 letras = vecino, 5 = promotor (los dos se revisan en /riders/invite), 6 = chofer.
+      const chk = await fetch(API + (refCode.length === 7 || refCode.length === 5 ? "/api/riders/invite/" : "/api/drivers/invite/") + encodeURIComponent(refCode)).catch(() => null);
       if (chk && chk.status === 404) {
         err.textContent = "Ese código no existe o ya no está vigente. Revísalo o bórralo para continuar.";
         document.getElementById("refInput").focus();

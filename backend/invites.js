@@ -85,4 +85,13 @@ async function findRiderInviter(db, code) {
   return (await db.prepare("SELECT id, phone FROM riders WHERE invite_code = ?").get(clean)) || null;
 }
 
-module.exports = { ensureInviteCode, findInviter, shortName, ensureRiderInviteCode, findRiderInviter, RIDER_CODE_LENGTH };
+// Promotores (27-nov-2026): su código es de 5 letras (chofer 6, pasajero 7).
+const PROMOTER_CODE_LENGTH = 5;
+
+async function findPromoter(db, code) {
+  const clean = normalizeCode(code);
+  if (!clean || clean.length !== PROMOTER_CODE_LENGTH) return null;
+  return (await db.prepare("SELECT id, phone, city FROM promoters WHERE code = ? AND active = 1").get(clean)) || null;
+}
+
+module.exports = { ensureInviteCode, findInviter, shortName, ensureRiderInviteCode, findRiderInviter, RIDER_CODE_LENGTH, randomCode, findPromoter, PROMOTER_CODE_LENGTH };

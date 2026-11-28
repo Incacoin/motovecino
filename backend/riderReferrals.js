@@ -15,7 +15,7 @@
 //    pasajeros nuevos ni se dan premios.
 const { LOCAL_OFFSET } = require("./earnings");
 const { SERVICE_FEE, TAXI_COMMISSION_RATE } = require("./constants");
-const { findInviter, findRiderInviter, ensureRiderInviteCode, RIDER_CODE_LENGTH } = require("./invites");
+const { findInviter, findRiderInviter, ensureRiderInviteCode, RIDER_CODE_LENGTH, findPromoter, PROMOTER_CODE_LENGTH } = require("./invites");
 
 const RIDER_REFERRAL_RIDES = 3;
 const RIDER_REFERRAL = {
@@ -68,10 +68,17 @@ async function courtesyUseOpen(db) {
   return (await db.prepare(`SELECT date('now', '${LOCAL_OFFSET}') <= ? AS ok`).get(RIDER_FRIEND.USE_END)).ok === 1;
 }
 
-// Código del QR → quién invitó: { driverId } o { riderId } (o null).
+// Código del QR → quién invitó: { driverId }, { riderId } o { promoterId } (o null).
+// El de promotor (5 letras) no depende de la fecha de fin de las promociones
+// de invitar: sirve mientras el promotor esté activo en el admin.
 async function inviterFromCode(db, code, riderPhone) {
-  if (!code || !(await riderPromoActive(db))) return null;
+  if (!code) return null;
   const clean = String(code).trim().toUpperCase();
+  if (clean.length === PROMOTER_CODE_LENGTH) {
+    const p = await findPromoter(db, clean);
+    return p && (!p.phone || p.phone !== riderPhone) ? { promoterId: p.id } : null;
+  }
+  if (!(await riderPromoActive(db))) return null;
   if (clean.length === RIDER_CODE_LENGTH) {
     const r = await findRiderInviter(db, clean);
     return r && r.phone !== riderPhone ? { riderId: r.id } : null;
@@ -311,4 +318,4 @@ async function riderReferralStatus(db, driver) {
   };
 }
 
-module.exports = { courtesyAmountFor, RIDER_FRIEND, inviterFromCode, friendStatus, checkRiderFriendReward, checkRiderFriendForRide, courtesiesAvailable, claimCourtesy, payCourtesy, settleCourtesy, pendingCourtesiesForDriver, chooseCourtesy, RIDER_REFERRAL, QUALIFYING_RIDE_SQL, riderInviterId, checkRiderReferralReward, checkRiderReferralForRide, riderReferralStatus };
+module.exports = { RIDES_COUNT_SQL, courtesyAmountFor, RIDER_FRIEND, inviterFromCode, friendStatus, checkRiderFriendReward, checkRiderFriendForRide, courtesiesAvailable, claimCourtesy, payCourtesy, settleCourtesy, pendingCourtesiesForDriver, chooseCourtesy, RIDER_REFERRAL, QUALIFYING_RIDE_SQL, riderInviterId, checkRiderReferralReward, checkRiderReferralForRide, riderReferralStatus };

@@ -155,15 +155,17 @@ router.post("/riders/register", async (req, res) => {
   // invitó (código del QR o escrito a mano). Un código que no sirve se ignora
   // sin estorbar el registro.
   // 25-nov-2026: el código también puede ser de un PASAJERO ("Invita a tu vecino").
-  let inviterId = null, riderInviter = null;
+  // 27-nov-2026: o de un PROMOTOR (código de 5 letras, ver promoters.js).
+  let inviterId = null, riderInviter = null, promoterId = null;
   try {
     const inv = await inviterFromCode(db, req.body.ref, phone);
     if (inv && inv.driverId) inviterId = inv.driverId;
     if (inv && inv.riderId) riderInviter = inv.riderId;
+    if (inv && inv.promoterId) promoterId = inv.promoterId;
   } catch (e) { console.error("[invita-pasajeros]", e.message); }
   const result = await db
-    .prepare("INSERT INTO riders (phone, name, pin, city, city_located, referred_by_driver_id, referred_by_rider_id, referred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
-    .run(phone, name, pin, city, located, inviterId, riderInviter, (inviterId || riderInviter) ? new Date().toISOString().slice(0, 19).replace("T", " ") : null);
+    .prepare("INSERT INTO riders (phone, name, pin, city, city_located, referred_by_driver_id, referred_by_rider_id, referred_by_promoter_id, referred_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))")
+    .run(phone, name, pin, city, located, inviterId, riderInviter, promoterId, (inviterId || riderInviter || promoterId) ? new Date().toISOString().slice(0, 19).replace("T", " ") : null);
   // Sin await: el WhatsApp de bienvenida no hace esperar a la persona.
   sendWelcome(parsed.e164, name);
   res.status(201).json({ id: result.lastInsertRowid, name, phone, pin, isNewPin: true });
@@ -192,6 +194,7 @@ router.post("/riders/:id/update-name", async (req, res) => {
 
 // "Invita a tu vecino": ¿este código de vecino sirve hoy? Solo responde ok
 // (no dice de quién es). Fuera de la promoción ya no liga a nadie → 404.
+// 27-nov-2026: también revisa códigos de promotor (5 letras).
 // Con límite propio: que nadie pruebe códigos al azar para sacar los buenos.
 // Contador aparte del de registros: equivocarse al escribir el código no debe
 // quitarle a nadie la posibilidad de registrarse.
@@ -203,7 +206,7 @@ router.get("/riders/invite/:code", async (req, res) => {
   if (e && now > e.resetAt) { badInviteCodes.delete(req.ip); e = null; }
   if (e && e.count >= BAD_INVITE_MAX) return res.status(429).json({ error: RATE_LIMIT_MESSAGE });
   const inv = await inviterFromCode(db, req.params.code, "");
-  if (!inv || !inv.riderId) {
+  if (!inv || (!inv.riderId && !inv.promoterId)) {
     if (!e) { e = { count: 0, resetAt: now + BAD_INVITE_WINDOW_MS }; badInviteCodes.set(req.ip, e); }
     e.count++;
     if (badInviteCodes.size > 5000) badInviteCodes.clear(); // que no crezca sin fin

@@ -44,6 +44,7 @@ const { ensureInviteCode } = require("../invites");
 const { creditBalance } = require("../referrals");
 const { QUALIFYING_RIDE_SQL, settleCourtesy } = require("../riderReferrals");
 const ranking = require("../ranking");
+const promoters = require("../promoters");
 const { NO_SHOW_REASON, AUTO_LIMIT, AUTO_DAYS, AUTO_MIN_DRIVERS } = require("../riderBlock");
 const { SUSPEND_REASONS, suspendPayload } = require("../driverSuspend");
 const { toStored, inflateRow, isRef, toDataUrl } = require("../imageStore");
@@ -400,6 +401,45 @@ router.post("/admin/ranking/:id/exclude", checkAdminPin, async (req, res) => {
 router.post("/admin/ranking/:id/paid", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("ranking_campaigns", req, res)) return;
   const r = await ranking.markPaid(db, req.params.id, req.body.driverId);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+// ---- Promotores (27-nov-2026, ver promoters.js) ----
+// Solo los del municipio de este admin. El detalle termina en /list para que
+// abrirlo no llene Movimientos; crear, editar y pagar sí quedan anotados.
+router.post("/admin/promoters/list", checkAdminPin, async (req, res) => {
+  res.json({ promoters: await promoters.listPromoters(db, req.adminCity), ridesRequired: promoters.RIDES_REQUIRED, defaultPay: promoters.DEFAULT_PAY });
+});
+
+router.post("/admin/promoters/create", checkAdminPin, async (req, res) => {
+  const r = await promoters.createPromoter(db, req.adminCity, req.body);
+  if (r.error) return res.status(400).json(r);
+  res.status(201).json(r);
+});
+
+router.post("/admin/promoters/:id/update", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("promoters", req, res)) return;
+  const r = await promoters.updatePromoter(db, req.params.id, req.body);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+router.post("/admin/promoters/:id/list", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("promoters", req, res)) return;
+  res.json(await promoters.promoterDetail(db, req.params.id));
+});
+
+router.post("/admin/promoters/:id/pay", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("promoters", req, res)) return;
+  const r = await promoters.payRiders(db, req.params.id);
+  if (r.error) return res.status(400).json(r);
+  res.json(r);
+});
+
+router.post("/admin/promoters/:id/jornada", checkAdminPin, async (req, res) => {
+  if (!await assertOwnCity("promoters", req, res)) return;
+  const r = await promoters.addJornada(db, req.params.id, req.body);
   if (r.error) return res.status(400).json(r);
   res.json(r);
 });

@@ -8,8 +8,10 @@ const zlib = require("node:zlib");
 const TABLES = [
   "leaders",
   "leader_payments",
+  "promoters",
   "drivers",
   "riders",
+  "promoter_payouts",
   "rides",
   "driver_applications",
   "driver_payments",
