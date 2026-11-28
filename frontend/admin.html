@@ -1954,11 +1954,12 @@ function prDetailHtml(p, d) {
         <div style="text-align:right;white-space:nowrap">${r.rides} de ${d.ridesRequired} viajes<div style="font-size:12px;${r.qualified && !r.paidAt ? "font-weight:700" : "color:var(--text-dim)"}">${r.paidAt ? "Pagado " + escapeHtml(prDate(r.paidAt)) : r.qualified ? "Por pagar" : "Todavía no"}</div></div>
       </div>`).join("")}</div>`
     : `<div class="section-hint">Todavía nadie se ha registrado con su código.</div>`;
+  const cut = d.truncated ? `<div class="section-hint" style="margin-top:6px">Se ven ${d.limit}: primero los que están por pagar y luego los más nuevos. Los números de arriba sí cuentan a todos.</div>` : "";
   const payouts = d.payouts.length
     ? `<ul style="margin:6px 0 0 18px;font-size:14px">${d.payouts.map((o) => `<li>${escapeHtml(prDate(o.createdAt))} · <b>$${o.amount}</b> · ${o.kind === "pasajeros" ? prPlural(o.ridersCount, "pasajero", "pasajeros") : "Jornada"}${o.note ? " · " + escapeHtml(o.note) : ""}</li>`).join("")}</ul>`
     : `<div class="section-hint">Sin pagos todavía.</div>`;
   return `<div style="padding:6px 0">
-    <h3 style="margin:0 0 6px;font-size:15px">Pasajeros de ${escapeHtml(p.name)}</h3>${riders}
+    <h3 style="margin:0 0 6px;font-size:15px">Pasajeros de ${escapeHtml(p.name)}</h3>${riders}${cut}
     <h3 style="margin:14px 0 6px;font-size:15px">Pagos</h3>${payouts}
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px">
       <input id="prJAmount" class="admin-search" style="width:100px;margin:0" type="number" min="1" max="2000" placeholder="$" />
@@ -1976,8 +1977,14 @@ function prDetailHtml(p, d) {
   </div>`;
 }
 async function prToggle(id) {
+  // Sube el contador: si una carga de la lista venía en camino, ya no pisa esto.
+  const ticket = ++prLoading;
   if (promoterOpen === id) { promoterOpen = null; promoterDetail = null; renderPromoters(); return; }
-  try { promoterDetail = await prPost(`/${id}/list`); promoterOpen = id; renderPromoters(); } catch (e) { showToast(e.message); }
+  try {
+    const d = await prPost(`/${id}/list`);
+    if (ticket !== prLoading) return;
+    promoterDetail = d; promoterOpen = id; renderPromoters();
+  } catch (e) { showToast(e.message); }
 }
 async function prCreate() {
   const name = document.getElementById("prName").value.trim();
@@ -2002,7 +2009,7 @@ async function prActive(id, active) {
 }
 async function prPay(id, count, owed) {
   if (!confirm(`¿Ya le diste $${owed} en efectivo por ${prPlural(count, "pasajero", "pasajeros")}? Se marcan como pagados.`)) return;
-  try { const r = await prPost(`/${id}/pay`); showToast(`Pago anotado: $${r.amount} por ${prPlural(r.riders, "pasajero", "pasajeros")}`); loadPromoters(); } catch (e) { showToast(e.message); }
+  try { const r = await prPost(`/${id}/pay`, { riders: count, amount: owed }); showToast(`Pago anotado: $${r.amount} por ${prPlural(r.riders, "pasajero", "pasajeros")}`); loadPromoters(); } catch (e) { showToast(e.message); }
 }
 async function prJornada(id) {
   const amount = Number(document.getElementById("prJAmount").value);

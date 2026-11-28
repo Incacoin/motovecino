@@ -432,8 +432,8 @@ router.post("/admin/promoters/:id/list", checkAdminPin, async (req, res) => {
 
 router.post("/admin/promoters/:id/pay", checkAdminPin, async (req, res) => {
   if (!await assertOwnCity("promoters", req, res)) return;
-  const r = await promoters.payRiders(db, req.params.id);
-  if (r.error) return res.status(400).json(r);
+  const r = await promoters.payRiders(db, req.params.id, { riders: req.body.riders, amount: req.body.amount });
+  if (r.error) return res.status(r.changed ? 409 : 400).json(r);
   res.json(r);
 });
 

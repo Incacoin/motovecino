@@ -99,11 +99,22 @@ async function main() {
     const det = (await post(`/admin/promoters/${pid}/list`, TI)).data;
     check("detalle: sus pasajeros sin teléfono", det.riders.length === 5 && det.riders.every((r) => !("phone" in r)) && det.riders.filter((r) => r.qualified).length === 3, det.riders);
 
+    // Pagar con números viejos (vio 2, hay 3): no anota nada.
+    const stale = await post(`/admin/promoters/${pid}/pay`, { ...TI, riders: 2, amount: 20 });
+    check("números viejos: 409 y no paga nada", stale.status === 409 && !(await db.prepare("SELECT 1 FROM promoter_payouts WHERE promoter_id = ?").get(pid)), stale);
+    check("sin números: 400", (await post(`/admin/promoters/${pid}/pay`, TI)).status === 400);
+    const sinPagar = await db.prepare("SELECT COUNT(*) AS n FROM riders WHERE referred_by_promoter_id = ? AND promoter_paid_at IS NOT NULL").get(pid);
+    check("nadie quedó marcado pagado", Number(sinPagar.n) === 0, sinPagar);
+    // Editar con el pago vacío no lo pone en $0; active de texto: 400.
+    const ed = await post(`/admin/promoters/${pid}/update`, { ...TI, payPerRider: "" });
+    check("pago vacío al editar = no cambia", ed.status === 200 && (await db.prepare("SELECT pay_per_rider FROM promoters WHERE id = ?").get(pid)).pay_per_rider === 10, ed);
+    check("active de texto: 400", (await post(`/admin/promoters/${pid}/update`, { ...TI, active: "false" })).status === 400);
     // Pagar: dos al mismo tiempo, solo uno paga.
-    const [p1, p2] = await Promise.all([post(`/admin/promoters/${pid}/pay`, TI), post(`/admin/promoters/${pid}/pay`, TI)]);
+    const PAY = { ...TI, riders: 3, amount: 30 };
+    const [p1, p2] = await Promise.all([post(`/admin/promoters/${pid}/pay`, PAY), post(`/admin/promoters/${pid}/pay`, PAY)]);
     const goods = [p1, p2].filter((p) => p.status === 200);
     check("dos «Pagar» a la vez: solo uno paga", goods.length === 1 && goods[0].data.amount === 30 && goods[0].data.riders === 3, [p1, p2]);
-    check("pagar otra vez → no hay pendientes", (await post(`/admin/promoters/${pid}/pay`, TI)).status === 400);
+    check("pagar otra vez: no hay pendientes", (await post(`/admin/promoters/${pid}/pay`, PAY)).status === 400);
     list = (await post("/admin/promoters/list", TI)).data;
     me = list.promoters.find((p) => p.id === pid);
     check("después de pagar: $0 por pagar, $30 pagado", me.toPay === 0 && me.owed === 0 && me.paidTotal === 30, me);
@@ -115,7 +126,7 @@ async function main() {
     await ride(medio); await ride(medio);
     me = (await post("/admin/promoters/list", TI)).data.promoters.find((p) => p.id === pid);
     check("el nuevo cuenta a $15", me.toPay === 1 && me.owed === 15 && me.qualified === 4, me);
-    const p3 = await post(`/admin/promoters/${pid}/pay`, TI);
+    const p3 = await post(`/admin/promoters/${pid}/pay`, { ...TI, riders: 1, amount: 15 });
     check("pagar $15", p3.status === 200 && p3.data.amount === 15, p3);
 
     // Jornada.

@@ -20,8 +20,10 @@ const MAX_PAY_PER_RIDER = 100;
 const MAX_JORNADA = 2000;
 
 // Pasajeros que sí le cuentan a un promotor (`p` = alias de promoters).
-const COUNTED_RIDERS = `r.referred_by_promoter_id = p.id AND COALESCE(r.es_prueba, 0) = 0
-  AND (p.phone IS NULL OR r.phone <> p.phone)`;
+// Lo del teléfono del propio promotor se decide al REGISTRARSE (inviterFromCode
+// no lo liga): si aquí se comparara con el teléfono de hoy, cambiarlo después
+// haría que los números bajaran, hasta de pasajeros ya pagados (revisión 27-nov).
+const COUNTED_RIDERS = `r.referred_by_promoter_id = p.id AND COALESCE(r.es_prueba, 0) = 0`;
 
 function cleanName(v) {
   const s = typeof v === "string" ? v.trim().replace(/\s+/g, " ") : "";
@@ -36,6 +38,7 @@ function cleanPhone(v) {
 }
 
 function cleanPay(v) {
+  if (v == null || (typeof v === "string" && !v.trim())) return null; // vacío no es $0
   const n = Number(v);
   return Number.isInteger(n) && n >= 0 && n <= MAX_PAY_PER_RIDER ? n : null;
 }
@@ -72,8 +75,11 @@ async function updatePromoter(db, id, body) {
     if (!ph.ok) return { error: "El teléfono debe tener 10 dígitos (o déjalo vacío)" };
     phone = ph.phone;
   }
-  const pay = body.payPerRider === undefined ? p.pay_per_rider : cleanPay(body.payPerRider);
+  // Campo vacío al editar = no cambiar (antes guardaba $0 sin avisar).
+  const keepPay = body.payPerRider === undefined || body.payPerRider === null || (typeof body.payPerRider === "string" && !body.payPerRider.trim());
+  const pay = keepPay ? p.pay_per_rider : cleanPay(body.payPerRider);
   if (pay == null) return { error: `El pago por pasajero va de $0 a $${MAX_PAY_PER_RIDER}` };
+  if (body.active !== undefined && typeof body.active !== "boolean") return { error: "Valor no válido" };
   const active = body.active === undefined ? p.active : (body.active ? 1 : 0);
   await db.prepare("UPDATE promoters SET name = ?, phone = ?, pay_per_rider = ?, active = ? WHERE id = ?").run(name, phone, pay, active, id);
   return { ok: true };
@@ -110,20 +116,28 @@ async function listPromoters(db, city) {
 }
 
 // Detalle de un promotor: sus pasajeros (solo nombre, sin teléfono) y pagos.
+// Primero los que están por pagar (para revisarlos antes de pagar), luego los
+// más nuevos. Si hay más de DETAIL_LIMIT, la pantalla avisa que está recortada.
+const DETAIL_LIMIT = 300;
 async function promoterDetail(db, id) {
   const riders = await db
     .prepare(
-      `SELECT r.name, r.created_at, r.promoter_paid_at, ${RIDES_COUNT_SQL} AS n
-       FROM riders r JOIN promoters p ON p.id = r.referred_by_promoter_id
-       WHERE p.id = ? AND ${COUNTED_RIDERS}
-       ORDER BY r.created_at DESC LIMIT 300`
+      `SELECT * FROM (SELECT r.name, r.created_at, r.promoter_paid_at, ${RIDES_COUNT_SQL} AS n
+                      FROM riders r JOIN promoters p ON p.id = r.referred_by_promoter_id
+                      WHERE p.id = ? AND ${COUNTED_RIDERS}) t
+       ORDER BY CASE WHEN t.promoter_paid_at IS NULL AND t.n >= ${RIDES_REQUIRED} THEN 0 ELSE 1 END, t.created_at DESC
+       LIMIT ${DETAIL_LIMIT + 1}`
     )
     .all(id);
+  const truncated = riders.length > DETAIL_LIMIT;
+  if (truncated) riders.length = DETAIL_LIMIT;
   const payouts = await db
     .prepare("SELECT kind, riders_count, amount, note, created_at FROM promoter_payouts WHERE promoter_id = ? ORDER BY created_at DESC, id DESC LIMIT 100")
     .all(id);
   return {
     ridesRequired: RIDES_REQUIRED,
+    truncated,
+    limit: DETAIL_LIMIT,
     riders: riders.map((r) => ({
       name: r.name || "",
       createdAt: r.created_at,
@@ -138,8 +152,15 @@ async function promoterDetail(db, id) {
 // «Pagar»: marca como pagados TODOS los pasajeros que ya cuentan y no se han
 // pagado, y anota el pago. La condición va en el UPDATE: dos clics al mismo
 // tiempo no pagan doble (el segundo ya no encuentra pasajeros sin pagar).
+// El admin manda cuántos pasajeros y cuánto dinero vio en pantalla: si mientras
+// tanto cambió algo (otro llegó a 3 viajes, cambió el pago), no se anota nada
+// y se le pide actualizar; así nunca queda «pagado» alguien sin efectivo.
 class NothingToPay extends Error {}
-async function payRiders(db, id) {
+class Changed extends Error {}
+async function payRiders(db, id, expected = {}) {
+  const expRiders = Number(expected.riders);
+  const expAmount = Number(expected.amount);
+  if (!Number.isInteger(expRiders) || expRiders < 1 || !Number.isInteger(expAmount) || expAmount < 0) return { error: "Actualiza la lista y vuelve a intentar" };
   try {
     return await db.tx(async () => {
       const p = await db.prepare("SELECT id, pay_per_rider FROM promoters WHERE id = ?").get(id);
@@ -155,11 +176,13 @@ async function payRiders(db, id) {
         .run(o.lastInsertRowid, id);
       if (!u.changes) throw new NothingToPay();
       const amount = u.changes * Number(p.pay_per_rider);
+      if (u.changes !== expRiders || amount !== expAmount) throw new Changed();
       await db.prepare("UPDATE promoter_payouts SET riders_count = ?, amount = ? WHERE id = ?").run(u.changes, amount, o.lastInsertRowid);
       return { ok: true, riders: u.changes, amount };
     });
   } catch (e) {
     if (e instanceof NothingToPay) return { error: "No hay pasajeros por pagar" };
+    if (e instanceof Changed) return { error: "Los números cambiaron mientras tanto. Actualiza la lista, revisa y vuelve a pagar.", changed: true };
     throw e;
   }
 }
